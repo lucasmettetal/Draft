@@ -479,6 +479,7 @@
 <script src="draft-stats.js"></script>
 <script src="draft-engine.js"></script>
 <script src="draft-providers.js"></script>
+<script src="draft-champion-ids.js"></script>
 <script>
 if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof analyze === "undefined") {
   document.getElementById("root").innerHTML = '<p style="padding:24px;max-width:60ch">DraftMid ne peut pas démarrer : le dossier <b>draft-vendor</b> ou le fichier <b>draft-engine.js</b> est introuvable. Replace-les à côté de ce fichier, puis recharge la page.</p>';
@@ -664,7 +665,7 @@ const PREFS_KEY = "draftPrefs";
 const PREFS = Object.assign({ excluded:[], favorite:null, assumeFront:true }, (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; } })());
 ENGINE_PREFS.excluded = PREFS.excluded;
 ENGINE_PREFS.favorite = PREFS.favorite;
-const hostState = { available:false, autostart:false, follow:true, topmost:false, compact:false, placement:"" };
+const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
 const SHARED = ["enemies", "manualMid", "held", "current", "roleOf", "targetRole", "selected", "notice", "sessionActive"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
@@ -727,6 +728,12 @@ const draftApi = {
   }
 };
 const dispatchDraft = ev => applyDraftEvent(ev, draftApi);
+let detectedEnemies = [];
+function applyDetected(ids) {
+  const names = ids.map(id => toName(CHAMPION_IDS[id])).filter(n => ROSTER[n] !== undefined);
+  diffDetected(detectedEnemies, names).forEach(dispatchDraft);
+  detectedEnemies = names;
+}
 let demoProvider = null;
 function runDemo(stepMs) {
   if (demoProvider) demoProvider.stop();
@@ -1571,10 +1578,13 @@ function Settings({ onClose }) {
       ${hostState.available ? html`<div>
         <h3>Application</h3>
         <label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> Démarrer avec Windows</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Placer les panneaux autour du client LoL</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> Activation automatique pendant la draft</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Positionnement automatique</label>
         <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
         <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Panneau unique</label>
-        <p className="small">${hostState.placement || ""}</p>
+        <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
+        <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
+        <p className="small">La détection de la draft est une estimation locale. Si elle se trompe, ${hostState.hotkey ? "Ctrl+Alt+D" : "le menu de l'icône"} affiche ou masque les panneaux et retient ta correction.</p>
       </div>` : null}
       <h3>Journal</h3>
       <p className="small">Pour récupérer l'ancien journal : télécharge-le depuis l'ancienne page, onglet Journal, puis importe le fichier ici. Rien n'est supprimé.</p>
@@ -1584,7 +1594,7 @@ function Settings({ onClose }) {
       <ul className="plain">
         <li><b>Saisie manuelle :</b> active.</li>
         <li><b>Simulation :</b> <button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></li>
-        <li><b>Lecture automatique Riot :</b> désactivée. Aucune connexion au client tant que Riot n'a pas confirmé que c'est autorisé.</li>
+        <li><label className="set-check"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> <b>Lecture du client Riot</b></label> Verrouillée : aucune connexion au client tant que Riot n'a pas confirmé que c'est autorisé.</li>
       </ul>
     </section>
   </div>`;
@@ -1620,6 +1630,9 @@ function App() {
         const m = e.data;
         if (m.kind === "host") { Object.assign(hostState, m, { available:true }); force(); }
         if (m.kind === "demo") runDemo(m.stepMs);
+        if (m.kind === "draftStart") { detectedEnemies = []; dispatchDraft({ type:"session-start" }); }
+        if (m.kind === "lcuEnemies") applyDetected(m.ids);
+        if (m.kind === "draftEnd") dispatchDraft({ type:"session-end" });
         if (m.kind === "openSettings") setShowSettings(true);
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
       });

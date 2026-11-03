@@ -156,6 +156,8 @@ unitBlock("Connecteurs de draft", "Les événements doivent produire le même r�
   let threw = false;
   try { applyDraftEvent({ type:"inconnu" }, api); } catch (e) { threw = true; }
   t(threw, "un événement inconnu est refusé");
+  t(JSON.stringify(diffDetected(["Sett", "Vi"], ["Vi", "Galio"])) === JSON.stringify([{ type:"enemy-removed", champion:"Sett" }, { type:"enemy-added", champion:"Galio" }]), "une lecture ne change que ce qui a changé");
+  t(diffDetected(["Sett"], ["Sett"]).length === 0, "une lecture identique ne change rien");
   const riot = new RiotDraftProvider(() => {});
   t(riot.enabled === false, "RiotDraftProvider est désactivé");
   let blocked = false;

@@ -1,6 +1,6 @@
 # Intégration Riot : état et conditions
 
-`RiotDraftProvider` est désactivé et ne contient aucun code de connexion. DraftMid fonctionne entièrement sans lui.
+La lecture du client est implémentée côté application, mais verrouillée : voir [LCU.md](LCU.md). DraftMid fonctionne entièrement sans elle.
 
 Politiques consultées le 3 novembre 2026. Elles peuvent évoluer : à relire avant toute activation.
 
@@ -19,16 +19,17 @@ Politiques consultées le 3 novembre 2026. Elles peuvent évoluer : à relire av
 | Position de la fenêtre via l'API Windows | Lecture du titre, du processus et du rectangle, sans lien avec le contenu du jeu | Active, désactivable |
 | Data Dragon | Service officiel de données statiques | Active |
 | API officielle Riot pour l'historique | Clé personnelle, prévue pour ses propres statistiques | Script manuel, aucune clé dans l'exécutable |
-| API du client (lockfile) | Non prise en charge, statut à clarifier | Non implémentée |
+| API du client (lockfile) | Non prise en charge, statut à clarifier | Lecture seule, verrouillée, jamais connectée |
 | Lecture mémoire, injection, contournement de Vanguard | Hors de question | Jamais |
+| Reconnaissance visuelle locale du client | Sans contact avec le client, non validée par Riot | Active, comme estimation : voir [DETECTION.md](DETECTION.md) |
 | Noms de joueurs masqués en sélection | Information volontairement cachée | Jamais |
 
-## Avant d'activer `RiotDraftProvider`
+## Avant d'ouvrir le verrou
 
 1. Enregistrer le projet sur le portail développeur en décrivant l'usage : lecture seule des champions et bans visibles.
 2. Obtenir une réponse écrite de Riot, en demandant explicitement si un conseil de pick en sélection reste acceptable.
 3. Limiter la lecture aux champions, aux bans et à la position du joueur, sans action sur le client ni donnée de joueur.
-4. Implémenter uniquement l'envoi des événements déjà utilisés par `MockDraftProvider`, et conserver la saisie manuelle en secours.
+4. Conserver la saisie manuelle en secours.
 
 ## Risque résiduel
 

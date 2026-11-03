@@ -78,7 +78,7 @@ namespace DraftMid
     // Calcul pur, sans fenêtre : testé par --selftest sur plusieurs écrans et résolutions.
     public static class Layout
     {
-        const int MinW = 230, IdealW = 340, MinH = 760, Gap = 6;
+        const int MinW = 230, IdealW = 340, MinH = 520, Gap = 6;
 
         public static Placement Compute(Native.RECT client, IList<Monitor> monitors, bool preferCompact)
         {
@@ -150,30 +150,53 @@ namespace DraftMid
 
     public class SavedRect { public int X, Y, W, H; }
 
-    public class Settings
+    public class UserPreferences
     {
+        public const int MaxSamples = 12;
         public bool Compact;
         public bool Follow = true;
+        public bool AutoDraft = true;
         public bool Topmost;
+        public bool Diagnostics;
+        // Sans effet tant que LcuGate reste fermé.
+        public bool LcuEnabled;
         public Dictionary<string, SavedRect> Rects = new Dictionary<string, SavedRect>();
+        // Signatures réduites apprises localement : aucune image n'est conservée.
+        public int[] NavBaseline;
+        public List<int[]> DraftSamples = new List<int[]>();
+        public List<int[]> OtherSamples = new List<int[]>();
 
-        public static Settings Load(string path)
+        public static UserPreferences Load(string path)
         {
-            try { if (File.Exists(path)) return new JavaScriptSerializer().Deserialize<Settings>(File.ReadAllText(path)) ?? new Settings(); }
+            try
+            {
+                if (File.Exists(path))
+                {
+                    JavaScriptSerializer js = new JavaScriptSerializer { MaxJsonLength = 4 * 1024 * 1024 };
+                    UserPreferences p = js.Deserialize<UserPreferences>(File.ReadAllText(path));
+                    if (p != null)
+                    {
+                        if (p.DraftSamples == null) p.DraftSamples = new List<int[]>();
+                        if (p.OtherSamples == null) p.OtherSamples = new List<int[]>();
+                        if (p.Rects == null) p.Rects = new Dictionary<string, SavedRect>();
+                        return p;
+                    }
+                }
+            }
             catch { }
-            return new Settings();
+            return new UserPreferences();
         }
 
         public void Save(string path)
         {
             string tmp = path + ".tmp";
-            File.WriteAllText(tmp, new JavaScriptSerializer().Serialize(this));
+            File.WriteAllText(tmp, new JavaScriptSerializer { MaxJsonLength = 4 * 1024 * 1024 }.Serialize(this));
             if (File.Exists(path)) File.Delete(path);
             File.Move(tmp, path);
         }
     }
 
-    public static class Autostart
+public static class Autostart
     {
         public const string DefaultKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         public static string Key = DefaultKey;
@@ -191,29 +214,6 @@ namespace DraftMid
 
     public static class ClientWindow
     {
-        // Seul le titre, le processus et le rectangle de la fenêtre sont lus.
-        public static bool Find(out Native.RECT rect)
-        {
-            Native.RECT best = new Native.RECT();
-            long area = 0;
-            Native.EnumWindows((h, l) =>
-            {
-                if (!Native.IsWindowVisible(h) || Native.IsIconic(h)) return true;
-                StringBuilder t = new StringBuilder(64);
-                Native.GetWindowText(h, t, 64);
-                if (t.ToString() != "League of Legends") return true;
-                uint pid;
-                Native.GetWindowThreadProcessId(h, out pid);
-                try { using (Process p = Process.GetProcessById((int)pid)) if (!p.ProcessName.Equals("LeagueClientUx", StringComparison.OrdinalIgnoreCase)) return true; }
-                catch { return true; }
-                Native.RECT r;
-                if (Native.GetWindowRect(h, out r) && (long)r.W * r.H > area) { best = r; area = (long)r.W * r.H; }
-                return true;
-            }, IntPtr.Zero);
-            rect = best;
-            return area > 0;
-        }
-
         public static List<Monitor> Monitors()
         {
             List<Monitor> list = new List<Monitor>();
@@ -235,6 +235,7 @@ namespace DraftMid
     {
         public readonly string Id;
         public WebView2 View;
+        public Task Ready = Task.FromResult(true);
         readonly CompanionApp app;
         const int Border = 6;
 
@@ -257,7 +258,8 @@ namespace DraftMid
 
         protected override void WndProc(ref Message m)
         {
-            const int WM_NCHITTEST = 0x84, WM_EXITSIZEMOVE = 0x232;
+            const int WM_NCHITTEST = 0x84, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
+            if (m.Msg == WM_DPICHANGED) { base.WndProc(ref m); app.OnDpiChanged(); return; }
             if (m.Msg == WM_NCHITTEST)
             {
                 Point p = PointToClient(new Point((short)(m.LParam.ToInt64() & 0xFFFF), (short)((m.LParam.ToInt64() >> 16) & 0xFFFF)));
@@ -275,6 +277,8 @@ namespace DraftMid
             base.OnFormClosing(e);
         }
 
+        public void DisposeForRelease() { app.Quitting = true; try { Close(); } finally { app.Quitting = false; } Dispose(); }
+
         public void PlaceNoActivate(Native.RECT r, bool topmost)
         {
             IntPtr after = topmost ? new IntPtr(-1) : new IntPtr(-2);
@@ -282,67 +286,295 @@ namespace DraftMid
         }
     }
 
+    public class HotkeyWindow : NativeWindow, IDisposable
+    {
+        public event Action Pressed;
+        public readonly bool Registered;
+        public HotkeyWindow()
+        {
+            CreateHandle(new CreateParams());
+            // Ctrl + Alt + D, sans répétition automatique.
+            Registered = NativeHook.RegisterHotKey(Handle, 1, 0x0002 | 0x0001 | 0x4000, (uint)Keys.D);
+        }
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x0312) { Action p = Pressed; if (p != null) p(); }
+            base.WndProc(ref m);
+        }
+        public void Dispose() { NativeHook.UnregisterHotKey(Handle, 1); DestroyHandle(); }
+    }
+
     public class CompanionApp : ApplicationContext
     {
+        const int SlowPollMs = 2000, SampleMs = 1000, MoveCoalesceMs = 16, MinUpdateMs = 16, ModeSettleMs = 350;
+        long lastClientUpdate;
         readonly string dataDir, webDir, settingsPath, exePath;
         readonly Options opts;
-        readonly Settings settings;
+        readonly UserPreferences settings;
         readonly NotifyIcon tray;
-        readonly System.Windows.Forms.Timer poll;
+        readonly System.Windows.Forms.Timer slowPoll, sampler, moveTimer;
         readonly Dictionary<string, PanelForm> panels = new Dictionary<string, PanelForm>();
+        readonly ClientWindowTracker tracker;
+        readonly DraftPhaseDetector detector;
+        readonly PhaseMachine machine = new PhaseMachine();
+        readonly PanelVisibilityController visibility = new PanelVisibilityController();
+        readonly FrameGrabber grabber;
+        readonly Frame frame = new Frame();
+        readonly HotkeyWindow hotkey;
         CoreWebView2Environment env;
-        Native.RECT lastClient;
-        bool hadClient, panelsVisible = true;
-        string placementNote = "Client LoL non détecté : mode manuel.";
+        Task envTask;
+        string shownMode = "", pendingMode = "";
+        long pendingSince;
+        bool panelsShown, frameValid;
+        string placementNote = "Client LoL non détecté.";
         public bool Quitting;
         public Icon AppIcon;
-        ToolStripMenuItem miCompact, miFollow, miAutostart, miShow;
+        ToolStripMenuItem miCompact, miFollow, miAutoDraft, miAutostart, miShow, miPhase;
+        public long MoveCount;
 
-        public CompanionApp(Options o, string dataDir, string webDir, string exePath)
+        public Phase CurrentPhase { get { return machine.Current; } }
+        public bool PanelsShown { get { return panelsShown; } }
+        public string ShownMode { get { return shownMode; } }
+        public ClientWindowTracker Tracker { get { return tracker; } }
+        public bool HotkeyRegistered { get { return hotkey != null && hotkey.Registered; } }
+        public UserPreferences Prefs { get { return settings; } }
+
+        public PanelForm PanelFor(string id) { PanelForm f; return panels.TryGetValue(id, out f) ? f : null; }
+
+        public CompanionApp(Options o, string dataDir, string webDir, string exePath, Func<IntPtr, bool> clientMatcher)
         {
             opts = o; this.dataDir = dataDir; this.webDir = webDir; this.exePath = exePath;
             settingsPath = Path.Combine(dataDir, "settings.json");
-            settings = Settings.Load(settingsPath);
+            settings = UserPreferences.Load(settingsPath);
+            detector = new DraftPhaseDetector(settings);
+            grabber = new FrameGrabber();
             try { AppIcon = Icon.ExtractAssociatedIcon(exePath); } catch { }
 
             ContextMenuStrip menu = new ContextMenuStrip();
-            miShow = new ToolStripMenuItem("Masquer les panneaux", null, (s, e) => ToggleVisible());
+            miPhase = new ToolStripMenuItem("") { Enabled = false };
+            miShow = new ToolStripMenuItem("Afficher les panneaux (Ctrl+Alt+D)", null, (s, e) => ToggleManual());
+            miAutoDraft = new ToolStripMenuItem("Activation automatique pendant la draft", null, (s, e) => SetAutoDraft(!settings.AutoDraft));
+            miFollow = new ToolStripMenuItem("Positionnement automatique", null, (s, e) => SetFollow(!settings.Follow));
             miCompact = new ToolStripMenuItem("Panneau unique", null, (s, e) => SetCompact(!settings.Compact));
-            miFollow = new ToolStripMenuItem("Placer autour du client LoL", null, (s, e) => SetFollow(!settings.Follow));
             miAutostart = new ToolStripMenuItem("Démarrer avec Windows", null, (s, e) => { Autostart.Set(!Autostart.IsOn(), exePath); RefreshUi(); });
+            menu.Items.Add(miPhase);
             menu.Items.Add(miShow);
-            menu.Items.Add(miCompact);
+            menu.Items.Add("C'est une draft : retenir cet écran", null, (s, e) => Teach(true));
+            menu.Items.Add("Ce n'est pas une draft : retenir cet écran", null, (s, e) => Teach(false));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(miAutoDraft);
             menu.Items.Add(miFollow);
-            menu.Items.Add("Replacer les panneaux", null, (s, e) => { SetFollow(true); Reposition(true); });
+            menu.Items.Add(miCompact);
+            menu.Items.Add("Replacer les panneaux", null, (s, e) => { SetFollow(true); UpdatePlacement(true); });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Analyse détaillée", null, (s, e) => OpenFull(""));
             menu.Items.Add("Réglages", null, (s, e) => OpenFull("settings"));
-            menu.Items.Add("Lancer une draft de démonstration", null, (s, e) => RunDemo(900));
             menu.Items.Add("Importer mes statistiques...", null, (s, e) => ImportStats());
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(miAutostart);
             menu.Items.Add("Quitter", null, (s, e) => Quit());
             tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DraftMid", Visible = true, ContextMenuStrip = menu };
-            tray.DoubleClick += (s, e) => ToggleVisible();
+            tray.DoubleClick += (s, e) => ToggleManual();
+
+            hotkey = new HotkeyWindow();
+            hotkey.Pressed += ToggleManual;
+
+            tracker = new ClientWindowTracker(clientMatcher, false);
+            // Réaction immédiate au premier événement, puis au plus une mise à jour toutes les 16 ms.
+            tracker.Changed += () =>
+            {
+                long now = Environment.TickCount;
+                if (now - lastClientUpdate >= MinUpdateMs) { lastClientUpdate = now; OnClientChanged(); }
+                else if (!moveTimer.Enabled) moveTimer.Start();
+            };
+            moveTimer = new System.Windows.Forms.Timer { Interval = MoveCoalesceMs };
+            moveTimer.Tick += (s, e) => { moveTimer.Stop(); lastClientUpdate = Environment.TickCount; OnClientChanged(); };
+            slowPoll = new System.Windows.Forms.Timer { Interval = SlowPollMs };
+            slowPoll.Tick += (s, e) => { tracker.Refresh(); OnClientChanged(); };
+            sampler = new System.Windows.Forms.Timer { Interval = SampleMs };
+            sampler.Tick += (s, e) => Sample();
+            SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
             RefreshUi();
 
-            poll = new System.Windows.Forms.Timer { Interval = 1000 };
-            poll.Tick += (s, e) => Reposition(false);
-            Start();
+            tracker.Refresh();
+            slowPoll.Start();
+            if (!opts.SimulatedPhase) sampler.Start();
+            OnClientChanged();
+            if (opts.Script != null) RunTestScript();
+            else if (opts.AutoExit > 0) { System.Windows.Forms.Timer t = new System.Windows.Forms.Timer { Interval = opts.AutoExit * 1000 }; t.Tick += (s, e) => { t.Stop(); Quit(); }; t.Start(); }
         }
 
-        async void Start()
+        void OnDisplayChanged(object s, EventArgs e) { UpdatePlacement(true); }
+        public void OnDpiChanged() { UpdatePlacement(true); }
+
+        static bool GameRunning()
+        {
+            Process[] p = Process.GetProcessesByName("League of Legends");
+            bool any = p.Length > 0;
+            foreach (Process x in p) x.Dispose();
+            return any;
+        }
+
+        bool ClientOpen { get { return tracker.Handle != IntPtr.Zero; } }
+        bool ClientVisible { get { return ClientOpen && !tracker.Minimized; } }
+
+        // Une lecture par seconde au maximum, et seulement si une conclusion est possible.
+        async void Sample()
+        {
+            if (await PollLcuOnce()) return;
+            Evidence ev = Evidence.Unknown;
+            frameValid = false;
+            bool game = GameRunning();
+            if (!game && ClientVisible && FrameGrabber.IsUnobstructed(tracker.Handle, tracker.Rect) && grabber.Grab(tracker.Rect, frame))
+            {
+                frameValid = true;
+                ev = detector.Classify(frame);
+            }
+            StepPhase(ClientOpen, game, ev, SampleMs / 1000.0);
+            if (machine.DraftTimedOut) detector.ForgetBaseline();
+            if (settings.Diagnostics) Diagnose(ev);
+        }
+
+        void Diagnose(Evidence ev)
+        {
+            // Chiffres uniquement : aucune image, aucun nom.
+            try { File.AppendAllText(Path.Combine(dataDir, "diagnostic.log"), DateTime.Now.ToString("HH:mm:ss") + " " + machine.Current + " preuve=" + ev + " panneaux=" + panelsShown + " image=" + frameValid + " " + detector.LastMetrics + Environment.NewLine); } catch { }
+        }
+
+        // ---------- Lecture LCU : verrouillée, voir docs/LCU.md ----------
+        LcuReader lcu;
+        bool lcuBusy;
+        string lastEnemies = "";
+
+        public void TestUseLcu(ILcuTransport transport) { lcu = new LcuReader(transport); }
+
+        void TryOpenLcu()
+        {
+            if (lcu != null || !LcuGate.Allowed(settings.LcuEnabled) || !ClientOpen) return;
+            try
+            {
+                uint pid;
+                Native.GetWindowThreadProcessId(tracker.Handle, out pid);
+                using (Process p = Process.GetProcessById((int)pid))
+                {
+                    ILcuTransport t = LcuFactory.CreateReal(settings.LcuEnabled, Path.GetDirectoryName(p.MainModule.FileName));
+                    if (t != null) lcu = new LcuReader(t);
+                }
+            }
+            catch { }
+        }
+
+        // Vrai si le client a répondu. Sinon, l'estimation visuelle et le mode manuel prennent le relais.
+        public async Task<bool> PollLcuOnce()
+        {
+            TryOpenLcu();
+            if (lcu == null || lcuBusy) return false;
+            lcuBusy = true;
+            try
+            {
+                LcuSnapshot s = await lcu.PollAsync();
+                if (!s.Available)
+                {
+                    // Le mot de passe change à chaque lancement du client : on le relira.
+                    if (!opts.SimulatedPhase) lcu = null;
+                    return false;
+                }
+                Phase before = machine.Current;
+                machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
+                AfterPhase(before, machine.Current);
+                ApplyVisibility();
+                PostEnemies(s);
+                return true;
+            }
+            finally { lcuBusy = false; }
+        }
+
+        void PostEnemies(LcuSnapshot s)
+        {
+            if (s.Phase != Phase.Draft) { lastEnemies = ""; return; }
+            string key = string.Join(",", s.EnemyChampionIds);
+            if (key == lastEnemies || pendingStart) return;
+            PanelForm target = panels.Values.FirstOrDefault(f => f.Id != "full" && f.Ready.IsCompleted && f.View.CoreWebView2 != null);
+            if (target == null) return;
+            target.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"lcuEnemies\",\"ids\":[" + key + "]}");
+            lastEnemies = key;
+        }
+
+        public void StepPhase(bool open, bool game, Evidence ev, double seconds)
+        {
+            Phase before = machine.Current;
+            Phase now = machine.Step(open, game, ev, seconds);
+            AfterPhase(before, now);
+            ApplyVisibility();
+        }
+
+        void AfterPhase(Phase before, Phase now)
+        {
+            if (now != before)
+            {
+                if (now == Phase.Draft && before != Phase.Draft) NotifyDraftStart();
+                else if (before == Phase.Draft) SendAll("{\"kind\":\"draftEnd\"}");
+                if (env == null && now != Phase.ClientClosed) Prewarm();
+                if (now == Phase.ClientClosed && !opts.SimulatedPhase && !panelsShown) ReleaseWeb();
+                RefreshUi();
+            }
+        }
+
+        void NotifyDraftStart() { pendingStart = true; if (panelsShown) { pendingStart = false; PostStart(); } }
+        bool pendingStart;
+
+        void OnClientChanged()
+        {
+            if (!opts.SimulatedPhase) { Phase b = machine.Current; if ((!ClientOpen) != (b == Phase.ClientClosed)) StepPhase(ClientOpen, GameRunning(), Evidence.Unknown, 0); }
+            ApplyVisibility();
+            if (panelsShown) UpdatePlacement(false);
+        }
+
+        void ApplyVisibility()
+        {
+            bool show = visibility.ShouldShow(machine.Current, ClientVisible, settings.AutoDraft);
+            if (show == panelsShown) return;
+            if (show) ShowPanels(); else HidePanels();
+        }
+
+        async void ShowPanels()
+        {
+            panelsShown = true;
+            shownMode = "";
+            RefreshUi();
+            await EnsurePanels(settings.Compact ? "compact" : "two");
+            if (!panelsShown) return;
+            UpdatePlacement(true);
+            if (pendingStart) { pendingStart = false; PostStart(); }
+        }
+
+        void PostStart()
+        {
+            foreach (PanelForm f in panels.Values)
+                if (f.Id != "full" && f.View.CoreWebView2 != null) { f.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"draftStart\"}"); break; }
+        }
+
+        void HidePanels()
+        {
+            panelsShown = false;
+            shownMode = "";
+            foreach (PanelForm f in panels.Values.Where(p => p.Id != "full")) if (f.Visible) f.Hide();
+            RefreshUi();
+        }
+
+        // ---------- WebView2, créé seulement quand le client est là ----------
+        Task EnsureEnv()
+        {
+            if (envTask == null) envTask = CreateEnv();
+            return envTask;
+        }
+
+        async Task CreateEnv()
         {
             try
             {
                 CoreWebView2Environment.SetLoaderDllFolderPath(webDir);
-                string ud = Path.Combine(dataDir, "webview");
-                env = await CoreWebView2Environment.CreateAsync(null, ud, new CoreWebView2EnvironmentOptions());
-                await ShowLayout();
-                poll.Start();
-                Reposition(true);
-                if (opts.Script != null) RunTestScript();
-                else if (opts.AutoExit > 0) { await Task.Delay(opts.AutoExit * 1000); Quit(); }
+                env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(dataDir, "webview"), new CoreWebView2EnvironmentOptions());
             }
             catch (Exception ex)
             {
@@ -355,13 +587,38 @@ namespace DraftMid
             }
         }
 
+        async void Prewarm()
+        {
+            try { await EnsurePanels(settings.Compact ? "compact" : "two"); }
+            catch (Exception e) { Program.Log(dataDir, e.ToString()); }
+        }
+
+        // Sans client ouvert, les processus WebView2 sont libérés.
+        void ReleaseWeb()
+        {
+            foreach (PanelForm f in panels.Values.ToList()) { try { f.DisposeForRelease(); } catch { } }
+            panels.Clear();
+            env = null;
+            envTask = null;
+        }
+
+        async Task EnsurePanels(string mode)
+        {
+            await EnsureEnv();
+            if (env == null) return;
+            if (mode == "two") { await Ensure("left", "panel=left"); await Ensure("right", "panel=right"); }
+            else await Ensure("compact", "panel=compact");
+        }
+
         async Task<PanelForm> Ensure(string id, string query)
         {
             PanelForm f;
-            if (panels.TryGetValue(id, out f)) return f;
+            if (panels.TryGetValue(id, out f)) { await f.Ready; return f; }
             f = new PanelForm(id, this);
             panels[id] = f;
-            f.Show();
+            TaskCompletionSource<bool> done = new TaskCompletionSource<bool>();
+            f.Ready = done.Task;
+            IntPtr force = f.Handle; force = f.View.Handle;
             await f.View.EnsureCoreWebView2Async(env);
             CoreWebView2 w = f.View.CoreWebView2;
             w.SetVirtualHostNameToFolderMapping("draftmid.local", webDir, CoreWebView2HostResourceAccessKind.Allow);
@@ -374,7 +631,11 @@ namespace DraftMid
             // Les liens externes s'ouvrent dans le navigateur par défaut, jamais dans un panneau.
             w.NewWindowRequested += (s, e) => { e.Handled = true; OpenExternal(e.Uri); };
             w.NavigationStarting += (s, e) => { if (!e.Uri.StartsWith("https://draftmid.local/")) { e.Cancel = true; OpenExternal(e.Uri); } };
+            TaskCompletionSource<bool> nav = new TaskCompletionSource<bool>();
+            w.NavigationCompleted += (s, e) => nav.TrySetResult(true);
             w.Navigate("https://draftmid.local/index.html?" + query);
+            await nav.Task;
+            done.TrySetResult(true);
             return f;
         }
 
@@ -384,81 +645,98 @@ namespace DraftMid
             try { Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true }); } catch { }
         }
 
-        async Task ShowLayout()
+        // ---------- Placement ----------
+        public void UpdatePlacement(bool force)
         {
-            if (settings.Compact)
+            if (!panelsShown) return;
+            if (!ClientVisible || !settings.Follow) { PlaceManual(); return; }
+            Native.RECT client = tracker.Rect;
+            Placement p = Layout.Compute(client, ClientWindow.Monitors(), settings.Compact);
+            placementNote = p.Note;
+            if (p.Mode == "manual") { PlaceManual(); RefreshUi(); return; }
+            // Un changement de disposition attend que le client ne bouge plus, pour ne pas sauter pendant un déplacement.
+            if (!force && shownMode != "" && p.Mode != shownMode)
             {
-                PanelForm c = await Ensure("compact", "panel=compact");
-                Hide("left"); Hide("right");
-                if (panelsVisible) c.Show();
+                long now = Environment.TickCount;
+                if (pendingMode != p.Mode) { pendingMode = p.Mode; pendingSince = now; }
+                if (now - pendingSince < ModeSettleMs) { System.Windows.Forms.Timer t = new System.Windows.Forms.Timer { Interval = ModeSettleMs }; t.Tick += (s, e) => { t.Stop(); t.Dispose(); UpdatePlacement(false); }; t.Start(); return; }
+            }
+            pendingMode = "";
+            Place(p);
+        }
+
+        bool PanelsReady(string mode)
+        {
+            foreach (string id in mode == "two" ? new[] { "left", "right" } : new[] { "compact" })
+            {
+                PanelForm f;
+                if (!panels.TryGetValue(id, out f) || !f.Ready.IsCompleted) return false;
+            }
+            return true;
+        }
+
+        async void Place(Placement p)
+        {
+            // Pendant un déplacement, les panneaux sont déjà prêts : aucun passage asynchrone qui retarderait le suivi.
+            if (!PanelsReady(p.Mode)) await EnsurePanels(p.Mode);
+            if (!panelsShown) return;
+            shownMode = p.Mode;
+            if (p.Mode == "two")
+            {
+                PanelForm l = panels["left"], r = panels["right"];
+                HideOne("compact");
+                MoveTogether(new[] { l, r }, new[] { p.Left, p.Right });
             }
             else
             {
-                PanelForm l = await Ensure("left", "panel=left");
-                PanelForm r = await Ensure("right", "panel=right");
-                Hide("compact");
-                if (panelsVisible) { l.Show(); r.Show(); }
+                HideOne("left"); HideOne("right");
+                MoveTogether(new[] { panels["compact"] }, new[] { p.Single });
             }
-            ApplySavedOrDefault();
+            MoveCount++;
         }
 
-        void Hide(string id) { PanelForm f; if (panels.TryGetValue(id, out f)) f.Hide(); }
+        void HideOne(string id) { PanelForm f; if (panels.TryGetValue(id, out f) && f.Visible) f.Hide(); }
 
-        void ApplySavedOrDefault()
+        void MoveTogether(PanelForm[] forms, Native.RECT[] rects)
         {
+            IntPtr after = settings.Topmost ? new IntPtr(-1) : new IntPtr(-2);
+            uint flags = Native.SWP_NOACTIVATE | (settings.Topmost ? 0 : Native.SWP_NOZORDER);
+            for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible) { forms[i].Show(); }
+            IntPtr dwp = NativeHook.BeginDeferWindowPos(forms.Length);
+            for (int i = 0; i < forms.Length; i++) dwp = NativeHook.DeferWindowPos(dwp, forms[i].Handle, after, rects[i].Left, rects[i].Top, rects[i].W, rects[i].H, flags);
+            NativeHook.EndDeferWindowPos(dwp);
+        }
+
+        void PlaceManual()
+        {
+            string mode = settings.Compact ? "compact" : "two";
+            Place2(mode);
+        }
+
+        async void Place2(string mode)
+        {
+            await EnsurePanels(mode);
+            if (!panelsShown) return;
+            shownMode = mode;
             List<Monitor> mons = ClientWindow.Monitors();
             Monitor main = mons.FirstOrDefault(m => m.Primary) ?? mons[0];
             int w = (int)(340 * main.Scale), h = Math.Min(main.Work.H, (int)(860 * main.Scale));
-            foreach (PanelForm f in panels.Values.Where(p => p.Id != "full"))
+            foreach (string id in mode == "two" ? new[] { "left", "right" } : new[] { "compact" })
             {
-                Native.RECT r = f.Id == "left" ? new Native.RECT(main.Work.Left, main.Work.Top, main.Work.Left + w, main.Work.Top + h)
+                PanelForm f = panels[id];
+                Native.RECT r = id == "left" ? new Native.RECT(main.Work.Left, main.Work.Top, main.Work.Left + w, main.Work.Top + h)
                     : new Native.RECT(main.Work.Right - w, main.Work.Top, main.Work.Right, main.Work.Top + h);
                 SavedRect sv;
-                if (settings.Rects.TryGetValue(f.Id, out sv))
+                if (settings.Rects.TryGetValue(id, out sv))
                 {
                     Native.RECT saved = new Native.RECT(sv.X, sv.Y, sv.X + sv.W, sv.Y + sv.H);
                     // Une position sur un écran débranché est ignorée.
                     if (mons.Any(m => m.Work.Overlaps(saved))) r = saved;
                 }
-                if (f.Visible) f.PlaceNoActivate(r, settings.Topmost);
+                if (!f.Visible) f.Show();
+                f.PlaceNoActivate(r, settings.Topmost);
             }
-        }
-
-        void Reposition(bool force)
-        {
-            Native.RECT client;
-            bool found = ClientWindow.Find(out client);
-            if (!found)
-            {
-                if (hadClient) { hadClient = false; placementNote = "Client LoL non détecté : mode manuel."; BroadcastHost(); }
-                return;
-            }
-            bool changed = !hadClient || client.Left != lastClient.Left || client.Top != lastClient.Top || client.W != lastClient.W || client.H != lastClient.H;
-            hadClient = true;
-            lastClient = client;
-            if (!settings.Follow || !panelsVisible || (!changed && !force)) return;
-            Placement p = Layout.Compute(client, ClientWindow.Monitors(), settings.Compact);
-            placementNote = p.Note;
-            ApplyPlacement(p);
-            BroadcastHost();
-        }
-
-        async void ApplyPlacement(Placement p)
-        {
-            if (p.Mode == "two")
-            {
-                PanelForm l = await Ensure("left", "panel=left");
-                PanelForm r = await Ensure("right", "panel=right");
-                Hide("compact");
-                l.PlaceNoActivate(p.Left, settings.Topmost);
-                r.PlaceNoActivate(p.Right, settings.Topmost);
-            }
-            else if (p.Mode == "compact")
-            {
-                PanelForm c = await Ensure("compact", "panel=compact");
-                Hide("left"); Hide("right");
-                c.PlaceNoActivate(p.Single, settings.Topmost);
-            }
+            if (mode == "two") HideOne("compact"); else { HideOne("left"); HideOne("right"); }
         }
 
         public void PanelMovedByUser(PanelForm f)
@@ -467,80 +745,97 @@ namespace DraftMid
             Rectangle b = f.Bounds;
             settings.Rects[f.Id] = new SavedRect { X = b.X, Y = b.Y, W = b.Width, H = b.Height };
             settings.Follow = false;
-            placementNote = "Position manuelle conservée.";
+            placementNote = "Position manuelle conservée. Réactive le positionnement automatique dans les réglages.";
             Persist();
             RefreshUi();
         }
 
         void Persist() { try { settings.Save(settingsPath); } catch (Exception e) { Program.Log(dataDir, e.ToString()); } }
 
-        void ToggleVisible()
+        // ---------- Actions ----------
+        public void ToggleManual()
         {
-            panelsVisible = !panelsVisible;
-            foreach (PanelForm f in panels.Values.Where(p => p.Id != "full")) f.Hide();
-            if (panelsVisible) { Task t = ShowLayout(); Reposition(true); }
+            bool target = !panelsShown;
+            // Une correction apprend à l'application à reconnaître cet écran la prochaine fois.
+            if (frameValid && machine.Current != Phase.InGame)
+            {
+                if (target && machine.Current != Phase.Draft) detector.Teach(frame, true);
+                if (!target && machine.Current == Phase.Draft) detector.Teach(frame, false);
+                Persist();
+            }
+            visibility.Manual = target;
+            ApplyVisibility();
             RefreshUi();
         }
 
-        async void SetCompact(bool v)
+        void Teach(bool isDraft)
+        {
+            if (!frameValid) { tray.ShowBalloonTip(3000, "DraftMid", "Le client doit être visible à l'écran pour retenir cette vue.", ToolTipIcon.Info); return; }
+            detector.Teach(frame, isDraft);
+            Persist();
+        }
+
+        public void SetAutoDraft(bool v) { settings.AutoDraft = v; visibility.Manual = null; Persist(); ApplyVisibility(); RefreshUi(); }
+
+        public async void SetCompact(bool v)
         {
             settings.Compact = v;
             Persist();
-            await ShowLayout();
-            Reposition(true);
+            shownMode = "";
+            if (panelsShown) { await EnsurePanels(v ? "compact" : "two"); UpdatePlacement(true); }
             RefreshUi();
         }
 
-        void SetFollow(bool v)
+        public void SetFollow(bool v)
         {
             settings.Follow = v;
             if (v) settings.Rects.Clear();
             Persist();
-            if (v) Reposition(true);
+            UpdatePlacement(true);
             RefreshUi();
         }
 
         void RefreshUi()
         {
-            miShow.Text = panelsVisible ? "Masquer les panneaux" : "Afficher les panneaux";
+            string phase = PhaseText.Of(machine.Current);
+            miPhase.Text = phase;
+            miShow.Text = (panelsShown ? "Masquer" : "Afficher") + " les panneaux" + (hotkey != null && hotkey.Registered ? " (Ctrl+Alt+D)" : "");
             miCompact.Checked = settings.Compact;
             miFollow.Checked = settings.Follow;
+            miAutoDraft.Checked = settings.AutoDraft;
             miAutostart.Checked = Autostart.IsOn();
+            string tip = "DraftMid : " + phase;
+            tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
             BroadcastHost();
         }
 
         string HostJson()
         {
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
-                { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow },
-                { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote } });
+                { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
+                { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.RiotConfirmed } });
         }
 
-        void BroadcastHost()
+        void BroadcastHost() { SendAll(HostJson()); }
+
+        void SendAll(string json)
         {
-            string json = HostJson();
             foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.PostWebMessageAsJson(json);
         }
 
         async void OpenFull(string tab)
         {
-            PanelForm f;
-            bool exists = panels.TryGetValue("full", out f);
+            bool exists = panels.ContainsKey("full");
             string q = "panel=full" + (tab == "" ? "" : "&tab=" + tab);
-            f = await Ensure("full", q);
+            await EnsureEnv();
+            if (env == null) return;
+            PanelForm f = await Ensure("full", q);
             if (exists) f.View.CoreWebView2.Navigate("https://draftmid.local/index.html?" + q);
-            f.ClientSize = new Size(1280, 820);
-            f.StartPosition = FormStartPosition.Manual;
             Monitor m = ClientWindow.Monitors().OrderByDescending(x => x.Work.W).First();
-            f.PlaceNoActivate(new Native.RECT(m.Work.Left + 40, m.Work.Top + 20, m.Work.Left + 40 + Math.Min(1280, m.Work.W - 80), m.Work.Top + 20 + Math.Min(820, m.Work.H - 40)), false);
-            f.Show();
+            if (!f.Visible) f.Show();
+            f.PlaceNoActivate(new Native.RECT(m.Work.Left + 40, m.Work.Top + 20, m.Work.Left + 40 + Math.Min((int)(1280 * m.Scale), m.Work.W - 80), m.Work.Top + 20 + Math.Min((int)(820 * m.Scale), m.Work.H - 40)), false);
             if (opts.Script == null) f.Activate();
-        }
-
-        void RunDemo(int stepMs)
-        {
-            foreach (PanelForm f in panels.Values)
-                if (f.Id != "full" && f.Visible && f.View.CoreWebView2 != null) { f.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"demo\",\"stepMs\":" + stepMs + "}"); break; }
         }
 
         void ImportStats()
@@ -566,12 +861,15 @@ namespace DraftMid
             switch (cmdO as string)
             {
                 case "getHost": if (from.View.CoreWebView2 != null) from.View.CoreWebView2.PostWebMessageAsJson(HostJson()); break;
-                case "hideAll": ToggleVisible(); break;
+                case "hideAll": ToggleManual(); break;
                 case "toggleCompact": SetCompact(!settings.Compact); break;
                 case "openFull": OpenFull(m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""); break;
                 case "setAutostart": Autostart.Set(val, exePath); RefreshUi(); break;
                 case "setFollow": SetFollow(val); break;
-                case "setTopmost": settings.Topmost = val; Persist(); Reposition(true); RefreshUi(); break;
+                case "setAutoDraft": SetAutoDraft(val); break;
+                case "setDiagnostics": settings.Diagnostics = val; Persist(); RefreshUi(); break;
+                case "setLcu": settings.LcuEnabled = val; Persist(); RefreshUi(); break;
+                case "setTopmost": settings.Topmost = val; Persist(); UpdatePlacement(true); RefreshUi(); break;
             }
         }
 
@@ -581,11 +879,14 @@ namespace DraftMid
             StringBuilder log = new StringBuilder();
             try
             {
-                PanelForm target = panels.ContainsKey("right") && panels["right"].Visible ? panels["right"] : panels["compact"];
-                // Attend que l'interface soit réellement prête au lieu d'un délai fixe.
+                visibility.Manual = true;
+                ApplyVisibility();
+                for (int i = 0; i < 200 && !(panels.ContainsKey("right") || panels.ContainsKey("compact")); i++) await Task.Delay(50);
+                PanelForm target = panels.ContainsKey("right") ? panels["right"] : panels["compact"];
+                await target.Ready;
                 for (int i = 0; i < 120; i++)
                 {
-                    if (target.View.CoreWebView2 != null && await target.View.CoreWebView2.ExecuteScriptAsync("typeof V !== \"undefined\" && !!document.querySelector(\".panel\")") == "true") break;
+                    if (await target.View.CoreWebView2.ExecuteScriptAsync("typeof V !== \"undefined\" && !!document.querySelector(\".panel\")") == "true") break;
                     await Task.Delay(50);
                 }
                 log.AppendLine("PRET apres " + Program.Clock.ElapsedMilliseconds + " ms depuis le lancement");
@@ -602,8 +903,7 @@ namespace DraftMid
                     using (FileStream fs = File.Create(Path.Combine(opts.CaptureDir, "app-" + f.Id + ".png")))
                         await f.View.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
                 }
-                Native.RECT cl;
-                log.AppendLine("CLIENT " + (ClientWindow.Find(out cl) ? cl.ToString() : "absent") + " | " + placementNote);
+                log.AppendLine("CLIENT " + (ClientOpen ? tracker.Rect.ToString() : "absent") + " | " + placementNote);
             }
             catch (Exception e) { log.AppendLine("EXC " + e); }
             if (opts.Out != null) File.WriteAllText(opts.Out, log.ToString());
@@ -613,7 +913,12 @@ namespace DraftMid
         public void Quit()
         {
             Quitting = true;
-            if (poll != null) poll.Stop();
+            slowPoll.Stop(); sampler.Stop(); moveTimer.Stop();
+            SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
+            Persist();
+            tracker.Dispose();
+            grabber.Dispose();
+            hotkey.Dispose();
             tray.Visible = false;
             tray.Dispose();
             foreach (PanelForm f in panels.Values.ToList()) { try { f.Close(); f.Dispose(); } catch { } }
@@ -621,10 +926,255 @@ namespace DraftMid
         }
     }
 
-    public class Options
+    // ---------- Scénario de bout en bout, avec une fausse fenêtre de client et des phases simulées ----------
+    static class EndToEnd
+    {
+        public const string FakeTitle = "DraftMid-FauxClient-Test";
+
+        class FakeClient : Form
+        {
+            public FakeClient()
+            {
+                FormBorderStyle = FormBorderStyle.None;
+                StartPosition = FormStartPosition.Manual;
+                BackColor = Color.FromArgb(30, 30, 40);
+                ShowInTaskbar = false;
+                Text = FakeTitle;
+            }
+            protected override bool ShowWithoutActivation { get { return true; } }
+        }
+
+        static bool IsFake(IntPtr h)
+        {
+            StringBuilder t = new StringBuilder(64);
+            Native.GetWindowText(h, t, 64);
+            return t.ToString() == FakeTitle;
+        }
+
+        // La fenêtre active peut changer si l'utilisateur clique ailleurs : seul compte que DraftMid ne la prenne pas.
+        static bool OwnsFocus()
+        {
+            uint pid;
+            Native.GetWindowThreadProcessId(NativeHook.GetForegroundWindow(), out pid);
+            return pid == (uint)Process.GetCurrentProcess().Id;
+        }
+
+        public static Func<IntPtr, bool> Matcher { get { return IsFake; } }
+
+        public static async void Run(CompanionApp app, Options o)
+        {
+            StringBuilder s = new StringBuilder();
+            int fails = 0;
+            Action<bool, string> t = (ok, text) => { if (!ok) fails++; s.AppendLine((ok ? "OK : " : "ECHEC : ") + text); };
+            Func<Native.RECT> rectOfLeft = () => { Rectangle b = app.PanelFor("left").Bounds; return new Native.RECT(b.Left, b.Top, b.Right, b.Bottom); };
+            Func<Native.RECT> rectOfRight = () => { Rectangle b = app.PanelFor("right").Bounds; return new Native.RECT(b.Left, b.Top, b.Right, b.Bottom); };
+            FakeClient fake = null;
+            Action<Evidence, int> feed = (ev, n) => { for (int i = 0; i < n; i++) app.StepPhase(fake != null && !fake.IsDisposed, false, ev, 1); };
+            try
+            {
+                List<Monitor> mons = ClientWindow.Monitors();
+                Monitor main = mons.FirstOrDefault(m => m.Primary) ?? mons[0];
+                Monitor second = mons.FirstOrDefault(m => m != main);
+                int cw = Math.Min(1000, main.Work.W - 900), ch = Math.Min(720, main.Work.H - 40);
+                int cx = main.Work.Left + (main.Work.W - cw) / 2, cy = main.Work.Top + (main.Work.H - ch) / 2;
+
+                await Task.Delay(300);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed, "1. Lancé sans client : aucun panneau, phase client fermé");
+                t(app.PanelFor("left") == null, "1. Sans client : WebView2 n'est pas chargé");
+
+                fake = new FakeClient();
+                fake.SetBounds(cx, cy, cw, ch);
+                fake.Show();
+                await Task.Delay(100);
+                app.Tracker.Refresh();
+                feed(Evidence.NotDraft, 3);
+                await Task.Delay(200);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.OutOfDraft, "2. Client sur l'accueil : aucun panneau");
+                feed(Evidence.NotDraft, 5);
+                t(!app.PanelsShown, "3. Client dans un lobby : aucun panneau");
+                feed(Evidence.Unknown, 3);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.Uncertain, "Transition incertaine : aucun panneau");
+                feed(Evidence.Draft, 1);
+                t(!app.PanelsShown, "Une seule lecture positive ne suffit pas");
+                feed(Evidence.NotDraft, 1);
+
+                feed(Evidence.Draft, 2);
+                for (int i = 0; i < 200 && !(app.PanelFor("left") != null && app.PanelFor("left").Visible); i++) await Task.Delay(50);
+                await Task.Delay(300);
+                t(app.PanelsShown && app.CurrentPhase == Phase.Draft, "4. Début de draft : panneaux affichés");
+                t(app.PanelFor("left").Visible && app.PanelFor("right").Visible, "4. Les deux panneaux sont visibles");
+                Native.RECT c = app.Tracker.Rect, l = rectOfLeft(), r = rectOfRight();
+                t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
+                t(l.Top == c.Top && l.H == c.H, "4. Hauteur et alignement sur le client");
+                t(!OwnsFocus(), "Aucun vol de focus à l'apparition");
+                t(app.HotkeyRegistered, "Raccourci Ctrl+Alt+D enregistré");
+
+                feed(Evidence.NotDraft, 1); feed(Evidence.Draft, 1); feed(Evidence.Unknown, 2); feed(Evidence.NotDraft, 2); feed(Evidence.Draft, 1);
+                t(app.PanelsShown, "Lectures fugitives : pas de clignotement");
+
+                long movesBefore = app.MoveCount, evBefore = app.Tracker.EventCount;
+                Stopwatch clock = Stopwatch.StartNew();
+                int steps = 40;
+                for (int i = 1; i <= steps; i++) { fake.Location = new Point(cx + (i % 2 == 0 ? 6 : -6) * i / 4, cy + i); await Task.Delay(8); }
+                await Task.Delay(150);
+                c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
+                t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == c.Top, "7. Déplacement : les panneaux suivent (" + c + ")");
+                s.AppendLine("MESURE : " + (app.Tracker.EventCount - evBefore) + " événements Windows, " + (app.MoveCount - movesBefore) + " déplacements de panneaux sur " + clock.ElapsedMilliseconds + " ms");
+                t(app.MoveCount - movesBefore <= steps, "7. Déplacements limités, sans dépasser le nombre d'étapes");
+
+                fake.SetBounds(cx - 60, cy - 10, cw - 120, ch - 20);
+                await Task.Delay(200);
+                c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
+                t(c.W == cw - 120 && l.H == c.H && r.H == c.H && l.Right <= c.Left && r.Left >= c.Right, "8. Redimensionnement : les panneaux s'adaptent (" + c + ")");
+
+                // Plus assez de place pour deux panneaux : passage en panneau unique, sans couvrir le client.
+                fake.SetBounds(main.Work.Left, cy, main.Work.W - (int)(300 * main.Scale), ch);
+                for (int i = 0; i < 100 && !(app.ShownMode == "compact" && app.PanelFor("compact") != null && app.PanelFor("compact").Visible); i++) await Task.Delay(50);
+                t(app.ShownMode == "compact" && app.PanelFor("compact") != null && app.PanelFor("compact").Visible && !app.PanelFor("left").Visible, "Place insuffisante : passage en panneau unique");
+                Rectangle cb = app.PanelFor("compact").Bounds;
+                t(cb.Left >= app.Tracker.Rect.Right, "Place insuffisante : le panneau ne couvre pas le client (" + cb + ")");
+                fake.SetBounds(cx, cy, cw, ch);
+                await Task.Delay(800);
+                t(app.ShownMode == "two" && app.PanelFor("left").Visible, "Place retrouvée : retour à deux panneaux");
+
+                if (second != null)
+                {
+                    int sw = Math.Min(1280, second.Work.W - 700), sh = Math.Min(720, second.Work.H - 40);
+                    fake.SetBounds(second.Work.Left + (second.Work.W - sw) / 2, second.Work.Top + (second.Work.H - sh) / 2, sw, sh);
+                    await Task.Delay(600);
+                    c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
+                    bool inside = l.Inside(second.Work) && r.Inside(second.Work);
+                    t(inside && l.Right <= c.Left && r.Left >= c.Right, "9. Écran secondaire à l'échelle " + second.Scale + " : panneaux sur le même écran (" + l + " | " + r + ")");
+                    fake.SetBounds(cx, cy, cw, ch);
+                    await Task.Delay(600);
+                    c = app.Tracker.Rect; l = rectOfLeft();
+                    t(l.Inside(main.Work) && l.Right <= c.Left, "9. Retour sur l'écran principal à l'échelle " + main.Scale + " (" + l + ")");
+                }
+                else s.AppendLine("NON TESTE : deux écrans, un seul présent.");
+
+                fake.WindowState = FormWindowState.Minimized;
+                await Task.Delay(250);
+                t(!app.PanelsShown, "10. Client réduit : panneaux masqués");
+                fake.WindowState = FormWindowState.Normal;
+                fake.SetBounds(cx, cy, cw, ch);
+                await Task.Delay(400);
+                t(app.PanelsShown && app.PanelFor("left").Visible, "10. Client restauré pendant la draft : panneaux restaurés");
+                await Task.Delay(200);
+
+                app.ToggleManual();
+                await Task.Delay(150);
+                t(!app.PanelsShown, "12. Raccourci manuel : panneaux masqués pendant la draft");
+                feed(Evidence.Draft, 3);
+                t(!app.PanelsShown, "12. Le masquage manuel tient tant que la phase ne change pas");
+                app.ToggleManual();
+                await Task.Delay(200);
+                t(app.PanelsShown, "12. Raccourci manuel : panneaux réaffichés");
+
+                feed(Evidence.NotDraft, 3);
+                await Task.Delay(150);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.OutOfDraft, "5. Fin de draft : panneaux masqués");
+
+                feed(Evidence.Draft, 2); await Task.Delay(150);
+                t(app.PanelsShown, "Nouvelle draft : panneaux affichés");
+                feed(Evidence.NotDraft, 3); await Task.Delay(150);
+                t(!app.PanelsShown, "6. Draft annulée : panneaux masqués");
+
+                app.ToggleManual();
+                await Task.Delay(250);
+                t(app.PanelsShown, "12. Affichage manuel hors draft");
+                feed(Evidence.Unknown, 1); await Task.Delay(100);
+                t(!app.PanelsShown, "12. L'affichage manuel se termine au changement de phase");
+
+                feed(Evidence.Draft, 2); await Task.Delay(150);
+                t(app.PanelsShown, "Draft relancée");
+                app.StepPhase(true, true, Evidence.Unknown, 1); await Task.Delay(100);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.InGame, "Partie en cours : masquage immédiat");
+                app.StepPhase(true, true, Evidence.Draft, 1);
+                t(!app.PanelsShown, "Partie en cours : aucune réapparition");
+                app.StepPhase(true, false, Evidence.NotDraft, 1);
+
+                app.SetAutoDraft(false);
+                feed(Evidence.Draft, 3); await Task.Delay(100);
+                t(!app.PanelsShown, "Activation automatique désactivée : pas d'affichage");
+                app.SetAutoDraft(true); await Task.Delay(200);
+                t(app.PanelsShown, "Activation automatique réactivée pendant la draft");
+
+                fake.Close(); fake.Dispose(); fake = null;
+                await Task.Delay(400);
+                app.Tracker.Refresh();
+                app.StepPhase(false, false, Evidence.Unknown, 1);
+                await Task.Delay(100);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed, "11. Client fermé : panneaux masqués");
+
+                fake = new FakeClient();
+                fake.SetBounds(cx, cy, cw, ch);
+                fake.Show();
+                await Task.Delay(150);
+                app.Tracker.Refresh();
+                feed(Evidence.NotDraft, 2);
+                t(!app.PanelsShown, "11. Client relancé : aucun panneau hors draft");
+                feed(Evidence.Draft, 2); await Task.Delay(300);
+                c = app.Tracker.Rect; l = rectOfLeft();
+                t(app.PanelsShown && l.Right <= c.Left, "11. Client relancé puis draft : panneaux replacés");
+                t(!OwnsFocus(), "Aucun vol de focus sur tout le scénario");
+
+                // Connecteur LCU sur données simulées : aucune connexion au vrai client.
+                feed(Evidence.NotDraft, 3); await Task.Delay(150);
+                SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+                app.TestUseLcu(sim);
+                await app.PollLcuOnce(); await Task.Delay(100);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.OutOfDraft, "LCU simulé : lobby, aucun panneau");
+                sim.PhaseJson = "\"ChampSelect\"";
+                sim.SessionJson = "{\"theirTeam\":[{\"championId\":875},{\"championId\":254,\"championPickIntent\":0},{\"championId\":3},{\"championId\":0,\"championPickIntent\":157}]}";
+                await app.PollLcuOnce();
+                t(app.PanelsShown && app.CurrentPhase == Phase.Draft, "LCU simulé : ChampSelect affiche les panneaux dès la première lecture");
+                PanelForm rp = app.PanelFor("right");
+                Func<string, Task<string>> js = async code => await rp.View.CoreWebView2.ExecuteScriptAsync(code);
+                for (int i = 0; i < 100 && await js("typeof V !== \"undefined\" && !!document.querySelector(\".panel\")") != "true"; i++) await Task.Delay(50);
+                await Task.Delay(400);
+                await app.PollLcuOnce();
+                string enemies = "";
+                for (int i = 0; i < 40 && !enemies.Contains("Galio"); i++) { await Task.Delay(50); enemies = await js("state.enemies.join()"); }
+                t(enemies.Contains("Sett") && enemies.Contains("Vi") && enemies.Contains("Galio") && !enemies.Contains("Xerath"), "LCU simulé : champions reçus, intention de pick ignorée (" + enemies + ")");
+                await js("addEnemy(\"Janna\"); setMid(\"Sett\"); 1");
+                await Task.Delay(100);
+                sim.SessionJson = "{\"theirTeam\":[{\"championId\":875},{\"championId\":254},{\"championId\":3},{\"championId\":523}]}";
+                await app.PollLcuOnce();
+                await Task.Delay(300);
+                enemies = await js("state.enemies.join()");
+                string mid = await js("currentMid()");
+                t(enemies.Contains("Janna") && enemies.Contains("Aphelios") && mid.Contains("Sett"), "LCU simulé : corrections manuelles conservées (" + enemies + ", mid " + mid + ")");
+                sim.SessionJson = "{\"theirTeam\":[{\"championId\":875},{\"championId\":3},{\"championId\":523}]}";
+                await app.PollLcuOnce();
+                await Task.Delay(300);
+                enemies = await js("state.enemies.join()");
+                t(!enemies.Contains("Vi,") && !enemies.EndsWith("Vi\"") && enemies.Contains("Janna"), "LCU simulé : un champion détecté puis disparu est retiré (" + enemies + ")");
+                sim.Offline = true;
+                bool answered = await app.PollLcuOnce();
+                t(!answered && app.PanelsShown, "LCU simulé : client injoignable, repli sans masquer la draft");
+                sim.Offline = false;
+                sim.PhaseJson = "\"Lobby\"";
+                await app.PollLcuOnce(); await Task.Delay(100);
+                t(!app.PanelsShown, "LCU simulé : draft annulée, panneaux masqués immédiatement");
+                sim.PhaseJson = "\"ChampSelect\"";
+                await app.PollLcuOnce(); await Task.Delay(100);
+                sim.PhaseJson = "\"InProgress\"";
+                await app.PollLcuOnce(); await Task.Delay(100);
+                t(!app.PanelsShown && app.CurrentPhase == Phase.InGame, "LCU simulé : partie lancée, panneaux masqués");
+                t(sim.Requests.All(LcuEndpoints.IsAllowed), "LCU simulé : seuls les deux endpoints documentés sont appelés");
+            }
+            catch (Exception e) { fails++; s.AppendLine("EXC " + e); }
+            if (fake != null && !fake.IsDisposed) { fake.Close(); fake.Dispose(); }
+            s.AppendLine(fails == 0 ? "TOUT EST BON" : fails + " ECHEC(S)");
+            if (o.Out != null) File.WriteAllText(o.Out, s.ToString());
+            app.Quit();
+        }
+    }
+
+public class Options
     {
         public string Script, CaptureDir, Out, DataDir, InstallDir;
-        public bool Silent, SelfTest, Install, Uninstall, TestInstall;
+        public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500;
         public string RunKey;
 
@@ -643,6 +1193,7 @@ namespace DraftMid
                     case "--auto-exit": o.AutoExit = int.Parse(next()); o.Silent = true; break;
                     case "--settle": o.SettleMs = int.Parse(next()); break;
                     case "--selftest": o.SelfTest = true; o.Silent = true; break;
+                    case "--e2e": o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
                     case "--install": o.Install = true; break;
                     case "--uninstall": o.Uninstall = true; break;
                     case "--install-dir": o.InstallDir = next(); break;
@@ -704,6 +1255,93 @@ namespace DraftMid
         }
     }
 
+    // Images synthétiques : elles testent la logique, PAS la reconnaissance du vrai client.
+    static class DetectionTests
+    {
+        static Frame Make(Func<int, int, int[]> px)
+        {
+            Frame f = new Frame();
+            for (int y = 0; y < Frame.H; y++) for (int x = 0; x < Frame.W; x++)
+            {
+                int[] c = px(x, y); int i = (y * Frame.W + x) * 3;
+                f.Rgb[i] = (byte)c[0]; f.Rgb[i + 1] = (byte)c[1]; f.Rgb[i + 2] = (byte)c[2];
+            }
+            return f;
+        }
+        static int[] Nav(int x, int y) { return (x / 5) % 2 == 0 ? new[] { 200, 170, 90 } : new[] { 20, 30, 40 }; }
+        static int[] Lattice(int x, int y) { return (x / 4 + y / 4) % 2 == 0 ? new[] { 220, 60, 60 } : new[] { 30, 90, 200 }; }
+
+        public static void Run(Action<bool, string> t, StringBuilder s, string dir)
+        {
+            Frame home = Make((x, y) => y < 6 ? Nav(x, y) : new[] { 15, 20, 28 });
+            Frame lobby = Make((x, y) => y < 6 ? Nav(x, y) : (x > 20 && x < 76 && y > 10 && y < 44 ? Lattice(x, y) : new[] { 15, 20, 28 }));
+            Frame draft = Make((x, y) => y < 6 ? new[] { 10, 14, 20 } : (x > 18 && x < 78 && y > 8 && y < 46 ? Lattice(x, y) : new[] { 12, 16, 22 }));
+            Frame loading = Make((x, y) => new[] { 3, 3, 4 });
+            Frame draftTitled = Make((x, y) => y < 6 ? ((x / 9) % 2 == 0 ? new[] { 190, 150, 70 } : new[] { 12, 16, 22 }) : (x > 18 && x < 78 && y > 8 && y < 46 ? Lattice(x, y) : new[] { 12, 16, 22 }));
+
+            UserPreferences p = new UserPreferences();
+            DraftPhaseDetector d = new DraftPhaseDetector(p);
+            t(d.Classify(loading) == Evidence.Unknown, "Détecteur sans référence : écran noir incertain");
+            for (int i = 0; i < 12; i++) d.Classify(home);
+            t(p.NavBaseline != null, "Détecteur : la barre stable est apprise seule");
+            t(d.Classify(home) == Evidence.NotDraft, "Détecteur : accueil reconnu hors draft");
+            t(d.Classify(lobby) == Evidence.NotDraft, "Détecteur : un centre chargé avec la barre reste hors draft");
+            t(d.Classify(draft) == Evidence.Draft, "Détecteur : barre absente et centre chargé donnent une draft");
+            t(d.Classify(loading) == Evidence.Unknown, "Détecteur : écran de chargement noir reste incertain");
+
+            UserPreferences q = new UserPreferences();
+            DraftPhaseDetector dq = new DraftPhaseDetector(q);
+            for (int i = 0; i < 12; i++) dq.Classify(draftTitled);
+            t(q.NavBaseline != null && dq.Classify(home) != Evidence.NotDraft, "Risque connu : lancé en pleine draft, une mauvaise référence peut être apprise");
+            dq.Teach(home, false);
+            t(dq.Classify(home) == Evidence.NotDraft, "Une correction manuelle passe avant la règle");
+            dq.Teach(draft, true);
+            t(dq.Classify(draft) == Evidence.Draft, "Une draft enseignée est reconnue ensuite");
+            int[] sig = DraftPhaseDetector.Signature(draft);
+            t(sig.Length <= 60, "La signature retenue ne fait que " + sig.Length + " valeurs : aucune image conservée");
+            dq.ForgetBaseline();
+            t(q.NavBaseline == null, "Une référence douteuse peut être oubliée");
+
+            PhaseMachine m = new PhaseMachine();
+            t(m.Step(false, false, Evidence.Unknown, 1) == Phase.ClientClosed, "Machine : client fermé");
+            t(m.Step(true, false, Evidence.Unknown, 1) == Phase.Uncertain, "Machine : client ouvert n'est jamais une draft");
+            t(m.Step(true, false, Evidence.NotDraft, 1) == Phase.OutOfDraft, "Machine : hors draft");
+            t(m.Step(true, false, Evidence.Draft, 1) != Phase.Draft, "Machine : une lecture ne suffit pas");
+            t(m.Step(true, false, Evidence.Draft, 1) == Phase.Draft, "Machine : deux lectures entrent en draft");
+            t(m.Step(true, false, Evidence.NotDraft, 1) == Phase.Draft && m.Step(true, false, Evidence.Unknown, 1) == Phase.Draft, "Machine : pas de sortie sur une lecture isolée");
+            m.Step(true, false, Evidence.NotDraft, 1); m.Step(true, false, Evidence.NotDraft, 1);
+            t(m.Step(true, false, Evidence.NotDraft, 1) == Phase.OutOfDraft, "Machine : trois lectures quittent la draft");
+            m.Step(true, false, Evidence.Draft, 1); m.Step(true, false, Evidence.Draft, 1);
+            t(m.Step(true, true, Evidence.Draft, 1) == Phase.InGame, "Machine : la partie passe immédiatement avant tout");
+            t(m.Step(false, false, Evidence.Draft, 1) == Phase.ClientClosed, "Machine : la fermeture est immédiate");
+            m.Step(true, false, Evidence.Draft, 1); m.Step(true, false, Evidence.Draft, 1);
+            m.Step(true, false, Evidence.Draft, PhaseMachine.MaxDraftSeconds + 1);
+            t(m.DraftTimedOut && m.Current == Phase.Uncertain, "Machine : une draft trop longue redevient incertaine");
+
+            PanelVisibilityController v = new PanelVisibilityController();
+            t(!v.ShouldShow(Phase.ClientClosed, false, true), "Affichage : rien au lancement");
+            t(!v.ShouldShow(Phase.OutOfDraft, true, true), "Affichage : rien hors draft");
+            t(v.ShouldShow(Phase.Draft, true, true), "Affichage : draft et client visible");
+            t(!v.ShouldShow(Phase.Draft, false, true), "Affichage : client réduit");
+            t(!v.ShouldShow(Phase.Draft, true, false), "Affichage : automatique désactivé");
+            t(!v.ShouldShow(Phase.InGame, true, true), "Affichage : partie en cours");
+            v.ShouldShow(Phase.OutOfDraft, true, true); v.Manual = true;
+            t(v.ShouldShow(Phase.OutOfDraft, true, true), "Affichage : le manuel force l'affichage");
+            t(!v.ShouldShow(Phase.Uncertain, true, true), "Affichage : le manuel s'arrête au changement de phase");
+
+            Stopwatch w = Stopwatch.StartNew();
+            for (int i = 0; i < 2000; i++) d.Classify(lobby);
+            s.AppendLine("MESURE : analyse d'une image réduite " + (w.Elapsed.TotalMilliseconds / 2000).ToString("0.000") + " ms");
+            using (FrameGrabber g = new FrameGrabber())
+            {
+                Frame fr = new Frame();
+                Stopwatch w2 = Stopwatch.StartNew();
+                for (int i = 0; i < 20; i++) g.Grab(new Native.RECT(0, 0, 800, 450), fr);
+                s.AppendLine("MESURE : capture réduite d'une zone d'écran " + (w2.Elapsed.TotalMilliseconds / 20).ToString("0.00") + " ms");
+            }
+        }
+    }
+
     static class SelfTest
     {
         public static int Run(Options o, string dataDir, string self)
@@ -742,13 +1380,16 @@ namespace DraftMid
             check("2 écrans, plein écran en panneau unique", new Native.RECT(0, 0, 1920, 1040), dual, true, "compact");
 
             string sp = Path.Combine(dataDir, "selftest-settings.json");
-            Settings a = new Settings { Compact = true, Follow = false, Topmost = true };
+            UserPreferences a = new UserPreferences { Compact = true, Follow = false, Topmost = true, AutoDraft = false };
             a.Rects["left"] = new SavedRect { X = -100, Y = 20, W = 300, H = 700 };
             a.Save(sp);
-            Settings b = Settings.Load(sp);
-            t(b.Compact && !b.Follow && b.Topmost && b.Rects["left"].X == -100, "préférences relues à l'identique");
+            UserPreferences b = UserPreferences.Load(sp);
+            t(b.Compact && !b.Follow && b.Topmost && !b.AutoDraft && b.Rects["left"].X == -100, "préférences relues à l'identique");
+            File.WriteAllText(sp, "{\"Compact\":true,\"Follow\":false,\"Topmost\":false,\"Rects\":{\"left\":{\"X\":1,\"Y\":2,\"W\":3,\"H\":4}}}");
+            UserPreferences old = UserPreferences.Load(sp);
+            t(old.Compact && !old.Follow && old.AutoDraft && old.Rects["left"].W == 3 && old.DraftSamples != null, "préférences de la V2.2 conservées, nouvelles options activées par défaut");
             File.WriteAllText(sp, "pas du json");
-            Settings c = Settings.Load(sp);
+            UserPreferences c = UserPreferences.Load(sp);
             t(c != null && c.Follow && !c.Compact, "un fichier de préférences abîmé redonne les valeurs par défaut");
             File.Delete(sp);
 
@@ -761,11 +1402,14 @@ namespace DraftMid
             Registry.CurrentUser.DeleteSubKeyTree(@"Software\DraftMid-SelfTest", false);
             Autostart.Key = Autostart.DefaultKey;
 
+            DetectionTests.Run(t, s, dataDir);
+            LcuTests.Run(t);
+
+            ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();
-            Native.RECT cl;
-            bool found = false;
-            for (int i = 0; i < 100; i++) found = ClientWindow.Find(out cl);
-            s.AppendLine("MESURE : détection de la fenêtre du client " + (clock.ElapsedMilliseconds / 100.0) + " ms en moyenne, client " + (found ? "détecté" : "absent"));
+            for (int i = 0; i < 50; i++) { tr.Refresh(); if (tr.Handle != IntPtr.Zero) break; }
+            s.AppendLine("MESURE : recherche de la fenêtre du client " + (clock.ElapsedMilliseconds / 50.0) + " ms au maximum, client " + (tr.Handle != IntPtr.Zero ? (tr.Minimized ? "réduit" : "visible") : "absent"));
+            tr.Dispose();
             List<Monitor> real = ClientWindow.Monitors();
             s.AppendLine("ECRANS : " + string.Join(" ; ", real.Select(m => m.Work + " x" + m.Scale)));
 
@@ -851,7 +1495,9 @@ namespace DraftMid
                     return 0;
                 }
                 string webDir = Extract(dataDir);
-                Application.Run(new CompanionApp(o, dataDir, webDir, self));
+                CompanionApp app = new CompanionApp(o, dataDir, webDir, self, o.EndToEnd ? EndToEnd.Matcher : ClientWindowTracker.IsRealClient);
+                if (o.EndToEnd) EndToEnd.Run(app, o);
+                Application.Run(app);
             }
             return 0;
         }

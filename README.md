@@ -11,7 +11,9 @@ DraftMid est un outil personnel non approuvé par Riot Games. Les portraits et i
 
 Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déjà présent. Node.js n'est pas nécessaire.
 
-L'application s'ouvre en deux panneaux et ajoute une icône près de l'horloge. Saisis les champions adverses dans le panneau gauche : le verdict s'affiche dans le panneau droit. Si le client est visible et qu'il reste assez de place, les panneaux se placent de chaque côté.
+L'application démarre en arrière-plan, avec une icône près de l'horloge et aucun panneau. Quand elle estime qu'une draft commence, les panneaux apparaissent autour du client et le suivent. `Ctrl+Alt+D` les affiche ou les masque si l'estimation se trompe. Saisis les champions adverses dans le panneau gauche : le verdict s'affiche dans le panneau droit.
+
+La détection de la draft est une estimation visuelle locale, pas encore validée sur une vraie draft : voir [la détection](docs/DETECTION.md). La lecture du client est [implémentée mais verrouillée](docs/LCU.md).
 
 Les préférences, le journal et le cache d'images sont dans `%LOCALAPPDATA%\DraftMid`.
 
@@ -29,12 +31,14 @@ Les exécutables sont créés dans `dist\`. Seul le compilateur C# fourni avec W
 |---|---|
 | Moteur stratégique | `web/draft-engine.js` |
 | Connecteurs de draft | `web/draft-providers.js` |
+| Fenêtre du client et phase | `src/DraftDetection.cs` |
+| Lecture du client, verrouillée | `src/LcuConnector.cs` |
 | Interface | `web/index.html` (React et Motion, sans compilation) |
 | Fenêtres, icône, installateur | `src/DraftMid.cs` |
 | Persistance | `localStorage` pour le journal, `settings.json` pour les fenêtres |
 | Import des statistiques | `tools/draft-import-stats.ps1` |
 | Tests du moteur | `web/draft-tests.html` |
-| Tests natifs | `DraftMid-Portable.exe --selftest --out resultat.txt` |
+| Tests natifs | `DraftMid-Portable.exe --selftest --out resultat.txt`, et `--e2e --data dossier --out resultat.txt` pour le scénario avec une fausse fenêtre |
 
 Voir aussi [le moteur](docs/MOTEUR.md) et [l'intégration Riot](docs/INTEGRATION-RIOT.md).
 

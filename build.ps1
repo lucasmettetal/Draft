@@ -39,7 +39,7 @@ $lines = @(
   '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
   '/reference:System.Windows.Forms.dll', '/reference:System.Web.Extensions.dll', '/reference:Microsoft.CSharp.dll',
   "/reference:`"$root\lib\Microsoft.Web.WebView2.Core.dll`"", "/reference:`"$root\lib\Microsoft.Web.WebView2.WinForms.dll`""
-) + $res + "`"$root\src\DraftMid.cs`""
+) + $res + (Get-ChildItem "$root\src\*.cs" | ForEach-Object { "`"$($_.FullName)`"" })
 [IO.File]::WriteAllLines($rsp, $lines)
 & $csc "@$rsp"
 if ($LASTEXITCODE -ne 0) { throw "La compilation a échoué." }

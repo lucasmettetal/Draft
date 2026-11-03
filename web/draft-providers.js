@@ -36,13 +36,20 @@ class MockDraftProvider extends DraftProvider {
   stop() { this.timers.forEach(clearTimeout); this.timers = []; }
 }
 
-// Désactivé volontairement : aucune connexion au client, aucune lecture de fichier, de mémoire ou de réseau.
-// Riot indique que l'API du client n'est pas prise en charge pour les applications tierces.
-// À n'implémenter qu'après une réponse de Riot : voir docs/INTEGRATION-RIOT.md.
+// Désactivé côté interface : cette page ne se connecte jamais au client.
+// La lecture éventuelle se fait côté application, verrouillée en attendant une réponse de Riot : voir docs/LCU.md.
 class RiotDraftProvider extends DraftProvider {
   get id() { return "riot"; }
   get enabled() { return false; }
   start() { throw new Error("RiotDraftProvider est désactivé : conditions d'utilisation à confirmer auprès de Riot."); }
+}
+
+// Ne traduit que ce qui change entre deux lectures : les corrections manuelles restent intactes.
+function diffDetected(before, after) {
+  const events = [];
+  before.filter(n => !after.includes(n)).forEach(champion => events.push({ type:"enemy-removed", champion }));
+  after.filter(n => !before.includes(n)).forEach(champion => events.push({ type:"enemy-added", champion }));
+  return events;
 }
 
 // Applique un événement via des opérations fournies par l'interface : même chemin que la saisie manuelle.
