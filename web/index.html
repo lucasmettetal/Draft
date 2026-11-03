@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DraftMid</title>
+<style>
+  :root {
+    --bg:#0a0f16; --surface:#111822; --raised:#18212e; --line:#263242; --text:#e8eef5; --muted:#93a3b6;
+    --accent:#3fd8c6; --accent-ink:#04211e; --gold:#d4b36a; --threat:#f2777a;
+    --condensed:"Bahnschrift SemiBold Condensed","Bahnschrift Condensed",Bahnschrift,"Arial Narrow",Arial,sans-serif;
+    --body:Bahnschrift,"Segoe UI",Arial,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html { color-scheme:dark; }
+  * { scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 var(--body); }
+  button, input { font:inherit; color:inherit; }
+  button { cursor:pointer; }
+  button:disabled { cursor:not-allowed; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  h2, h3, p, ul { margin:0; padding:0; }
+  ul { list-style:none; }
+
+  .app { display:grid; grid-template-rows:52px minmax(0,1fr); height:100vh; }
+  .top { display:flex; align-items:center; gap:14px; padding:0 18px; background:var(--surface); border-bottom:1px solid var(--line); }
+  .brand { font:20px var(--condensed); letter-spacing:.02em; }
+  .brand b { color:var(--accent); font-weight:inherit; }
+  .patch { color:var(--muted); font-size:12.5px; }
+  .top .grow { flex:1; }
+  .ghost-btn { min-height:32px; padding:4px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:13px; }
+  .ghost-btn:hover:not(:disabled) { border-color:var(--muted); background:var(--raised); }
+  .ghost-btn:disabled { color:var(--muted); opacity:.55; }
+
+  .desk { display:grid; grid-template-columns:clamp(300px,23vw,420px) minmax(0,1fr) clamp(310px,24vw,440px); min-height:0; }
+  .col { min-height:0; display:flex; flex-direction:column; }
+  .col-left { padding:14px; background:var(--surface); border-right:1px solid var(--line); overflow:auto; }
+  .col-mid { padding:14px; gap:12px; overflow:auto; }
+  .col-right { background:var(--surface); border-left:1px solid var(--line); overflow:hidden; }
+
+  .sec-title { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; font:17px var(--condensed); letter-spacing:.02em; }
+  .sec-title small { color:var(--muted); font:12.5px var(--body); }
+
+  /* Saisie */
+  .search { position:relative; margin-bottom:6px; }
+  #add, #q { width:100%; height:42px; padding:0 12px; background:var(--bg); border:1px solid var(--line); border-radius:6px; font-size:15px; outline:none; transition:border-color .12s; }
+  #add:focus, #q:focus { border-color:var(--accent); }
+  #add:disabled { opacity:.55; }
+  #add::placeholder, #q::placeholder { color:var(--muted); opacity:1; }
+  .sugg { position:absolute; z-index:20; left:0; right:0; top:calc(100% + 4px); padding:4px; background:var(--raised); border:1px solid var(--line); border-radius:6px; box-shadow:0 14px 34px rgba(0,0,0,.5); }
+  .sugg-item { display:flex; align-items:center; gap:10px; width:100%; padding:5px 8px; background:none; border:0; border-radius:4px; text-align:left; }
+  .sugg-item.on, .sugg-item:hover { background:var(--line); }
+  .sugg-empty { padding:8px; color:var(--muted); font-size:13px; }
+  .hint { min-height:18px; margin-bottom:10px; color:var(--muted); font-size:12px; }
+  .hint.warn { color:var(--gold); }
+
+  /* Portraits */
+  .portrait { position:relative; flex:none; display:block; overflow:hidden; background:var(--raised); border-radius:6px; }
+  .portrait img { display:block; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .16s; }
+  .portrait img.ready { opacity:1; }
+  .portrait.loading { background:linear-gradient(100deg,var(--raised) 30%,var(--line) 50%,var(--raised) 70%); background-size:220% 100%; animation:shimmer 1s linear infinite; }
+  .portrait .init { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font:15px var(--condensed); }
+
+  /* Rôles */
+  .roles { flex:1 1 auto; display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
+  .roles > .role { flex:1 1 60px; }
+  .role .portrait { width:clamp(44px,6.6vh,76px) !important; height:clamp(44px,6.6vh,76px) !important; }
+  .role { position:relative; display:flex; align-items:center; gap:10px; min-height:60px; padding:6px 8px; background:var(--bg); border:1px solid transparent; border-radius:6px; transition:border-color .12s, background-color .12s; }
+  .role:hover { border-color:var(--line); }
+  .role.target { border-color:var(--accent); }
+  .role.is-mid { background:var(--raised); }
+  .role-hit { position:absolute; inset:0; background:none; border:0; border-radius:6px; }
+  .who-wrap { display:flex; flex:1; min-width:0; align-items:center; gap:10px; pointer-events:none; }
+  .role-name, .role-traits { display:block; }
+  .role-icon { flex:none; width:40px; color:var(--muted); text-align:center; font-size:10.5px; line-height:1.1; pointer-events:none; }
+  .role-icon svg { display:block; width:20px; height:20px; margin:0 auto 2px; }
+  .role.is-mid .role-icon { color:var(--accent); }
+  .role-who { min-width:0; flex:1; pointer-events:none; }
+  .role-name { font:17px/1.15 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .role-traits { color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .role-empty { color:var(--muted); font-size:13px; pointer-events:none; }
+  .role-tools { position:relative; display:flex; gap:2px; }
+  .mini { min-width:28px; height:28px; padding:0 6px; background:none; border:0; border-radius:4px; color:var(--muted); font-size:12px; }
+  .mini:hover { color:var(--text); background:var(--line); }
+  .mini.x { font-size:17px; line-height:1; }
+
+  /* Profil de la composition */
+  .meters { display:grid; gap:7px; }
+  .meter { display:grid; grid-template-columns:96px 1fr; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); }
+  .pips { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
+  .pip { height:7px; background:var(--raised); border-radius:1px; overflow:hidden; }
+  .pip i { display:block; height:100%; background:var(--accent); transform-origin:left; }
+  .meter.danger .pip i { background:var(--threat); }
+
+  /* Scène du verdict */
+  .stage { position:relative; flex:1 1 300px; min-height:280px; overflow:hidden; background:var(--surface); border-radius:8px; isolation:isolate; }
+  .splash { position:absolute; inset:0; z-index:-2; width:100%; height:100%; object-fit:cover; object-position:50% 18%; }
+  .scrim { position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,rgba(10,15,22,.92) 0%,rgba(10,15,22,.62) 44%,rgba(10,15,22,.05) 78%), linear-gradient(0deg,rgba(10,15,22,.72),transparent 55%); }
+  .stage-body { position:absolute; left:0; bottom:0; display:flex; flex-direction:column; gap:7px; max-width:min(560px,86%); padding:20px 22px; }
+  .badges { display:flex; flex-wrap:wrap; gap:6px; }
+  .badge { padding:2px 8px; background:rgba(10,15,22,.72); border:1px solid var(--line); border-radius:4px; color:var(--muted); font-size:12.5px; }
+  .badge.net { color:var(--accent); border-color:var(--accent); }
+  .badge.close { color:var(--gold); border-color:var(--gold); }
+  .eyebrowless { color:var(--muted); font-size:13px; }
+  .champ-name { font:clamp(34px,3.2vw,50px)/1.02 var(--condensed); letter-spacing:.005em; }
+  .alt-line { display:flex; align-items:center; gap:8px; font-size:15px; }
+  .alt-line em { color:var(--muted); font-style:normal; }
+  .reasons li { font-size:15px; }
+  .note { color:var(--muted); font-size:13px; }
+  .note b { color:var(--text); font-weight:600; }
+  .note .avoid { color:var(--threat); font-weight:600; }
+  .note.warn { color:var(--gold); }
+  .cta { align-self:flex-start; min-height:40px; margin-top:4px; padding:7px 18px; background:var(--accent); border:0; border-radius:6px; color:var(--accent-ink); font:17px var(--condensed); }
+  .cta:hover { filter:brightness(1.1); }
+  .cta.done { background:transparent; color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+
+  /* Classement du pool */
+  .rank-list { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+  .rank { display:flex; flex-direction:column; gap:6px; min-width:0; padding:8px; background:var(--surface); border:1px solid var(--line); border-radius:6px; text-align:left; transition:border-color .12s, background-color .12s; }
+  .rank:hover:not(:disabled) { border-color:var(--muted); background:var(--raised); }
+  .rank:disabled { opacity:.45; }
+  .rank.first { border-color:var(--accent); }
+  .rank.picked { background:var(--raised); box-shadow:inset 0 0 0 2px var(--accent); }
+  .rank-top { display:flex; align-items:center; gap:8px; min-width:0; }
+  .rank-name { font:16px/1.1 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rank-word { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .rank-word.good { color:var(--accent); }
+  .rank-word.bad { color:var(--threat); }
+  .force { height:4px; background:var(--bg); border-radius:1px; overflow:hidden; }
+  .force i { display:block; height:100%; background:var(--muted); transform-origin:left; }
+  .rank.first .force i { background:var(--accent); }
+  .rank-rec { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* Colonne de droite */
+  .plan-block { flex:none; padding:14px; border-bottom:1px solid var(--line); }
+  .plan-row { display:grid; grid-template-columns:72px 1fr; gap:8px; align-items:center; min-height:34px; padding:3px 0; }
+  .plan-row > span:first-child { color:var(--muted); font-size:13px; }
+  .faces { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
+  .face { display:inline-flex; align-items:center; gap:5px; font-size:13.5px; }
+  .ban-row { background:none; }
+  .ban-row .face { color:var(--gold); }
+  .results { display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-top:8px; }
+  .res { min-height:36px; padding:4px 10px; background:var(--raised); border:1px solid var(--line); border-radius:6px; font-size:14px; transition:background-color .12s, border-color .12s; }
+  .res:hover:not(:disabled) { border-color:var(--muted); }
+  .res:disabled { color:var(--muted); opacity:.5; }
+  .res.win.on { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600; }
+  .res.loss.on { background:var(--threat); border-color:var(--threat); color:#2a0708; font-weight:600; }
+  .res.skip.on { border-color:var(--text); }
+  .result-note { margin-top:6px; color:var(--muted); font-size:12.5px; }
+
+  .tabs { flex:none; display:flex; gap:0; padding:0 6px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none; }
+  .tab { position:relative; flex:none; padding:10px 7px; background:none; border:0; color:var(--muted); font-size:13.5px; }
+  .tab:hover { color:var(--text); }
+  .tab.on { color:var(--text); }
+  .tab-line { position:absolute; left:5px; right:5px; bottom:-1px; height:2px; background:var(--accent); }
+  .tab-body { flex:1; min-height:0; padding:12px 14px 18px; overflow:auto; }
+  .tab-body h3 { margin:12px 0 5px; font:15px var(--condensed); color:var(--muted); }
+  .tab-body h3:first-child { margin-top:0; }
+  .small { color:var(--muted); font-size:13px; margin:4px 0; }
+  .why-name { display:flex; align-items:center; gap:7px; margin-top:10px; font:16px var(--condensed); }
+  .why { margin:3px 0 0 33px; font-size:13px; }
+  .why .pos { color:var(--text); }
+  .why .neg { color:var(--threat); }
+  table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+  th, td { padding:5px 8px 5px 0; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  .mcard { display:grid; grid-template-columns:32px 1fr; gap:4px 9px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .mcard-name { font:16px var(--condensed); }
+  .mcard-line { grid-column:2; font-size:13px; color:var(--muted); }
+  .mcard-line b { color:var(--text); font-weight:600; }
+  .mcard-line .avoid { color:var(--threat); }
+  .plain li { margin-bottom:5px; font-size:13px; }
+  .plain b { font-weight:600; }
+  .legal { margin-top:14px; color:var(--muted); font-size:11.5px; }
+
+  .splash-stack { position:absolute; inset:0; z-index:-2; overflow:hidden; }
+  .splash-stack .splash { z-index:auto; }
+  .change { position:absolute; top:14px; left:22px; right:22px; z-index:1; max-width:560px; padding:7px 11px; background:rgba(10,15,22,.86); border:1px solid var(--gold); border-radius:4px; font-size:13.5px; }
+  .change b { color:var(--gold); font-weight:600; }
+  .change span { display:block; color:var(--muted); font-size:12.5px; }
+  .reasons { min-height:44px; }
+  .stage-notes { min-height:38px; }
+  .rank { position:relative; }
+  .rank.picked { box-shadow:none; }
+  .rank-glow, .rank-ring, .role-flash, .sugg-hl { position:absolute; inset:0; pointer-events:none; }
+  .rank-glow { background:var(--accent); border-radius:6px; }
+  .rank-ring { border:2px solid var(--accent); border-radius:6px; }
+  .role-flash { border-radius:6px; }
+  .role-flash.add { background:var(--accent); }
+  .role-flash.del { background:var(--threat); }
+  .slot-ghost { flex:none; width:clamp(44px,6.6vh,76px); height:clamp(44px,6.6vh,76px); border:1px dashed var(--line); border-radius:6px; pointer-events:none; transition:border-color .12s; }
+  .role:hover .slot-ghost, .role.target .slot-ghost { border-color:var(--muted); }
+  .role .portrait { transition:transform .15s; }
+  .role:hover .portrait { transform:scale(1.04); }
+  .sugg { isolation:isolate; }
+  .sugg-item { position:relative; }
+  .sugg-item.on { background:none; }
+  .sugg-hl { z-index:-1; background:var(--line); border-radius:4px; }
+  .tab:active, .mini:active { transform:translateY(1px); }
+  .mini { transition:color .12s, background-color .12s; }
+  .tab { transition:color .12s; }
+  /* V2 */
+  .hint.done { color:var(--accent); }
+  .roles > .role.is-mid { flex-grow:1.3; box-shadow:inset 3px 0 0 var(--accent); }
+  .role.is-mid .role-name { font-size:19px; }
+  .role-hit:focus-visible { outline-offset:-2px; }
+  .who-wrap { padding-right:26px; }
+  .role-tools { position:absolute; top:50%; right:6px; transform:translateY(-50%); align-items:center; }
+  .to-mid { opacity:0; background:var(--raised); transition:opacity .12s, color .12s, background-color .12s; }
+  .role:hover .to-mid, .role:focus-within .to-mid { opacity:1; }
+  .to-mid:focus-visible { opacity:1; }
+  .assumed { color:var(--gold); font-weight:500; }
+  .slot-ghost { display:flex; align-items:center; justify-content:center; color:var(--line); }
+  .slot-ghost svg { width:42%; height:42%; }
+  .role:hover .slot-ghost, .role.target .slot-ghost { color:var(--muted); }
+  .role.target .slot-ghost { border-color:var(--accent); color:var(--accent); }
+  .meter { grid-template-columns:96px 1fr 18px; }
+  .meter-label { min-width:0; }
+  .meter-delta { color:var(--text); font-size:12px; text-align:right; }
+  .meter-delta span { display:block; }
+  .effects { min-height:36px; margin-top:8px; color:var(--muted); font-size:12.5px; }
+  .effects span { display:block; }
+  .effects .help { color:var(--accent); }
+  .effects .hurt { color:var(--threat); }
+
+  .splash-stack.loading { background:linear-gradient(100deg,var(--surface) 30%,var(--raised) 50%,var(--surface) 70%); background-size:220% 100%; animation:shimmer 1s linear infinite; }
+  .splash-fail { position:absolute; top:12px; right:14px; color:var(--muted); font-size:12.5px; }
+
+  .rank-word.best { display:inline-block; padding:0 6px; background:var(--accent); border-radius:3px; color:var(--accent-ink); font-weight:600; }
+  .rank-word.alt { display:inline-block; padding:0 6px; border:1px solid var(--muted); border-radius:3px; color:var(--text); line-height:1.25; }
+  .rank-word.other { color:var(--muted); }
+  .rank-word.bad { color:var(--threat); }
+  .rank.tier-other, .rank.tier-bad { background:transparent; }
+  .rank.tier-other .rank-top, .rank.tier-bad .rank-top { opacity:.78; transition:opacity .12s; }
+  .rank:hover .rank-top { opacity:1; }
+  .rank .portrait { transition:transform .15s; }
+  .rank:hover .portrait { transform:scale(1.05); }
+  .rank.tier-alt .force i { background:var(--text); }
+  .rank.tier-bad .force i { background:var(--threat); }
+  .force i { transition:background-color .15s; }
+  .chosen { position:absolute; top:6px; right:6px; z-index:1; display:flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--accent); border-radius:50%; color:var(--accent-ink); font-size:12px; font-weight:700; }
+  .rank.picked .rank-name { padding-right:18px; }
+
+  .wincon { margin:0 0 8px; padding:9px 11px; background:var(--raised); border-radius:6px; font-size:15px; line-height:1.3; }
+  .wincon span { display:block; margin-bottom:2px; color:var(--accent); font:15px var(--condensed); }
+  .plan-row.threat > span:first-child { color:var(--threat); }
+  .plan-row.threat .portrait { box-shadow:0 0 0 1.5px var(--threat); }
+  .plan-row.ban-row > span:first-child { color:var(--gold); }
+  .plan-row.ban-row .portrait { box-shadow:0 0 0 1.5px var(--gold); }
+  .faces { min-width:0; }
+  .plan-block { padding-bottom:12px; }
+
+  .winbars { display:grid; gap:6px; margin-bottom:4px; }
+  .winbar { display:grid; grid-template-columns:minmax(0,90px) 1fr auto; align-items:center; gap:8px; font-size:13px; font-variant-numeric:tabular-nums; }
+  .winbar-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .winbar-track { height:7px; background:var(--bg); border-radius:1px; overflow:hidden; }
+  .winbar-track i { display:block; height:100%; background:var(--accent); transform-origin:left; }
+  .winbar.few .winbar-track i { background:var(--muted); }
+  .winbar-val { color:var(--muted); font-size:12.5px; white-space:nowrap; }
+  .history { display:flex; flex-wrap:wrap; gap:3px; margin-bottom:6px; }
+  .game { width:13px; height:13px; border-radius:2px; }
+  .game.win { background:var(--accent); }
+  .game.loss { background:var(--threat); }
+
+  .mobile-bar { display:none; }
+
+  /* V2.1 */
+  .note.risk { color:var(--threat); }
+  .tab { padding:10px 6px; font-size:13px; }
+  .seg-tabs { display:flex; gap:2px; margin-bottom:8px; padding:2px; background:var(--bg); border-radius:6px; }
+  .seg-tab { flex:1; min-height:28px; padding:3px 6px; background:none; border:0; border-radius:4px; color:var(--muted); font-size:13px; transition:background-color .12s, color .12s; }
+  .seg-tab:hover { color:var(--text); }
+  .seg-tab.on { background:var(--raised); color:var(--text); }
+  .tips { margin-bottom:8px; }
+  .tips li { position:relative; margin-bottom:7px; padding-left:12px; font-size:13.5px; line-height:1.35; }
+  .tips li::before { content:""; position:absolute; left:0; top:.5em; width:5px; height:5px; background:var(--accent); border-radius:50%; }
+  .matrix { margin:6px 0 10px; font-size:12.5px; }
+  .mx-row { display:grid; grid-template-columns:minmax(0,1fr) repeat(var(--n,4),30px); grid-auto-flow:column; grid-auto-columns:30px; align-items:center; min-height:26px; border-bottom:1px solid var(--line); }
+  .mx-head { min-height:32px; }
+  .mx-row > span:first-child { min-width:0; padding-right:6px; }
+  .mx-row > span:not(:first-child) { display:flex; justify-content:center; }
+  .mx-cell { font-weight:700; color:var(--muted); }
+  .mx-cell.up { color:var(--accent); }
+  .mx-cell.down { color:var(--threat); }
+  .pick-detail { border-bottom:1px solid var(--line); padding:4px 0 6px; }
+  .pick-detail summary { display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer; font:16px var(--condensed); }
+  .pick-detail .why { margin:4px 0 4px 2px; }
+  .pick-detail a { color:var(--accent); }
+  .cmp-head { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; color:var(--muted); font-size:12px; }
+  .cmp-pick { display:flex; gap:2px; }
+  .cmp-btn { padding:2px; background:none; border:1px solid transparent; border-radius:6px; opacity:.55; transition:opacity .12s, border-color .12s; }
+  .cmp-btn:hover { opacity:1; }
+  .cmp-btn.on { border-color:var(--accent); opacity:1; }
+  .cmp-title { margin:0 0 2px; font-size:14px; }
+  .cmp-row { display:grid; grid-template-columns:minmax(0,1fr) 112px; align-items:center; gap:8px; min-height:22px; font-size:12.5px; }
+  .cmp-label { min-width:0; color:var(--muted); }
+  .cmp-bars { display:grid; grid-template-columns:1fr 1fr; gap:2px; }
+  .cmp-side { display:block; height:8px; background:var(--bg); overflow:hidden; }
+  .cmp-side i { display:block; height:100%; background:var(--muted); }
+  .cmp-side.left i { transform-origin:right; }
+  .cmp-side.right i { transform-origin:left; }
+  .cmp-side i.up { background:var(--accent); }
+  .cmp-side i.down { background:var(--threat); }
+  .cmp-side-text .why { margin:3px 0 0 2px; }
+  .cmp-legend { min-height:0; font-size:11.5px; color:var(--muted); }
+  .cmp-legend .cmp-bars span:first-child { text-align:right; }
+  .cmp-legend .cmp-bars span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .comps li { display:flex; align-items:center; gap:7px; margin-bottom:5px; font-size:13px; }
+  .comps b { min-width:80px; font-weight:600; }
+  .comp-faces { display:flex; gap:2px; }
+  /* Panneaux compagnon */
+  .panel { display:flex; flex-direction:column; height:100vh; overflow:hidden; background:var(--surface); border:1px solid #1f4a4a; border-radius:8px; }
+  .p-title { flex:none; display:flex; align-items:center; gap:8px; height:40px; padding:0 6px 0 12px; border-bottom:1px solid var(--line); app-region:drag; -webkit-app-region:drag; user-select:none; }
+  .p-title .grow { flex:1; }
+  .p-logo { width:20px; height:20px; color:var(--accent); }
+  .p-tools { display:flex; gap:2px; app-region:no-drag; -webkit-app-region:no-drag; }
+  .p-btn { width:28px; height:28px; background:none; border:0; border-radius:4px; color:var(--muted); font-size:15px; line-height:1; }
+  .p-btn:hover { background:var(--raised); color:var(--text); }
+  .panel .col-left { flex:1; min-height:0; border:0; }
+  .panel .role { background:var(--bg); border-color:var(--line); }
+  .panel .role.is-mid { background:var(--raised); }
+  .panel .role.target { border-color:var(--accent); }
+  .panel .sec-title::before { content:""; display:inline-block; width:4px; height:15px; margin-right:7px; vertical-align:-2px; background:var(--accent); }
+  .panel .sec-title { justify-content:flex-start; }
+  .panel .sec-title small { margin-left:auto; }
+  /* Le panneau gauche est étroit, mais ce n'est pas un écran mobile : il garde des lignes par rôle. */
+  .panel-left .col-left { display:flex; flex-direction:column; padding:10px 12px; }
+  .panel-left .roles { flex:0 1 auto; display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+  .panel-left .roles > .role { flex:none; flex-direction:row; min-height:56px; padding:5px 6px; gap:8px; text-align:left; }
+  .panel-left .role .portrait, .panel-left .slot-ghost { width:44px !important; height:44px !important; }
+  .panel-left .who-wrap { flex:1; flex-direction:row; width:auto; min-width:0; gap:8px; padding-right:24px; }
+  .panel-left .role-who { flex:1; width:auto; min-width:0; }
+  .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:16px; }
+  .panel-left .role-traits { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:11.5px; white-space:normal; line-height:1.2; }
+  .panel-left .role-icon { width:36px; font-size:10px; }
+  .panel-left .role-icon svg { width:18px; height:18px; }
+  .panel-left .role-empty { font-size:13px; }
+  .panel-left .role-empty .em { display:inline; }
+  .panel-left .role-tools { top:50%; right:3px; transform:translateY(-50%); }
+  .panel-left .to-mid { display:block; }
+  .panel-left .profile { display:block; }
+  .panel-left .sec-title.profile { display:flex; }
+  .panel-left .meters.profile { display:grid; }
+  .panel-left .roles > .role.is-mid { box-shadow:inset 3px 0 0 var(--accent); }
+  .panel-left .effects { margin:8px 0 0; padding:7px 9px; background:var(--bg); border:1px solid #1f4a4a; border-radius:6px; }
+  .panel-left .meter { grid-template-columns:minmax(0,84px) 1fr 16px; font-size:12px; }
+  .p-scroll, .p-body { flex:1; min-height:0; overflow:auto; }
+  .p-body { display:flex; flex-direction:column; gap:9px; padding:10px 12px 12px; }
+  .panel-compact .p-body { overflow:visible; flex:none; }
+  .p-compact-enemies { padding:10px 12px 0; }
+  .compact-roles { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:3px; margin:0; }
+  .compact-roles .role { flex-direction:column; min-height:84px; padding:4px 1px; gap:2px; text-align:center; }
+  .compact-roles .who-wrap { flex:none; flex-direction:column; width:100%; padding:0; gap:2px; }
+  .compact-roles .role-who { width:100%; flex:none; }
+  .compact-roles .role-name, .compact-roles .role.is-mid .role-name { font-size:12px; }
+  .compact-roles .role-traits, .compact-roles .to-mid, .compact-roles .role-empty .em { display:none; }
+  .compact-roles .role-icon { width:100%; font-size:10px; }
+  .compact-roles .role-icon svg { display:none; }
+  .compact-roles .role-tools { top:14px; right:0; transform:none; }
+  .compact-roles .mini.x { background:rgba(10,15,22,.8); border-radius:3px; color:var(--text); }
+  .compact-roles .portrait, .compact-roles .slot-ghost { width:34px !important; height:34px !important; }
+  .compact-roles .mini.x { min-width:20px; height:20px; font-size:14px; }
+  .p-status { display:flex; flex-wrap:wrap; gap:6px; min-height:24px; }
+  .p-reco { position:relative; flex:none; height:clamp(120px,19vh,180px); overflow:hidden; background:var(--bg); border:2px solid var(--accent); border-radius:8px; isolation:isolate; }
+  .p-reco .splash { object-position:70% 18%; }
+  .p-reco-scrim { position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,rgba(10,15,22,.9),rgba(10,15,22,.25) 75%); }
+  .p-reco-text { position:absolute; left:12px; bottom:10px; right:10px; }
+  .p-chip { display:inline-block; padding:1px 7px; background:var(--accent); border-radius:3px; color:var(--accent-ink); font-size:12px; font-weight:600; }
+  .p-name { font:clamp(26px,9vw,36px)/1.05 var(--condensed); margin-top:3px; }
+  .p-change { margin:0; padding:5px 8px; border:1px solid var(--gold); border-radius:4px; font-size:12.5px; }
+  .p-change b { color:var(--gold); font-weight:600; }
+  .p-alt { flex:none; display:flex; align-items:center; gap:10px; width:100%; padding:6px 10px 6px 6px; background:var(--bg); border:1px solid var(--line); border-radius:6px; text-align:left; font:18px var(--condensed); transition:border-color .12s; }
+  .p-alt:hover { border-color:var(--muted); }
+  .p-alt-text { flex:1; min-width:0; }
+  .p-alt small { display:block; color:var(--muted); font:12px var(--body); }
+  .p-h { margin:2px 0 0; font:16px var(--condensed); }
+  .p-h::before { content:""; display:inline-block; width:4px; height:14px; margin-right:7px; vertical-align:-2px; background:var(--accent); }
+  .p-reasons li { position:relative; margin-bottom:5px; padding-left:13px; font-size:13.5px; line-height:1.3; }
+  .p-reasons li::before { content:""; position:absolute; left:1px; top:.45em; width:5px; height:5px; background:var(--accent); transform:rotate(45deg); }
+  .p-threat { flex:none; display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(242,119,122,.09); border:1px solid var(--threat); border-radius:6px; }
+  .p-threat > div { flex:1; min-width:0; }
+  .p-threat b { color:var(--threat); font:15px var(--condensed); }
+  .p-threat p { margin:1px 0 0; font-size:12.5px; line-height:1.25; }
+  .p-threat-who { display:flex; flex-direction:column; align-items:center; gap:2px; max-width:72px; font-size:12px; text-align:center; }
+  .p-win { flex:none; padding:7px 10px; background:var(--raised); border-radius:6px; }
+  .p-win b { color:var(--accent); font:15px var(--condensed); }
+  .p-win p { margin:1px 0 0; font-size:13px; line-height:1.3; }
+  .p-ban-row { display:flex; align-items:center; gap:8px; margin-top:5px; color:var(--muted); font-size:12.5px; }
+  .p-ban-row b { color:var(--gold); font:17px var(--condensed); }
+  .p-ban .portrait { box-shadow:0 0 0 1.5px var(--gold); }
+  .p-ban .note { margin-top:3px; font-size:12px; }
+  .p-actions { position:sticky; bottom:-12px; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:auto -12px -12px; padding:8px 12px 10px; background:var(--surface); border-top:1px solid var(--line); }
+  .p-actions .cta { margin:0; min-height:36px; padding:5px 13px; font-size:15px; }
+  .p-empty { color:var(--muted); }
+  .settings-back { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(4,8,12,.72); }
+  .settings { width:min(520px,100%); max-height:100%; overflow:auto; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:8px; }
+  .settings .sec-title { align-items:center; }
+  .settings h3 { margin:12px 0 5px; color:var(--muted); font:15px var(--condensed); }
+  .set-row { display:flex; flex-wrap:wrap; gap:6px 14px; }
+  .set-check, .set-line { display:flex; align-items:center; gap:7px; margin-bottom:5px; font-size:13.5px; }
+  .settings select { padding:3px 6px; background:var(--bg); border:1px solid var(--line); border-radius:4px; }
+  @keyframes shimmer { from { background-position:120% 0; } to { background-position:-120% 0; } }
+
+  @media (max-height:800px) and (min-width:1101px) {
+    .col-left { padding:10px 12px; }
+    .col-mid { padding:10px; gap:8px; }
+    .plan-block { padding:10px 12px; }
+    .hint { margin-bottom:6px; }
+    .meters { gap:4px; }
+    .roles { margin-bottom:8px; }
+    .plan-row { min-height:30px; padding:2px 0; }
+    .effects { margin-top:5px; min-height:0; }
+    .stage { min-height:240px; }
+  }
+  @media (max-width:1100px) {
+    .app { height:auto; min-height:100vh; }
+    .top { position:sticky; top:0; z-index:30; }
+    .desk { grid-template-columns:minmax(280px,340px) minmax(0,1fr); }
+    .col-left { border-right:1px solid var(--line); overflow:visible; }
+    .col-mid { overflow:visible; }
+    .stage { flex:none; height:auto; min-height:380px; display:flex; align-items:flex-end; }
+    .stage-body { position:relative; left:auto; bottom:auto; padding-top:84px; }
+    .col-right { grid-column:1 / -1; border-left:0; border-top:1px solid var(--line); overflow:visible; }
+    .rank-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .tab-body { overflow:visible; }
+    .role .portrait, .slot-ghost { width:44px !important; height:44px !important; }
+    .col-right { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-rows:auto 1fr; align-items:start; }
+    .plan-block { grid-row:1 / span 2; border-bottom:0; border-right:1px solid var(--line); height:100%; }
+  }
+  @media (max-width:720px) {
+    .desk { display:block; }
+    .app { padding-bottom:64px; }
+    .col-right { display:flex; }
+    .plan-block { border-right:0; border-bottom:1px solid var(--line); height:auto; }
+    .stage .cta { display:none; }
+    .mobile-bar { position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; background:var(--surface); border-top:1px solid var(--line); }
+    .mobile-name { display:flex; align-items:center; gap:8px; min-width:0; font:18px var(--condensed); }
+    .mobile-bar .cta { flex:none; margin:0; }
+    .role-empty .em { display:none; }
+    .who-wrap { padding-right:0; }
+    .role-tools { top:0; right:0; transform:none; }
+    .role.is-mid .role-name { font-size:13px; }
+    .roles > .role.is-mid { box-shadow:inset 0 2px 0 var(--accent); }
+    .effects { min-height:0; margin:0 0 4px; }
+    .col-left { border-right:0; }
+    .col-mid { padding:12px; }
+    .roles { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; }
+    .role .portrait, .slot-ghost { width:44px !important; height:44px !important; }
+    .change { left:12px; right:12px; }
+    .role { flex-direction:column; min-height:92px; padding:6px 2px; gap:3px; text-align:center; background:var(--bg); }
+    .who-wrap { flex:none; flex-direction:column; width:100%; gap:3px; }
+    .role-who { width:100%; flex:none; }
+    .role-icon { width:100%; }
+    .profile { display:none; }
+    .col-left { padding-bottom:6px; }
+    .roles { margin-bottom:6px; }
+    .role-name { font-size:13px; }
+    .role-traits { display:none; }
+    .role-empty { font-size:11px; }
+    .role-tools { position:absolute; top:0; right:0; }
+    .role-tools .to-mid { display:none; }
+    .mini.x { min-width:24px; height:24px; }
+    .stage { height:auto; min-height:320px; display:flex; align-items:flex-end; }
+    .stage-body { position:relative; left:auto; bottom:auto; padding-top:84px; }
+    .stage-body { max-width:100%; padding:14px; }
+    .scrim { background:linear-gradient(0deg,rgba(10,15,22,.95) 12%,rgba(10,15,22,.72) 55%,rgba(10,15,22,.1) 100%); }
+    .patch { display:none; }
+    .plan-row { grid-template-columns:62px 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="draft-vendor/react.js"></script>
+<script src="draft-vendor/react-dom.js"></script>
+<script src="draft-vendor/framer-motion.js"></script>
+<script src="draft-vendor/htm.js"></script>
+<script src="draft-stats.js"></script>
+<script src="draft-engine.js"></script>
+<script src="draft-providers.js"></script>
+<script>
+if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof analyze === "undefined") {
+  document.getElementById("root").innerHTML = '<p style="padding:24px;max-width:60ch">DraftMid ne peut pas démarrer : le dossier <b>draft-vendor</b> ou le fichier <b>draft-engine.js</b> est introuvable. Replace-les à côté de ce fichier, puis recharge la page.</p>';
+  throw new Error("fichiers de DraftMid introuvables");
+}
+const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, boardKey: null };
+
+function matchByKeys(names, keysOf, query) {
+  const q = norm(query);
+  if (!q) return [];
+  const starts = names.filter(n => keysOf(n).some(k => k.startsWith(q)));
+  const contains = names.filter(n => !starts.includes(n) && keysOf(n).some(k => k.includes(q)));
+  return starts.concat(contains);
+}
+
+const suggest = query => matchByKeys(NAMES.filter(n => !state.enemies.includes(n)), champKeys, query).slice(0, 6);
+
+function currentMid() {
+  if (state.manualMid && state.enemies.includes(state.manualMid)) return state.manualMid;
+  return guessMid(state.enemies.filter(n => !(state.roleOf[n] && state.roleOf[n] !== "mid")));
+}
+
+// Statistiques personnelles, importées par draft-import-stats.bat (facultatif)
+const STATS = window.DRAFT_STATS || null;
+const RAW_NAMES = Object.assign(Object.fromEntries(NAMES.map(n => [norm(n), n])), { monkeyking:"Wukong", renata:"Renata Glasc" });
+const toName = raw => RAW_NAMES[norm(raw || "")] || raw || "";
+const STAT_ROWS = STATS && Array.isArray(STATS.rows)
+  ? STATS.rows.map(r => Object.assign({}, r, { champ: toName(r.champ), mid: toName(r.mid) }))
+  : [];
+const MAIN_ACCOUNT = STATS && STATS.accounts && STATS.accounts[0];
+// Personnalisation future : ces bilans restent affichés, sans modifier le score, tant qu'un test prudent ne justifie pas de les y intégrer.
+const EVOLUTION_STEP = 20;
+const POOL = ["Fizz", "Twisted Fate", "Kog'Maw"];
+const SHRINK_K = 50;
+const MIN_GAMES = 10;
+
+function record(rows) {
+  const wins = rows.filter(r => r.win).length;
+  return { wins, losses: rows.length - wins, games: rows.length };
+}
+const fmtRecord = rec => `${rec.wins}V ${rec.losses}D`;
+const pct = rec => rec.games ? `${Math.round(100 * rec.wins / rec.games)} %` : "-";
+
+// Ramène un petit bilan vers le winrate du champion, pour éviter de surestimer quelques parties.
+function shrunkRate(rec, base) {
+  return (rec.wins + SHRINK_K * base) / (rec.games + SHRINK_K);
+}
+
+function matchupWord(rec, base) {
+  if (rec.games < MIN_GAMES) return "pas assez de parties";
+  const gap = shrunkRate(rec, base) - base;
+  if (Math.abs(gap) < 0.03) return "pas de préférence";
+  return gap > 0 ? "léger avantage" : "léger désavantage";
+}
+
+function personalLine(pick, mid) {
+  if (!STAT_ROWS.length) return "";
+  const rows = STAT_ROWS.filter(r => r.acct === MAIN_ACCOUNT && r.champ === label(pick));
+  const all = record(rows);
+  if (!all.games) return `aucune partie sur ${label(pick)}`;
+  const base = fmtRecord(all);
+  if (!mid) return base;
+  const vs = record(rows.filter(r => r.mid === mid));
+  if (!vs.games) return `${base}, jamais contre ${mid}`;
+  return `${base}, contre ${mid} ${fmtRecord(vs)} : ${matchupWord(vs, all.wins / all.games)}`;
+}
+
+
+const JOURNAL_KEY = "draftJournal";
+
+function loadJournal() {
+  try { return JSON.parse(localStorage.getItem(JOURNAL_KEY)) || []; } catch (e) { return []; }
+}
+
+function saveJournal(list) {
+  try { localStorage.setItem(JOURNAL_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+function updateEntry(id, change) {
+  const list = loadJournal();
+  const entry = list.find(x => x.id === id);
+  if (entry) { Object.assign(entry, change); saveJournal(list); }
+}
+
+function syncCurrentEntry() {
+  if (state.current) updateEntry(state.current, { enemies: state.enemies.slice(), mid: currentMid() });
+}
+
+
+// ---------- Actions ----------
+let rerender = () => {};
+let V = null;
+const REQUIRED_ROLES = ["top", "jungle", "mid", "adc", "support"];
+const ROLE_LABEL = { top:"Top", jungle:"Jungle", mid:"Mid", adc:"ADC", support:"Support" };
+
+function roleHints(name) {
+  if (MARKSMEN.has(name)) return ["adc", "top", "jungle", "support"];
+  if (SUPPORTS.has(name)) return ["support", "top", "jungle", "adc"];
+  if (JUNGLERS.has(name)) return ["jungle", "top", "support", "adc"];
+  return ["top", "jungle", "adc", "support"];
+}
+
+// Les rôles servent à l'affichage ; seul le mid influence le calcul, comme avant.
+function deriveSlots() {
+  const slots = {};
+  const mid = currentMid();
+  if (mid) slots.mid = mid;
+  const others = state.enemies.filter(n => n !== mid);
+  others.filter(n => state.roleOf[n] && state.roleOf[n] !== "mid").forEach(n => { if (!slots[state.roleOf[n]]) slots[state.roleOf[n]] = n; });
+  others.filter(n => !Object.values(slots).includes(n)).forEach(n => {
+    const role = roleHints(n).find(r => !slots[r]) || REQUIRED_ROLES.find(r => !slots[r]);
+    slots[role] = n;
+  });
+  return slots;
+}
+
+function describeChange(prev, shown, heldEntry, ranking) {
+  if (!prev || !prev.n || !prev.shown || prev.shown === shown || !state.lastAction) return null;
+  const oldNow = ranking.find(p => p.pick === prev.shown);
+  const oldBefore = prev.order.find(p => p.pick === prev.shown);
+  const newBefore = prev.order.find(p => p.pick === shown);
+  const seen = (entry, w) => entry && entry.why.some(x => x.text === w.text);
+  const loss = oldNow && oldNow.why.find(w => w.v < 0 && !seen(oldBefore, w));
+  const gain = heldEntry.why.find(w => w.v > 0 && !seen(newBefore, w));
+  const reason = !oldNow ? `${label(prev.shown)} est pris en face` : (loss || gain || {}).text || "";
+  // Sans nouvelle raison, ce n'est pas ce champion qui a tout changé : l'écart existait déjà.
+  if (!reason && state.enemies.length >= 5) return { id: Date.now(), trigger: "Draft complète", from: label(prev.shown), to: label(shown), reason: "Il menait déjà de peu : le nom attendait la fin de la draft pour changer." };
+  return { id: Date.now(), trigger: state.lastAction, from: label(prev.shown), to: label(shown), reason };
+}
+
+function computeVerdict() {
+  const prevV = V;
+  const action = state.lastAction;
+  if (!state.enemies.length) state.held = null;
+  const n = state.enemies.length;
+  const mid = currentMid();
+  const res = analyze(state.enemies, mid, PREFS.assumeFront);
+  if (!res.ranking.length) {
+    state.held = null;
+    state.shown = null;
+    V = { n, mid, res, none:true, order:[], avoided:[], reasons:[], bans:suggestBans() };
+    return;
+  }
+  // Draft complète : le classement fait foi, quel que soit l'ordre de saisie. Le maintien évite seulement de clignoter en cours de draft.
+  state.held = !n ? null : n >= 5 ? res.ranking[0].pick : holdPick(res.ranking, state.held);
+  const shown = state.held || res.ranking[0].pick;
+  const heldEntry = res.ranking.find(p => p.pick === shown);
+  const m = matchupOf(mid);
+  const available = availablePicks(state.enemies);
+  const avoided = m ? (m.avoid || "").split(", ").filter(p => available.includes(p) && p !== shown) : [];
+  const others = res.ranking.filter(p => p.pick !== shown);
+  const rival = others.find(p => !avoided.includes(p.pick)) || others[0];
+  const clear = !n || !rival || heldEntry.score - rival.score >= HOLD_GAP;
+  state.shown = shown;
+  state.clear = clear;
+  const without = n && PREFS.assumeFront ? analyze(state.enemies, mid, false).ranking[0] : null;
+  const order = [heldEntry].concat(rival ? [rival] : [], others.filter(p => p !== rival));
+  V = {
+    n, mid, res, shown, rival, clear, avoided, order,
+    reasons: positiveReasons(heldEntry),
+    risk: mainRisk(heldEntry),
+    midAlt: mid && !state.manualMid ? midSwapEffect(state.enemies, mid, shown, PREFS.assumeFront) : null,
+    personal: personalLine(shown, mid),
+    without: without && without.pick !== shown ? without.pick : null,
+    bans: suggestBans(),
+    change: action ? describeChange(prevV, shown, heldEntry, res.ranking) : null
+  };
+  state.lastAction = null;
+}
+
+function commit() {
+  const action = state.lastAction;
+  computeVerdict();
+  syncCurrentEntry();
+  publish(action);
+}
+
+// ---------- Synchronisation entre panneaux et préférences ----------
+const PANEL = new URLSearchParams(location.search).get("panel") || "";
+const IS_HOST = !!(window.chrome && window.chrome.webview);
+const hostSend = msg => { if (IS_HOST) window.chrome.webview.postMessage(msg); };
+const PREFS_KEY = "draftPrefs";
+const PREFS = Object.assign({ excluded:[], favorite:null, assumeFront:true }, (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; } })());
+ENGINE_PREFS.excluded = PREFS.excluded;
+ENGINE_PREFS.favorite = PREFS.favorite;
+const hostState = { available:false, autostart:false, follow:true, topmost:false, compact:false, placement:"" };
+const SHARED = ["enemies", "manualMid", "held", "current", "roleOf", "targetRole", "selected", "notice", "sessionActive"];
+let channel = null;
+try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
+
+function publish(action) {
+  rerender();
+  if (!channel) return;
+  const snapshot = { kind:"state", action: action || null, prefs: PREFS };
+  SHARED.forEach(k => { snapshot[k] = state[k]; });
+  channel.postMessage(snapshot);
+}
+
+function savePrefs(change) {
+  Object.assign(PREFS, change);
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS)); } catch (e) {}
+  ENGINE_PREFS.excluded = PREFS.excluded;
+  ENGINE_PREFS.favorite = PREFS.favorite;
+  commit();
+}
+
+if (channel) channel.onmessage = e => {
+  const m = e.data;
+  if (m.kind === "hello") { publish(null); return; }
+  if (m.kind !== "state") return;
+  SHARED.forEach(k => { state[k] = m[k]; });
+  if (m.prefs) { Object.assign(PREFS, m.prefs); ENGINE_PREFS.excluded = PREFS.excluded; ENGINE_PREFS.favorite = PREFS.favorite; }
+  state.lastAction = m.action;
+  computeVerdict();
+  rerender();
+};
+
+// Les événements simulés passent par les mêmes opérations que la saisie.
+const draftApi = {
+  reset() { resetDraft(); },
+  setActive(v) { state.sessionActive = v; state.notice = v ? "Sélection en cours" : "Sélection terminée"; publish(null); },
+  add(champion, role) {
+    if (role) state.targetRole = role;
+    addEnemy(champion);
+  },
+  remove(champion) { removeEnemy(champion); },
+  replace(from, to) {
+    const i = state.enemies.indexOf(from);
+    if (i < 0 || state.enemies.includes(to)) return;
+    const role = state.roleOf[from];
+    state.enemies[i] = to;
+    delete state.roleOf[from];
+    if (role) state.roleOf[to] = role;
+    if (state.manualMid === from) state.manualMid = to;
+    state.lastAction = `${from} remplacé par ${to}`;
+    state.notice = state.lastAction;
+    commit();
+  },
+  setRole(champion, role) {
+    if (!state.enemies.includes(champion)) return;
+    if (role === "mid") { setMid(champion); return; }
+    if (state.manualMid === champion) state.manualMid = null;
+    state.roleOf[champion] = role;
+    state.notice = `${champion} : ${ROLE_LABEL[role] || role}`;
+    commit();
+  }
+};
+const dispatchDraft = ev => applyDraftEvent(ev, draftApi);
+let demoProvider = null;
+function runDemo(stepMs) {
+  if (demoProvider) demoProvider.stop();
+  demoProvider = new MockDraftProvider(dispatchDraft, DEMO_SCRIPT, stepMs || 900);
+  demoProvider.start();
+}
+
+const focusAdd = () => { const el = document.getElementById("add"); if (el && state.enemies.length < 5) el.focus(); };
+
+function addEnemy(name) {
+  if (!name || state.enemies.includes(name) || state.enemies.length >= 5) return;
+  state.enemies.push(name);
+  state.lastAction = `Ajout de ${name}`;
+  state.notice = state.lastAction;
+  if (state.targetRole) {
+    if (state.targetRole === "mid") state.manualMid = name;
+    else state.roleOf[name] = state.targetRole;
+    state.targetRole = null;
+  }
+  commit();
+}
+
+function removeEnemy(name) {
+  state.enemies = state.enemies.filter(n => n !== name);
+  delete state.roleOf[name];
+  if (state.manualMid === name) state.manualMid = null;
+  state.lastAction = `Retrait de ${name}`;
+  state.notice = state.lastAction;
+  commit();
+  focusAdd();
+}
+
+function resetDraft() {
+  state.enemies = [];
+  state.manualMid = null;
+  state.held = null;
+  state.current = null;
+  state.roleOf = {};
+  state.targetRole = null;
+  state.selected = null;
+  state.notice = null;
+  commit();
+  focusAdd();
+}
+
+function setMid(name) {
+  const old = currentMid();
+  if (old && old !== name && state.roleOf[name]) state.roleOf[old] = state.roleOf[name];
+  delete state.roleOf[name];
+  state.manualMid = name;
+  state.selected = null;
+  state.targetRole = null;
+  state.lastAction = `${name} au mid`;
+  state.notice = state.lastAction;
+  commit();
+  focusAdd();
+}
+
+function clickRole(role) {
+  const slots = deriveSlots();
+  const occupant = slots[role];
+  const picked = state.selected;
+  if (picked && picked !== occupant) {
+    const from = Object.keys(slots).find(r => slots[r] === picked);
+    if (role === "mid") { setMid(picked); return; }
+    if (occupant) state.roleOf[occupant] = from === "mid" ? role : from;
+    if (from === "mid") { state.manualMid = occupant || null; if (occupant) delete state.roleOf[occupant]; }
+    state.roleOf[picked] = role;
+    state.selected = null;
+    state.notice = `${picked} : ${ROLE_LABEL[role]}`;
+    commit();
+    return;
+  }
+  if (occupant) {
+    state.selected = picked === occupant ? null : occupant;
+    state.targetRole = null;
+  } else {
+    state.targetRole = state.targetRole === role ? null : role;
+  }
+  publish(null);
+  if (state.targetRole) focusAdd();
+}
+
+const LEFT_ORDER = ["top", "jungle", "mid", "adc", "support"];
+
+function choosePick(pick) {
+  if (state.current) {
+    updateEntry(state.current, { picked: pick });
+  } else {
+    const entry = { id: Date.now(), date: new Date().toISOString(), suggested: state.shown, close: !state.clear, picked: pick, enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION };
+    const list = loadJournal();
+    list.push(entry);
+    saveJournal(list);
+    state.current = entry.id;
+  }
+  publish(null);
+}
+
+function setResult(id, result) {
+  updateEntry(id, { result });
+  publish(null);
+}
+
+function exportJournal() {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(loadJournal(), null, 2)], { type:"application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "draft-journal.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function searchMatchups(query) {
+  const byName = Object.fromEntries(MATCHUPS.map(m => [m.n, m]));
+  return matchByKeys(MATCHUPS.map(m => m.n), n => [byName[n].n].concat(byName[n].a || []).map(norm), query).map(n => byName[n]);
+}
+
+function optionsFor(m) {
+  const available = availablePicks([m.n]);
+  const avoid = (m.avoid || "").split(", ");
+  const chosen = [m.first, m.second].filter(p => available.includes(p));
+  PICKS.filter(p => available.includes(p) && !avoid.includes(p) && !chosen.includes(p)).forEach(p => { if (chosen.length < 2) chosen.push(p); });
+  return chosen;
+}
+
+function groupRows(rows, keyOf) {
+  const map = new Map();
+  rows.forEach(r => { const k = keyOf(r); if (!map.has(k)) map.set(k, []); map.get(k).push(r); });
+  return [...map].map(([name, list]) => ({ name, rows: list })).sort((a, b) => b.rows.length - a.rows.length);
+}
+const POSITIONS = { TOP:"Top", JUNGLE:"Jungle", MIDDLE:"Mid", BOTTOM:"ADC", UTILITY:"Support" };
+
+// ---------- Portraits officiels (Data Dragon) ----------
+const DD_FALLBACK = "16.21.1";
+let ddVersion = DD_FALLBACK;
+const DD_IDS = { "Wukong":"MonkeyKing", "Cho'Gath":"Chogath", "Kai'Sa":"Kaisa", "Kha'Zix":"Khazix", "Vel'Koz":"Velkoz", "Bel'Veth":"Belveth", "LeBlanc":"Leblanc", "Renata Glasc":"Renata" };
+const ddId = name => DD_IDS[name] || name.replace(/[^A-Za-z0-9]/g, "");
+const iconUrl = name => `https://ddragon.leagueoflegends.com/cdn/${ddVersion}/img/champion/${ddId(name)}.png`;
+const splashUrl = name => `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${ddId(name)}_0.jpg`;
+
+// ---------- Interface ----------
+const { useState, useEffect, useReducer, useRef } = React;
+const { motion, LayoutGroup, MotionConfig } = Motion;
+const html = htm.bind(React.createElement);
+const SNAP = { type:"spring", stiffness:520, damping:42, mass:.7 };
+const QUICK = { duration:.18, ease:[.2,.8,.2,1] };
+const ARRIVE = { duration:.26, ease:[.2,.8,.2,1] };
+const UNDER_MS = 450;
+
+function Portrait({ name, size = 40 }) {
+  const [done, setDone] = useState({});
+  const status = done[name] || "loading";
+  const cls = `portrait${status === "loading" ? " loading" : ""}`;
+  return html`<span className=${cls} style=${{ width:size, height:size }}>
+    ${status !== "error" ? html`<img key=${name} src=${iconUrl(name)} alt="" className=${status === "ready" ? "ready" : ""} onLoad=${() => setDone({ [name]:"ready" })} onError=${() => setDone({ [name]:"error" })} />` : null}
+    ${status === "error" ? html`<span className="init" aria-hidden="true">${name.slice(0, 2)}</span>` : null}
+  </span>`;
+}
+
+const ROLE_PATHS = {
+  top: "M3 3h14v4H7v10H3z M11 11h6v6h-6z",
+  jungle: "M10 2c1 5 5 6 5 11a5 5 0 0 1-10 0c0-5 4-6 5-11z",
+  mid: "M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z",
+  adc: "M17 17H3v-4h10V3h4z M3 3h6v6H3z",
+  support: "M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5z"
+};
+const RoleIcon = ({ role }) => html`<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d=${ROLE_PATHS[role]} /></svg>`;
+
+function traitsOf(name) {
+  const t = ROSTER[name] || "";
+  if (t === "?") return "Profil inconnu";
+  const words = [];
+  if (t.includes("t")) words.push("Tank");
+  if (t.includes("b")) words.push("Bruiser");
+  if (t.includes("s")) words.push("Carry");
+  if (t.includes("a")) words.push("Plongeur");
+  if (t.includes("c")) words.push("Contrôle");
+  if (t.includes("e")) words.push("Engage");
+  return words.join(", ") || "Soutien";
+}
+
+function SearchBox() {
+  const [value, setValue] = useState("");
+  const [sel, setSel] = useState(0);
+  const [open, setOpen] = useState(false);
+  const full = state.enemies.length >= 5;
+  const list = open ? suggest(value) : [];
+  const confirm = name => { addEnemy(name); setValue(""); setSel(0); setTimeout(focusAdd, 0); };
+  const onKey = e => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (!list.length) return;
+      e.preventDefault();
+      setSel(s => (s + (e.key === "ArrowDown" ? 1 : list.length - 1)) % list.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (list.length) confirm(list[Math.min(sel, list.length - 1)]);
+    } else if (e.key === "Tab" && !e.shiftKey && list.length) {
+      e.preventDefault();
+      confirm(list[Math.min(sel, list.length - 1)]);
+    } else if (e.key === "Backspace" && !value && state.enemies.length) {
+      removeEnemy(state.enemies[state.enemies.length - 1]);
+    } else if (e.key === "Escape" && value) {
+      e.stopPropagation();
+      setValue("");
+    }
+  };
+  const target = state.targetRole ? `Prochain champion : ${ROLE_LABEL[state.targetRole]}` : "";
+  return html`<div className="search">
+    <input id="add" type="search" value=${value} disabled=${full} autoComplete="off" spellCheck="false"
+      aria-label="Ajouter un champion adverse"
+      placeholder=${full ? "Draft complète" : (target || "Ajouter un adversaire : ahri, tf, kata...")}
+      onChange=${e => { setValue(e.target.value); setSel(0); setOpen(true); }}
+      onFocus=${() => setOpen(true)} onBlur=${() => setOpen(false)} onKeyDown=${onKey} />
+    ${open && value.trim() ? html`<div className="sugg" role="listbox">
+      ${list.length ? list.map((n, i) => html`<button key=${n} type="button" role="option" aria-selected=${i === sel} className=${`sugg-item${i === sel ? " on" : ""}`}
+          onMouseDown=${e => { e.preventDefault(); confirm(n); }}>
+          ${i === sel ? html`<${motion.span} layoutId="sugg-hl" className="sugg-hl" transition=${SNAP} />` : null}
+          <${Portrait} name=${n} size=${28} /> ${n}
+        </button>`) : html`<div className="sugg-empty">Aucun champion ne correspond à « ${value} ».</div>`}
+    </div>` : null}
+  </div>`;
+}
+
+function RoleRow({ role, name, assumed }) {
+  const isMid = role === "mid";
+  const previous = useRef(name);
+  const [flash, setFlash] = useState(null);
+  useEffect(() => {
+    if (previous.current !== name) setFlash({ id: Date.now(), kind: name ? "add" : "del" });
+    previous.current = name;
+  }, [name]);
+  const cls = `role${isMid ? " is-mid" : ""}${state.targetRole === role || (name && state.selected === name) ? " target" : ""}`;
+  const label = name
+    ? `${ROLE_LABEL[role]} : ${name}. ${state.selected && state.selected !== name ? `Échanger avec ${state.selected}` : "Sélectionner pour changer de rôle"}`
+    : `${ROLE_LABEL[role]} vide. ${state.selected ? `Y placer ${state.selected}` : "Choisir ce rôle pour le prochain champion"}`;
+  return html`<div className=${cls}>
+    <button type="button" className="role-hit" aria-label=${label} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
+    ${flash ? html`<${motion.span} key=${flash.id} className=${`role-flash ${flash.kind}`} aria-hidden="true" initial=${{ opacity:.45 }} animate=${{ opacity:0 }} transition=${{ duration:.35 }} />` : null}
+    <span className="role-icon"><${RoleIcon} role=${role} />${ROLE_LABEL[role]}</span>
+    ${name ? html`<${motion.span} key=${name} layoutId=${`who-${name}`} initial=${{ scale:.86, opacity:.4 }} animate=${{ scale:1, opacity:1 }} transition=${SNAP} className="who-wrap">
+        <${Portrait} name=${name} size=${44} />
+        <span className="role-who">
+          <span className="role-name">${name}</span>
+          <span className="role-traits" title=${traitsOf(name)}>${isMid && assumed ? html`<b className="assumed">Mid probable</b> ` : ""}${traitsOf(name)}</span>
+        </span>
+      <//>
+      <span className="role-tools">
+        ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${`Placer ${name} au mid`} onClick=${() => setMid(name)}>Mid</button>` : null}
+        <button type="button" className="mini x" aria-label=${`Retirer ${name}`} onClick=${() => removeEnemy(name)}>×</button>
+      </span>`
+    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? "Tape son nom" : html`Ajouter<span className="em">${role === "adc" ? " l'ADC" : ` le ${ROLE_LABEL[role]}`}</span>`}</span>`}
+  </div>`;
+}
+
+function Meter({ label, count, danger }) {
+  const before = useRef(count);
+  const [delta, setDelta] = useState(null);
+  useEffect(() => {
+    if (before.current !== count) setDelta({ id: Date.now(), value: count - before.current });
+    before.current = count;
+  }, [count]);
+  return html`<div className=${`meter${danger && count >= 2 ? " danger" : ""}`}>
+    <${motion.span} key=${count} className="meter-label" initial=${count ? { color: danger ? "#f2777a" : "#3fd8c6" } : false} animate=${{ color:"#93a3b6" }} transition=${{ duration:.35 }}>${label}<//>
+    <span className="pips" role="img" aria-label=${`${label} : ${count} sur 5`}>
+      ${[0, 1, 2, 3, 4].map(i => html`<span key=${i} className="pip"><${motion.i} initial=${false} animate=${{ scaleX: i < count ? 1 : 0 }} transition=${{ ...QUICK, delay: i * .025 }} /></span>`)}
+    </span>
+    <span className="meter-delta" aria-hidden="true">${delta ? html`<${motion.span} key=${delta.id} initial=${{ opacity:1, y:0 }} animate=${{ opacity:0, y:-5 }} transition=${{ duration:.3, delay:.45 }}>${delta.value > 0 ? "+" : ""}${delta.value}<//>` : null}</span>
+  </div>`;
+}
+
+function DraftEffects() {
+  if (!V.n) return html`<p className="effects">Le profil se remplit à chaque adversaire ajouté.</p>`;
+  const { strong, weak } = compoReading(V.res.counts);
+  const key = strong.join() + "|" + weak.join();
+  return html`<${motion.p} key=${key} className="effects" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>
+    ${strong.length ? html`<span className="hurt">Leurs forces : ${strong.join(", ")}</span>` : null}
+    ${weak.length ? html`<span className="help">Leurs failles : ${weak.join(", ")}</span>` : null}
+    ${!strong.length && !weak.length ? "Pas de profil marqué pour l'instant." : null}
+  <//>`;
+}
+
+function EnemyPanel() {
+  const slots = deriveSlots();
+  const c = V.res.counts;
+  const warn = V.n && !V.mid;
+  return html`<aside className="col col-left" aria-label="Composition adverse">
+    <h2 className="sec-title">Composition adverse <small>${V.n} sur 5</small></h2>
+    <${SearchBox} />
+    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? "Mid inconnu : place le bon champion au mid." : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
+    <${LayoutGroup}>
+      <div className="roles">
+        ${(PANEL ? LEFT_ORDER : ["mid", "top", "jungle", "adc", "support"]).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} />`)}
+      </div>
+    <//>
+    <h2 className="sec-title profile">Profil de l'équipe</h2>
+    <div className="meters profile">
+      <${Meter} label="Frontline" count=${c.front.length} />
+      <${Meter} label="Carrys fragiles" count=${c.carries.length} />
+      <${Meter} label="Plongeurs" count=${c.divers.length} danger=${true} />
+      <${Meter} label="Contrôles ciblés" count=${c.cc.length} danger=${true} />
+      <${Meter} label="Engage" count=${c.engage.length} />
+    </div>
+    <${DraftEffects} />
+  </aside>`;
+}
+
+function preloadSplash(name) { const img = new Image(); img.src = splashUrl(name); }
+
+function SplashStack({ name }) {
+  const [cur, setCur] = useState(name);
+  const [under, setUnder] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (name === cur) return;
+    setUnder(cur);
+    setCur(name);
+    setLoaded(false);
+    setFailed(false);
+    // L'ancienne image disparaît vite, même si la nouvelle tarde : jamais d'illustration périmée.
+    const timer = setTimeout(() => setUnder(null), UNDER_MS);
+    return () => clearTimeout(timer);
+  }, [name]);
+  return html`<div className=${`splash-stack${!loaded && !failed && !under ? " loading" : ""}`}>
+    ${under ? html`<img className="splash" src=${splashUrl(under)} alt="" />` : null}
+    ${failed ? null : html`<${motion.img} key=${cur} className="splash" src=${splashUrl(cur)} alt=""
+      initial=${{ opacity:0, scale:1.07 }} animate=${loaded ? { opacity:1, scale:1 } : { opacity:0, scale:1.07 }}
+      transition=${{ opacity:{ duration:.3 }, scale:{ duration:.7, ease:[.2,.8,.2,1] } }}
+      onLoad=${() => setLoaded(true)} onError=${() => { setFailed(true); setUnder(null); }} />`}
+    ${failed ? html`<p className="splash-fail">Illustration indisponible : vérifie ta connexion.</p>` : null}
+  </div>`;
+}
+
+function Stage() {
+  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  if (V.none) {
+    return html`<section className="stage" aria-label="Recommandation"><div className="stage-body">
+      <div className="champ-name">Aucun pick</div>
+      <p className="note">Tous tes picks sont déjà pris en face.</p>
+    </div></section>`;
+  }
+  const name = label(V.shown);
+  const picked = entry && entry.picked === V.shown;
+  const stagger = { hidden:{}, show:{ transition:{ staggerChildren:.045, delayChildren:.03 } } };
+  const item = { hidden:{ y:10, opacity:.4 }, show:{ y:0, opacity:1, transition:ARRIVE } };
+  return html`<section className="stage" aria-label="Recommandation">
+    <${SplashStack} name=${name} />
+    <div className="scrim"></div>
+    ${V.change ? html`<${motion.p} key=${V.change.id} className="change" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
+      <b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}${V.change.reason ? html`<span>${V.change.reason}</span>` : null}
+    <//>` : null}
+    <p className="sr" aria-live="polite">Prends ${name}${V.rival ? `, ${V.clear ? "sinon" : "ou"} ${label(V.rival.pick)}` : ""}</p>
+    <${motion.div} key=${name} className="stage-body" variants=${stagger} initial="hidden" animate="show">
+      <${motion.div} className="badges" variants=${item}>
+        ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
+        ${V.n < 5 ? html`<span className="badge">Provisoire ${V.n}/5</span>` : null}
+      <//>
+      <${motion.div} className="champ-name" variants=${item}>${name}<//>
+      ${V.rival ? html`<${motion.div} className="alt-line" variants=${item}>
+        <em>${V.clear ? "Sinon" : "Ou"}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}
+      <//>` : null}
+      <${motion.ul} className="reasons" variants=${item}>
+        ${(V.reasons.length ? V.reasons : ["Aucun argument particulier dans cette draft"]).map(t => html`<${motion.li} key=${t} initial=${{ x:-6, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
+      <//>
+      <${motion.div} className="stage-notes" variants=${item}>
+        ${V.risk ? html`<p className="note risk">Risque : ${V.risk}</p>` : null}
+        ${V.avoided.length ? html`<p className="note">À éviter : <span className="avoid">${V.avoided.map(label).join(", ")}</span></p>` : null}
+        ${V.personal ? html`<p className="note">Tes parties : ${V.personal}</p>` : null}
+        ${V.without ? html`<p className="note">Sans frontline : <b>${label(V.without)}</b></p>` : null}
+        ${V.midAlt ? html`<p className="note warn">Si le mid est ${V.midAlt.mid} : <b>${label(V.midAlt.pick)}</b></p>` : null}
+      <//>
+      <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
+        <${motion.span} key=${picked ? "done" : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${picked ? `${name} enregistré` : `Je prends ${name}`}<//>
+      <//>
+    <//>
+  </section>`;
+}
+
+function rankWord(p, i) {
+  if (V.avoided.includes(p.pick)) return ["À éviter", "bad"];
+  if (i === 0) return [V.clear ? "Recommandé" : "Au coude à coude", "best"];
+  if (i === 1) return [V.clear ? "Alternative" : "Au coude à coude", V.clear ? "alt" : "best"];
+  return [p.score < 0 ? "Peu adapté" : "Possible", p.score < 0 ? "bad" : "other"];
+}
+
+function Ranking() {
+  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  const scores = V.order.map(p => p.score);
+  const lo = Math.min(...scores, 0);
+  const hi = Math.max(...scores, 1);
+  return html`<section aria-label="Ton pool">
+    <h2 className="sec-title">Ton pool <small>Clique sur le champion que tu joues</small></h2>
+    <${LayoutGroup}>
+      <div className="rank-list">
+        ${V.order.map((p, i) => {
+          const [word, tone] = rankWord(p, i);
+          const name = label(p.pick);
+          const isPicked = entry && entry.picked === p.pick;
+          const rows = STAT_ROWS.length ? record(STAT_ROWS.filter(r => r.acct === MAIN_ACCOUNT && r.champ === name)) : null;
+          return html`<${motion.button} key=${p.pick} layout="position" transition=${SNAP} type="button" whileHover=${{ y:-2 }} whileTap=${{ scale:.98 }}
+            data-pick=${p.pick} aria-pressed=${!!isPicked}
+            className=${`rank tier-${tone}${i === 0 ? " first" : ""}${isPicked ? " picked" : ""}`} onClick=${() => choosePick(p.pick)}>
+            ${isPicked ? html`<${motion.span} key="chosen" className="chosen" initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${SNAP} title="Champion choisi"><span aria-hidden="true">✓</span><span className="sr">Choisi</span><//>` : null}
+            ${i === 0 ? html`<${motion.span} key=${`best-${p.pick}`} className="rank-glow" aria-hidden="true" initial=${{ opacity:.55 }} animate=${{ opacity:0 }} transition=${{ duration:.45 }} />` : null}
+            ${isPicked ? html`<${motion.span} layoutId="picked-ring" className="rank-ring" aria-hidden="true" transition=${SNAP} />` : null}
+            <span className="rank-top">
+              <${Portrait} name=${name} size=${36} />
+              <span style=${{ minWidth:0 }}>
+                <span className="rank-name" style=${{ display:"block" }}>${name}</span>
+                <${motion.span} key=${word} className=${`rank-word ${tone}`} initial=${{ y:5, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${word}<//>
+              </span>
+            </span>
+            <span className="force" aria-hidden="true"><${motion.i} initial=${false} animate=${{ scaleX: Math.max(.04, (p.score - lo) / (hi - lo || 1)) }} transition=${QUICK} /></span>
+            ${rows && rows.games ? html`<span className="rank-rec">${fmtRecord(rows)}</span>` : null}
+          <//>`;
+        })}
+      </div>
+    <//>
+  </section>`;
+}
+
+const Faces = ({ names, empty }) => names.length
+  ? html`<span className="faces">${names.map(n => html`<${motion.span} key=${n} className="face" initial=${{ scale:.86, opacity:.4 }} animate=${{ scale:1, opacity:1 }} whileHover=${{ y:-1 }} transition=${QUICK}><${Portrait} name=${n} size=${26} /> ${n}<//>`)}</span>`
+  : html`<span className="small">${empty}</span>`;
+
+function ResultButtons({ id, result, disabled }) {
+  const opts = [["win", "Victoire"], ["loss", "Défaite"], ["skip", "Ignorer"]];
+  return html`<div className="results">
+    ${opts.map(([key, text]) => html`<${motion.button} key=${key} type="button" disabled=${disabled} data-result=${key} aria-pressed=${result === key}
+      whileHover=${disabled ? undefined : { y:-1 }} whileTap=${disabled ? undefined : { scale:.97 }} animate=${result === key ? { scale:[1, 1.05, 1] } : { scale:1 }} transition=${{ duration:.22 }} className=${`res ${key}${result === key ? " on" : ""}`} onClick=${() => setResult(id, key)}>${text}<//>`)}
+  </div>`;
+}
+
+function PlanBlock() {
+  const list = loadJournal();
+  const entry = state.current && list.find(x => x.id === state.current);
+  const pending = !entry && !state.enemies.length && [...list].reverse().find(x => x.result === null);
+  const c = V.res.counts;
+  const playing = entry ? entry.picked : V.shown;
+  const threats = playing ? threatsFor(playing, c) : [];
+  const targets = playing ? targetsFor(playing, c) : [];
+  return html`<section className="plan-block" aria-label="Plan de jeu">
+    <h2 className="sec-title">Plan de jeu <small>${playing ? `avec ${label(playing)}` : ""}</small></h2>
+    <${motion.p} key=${playing || "none"} className="wincon" initial=${{ x:6, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>
+      <span>Gagne si</span>${playing ? winCondition(playing, c) : "Choisis un champion."}
+    <//>
+    <div className="plan-row threat"><span>Menaces</span><${Faces} names=${threats} empty="Rien de particulier" /></div>
+    <div className="plan-row target"><span>Cibles</span><${Faces} names=${targets} empty="Le carry le plus exposé" /></div>
+    <div className="plan-row ban-row"><span>Bans</span><${Faces} names=${V.bans} empty="Aucun" /></div>
+    ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b>${pending.mid ? ` contre ${pending.mid}` : ""}</p>` : null}
+    <${ResultButtons} id=${entry ? entry.id : pending ? pending.id : 0} result=${entry ? entry.result : null} disabled=${!entry && !pending} />
+    ${!entry && !pending ? html`<p className="result-note">Enregistre d'abord ton pick pour noter le résultat.</p>` : null}
+  </section>`;
+}
+
+const PHASES = [["lane", "Lane"], ["mid", "Mid game"], ["fight", "Teamfights"]];
+
+function PlanTab() {
+  const [phase, setPhase] = useState("lane");
+  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  const playing = entry ? entry.picked : V.shown;
+  if (!playing) return html`<p className="small">Aucun pick disponible.</p>`;
+  const slots = deriveSlots();
+  const plan = buildPlan(playing, V.res.counts, V.mid, slots.jungle);
+  return html`<div>
+    <div className="seg-tabs" role="group" aria-label="Phase de jeu">
+      ${PHASES.map(([key, text]) => html`<button key=${key} type="button" aria-pressed=${phase === key} className=${`seg-tab${phase === key ? " on" : ""}`} onClick=${() => setPhase(key)}>${text}</button>`)}
+    </div>
+    <${motion.ul} key=${phase + playing} className="tips" initial=${{ opacity:.4, y:4 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>
+      ${plan[phase].map(tip => html`<li key=${tip}>${tip}</li>`)}
+    <//>
+    <p className="small">Avis général basé sur les 5 champions adverses, sans cooldowns ni builds vérifiés.</p>
+  </div>`;
+}
+
+const IMPACT_MARK = v => v > 0 ? (v >= 2 ? "++" : "+") : v < 0 ? (v <= -2 ? "−−" : "−") : "=";
+const impactText = v => v > 0 ? "avantage" : v < 0 ? "désavantage" : "neutre";
+
+function AnalyseTab() {
+  const entries = V.res.ranking;
+  const rows = CRITERIA.filter(def => entries.some(p => p.criteria.some(c => c.key === def.key)));
+  const uncertain = [];
+  if (V.mid && !state.manualMid) uncertain.push(`Mid supposé : ${V.mid}.`);
+  if (!V.mid) uncertain.push("Mid inconnu : le matchup direct n'est pas évalué.");
+  if (V.mid && !matchupOf(V.mid)) uncertain.push(`${V.mid} n'a pas de fiche de matchup : ce critère n'est pas évalué.`);
+  if (entries[0] && V.shown !== entries[0].pick) uncertain.push(`${label(V.shown)} reste affiché : ${label(entries[0].pick)} mène de trop peu pour changer de nom en cours de draft.`);
+  if (V.n < 5) uncertain.push(`Draft incomplète : ${V.n} adversaire(s) sur 5.`);
+  if (V.res.unknown.length) uncertain.push(`Profil provisoire : ${V.res.unknown.join(", ")}.`);
+  uncertain.push("Frontline allié supposé.");
+  return html`<div>
+    <p className="small">${uncertain.join(" ")}</p>
+    <div className="matrix" role="table" aria-label="Critères par champion">
+      <div className="mx-row mx-head" role="row"><span role="columnheader">Critère</span>${entries.map(p => html`<span key=${p.pick} role="columnheader" title=${label(p.pick)}><${Portrait} name=${label(p.pick)} size=${24} /></span>`)}</div>
+      ${rows.map(def => html`<div key=${def.key} className="mx-row" role="row">
+        <span role="cell">${def.label}</span>
+        ${entries.map(p => {
+          const c = p.criteria.find(x => x.key === def.key);
+          const v = c ? c.impact : 0;
+          return html`<span key=${p.pick} role="cell" className=${`mx-cell ${v > 0 ? "up" : v < 0 ? "down" : ""}`} title=${c ? c.text : "Non concerné"} aria-label=${`${label(p.pick)} : ${impactText(v)}`}>${IMPACT_MARK(v)}</span>`;
+        })}
+      </div>`)}
+    </div>
+    ${entries.map((p, i) => {
+      const plus = p.why.filter(w => w.v > 0).sort((a, b) => b.v - a.v);
+      const minus = p.why.filter(w => w.v < 0).sort((a, b) => a.v - b.v);
+      const threats = threatsFor(p.pick, V.res.counts);
+      const targets = targetsFor(p.pick, V.res.counts);
+      const m = matchupOf(V.mid);
+      return html`<details key=${p.pick} className="pick-detail" open=${i === 0}>
+        <summary><${Portrait} name=${label(p.pick)} size=${24} /> ${label(p.pick)}</summary>
+        <p className="small">${positionText(entries, p)}</p>
+        ${plus.length ? html`<ul className="why">${plus.map(w => html`<li key=${w.text} className="pos">+ ${w.text}</li>`)}</ul>` : null}
+        ${minus.length ? html`<ul className="why">${minus.map(w => html`<li key=${w.text} className="neg">− ${w.text}</li>`)}</ul>` : null}
+        ${!plus.length && !minus.length ? html`<p className="small">Aucun critère ne le distingue dans cette draft.</p>` : null}
+        ${threats.length ? html`<p className="small">Menaces : ${threats.join(", ")}</p>` : null}
+        ${targets.length ? html`<p className="small">Opportunités : ${targets.join(", ")}</p>` : null}
+        <p className="small">Condition de victoire : ${winCondition(p.pick, V.res.counts)}</p>
+        ${m ? html`<p className="small"><a href=${matchupLink(p.pick, V.mid)} target="_blank" rel="noopener noreferrer">Vérifier ce matchup sur LoLalytics</a></p>` : null}
+      </details>`;
+    })}
+    <h3>Bans conseillés</h3>
+    <ul className="plain">${V.bans.map(n => html`<li key=${n}><b>${n}</b> : ${banReason(n)}</li>`)}</ul>
+  </div>`;
+}
+
+function CompareBar({ row, max }) {
+  const size = v => Math.min(1, Math.abs(v) / max);
+  const side = (v, cls) => html`<span className=${`cmp-side ${cls}`}><${motion.i} className=${v > 0 ? "up" : v < 0 ? "down" : ""} initial=${false} animate=${{ scaleX:size(v) }} transition=${QUICK} /></span>`;
+  return html`<div className="cmp-row">
+    <span className="cmp-label">${row.label}</span>
+    <span className="cmp-bars" role="img" aria-label=${`${row.label} : ${impactText(row.a)} pour le premier, ${impactText(row.b)} pour le second`}>${side(row.a, "left")}${side(row.b, "right")}</span>
+  </div>`;
+}
+
+function CompareTab() {
+  const entries = V.res.ranking;
+  const [pair, setPair] = useState(null);
+  if (entries.length < 2) return html`<p className="small">Il faut au moins deux picks disponibles pour comparer.</p>`;
+  const defaults = [V.shown, V.rival ? V.rival.pick : entries.find(p => p.pick !== V.shown).pick];
+  const valid = pair && pair.every(p => entries.some(x => x.pick === p)) && pair[0] !== pair[1];
+  const [pa, pb] = valid ? pair : defaults;
+  const a = entries.find(x => x.pick === pa);
+  const b = entries.find(x => x.pick === pb);
+  const cmp = comparePicks(a, b);
+  const max = Math.max(1, ...cmp.rows.flatMap(r => [Math.abs(r.a), Math.abs(r.b)]));
+  const leader = a.score >= b.score ? a : b;
+  const trailer = leader === a ? b : a;
+  const select = (slot, pick) => { const next = [pa, pb]; next[slot] = pick; if (next[0] === next[1]) next[1 - slot] = slot === 0 ? pb === pick ? pa : pb : pa === pick ? pb : pa; setPair(next); };
+  const picker = (slot, cur) => html`<div className="cmp-pick" role="group" aria-label=${slot === 0 ? "Premier champion" : "Second champion"}>
+    ${entries.map(p => html`<button key=${p.pick} type="button" aria-pressed=${cur === p.pick} aria-label=${label(p.pick)} title=${label(p.pick)} className=${`cmp-btn${cur === p.pick ? " on" : ""}`} onClick=${() => select(slot, p.pick)}><${Portrait} name=${label(p.pick)} size=${26} /></button>`)}
+  </div>`;
+  const pros = (x, y) => cmp.rows.filter(r => (x === a ? r.diff > 0 : r.diff < 0)).map(r => x === a ? r.textA || `Moins pénalisé : ${r.label}` : r.textB || `Moins pénalisé : ${r.label}`).slice(0, 3);
+  const when = whenBetter(trailer.pick, leader.pick, state.enemies, V.mid);
+  return html`<div className="compare">
+    <div className="cmp-head">${picker(0, pa)}<b>VS</b>${picker(1, pb)}</div>
+    <p className="cmp-title"><b>${label(pa)}</b> contre <b>${label(pb)}</b></p>
+    <p className="small">${Math.abs(cmp.gap) < 1e-9 ? "À égalité sur le total des critères." : Math.abs(cmp.gap) < HOLD_GAP ? `Serré, léger avantage à ${label(leader.pick)}.` : `Avantage net à ${label(leader.pick)}.`}${leadCriterion(leader, trailer) ? ` ${label(leader.pick)} gagne surtout sur « ${leadCriterion(leader, trailer).label} »` : ""}${leadCriterion(leader, trailer) && comparePicks(trailer, leader).decisive.find(r => r.diff > 0) ? `, ${label(trailer.pick)} sur « ${comparePicks(trailer, leader).decisive.find(r => r.diff > 0).label} »` : ""}${leadCriterion(leader, trailer) ? "." : ""}</p>
+    ${cmp.rows.length ? html`<div className="cmp-row cmp-legend" aria-hidden="true"><span></span><span className="cmp-bars"><span>${label(pa)}</span><span>${label(pb)}</span></span></div>` : null}
+    ${cmp.rows.length ? cmp.rows.map(r => html`<${CompareBar} key=${r.key} row=${r} max=${max} />`) : html`<p className="small">Aucun critère ne les sépare pour l'instant.</p>`}
+    ${[[a, b], [b, a]].map(([x, y]) => {
+      const list = pros(x, y);
+      const risk = mainRisk(x);
+      return html`<div key=${x.pick} className="cmp-side-text">
+        <h3>${label(x.pick)}</h3>
+        <p className="small">${PICK_STYLES[x.pick]}</p>
+        ${list.length ? html`<ul className="why">${list.map(t => html`<li key=${t} className="pos">+ ${t}</li>`)}</ul>` : null}
+        ${risk ? html`<ul className="why"><li className="neg">− ${risk}</li></ul>` : null}
+      </div>`;
+    })}
+    <h3>${label(trailer.pick)} passerait devant</h3>
+    <p className="small">${when.length ? when.join(", ") + "." : "Dans aucun des cas simples testés : changement de mid, absence de frontline ou nouvel adversaire type."}</p>
+  </div>`;
+}
+
+function MatchupsTab() {
+  const [value, setValue] = useState("");
+  const found = value.trim() ? searchMatchups(value) : [];
+  return html`<div>
+    <p className="small" style=${{ margin:"0 0 6px" }}>Regarde quoi prendre contre un mid, sans toucher à ta draft.</p>
+    <input id="q" type="search" value=${value} autoComplete="off" spellCheck="false" aria-label="Chercher un mid adverse" placeholder="Mid adverse : ahri, tf, kata..."
+      onChange=${e => setValue(e.target.value)} onKeyDown=${e => { if (e.key === "Escape") { e.stopPropagation(); setValue(""); } }} />
+    ${value.trim() && !found.length ? html`<p className="small">Pas dans le tableau : par défaut, prends <b>Twisted Fate</b>.</p>` : null}
+    ${found.map(m => {
+      const [first, second] = optionsFor(m);
+      const avoid = (m.avoid || "").split(", ").filter(Boolean).map(label).join(", ");
+      return html`<div key=${m.n} className="mcard">
+        <${Portrait} name=${m.n} size=${32} />
+        <span className="mcard-name">${m.n}</span>
+        <span className="mcard-line">Prends <b>${label(first)}</b>, sinon <b>${label(second)}</b></span>
+        <span className="mcard-line">À éviter : <span className="avoid">${avoid || "rien de particulier"}</span></span>
+        ${m.rec ? html`<span className="mcard-line">Tes parties : ${m.rec} (peu de parties)</span>` : null}
+      </div>`;
+    })}
+  </div>`;
+}
+
+function WinBars({ title, groups }) {
+  if (!groups.length) return null;
+  return html`<div>
+    <h3>${title}</h3>
+    <div className="winbars">
+      ${groups.map(g => {
+        const rec = record(g.rows);
+        const few = rec.games < MIN_GAMES;
+        return html`<div key=${g.name} className=${`winbar${few ? " few" : ""}`}>
+          <span className="winbar-name">${g.name}</span>
+          <span className="winbar-track" role="img" aria-label=${`${g.name} : ${fmtRecord(rec)}`}>
+            <${motion.i} initial=${{ scaleX:0 }} animate=${{ scaleX: rec.games ? rec.wins / rec.games : 0 }} transition=${ARRIVE} />
+          </span>
+          <span className="winbar-val">${fmtRecord(rec)}${few ? "" : `, ${pct(rec)}`}</span>
+        </div>`;
+      })}
+    </div>
+    <p className="small">Sans pourcentage : moins de ${MIN_GAMES} parties, trop peu pour conclure.</p>
+  </div>`;
+}
+
+function evolutionGroups(rows) {
+  const sorted = [...rows].sort((x, y) => x.time - y.time);
+  const groups = [];
+  for (let i = 0; i + EVOLUTION_STEP <= sorted.length; i += EVOLUTION_STEP) groups.push({ name:`${i + 1} à ${i + EVOLUTION_STEP}`, rows:sorted.slice(i, i + EVOLUTION_STEP) });
+  return groups;
+}
+
+const StatsTable = ({ title, groups }) => html`<div>
+  <h3>${title}</h3>
+  <table><thead><tr><th></th><th>Parties</th><th>Bilan</th><th>Winrate</th></tr></thead>
+  <tbody>${groups.map(g => { const rec = record(g.rows); return html`<tr key=${g.name}><td>${g.name}</td><td>${rec.games}</td><td>${fmtRecord(rec)}</td><td>${pct(rec)}</td></tr>`; })}</tbody></table>
+</div>`;
+
+function StatsTab() {
+  if (!STAT_ROWS.length) return html`<p className="small">Pas encore de statistiques. Lance <b>draft-import-stats.bat</b>, placé dans le même dossier que cette page, puis recharge-la.</p>`;
+  return html`<div>
+    <p className="small">Import du ${new Date(STATS.generated).toLocaleDateString("fr-FR")}, ${STAT_ROWS.length} parties classées solo/duo. Ces bilans décrivent le passé et ne changent pas le verdict.</p>
+    ${groupRows(STAT_ROWS, r => r.acct).map(account => {
+      const offPool = account.rows.filter(r => !POOL.includes(r.champ));
+      return html`<div key=${account.name}>
+        <${WinBars} title=${`Victoires par champion, ${account.name}`} groups=${groupRows(account.rows, r => r.champ).slice(0, 8)} />
+        <${WinBars} title="Selon le type de mid adverse" groups=${groupRows(account.rows.filter(r => matchupOf(r.mid)), r => matchupOf(r.mid).t)} />
+        <${WinBars} title=${`Évolution par tranche de ${EVOLUTION_STEP} parties`} groups=${evolutionGroups(account.rows)} />
+        <${StatsTable} title=${account.name} groups=${[
+          { name:"Total", rows:account.rows },
+          { name:"Fizz, TF, Kog'Maw", rows:account.rows.filter(r => POOL.includes(r.champ)) },
+          { name:"Hors de ce pool", rows:offPool }
+        ]} />
+        ${offPool.length ? html`<${StatsTable} title="Hors pool, par rôle" groups=${groupRows(offPool, r => POSITIONS[r.pos] || "Autre")} />
+          <${StatsTable} title="Hors pool, par champion" groups=${groupRows(offPool, r => r.champ).slice(0, 8)} />` : null}
+      </div>`;
+    })}
+  </div>`;
+}
+
+function JournalTab() {
+  const list = loadJournal();
+  if (!list.length) return html`<p className="small">Ton journal est vide : clique sur « Je prends » pendant une draft pour commencer.</p>`;
+  const played = list.filter(x => x.result === "win" || x.result === "loss");
+  const tally = rows => { const w = rows.filter(x => x.result === "win").length; return { wins:w, losses:rows.length - w, games:rows.length }; };
+  const followed = tally(played.filter(x => x.picked === x.suggested));
+  const other = tally(played.filter(x => x.picked !== x.suggested));
+  return html`<div>
+    ${played.length ? html`<h3>Dernières parties</h3>
+      <div className="history" role="img" aria-label=${`${played.filter(x => x.result === "win").length} victoires sur ${played.length} parties notées`}>
+        ${played.slice(-20).map((x, i) => html`<${motion.span} key=${x.id} className=${`game ${x.result}`} title=${`${label(x.picked)} : ${x.result === "win" ? "victoire" : "défaite"}`} initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${{ ...QUICK, delay:i * .012 }}><//>`)}
+      </div>
+      <${WinBars} title="Victoires par champion joué" groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
+      <${WinBars} title="Selon le type de mid adverse" groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: matchupOf(x.mid).t })), r => r.type)} />
+      <h3>Compositions récentes</h3>
+      <ul className="comps">${played.slice(-5).reverse().map(x => html`<li key=${x.id}><span className=${`game ${x.result}`}></span><b>${label(x.picked)}</b><span className="comp-faces">${(x.enemies || []).map(n => html`<${Portrait} key=${n} name=${n} size=${22} />`)}</span></li>`)}</ul>` : null}
+    <p className="small">Conseil suivi : ${fmtRecord(followed)}. Autre choix : ${fmtRecord(other)}. Ces chiffres ne prouvent pas que l'outil aide : tu ne choisis pas au hasard, et il faut plusieurs centaines de parties pour voir un écart fiable.</p>
+    <table><thead><tr><th>Date</th><th>Pick</th><th>Mid</th><th>Conseil</th><th>Résultat</th></tr></thead>
+    <tbody>${list.slice(-10).reverse().map(x => html`<tr key=${x.id}>
+      <td>${new Date(x.date).toLocaleDateString("fr-FR")}</td><td>${label(x.picked)}</td><td>${x.mid || "-"}</td><td>${label(x.suggested || "-")}</td>
+      <td>${{ win:"Victoire", loss:"Défaite", skip:"Ignorée" }[x.result] || "En attente"}</td></tr>`)}</tbody></table>
+    <p style=${{ marginTop:10 }}><button type="button" className="ghost-btn" onClick=${exportJournal}>Télécharger le journal</button></p>
+  </div>`;
+}
+
+const RulesTab = () => html`<div>
+  <h3>Selon la composition adverse</h3>
+  <table><thead><tr><th>Situation</th><th>Pick</th></tr></thead><tbody>
+    <tr><td>Au moins 2 tanks ou bruisers, et tu as un frontline</td><td>Kog'Maw</td></tr>
+    <tr><td>Au moins 2 carrys fragiles, et peu de contrôles ciblés</td><td>Fizz</td></tr>
+    <tr><td>Adversaires lents et peu de plongeurs, et tu as un frontline</td><td>Xerath</td></tr>
+    <tr><td>Tous les autres cas, ou draft inconnue</td><td>Twisted Fate</td></tr>
+  </tbody></table>
+  <h3>Quand éviter chaque pick</h3>
+  <ul className="plain">
+    <li><b>Kog'Maw :</b> ton équipe n'a pas de frontline, ou l'équipe adverse a au moins 2 assassins ou plongeurs.</li>
+    <li><b>Fizz :</b> aucune cible fragile accessible, ou beaucoup de contrôles ciblés en face.</li>
+    <li><b>Xerath :</b> plusieurs champions très mobiles en face, et ton équipe ne peut pas te protéger.</li>
+    <li><b>Twisted Fate :</b> rarement mauvais, mais moins utile si tes mates ne suivent jamais tes ultimes.</li>
+  </ul>
+  <h3>Critères et poids du moteur</h3>
+  <p className="small">Chaque critère donne une note de -2 à +2, multipliée par son poids. Le total sert seulement à comparer tes picks : ce n'est ni un winrate ni une probabilité. Ces poids sont des choix de conception, jamais mesurés sur de vraies parties.</p>
+  <table><thead><tr><th>Critère</th><th>Poids</th><th>D'où ça vient</th></tr></thead><tbody>
+    ${CRITERIA.map(c => html`<tr key=${c.key}><td>${c.label}</td><td>${String(c.weight).replace(".", ",")}</td><td>${c.source}</td></tr>`)}
+  </tbody></table>
+  <h3>Provenance des données</h3>
+  <ul className="plain">
+    <li><b>Officiel (Riot, Data Dragon) :</b> noms, portraits, illustrations, numéro de patch, classes de Locke et Zaahen.</li>
+    <li><b>Statistiques observées :</b> aucune source intégrée. Le lien LoLalytics ouvre simplement leur page.</li>
+    <li><b>Heuristique (écrit à la main) :</b> tableau de matchups, profils de champions, règles, plan de jeu.</li>
+    <li><b>Personnel :</b> ton journal et ton import Riot. Affichés, mais sans effet sur le classement.</li>
+  </ul>
+  <h3>Fiabilité</h3>
+  <p className="small">L'outil suppose que ton équipe a un frontline et le signale si ça changerait le verdict. Le nom affiché ne change que si un autre pick mène nettement. Les rôles autres que le mid servent à l'affichage. Le ban conseillé vient des tableaux de cet outil. La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch 16.21. Seuls les bilans « Tes parties » viennent de tes comptes, et ils portent souvent sur peu de parties.</p>
+  <p className="legal">Outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games.</p>
+</div>`;
+
+const PartiesTab = () => html`<div><${JournalTab} /><${StatsTab} /></div>`;
+const TABS = [["plan", "Plan", PlanTab], ["analyse", "Analyse", AnalyseTab], ["compare", "Comparer", CompareTab], ["matchups", "Mid", MatchupsTab], ["parties", "Parties", PartiesTab], ["rules", "Règles", RulesTab]];
+
+function SidePanel() {
+  const [tab, setTab] = useState(() => { const t = new URLSearchParams(location.search).get("tab"); return TABS.some(x => x[0] === t) ? t : "plan"; });
+  const Current = TABS.find(t => t[0] === tab)[2];
+  return html`<aside className="col col-right">
+    <${PlanBlock} />
+    <div className="tabs" role="tablist" aria-label="Détails et statistiques">
+      ${TABS.map(([key, text]) => html`<button key=${key} type="button" role="tab" aria-selected=${tab === key} data-tab=${key} className=${`tab${tab === key ? " on" : ""}`} onClick=${() => setTab(key)}>
+        ${text}
+        ${tab === key ? html`<${motion.span} className="tab-line" layoutId="tab-line" transition=${SNAP} />` : null}
+      </button>`)}
+    </div>
+    <${motion.div} key=${tab} className="tab-body" role="tabpanel" initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}><${Current} /><//>
+  </aside>`;
+}
+
+function MobileBar() {
+  if (V.none) return null;
+  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  const picked = entry && entry.picked === V.shown;
+  return html`<div className="mobile-bar">
+    <span className="mobile-name"><${Portrait} name=${label(V.shown)} size=${32} />${label(V.shown)}</span>
+    <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je prends"}<//>
+  </div>`;
+}
+
+// ---------- Panneaux compagnon ----------
+const LogoMark = () => html`<svg className="p-logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6" /></svg>`;
+
+function openDetail(tab) {
+  if (IS_HOST) hostSend({ cmd:"openFull", tab: tab || "" });
+  else window.open(`?panel=full${tab ? `&tab=${tab}` : ""}`, "draftmid-full");
+}
+
+function TitleBar() {
+  return html`<header className="p-title">
+    <${LogoMark} /><span className="brand">Draft<b>Mid</b></span>
+    <span className="grow"></span>
+    ${IS_HOST ? html`<span className="p-tools">
+      <button type="button" className="p-btn" title=${hostState.compact ? "Deux panneaux" : "Panneau unique"} aria-label=${hostState.compact ? "Passer à deux panneaux" : "Passer au panneau unique"} onClick=${() => hostSend({ cmd:"toggleCompact" })}>${hostState.compact ? "⧉" : "▭"}</button>
+      <button type="button" className="p-btn" title="Réglages" aria-label="Ouvrir les réglages" onClick=${() => openDetail("settings")}>⚙</button>
+      <button type="button" className="p-btn" title="Masquer" aria-label="Masquer les panneaux" onClick=${() => hostSend({ cmd:"hideAll" })}>×</button>
+    </span>` : null}
+  </header>`;
+}
+
+function VerdictPanel() {
+  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
+  if (V.none) return html`<div className="p-body"><p className="p-empty">Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans les réglages.</p></div>`;
+  const name = label(V.shown);
+  const c = V.res.counts;
+  const threat = threatsFor(V.shown, c)[0];
+  const unknown = 5 - V.n;
+  const picked = entry && entry.picked === V.shown;
+  return html`<div className="p-body">
+    <p className="sr" aria-live="polite">Prends ${name}${V.rival ? `, ${V.clear ? "sinon" : "ou"} ${label(V.rival.pick)}` : ""}</p>
+    <div className="p-status">
+      ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
+      ${unknown ? html`<span className="badge">Provisoire : ${unknown} inconnu${unknown > 1 ? "s" : ""}</span>` : null}
+    </div>
+    <section className="p-reco" aria-label="Champion conseillé">
+      <${SplashStack} name=${name} />
+      <div className="p-reco-scrim"></div>
+      <${motion.div} key=${name} className="p-reco-text" initial=${{ y:8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
+        <span className="p-chip">Recommandé</span>
+        <div className="p-name">${name}</div>
+      <//>
+    </section>
+    ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}><b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}</${motion.p}>` : null}
+    ${V.rival ? html`<button type="button" className="p-alt" title="Comparer ces deux champions" onClick=${() => openDetail("compare")}>
+      <${Portrait} name=${label(V.rival.pick)} size=${40} />
+      <span className="p-alt-text"><small>${V.clear ? "Alternative" : "Presque à égalité"}</small>${label(V.rival.pick)}</span>
+      <span aria-hidden="true">›</span>
+    </button>` : null}
+    <h2 className="p-h">Pourquoi ce choix ?</h2>
+    <ul className="p-reasons">
+      ${(V.reasons.length ? V.reasons : ["Aucun argument marqué pour l'instant : ajoute des adversaires."]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
+    </ul>
+    ${threat ? html`<section className="p-threat" aria-label="Menace principale">
+      <div><b>Menace principale</b><p>${threatText(V.shown, threat, c)}</p></div>
+      <span className="p-threat-who"><${Portrait} name=${threat} size=${36} />${threat}</span>
+    </section>` : null}
+    <section className="p-win"><b>Gagne si</b><p>${winCondition(V.shown, c)}</p></section>
+    ${V.bans[0] ? html`<section className="p-ban" aria-label="Ban conseillé">
+      <h2 className="p-h">Ban conseillé</h2>
+      <div className="p-ban-row"><${Portrait} name=${V.bans[0]} size=${34} /><b>${V.bans[0]}</b>${V.bans.length > 1 ? html`<span>ou ${V.bans.slice(1).join(", ")}</span>` : null}</div>
+      <p className="note">${V.bans[0]} ${banReason(V.bans[0])}.</p>
+    </section>` : null}
+    <div className="p-actions">
+      <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} enregistré` : `Je prends ${name}`}<//>
+      <button type="button" className="ghost-btn" onClick=${() => openDetail("analyse")}>Analyse détaillée</button>
+    </div>
+    ${entry || pending ? html`<div>
+      ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b></p>` : null}
+      <${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />
+    </div>` : null}
+  </div>`;
+}
+
+function Settings({ onClose }) {
+  const toggleExcluded = p => savePrefs({ excluded: PREFS.excluded.includes(p) ? PREFS.excluded.filter(x => x !== p) : PREFS.excluded.concat(p) });
+  const importJournal = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    file.text().then(text => {
+      const incoming = JSON.parse(text);
+      if (!Array.isArray(incoming)) throw new Error("format");
+      const list = loadJournal();
+      const known = new Set(list.map(x => x.id));
+      const added = incoming.filter(x => x && x.id && x.picked && !known.has(x.id));
+      saveJournal(list.concat(added).sort((a, b) => a.id - b.id));
+      setImportNote(`${added.length} partie(s) ajoutée(s) à ton journal.`);
+      publish(null);
+    }).catch(() => setImportNote("Ce fichier n'est pas un journal DraftMid : rien n'a été modifié."));
+  };
+  const [importNote, setImportNote] = useState("");
+  return html`<div className="settings-back" onClick=${e => { if (e.target === e.currentTarget) onClose(); }}>
+    <section className="settings" role="dialog" aria-modal="true" aria-label="Réglages">
+      <header className="sec-title">Réglages <button type="button" className="ghost-btn" onClick=${onClose}>Fermer</button></header>
+      <h3>Exclure temporairement</h3>
+      <div className="set-row">${PICKS.map(p => html`<label key=${p} className="set-check"><input type="checkbox" checked=${PREFS.excluded.includes(p)} onChange=${() => toggleExcluded(p)} /> ${label(p)}</label>`)}</div>
+      <h3>Préférences de jeu</h3>
+      <label className="set-line">À égalité exacte, préférer
+        <select value=${PREFS.favorite || ""} onChange=${e => savePrefs({ favorite: e.target.value || null })}>
+          <option value="">Aucun</option>
+          ${PICKS.map(p => html`<option key=${p} value=${p}>${label(p)}</option>`)}
+        </select>
+      </label>
+      <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Supposer un frontline dans mon équipe</label>
+      ${hostState.available ? html`<div>
+        <h3>Application</h3>
+        <label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> Démarrer avec Windows</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Placer les panneaux autour du client LoL</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Panneau unique</label>
+        <p className="small">${hostState.placement || ""}</p>
+      </div>` : null}
+      <h3>Journal</h3>
+      <p className="small">Pour récupérer l'ancien journal : télécharge-le depuis l'ancienne page, onglet Journal, puis importe le fichier ici. Rien n'est supprimé.</p>
+      <p><input type="file" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
+      ${importNote ? html`<p className="small">${importNote}</p>` : null}
+      <h3>Source de la draft</h3>
+      <ul className="plain">
+        <li><b>Saisie manuelle :</b> active.</li>
+        <li><b>Simulation :</b> <button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></li>
+        <li><b>Lecture automatique Riot :</b> désactivée. Aucune connexion au client tant que Riot n'a pas confirmé que c'est autorisé.</li>
+      </ul>
+    </section>
+  </div>`;
+}
+
+function CompactEnemies() {
+  const slots = deriveSlots();
+  return html`<div className="p-compact-enemies">
+    <${SearchBox} />
+    <div className="roles compact-roles">
+      ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} />`)}
+    </div>
+  </div>`;
+}
+
+function PanelApp() {
+  return html`<div className=${`panel panel-${PANEL}`}>
+    <${TitleBar} />
+    ${PANEL === "left" ? html`<${EnemyPanel} />` : null}
+    ${PANEL === "right" ? html`<${VerdictPanel} />` : null}
+    ${PANEL === "compact" ? html`<div className="p-scroll"><${CompactEnemies} /><${VerdictPanel} /></div>` : null}
+  </div>`;
+}
+
+function App() {
+  const [, force] = useReducer(x => x + 1, 0);
+  const [showSettings, setShowSettings] = useState(() => new URLSearchParams(location.search).get("tab") === "settings");
+  useEffect(() => {
+    rerender = force;
+    if (channel) channel.postMessage({ kind:"hello" });
+    if (IS_HOST) {
+      window.chrome.webview.addEventListener("message", e => {
+        const m = e.data;
+        if (m.kind === "host") { Object.assign(hostState, m, { available:true }); force(); }
+        if (m.kind === "demo") runDemo(m.stepMs);
+        if (m.kind === "openSettings") setShowSettings(true);
+        if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
+      });
+      hostSend({ cmd:"getHost" });
+    }
+    const onKey = e => {
+      const active = document.activeElement;
+      const add = document.getElementById("add");
+      const inField = active && (active.id === "add" || active.id === "q");
+      if (e.key === "Escape") {
+        if (!inField || active.id === "add") resetDraft();
+      } else if (!inField) {
+        if (e.key === "Backspace" && state.enemies.length) { e.preventDefault(); removeEnemy(state.enemies[state.enemies.length - 1]); }
+        else if (e.key.length === 1 && e.key !== " " && !e.ctrlKey && !e.metaKey && !e.altKey && add && !add.disabled) add.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    focusAdd();
+    PICKS.forEach(p => preloadSplash(label(p)));
+    fetch("https://ddragon.leagueoflegends.com/api/versions.json").then(r => r.json()).then(list => { if (list && list[0]) { ddVersion = list[0]; force(); } }).catch(() => {});
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+  if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
+  return html`<${MotionConfig} reducedMotion="user">
+    ${showSettings ? html`<${Settings} onClose=${() => setShowSettings(false)} />` : null}
+    <div className="app">
+      <header className="top">
+        <span className="brand">Draft<b>Mid</b></span>
+        <span className="patch">Patch ${ddVersion.split(".").slice(0, 2).join(".")}</span>
+        <span className="grow"></span>
+        <button type="button" className="ghost-btn" onClick=${() => setShowSettings(true)}>Réglages</button>
+        <button type="button" className="ghost-btn" disabled=${!state.enemies.length} onClick=${resetDraft}>Nouvelle draft</button>
+      </header>
+      <div className="desk">
+        <${EnemyPanel} />
+        <main className="col col-mid"><${Stage} /><${Ranking} /></main>
+        <${SidePanel} />
+      </div>
+      <${MobileBar} />
+    </div>
+  <//>`;
+}
+
+Object.assign(state, { roleOf:{}, targetRole:null, selected:null });
+computeVerdict();
+ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+</script>
+</body>
+</html>

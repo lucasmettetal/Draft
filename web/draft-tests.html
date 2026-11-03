@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>DraftMid : tests du moteur</title>
+<style>
+  body { margin:0; padding:20px; background:#0a0f16; color:#e8eef5; font:14px/1.45 Bahnschrift,"Segoe UI",Arial,sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p { color:#93a3b6; max-width:80ch; }
+  .case { margin:12px 0; padding:10px 12px; background:#111822; border-left:3px solid #3fd8c6; }
+  .case.ko { border-left-color:#f2777a; }
+  .case h2 { margin:0 0 4px; font-size:15px; }
+  .why { color:#93a3b6; margin:0 0 4px; }
+  .rank { color:#d4b36a; }
+  .ko-line { color:#f2777a; }
+</style>
+</head>
+<body>
+<h1>Tests stratégiques du moteur DraftMid</h1>
+<p>Chaque attente découle d'un principe de jeu, pas du score actuel. Un échec peut donc venir du moteur ou du principe : à examiner, pas à effacer. Le score sert à comparer les picks, ce n'est pas une probabilité.</p>
+<div id="summary"></div>
+<div id="out"></div>
+<script src="draft-engine.js"></script>
+<script src="draft-providers.js"></script>
+<script>
+const scenarios = [];
+const scenario = (name, why, enemies, mid, check) => scenarios.push({ name, why, enemies, mid, check });
+const pos = (r, p) => r.ranking.findIndex(x => x.pick === p);
+const impact = (r, p, key) => { const c = r.ranking.find(x => x.pick === p).criteria.find(x => x.key === key); return c ? c.impact : 0; };
+
+scenario("Composition très tanky", "Kog'Maw fait des dégâts en % des PV, et Fizz n'a rien à éliminer.",
+  ["Ornn", "Sejuani", "Galio", "Sion", "Braum"], "Galio", (r, t) => {
+    t(pos(r, "Kog'Maw") === 0, "Kog'Maw arrive en tête");
+    t(pos(r, "Fizz") >= 2, "Fizz n'est pas dans les deux premiers");
+    t(impact(r, "Kog'Maw", "front") > 0, "le critère tanks favorise Kog'Maw");
+  });
+scenario("Beaucoup d'assassins", "Un champion immobile est la proie idéale des plongeurs.",
+  ["Talon", "Kha'Zix", "Zed", "Samira", "Pyke"], "Zed", (r, t) => {
+    t(pos(r, "Kog'Maw") >= 2 && pos(r, "Xerath") >= 2, "Kog'Maw et Xerath ne sont pas dans les deux premiers");
+    t(impact(r, "Kog'Maw", "dive") < 0 && impact(r, "Xerath", "dive") < 0, "le critère plongeurs les pénalise tous les deux");
+  });
+scenario("Longue portée", "Xerath peut répondre à distance, Kog'Maw se fait toucher avant de frapper, et ces mages fragiles sont des cibles pour Fizz.",
+  ["Jayce", "Nidalee", "Ziggs", "Varus", "Lux"], "Ziggs", (r, t) => {
+    t(impact(r, "Xerath", "range") > 0, "le critère portée favorise Xerath");
+    t(impact(r, "Kog'Maw", "range") < 0, "le critère portée pénalise Kog'Maw");
+    t(impact(r, "Fizz", "targets") > 0, "Fizz a des cibles");
+    t(pos(r, "Kog'Maw") !== 0, "Kog'Maw n'est pas en tête");
+  });
+scenario("Beaucoup de contrôles", "Un plongeur meurt s'il entre dans plusieurs contrôles ciblés.",
+  ["Renekton", "Vi", "Lissandra", "Jinx", "Nautilus"], "Lissandra", (r, t) => {
+    t(impact(r, "Fizz", "control") < 0, "le critère contrôles pénalise Fizz");
+    t(pos(r, "Fizz") !== 0, "Fizz n'est pas en tête");
+  });
+scenario("Orientée engage", "Face à plusieurs engages, mieux vaut pouvoir jouer loin et revenir qu'être immobile.",
+  ["Malphite", "Sejuani", "Galio", "Xayah", "Rakan"], "Galio", (r, t) => {
+    t(impact(r, "TF", "control") > 0, "Twisted Fate est favorisé sur ce critère");
+    t(impact(r, "Kog'Maw", "control") < 0 && impact(r, "Xerath", "control") < 0, "les champions immobiles sont pénalisés");
+  });
+scenario("Orientée poke", "Un assassin peut punir une équipe de poke fragile sans frontline.",
+  ["Jayce", "Nidalee", "Zoe", "Ezreal", "Seraphine"], "Zoe", (r, t) => {
+    t(pos(r, "Fizz") === 0, "Fizz arrive en tête");
+    t(impact(r, "Kog'Maw", "range") < 0, "Kog'Maw reste pénalisé par la portée");
+  });
+scenario("Mixte équilibrée", "Sans profil dominant, le matchup mid doit peser le plus lourd.",
+  ["Darius", "Vi", "Orianna", "Jinx", "Soraka"], "Orianna", (r, t) => {
+    t(pos(r, "Fizz") === 0, "le 1er choix du tableau contre Orianna reste en tête");
+    t(impact(r, "Fizz", "matchup") > 0, "le matchup l'explique");
+  });
+scenario("Bon matchup contre contrôles", "Vi et Lulu punissent Fizz malgré son bon matchup : le verdict doit rester ouvert, pas tranché en silence.",
+  ["Darius", "Vi", "Orianna", "Jinx", "Lulu"], "Orianna", (r, t) => {
+    t(impact(r, "Fizz", "matchup") > 0 && impact(r, "Fizz", "control") < 0, "l'avantage et le risque de Fizz sont tous les deux visibles");
+    t(r.ranking[0].score - r.ranking[1].score < HOLD_GAP, "l'écart reste sous le seuil, donc affiché comme serré");
+  });
+scenario("Draft partielle, mid connu", "Peu d'informations : aucune règle de composition ne doit s'emballer.",
+  ["Ahri"], "Ahri", (r, t) => {
+    t(r.ranking.length === 4, "les 4 picks restent classés");
+    t(impact(r, "Kog'Maw", "matchup") < 0, "le matchup est pris en compte");
+    t(!r.ranking.some(p => p.criteria.some(c => c.key === "front" || c.key === "dive")), "aucun critère de composition n'est déclenché à tort");
+  });
+scenario("Mid inconnu", "Sans mid connu, on regarde quel pick a le moins de mauvais matchups, calculé depuis le tableau.",
+  ["Ornn"], null, (r, t) => {
+    t(r.ranking.every(p => p.criteria.some(c => c.key === "blind")), "le critère sécurité s'applique à tous");
+    t(!r.ranking.some(p => p.criteria.some(c => c.key === "matchup")), "aucun matchup n'est inventé");
+    const blind = p => impact(r, p, "blind");
+    t(blind("TF") > blind("Fizz"), "le pick avec le moins de matchups à éviter est le mieux noté");
+  });
+scenario("Avantages et risques contradictoires", "Kog'Maw est bon contre 3 tanks mais à éviter contre Ahri : les deux doivent être visibles.",
+  ["Ornn", "Sejuani", "Ahri", "Jinx", "Leona"], "Ahri", (r, t) => {
+    t(impact(r, "Kog'Maw", "front") > 0, "avantage visible : tanks");
+    t(impact(r, "Kog'Maw", "matchup") < 0, "risque visible : matchup");
+    const k = r.ranking.find(p => p.pick === "Kog'Maw");
+    t(k.why.some(w => w.v > 0) && k.why.some(w => w.v < 0), "les deux figurent dans les raisons");
+  });
+scenario("Presque ex æquo", "Exemple du brief : Twisted Fate et Kog'Maw ont des raisons opposées, le moteur doit le signaler.",
+  ["Sett", "Vi", "Galio", "Samira", "Janna"], "Galio", (r, t) => {
+    const gap = r.ranking[0].score - r.ranking[1].score;
+    t(gap < HOLD_GAP, "l'écart reste sous le seuil, donc affiché comme serré");
+    t(["TF", "Kog'Maw"].includes(r.ranking[0].pick) && ["TF", "Kog'Maw"].includes(r.ranking[1].pick), "Twisted Fate et Kog'Maw sont les deux premiers");
+    const cmp = comparePicks(r.ranking[0], r.ranking[1]);
+    t(cmp.decisive.length > 0, "la comparaison montre les critères qui font la différence");
+  });
+scenario("Champion pris en face", "Un champion déjà pris ne peut jamais être conseillé.",
+  ["Fizz", "Ornn"], "Fizz", (r, t) => {
+    t(pos(r, "Fizz") === -1, "Fizz n'est pas proposé");
+    t(r.ranking.length === 3, "il reste 3 picks");
+  });
+
+const out = document.getElementById("out");
+let fails = 0, total = 0;
+
+function unitBlock(name, why, run) {
+  const lines = [];
+  const t = (ok, text) => { total++; if (!ok) fails++; lines.push(`<div class="${ok ? "" : "ko-line"}">${ok ? "OK" : "ÉCHEC"} : ${text}</div>`); };
+  run(t);
+  out.insertAdjacentHTML("beforeend", `<div class="case${lines.join("").includes("ÉCHEC") ? " ko" : ""}"><h2>${name}</h2><p class="why">${why}</p>${lines.join("")}</div>`);
+}
+
+unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas être supposé mid si un candidat plus logique existe.", t => {
+  t(guessMid(["Sett", "Vi", "Galio", "Samira", "Janna"]) === "Galio", "Galio est supposé mid dans l'exemple du brief");
+  t(guessMid(["Lulu", "Ornn", "Zed"]) === "Zed", "Zed passe avant Lulu, typée support");
+  t(guessMid(["Diana", "Ahri"]) === "Ahri", "Ahri passe avant Diana, typée jungle");
+  t(guessMid(["Locke", "Bard"]) === null, "aucune supposition sans fiche de matchup");
+});
+
+unitBlock("Préférences", "Exclure un pick le retire partout. Le favori ne départage qu'une égalité exacte et ne change aucun score.", t => {
+  const base = analyze(["Ornn"], null, true).ranking.map(p => [p.pick, p.score]);
+  ENGINE_PREFS.excluded = ["Fizz"];
+  const r = analyze(["Ahri"], "Ahri", true);
+  t(!r.ranking.some(p => p.pick === "Fizz"), "un pick exclu n'est plus proposé");
+  t(!banReason("Annie").includes("Fizz"), "le ban ne cite plus un pick exclu");
+  const bans = suggestBans();
+  t(bans.length > 0, "un ban reste proposé");
+  ENGINE_PREFS.excluded = ["Fizz", "TF", "Kog'Maw", "Xerath"];
+  t(analyze(["Ahri"], "Ahri", true).ranking.length === 0, "tout exclure ne provoque pas d'erreur");
+  ENGINE_PREFS.excluded = [];
+  ENGINE_PREFS.favorite = "Kog'Maw";
+  const fav = analyze(["Ornn"], null, true).ranking.map(p => [p.pick, p.score]);
+  t(JSON.stringify(fav.map(x => x[1]).sort()) === JSON.stringify(base.map(x => x[1]).sort()), "le favori ne change aucun score");
+  ENGINE_PREFS.favorite = null;
+});
+
+unitBlock("Connecteurs de draft", "Les événements doivent produire le même résultat qu'une saisie, et le connecteur Riot doit rester inerte.", t => {
+  const enemies = [];
+  const log = [];
+  const api = {
+    reset() { enemies.length = 0; log.push("reset"); },
+    setActive(v) { log.push(`active:${v}`); },
+    add(c) { enemies.push(c); },
+    remove(c) { enemies.splice(enemies.indexOf(c), 1); },
+    replace(a, b) { enemies[enemies.indexOf(a)] = b; },
+    setRole(c, r) { log.push(`${c}:${r}`); }
+  };
+  DEMO_SCRIPT.forEach(ev => applyDraftEvent(ev, api));
+  t(enemies.join() === "Sett,Vi,Galio,Samira,Janna", "la simulation aboutit à la bonne composition");
+  t(log.join() === "reset,active:true,Samira:adc,active:false", "début, rôle et fin sont bien transmis");
+  let threw = false;
+  try { applyDraftEvent({ type:"inconnu" }, api); } catch (e) { threw = true; }
+  t(threw, "un événement inconnu est refusé");
+  const riot = new RiotDraftProvider(() => {});
+  t(riot.enabled === false, "RiotDraftProvider est désactivé");
+  let blocked = false;
+  try { riot.start(); } catch (e) { blocked = true; }
+  t(blocked, "son démarrage est refusé");
+  t(!/fetch\(|XMLHttpRequest|WebSocket|lockfile/.test(RiotDraftProvider.toString()), "il ne contient aucun code de connexion");
+});
+scenarios.forEach(s => {
+  const r = analyze(s.enemies, s.mid, true);
+  const lines = [];
+  const t = (ok, text) => { total++; if (!ok) fails++; lines.push(`<div class="${ok ? "" : "ko-line"}">${ok ? "OK" : "ÉCHEC"} : ${text}</div>`); };
+  s.check(r, t);
+  const bad = lines.some(l => l.includes("ÉCHEC"));
+  out.insertAdjacentHTML("beforeend", `<div class="case${bad ? " ko" : ""}"><h2>${s.name}</h2><p class="why">${s.why}</p><div class="rank">${s.enemies.join(", ")} : ${r.ranking.map(p => label(p.pick)).join(" &gt; ")}</div>${lines.join("")}</div>`);
+});
+
+// Invariants vérifiés sur des drafts au hasard, tirage reproductible.
+let seed = 12345;
+const rnd = n => { seed = (seed * 16807) % 2147483647; return seed % n; };
+const names = Object.keys(ROSTER);
+const issues = { somme:0, texte:0, signe:0, plan:0, double:0, aucun:0, carte:0, raison:0 };
+const DRAFTS = 3000;
+for (let i = 0; i < DRAFTS; i++) {
+  const list = [];
+  const n = rnd(6);
+  while (list.length < n) { const c = names[rnd(names.length)]; if (!list.includes(c)) list.push(c); }
+  const mids = list.filter(matchupOf);
+  const mid = mids.length && rnd(4) ? mids[rnd(mids.length)] : null;
+  const r = analyze(list, mid, rnd(5) !== 0);
+  if (!r.ranking.length) issues.aucun++;
+  r.ranking.forEach(p => {
+    const sum = p.criteria.reduce((s, c) => s + c.impact, 0);
+    if (Math.abs(sum - p.score) > 1e-9) issues.somme++;
+    if (p.criteria.some(c => !c.text)) issues.texte++;
+    if (p.why.some(w => /^(À éviter|Aucune cible|Ton équipe n'a pas)/.test(w.text) && w.v > 0)) issues.signe++;
+    const keys = p.criteria.map(c => c.key);
+    if (new Set(keys).size !== keys.length) issues.double++;
+    const plan = buildPlan(p.pick, r.counts, mid, list[0]);
+    if (![plan.lane, plan.mid, plan.fight].every(x => x.length >= 1 && x.length <= 3)) issues.plan++;
+    if ([...plan.lane, ...plan.mid, ...plan.fight].some(x => /\b(undefined|null|false)\b/.test(x))) issues.plan++;
+  });
+  for (let a = 1; a < r.ranking.length; a++) {
+    if (r.ranking[a - 1].score < r.ranking[a].score) issues.signe++;
+    const lead = leadCriterion(r.ranking[a - 1], r.ranking[a]);
+    if (r.ranking[a - 1].score - r.ranking[a].score > 1e-9 && (!lead || lead.diff <= 0)) issues.raison++;
+  }
+  r.ranking.forEach(p => { if (list.includes(label(p.pick))) issues.carte++; });
+}
+const labels = { somme:"le score est bien la somme des critères", texte:"chaque critère a une explication", signe:"le signe des raisons et le classement sont cohérents", double:"aucun critère compté deux fois pour un pick", plan:"chaque plan a 1 à 3 conseils complets", aucun:"il reste toujours un pick", carte:"un champion pris n'est jamais conseillé", raison:"le critère cité avantage bien le pick placé devant" };
+const lines = Object.keys(labels).map(k => { total++; if (issues[k]) fails++; return `<div class="${issues[k] ? "ko-line" : ""}">${issues[k] ? "ÉCHEC" : "OK"} : ${labels[k]}${issues[k] ? ` (${issues[k]} cas)` : ""}</div>`; });
+out.insertAdjacentHTML("beforeend", `<div class="case${lines.join("").includes("ÉCHEC") ? " ko" : ""}"><h2>Invariants sur ${DRAFTS} drafts au hasard</h2>${lines.join("")}</div>`);
+
+// Part des premières places, pour repérer un favoritisme : ce n'est pas une mesure de qualité.
+const firsts = {};
+seed = 777;
+for (let i = 0; i < DRAFTS; i++) {
+  const list = [];
+  while (list.length < 5) { const c = names[rnd(names.length)]; if (!list.includes(c)) list.push(c); }
+  const mids = list.filter(matchupOf);
+  const r = analyze(list, mids.length ? mids[rnd(mids.length)] : null, true);
+  if (r.ranking[0]) firsts[r.ranking[0].pick] = (firsts[r.ranking[0].pick] || 0) + 1;
+}
+out.insertAdjacentHTML("beforeend", `<div class="case"><h2>Répartition des premières places</h2><p class="why">Drafts au hasard, peu réalistes : sert seulement à repérer un champion favorisé par construction.</p>${Object.entries(firsts).map(([k, v]) => `${label(k)} : ${v}`).join(", ")}</div>`);
+document.getElementById("summary").textContent = `${total - fails} vérifications réussies sur ${total}.`;
+document.title = fails ? `${fails} échec(s)` : "Tout est bon";
+</script>
+</body>
+</html>
