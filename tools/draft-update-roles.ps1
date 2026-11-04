@@ -8,6 +8,9 @@ param(
     [string]$Region = 'europe',
     [string[]]$Tiers = @('SILVER', 'GOLD', 'PLATINUM', 'EMERALD'),
     [string]$OutDir = (Join-Path $env:LOCALAPPDATA 'DraftMid'),
+    [string]$PlatformUrl = "https://$Platform.api.riotgames.com",
+    [string]$RegionUrl = "https://$Region.api.riotgames.com",
+    [int]$MaxFailures = 5,
     [string]$TestMatchFile
 )
 
@@ -24,11 +27,25 @@ $OutPath = Join-Path $OutDir 'draft-role-rates-live.js'
 $counts = @{}
 $counted = 0
 
-function Invoke-Riot([string]$Url, [hashtable]$Headers) {
+$script:lastError = ''
+$script:failures = 0
+
+# Message de Riot, sans la cle ni le puuid, qui n'y figurent pas et ne sont jamais affiches ici.
+function Get-RiotMessage($ErrorRecord) {
+    $body = ''
+    if ($ErrorRecord.ErrorDetails) { $body = [string]$ErrorRecord.ErrorDetails.Message }
+    if ($body -match '"message"\s*:\s*"([^"]{1,150})"') { return $Matches[1] }
+    return 'sans detail'
+}
+
+# Renvoie $null si la requete est refusee : une seule reponse refusee n'arrete pas tout le calcul.
+function Invoke-Riot([string]$Url, [hashtable]$Headers, [string]$Label) {
     while ($true) {
         Start-Sleep -Milliseconds $DelayMs
         try {
-            return Invoke-RestMethod -Uri $Url -Headers $Headers -Method Get
+            $answer = Invoke-RestMethod -Uri $Url -Headers $Headers -Method Get
+            $script:failures = 0
+            return $answer
         } catch {
             $response = $_.Exception.Response
             if (-not $response) { throw }
@@ -43,7 +60,14 @@ function Invoke-Riot([string]$Url, [hashtable]$Headers) {
             }
             if ($code -eq 401 -or $code -eq 403) { throw "Cle Riot refusee ou expiree (code $code)." }
             if ($code -eq 404) { return $null }
-            throw "Erreur Riot (code $code) sur une requete."
+            $script:lastError = "$Label : code $code, $(Get-RiotMessage $_)"
+            Write-Host "  Refuse par Riot - $($script:lastError)"
+            $script:failures++
+            if ($script:failures -ge $MaxFailures) {
+                if ($counted -gt 0) { Save-Rates }
+                throw "Arret apres $MaxFailures refus de suite. Dernier refus - $($script:lastError)"
+            }
+            return $null
         }
     }
 }
@@ -88,15 +112,15 @@ if (-not $key) {
 if (-not $key) { throw 'Aucune cle fournie.' }
 $headers = @{ 'X-Riot-Token' = $key.Trim() }
 
-$platformUrl = "https://$Platform.api.riotgames.com"
-$regionUrl = "https://$Region.api.riotgames.com"
 $startTime = [DateTimeOffset]::UtcNow.AddDays(-$Days).ToUnixTimeSeconds()
 
 $players = New-Object System.Collections.ArrayList
 foreach ($tier in $Tiers) {
     Write-Host "Joueurs $tier..."
-    $entries = @(Invoke-Riot "$platformUrl/lol/league-exp/v4/entries/RANKED_SOLO_5x5/$tier/II?page=1" $headers)
-    foreach ($entry in $entries) { if ($entry.puuid) { [void]$players.Add([string]$entry.puuid) } }
+    $entries = @(Invoke-Riot "$PlatformUrl/lol/league-exp/v4/entries/RANKED_SOLO_5x5/$tier/II?page=1" $headers "liste $tier")
+    $added = 0
+    foreach ($entry in $entries) { if ($entry -and $entry.puuid) { [void]$players.Add([string]$entry.puuid); $added++ } }
+    Write-Host "  $added joueurs"
 }
 if ($players.Count -eq 0) { throw 'Aucun joueur lu : le format de reponse de Riot a peut-etre change.' }
 $players = @($players | Sort-Object { Get-Random })
@@ -104,12 +128,12 @@ $players = @($players | Sort-Object { Get-Random })
 $seen = @{}
 foreach ($puuid in $players) {
     if ($counted -ge $Games) { break }
-    $ids = @(Invoke-Riot "$regionUrl/lol/match/v5/matches/by-puuid/$puuid/ids?queue=$QueueSoloDuo&startTime=$startTime&start=0&count=$MatchesPerPlayer" $headers | Where-Object { $_ })
+    $ids = @(Invoke-Riot "$RegionUrl/lol/match/v5/matches/by-puuid/$puuid/ids?queue=$QueueSoloDuo&startTime=$startTime&start=0&count=$MatchesPerPlayer" $headers 'historique d''un joueur' | Where-Object { $_ })
     foreach ($id in $ids) {
         if ($counted -ge $Games) { break }
         if ($seen.ContainsKey($id)) { continue }
         $seen[$id] = $true
-        $match = Invoke-Riot "$regionUrl/lol/match/v5/matches/$id" $headers
+        $match = Invoke-Riot "$RegionUrl/lol/match/v5/matches/$id" $headers 'detail d''une partie'
         if ($match) { Add-Match $match }
         if ($counted -gt 0 -and $counted % $SaveEvery -eq 0) {
             Save-Rates
