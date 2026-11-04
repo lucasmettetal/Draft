@@ -949,7 +949,7 @@ const iconUrl = name => `https://ddragon.leagueoflegends.com/cdn/${ddVersion}/im
 const splashUrl = name => `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${ddId(name)}_0.jpg`;
 
 // ---------- Interface ----------
-const { useState, useEffect, useReducer, useRef } = React;
+const { useState, useEffect, useReducer, useRef, useCallback } = React;
 const { motion, LayoutGroup, MotionConfig } = Motion;
 const html = htm.bind(React.createElement);
 const SNAP = { type:"spring", stiffness:520, damping:42, mass:.7 };
@@ -1636,9 +1636,15 @@ function Settings({ onClose }) {
     }).catch(() => setImportNote("Ce fichier n'est pas un journal DraftMid : rien n'a été modifié."));
   };
   const [importNote, setImportNote] = useState("");
+  // Échap ferme les réglages sans effacer la draft en cours.
+  useEffect(() => {
+    const onEscape = e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [onClose]);
   return html`<div className="settings-back" onClick=${e => { if (e.target === e.currentTarget) onClose(); }}>
     <section className="settings" role="dialog" aria-modal="true" aria-label="Réglages">
-      <header className="sec-title">Réglages <button type="button" className="ghost-btn" onClick=${onClose}>Fermer</button></header>
+      <header className="sec-title">Réglages <button type="button" className="ghost-btn" autoFocus=${true} onClick=${onClose}>Fermer</button></header>
       <h3>Exclure temporairement</h3>
       <div className="set-row">${PICKS.map(p => html`<label key=${p} className="set-check"><input type="checkbox" checked=${PREFS.excluded.includes(p)} onChange=${() => toggleExcluded(p)} /> ${label(p)}</label>`)}</div>
       <h3>Préférences de jeu</h3>
@@ -1696,6 +1702,12 @@ function PanelApp() {
 function App() {
   const [, force] = useReducer(x => x + 1, 0);
   const [showSettings, setShowSettings] = useState(() => new URLSearchParams(location.search).get("tab") === "settings");
+  // Ouverts depuis un panneau, les réglages ont leur propre fenêtre : les fermer la referme aussi.
+  const settingsWindow = useRef(IS_HOST && new URLSearchParams(location.search).get("tab") === "settings");
+  const closeSettings = useCallback(() => {
+    setShowSettings(false);
+    if (settingsWindow.current) { settingsWindow.current = false; hostSend({ cmd:"closeFull" }); }
+  }, []);
   useEffect(() => {
     rerender = force;
     if (channel) channel.postMessage({ kind:"hello" });
@@ -1731,7 +1743,7 @@ function App() {
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
   return html`<${MotionConfig} reducedMotion="user">
-    ${showSettings ? html`<${Settings} onClose=${() => setShowSettings(false)} />` : null}
+    ${showSettings ? html`<${Settings} onClose=${closeSettings} />` : null}
     <div className="app">
       <header className="top">
         <span className="brand">Draft<b>Mid</b></span>

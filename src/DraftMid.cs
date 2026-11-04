@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.7.0.0")]
-[assembly: AssemblyFileVersion("2.7.0.0")]
+[assembly: AssemblyVersion("2.7.1.0")]
+[assembly: AssemblyFileVersion("2.7.1.0")]
 
 namespace DraftMid
 {
@@ -42,7 +42,7 @@ namespace DraftMid
         [DllImport("shcore.dll")] public static extern int GetDpiForMonitor(IntPtr m, int type, out uint x, out uint y);
         [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int ht, uint flags);
         public delegate bool MonitorProc(IntPtr m, IntPtr dc, ref RECT r, IntPtr l);
-        public const uint SWP_NOACTIVATE = 0x10, SWP_NOZORDER = 0x4, SWP_SHOWWINDOW = 0x40;
+        public const uint SWP_NOSIZE = 0x1, SWP_NOACTIVATE = 0x10, SWP_NOZORDER = 0x4, SWP_SHOWWINDOW = 0x40;
         public static readonly IntPtr PMV2 = new IntPtr(-4);
 
         [StructLayout(LayoutKind.Sequential)]
@@ -243,12 +243,13 @@ public static class Autostart
         {
             Id = id;
             this.app = app;
-            FormBorderStyle = FormBorderStyle.None;
+            // La fenêtre complète est une vraie fenêtre Windows : barre de titre, déplacement et fermeture.
+            FormBorderStyle = id == "full" ? FormBorderStyle.Sizable : FormBorderStyle.None;
             ShowInTaskbar = id == "full";
             StartPosition = FormStartPosition.Manual;
             BackColor = Color.FromArgb(10, 15, 22);
             // La marge sert à redimensionner : aucune du côté collé au client, pour ne pas laisser de cadre visible.
-            Padding = id == "left" ? new Padding(Border, Border, 0, Border) : id == "right" ? new Padding(0, Border, Border, Border) : new Padding(Border);
+            Padding = id == "full" ? Padding.Empty : id == "left" ? new Padding(Border, Border, 0, Border) : id == "right" ? new Padding(0, Border, Border, Border) : new Padding(Border);
             Text = id == "full" ? "DraftMid" : "DraftMid : " + id;
             if (app.AppIcon != null) Icon = app.AppIcon;
             View = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.FromArgb(10, 15, 22) };
@@ -262,7 +263,7 @@ public static class Autostart
             const int WM_NCHITTEST = 0x84, WM_ENTERSIZEMOVE = 0x231, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
             if (m.Msg == WM_DPICHANGED) { base.WndProc(ref m); app.OnDpiChanged(); return; }
             if (m.Msg == WM_ENTERSIZEMOVE) beforeMove = Bounds;
-            if (m.Msg == WM_NCHITTEST)
+            if (m.Msg == WM_NCHITTEST && Id != "full")
             {
                 Point p = PointToClient(new Point((short)(m.LParam.ToInt64() & 0xFFFF), (short)((m.LParam.ToInt64() >> 16) & 0xFFFF)));
                 bool l = p.X < Border, r = p.X >= ClientSize.Width - Border, t = p.Y < Border, b = p.Y >= ClientSize.Height - Border;
@@ -270,7 +271,7 @@ public static class Autostart
                 if (hit != 0) { m.Result = new IntPtr(hit); return; }
             }
             base.WndProc(ref m);
-            if (m.Msg == WM_EXITSIZEMOVE)
+            if (m.Msg == WM_EXITSIZEMOVE && Id != "full")
             {
                 // Un simple clic sur un bord ne doit pas couper le suivi du client.
                 if (MovedOnPurpose(beforeMove, Bounds)) app.PanelMovedByUser(this);
@@ -322,7 +323,7 @@ public static class Autostart
 
     public class CompanionApp : ApplicationContext
     {
-        const int SlowPollMs = 2000, SampleMs = 1000, MoveCoalesceMs = 16, MinUpdateMs = 16, ModeSettleMs = 350;
+        const int SlowPollMs = 2000, SampleMs = 1000, MoveCoalesceMs = 16, MinUpdateMs = 8, MoveSettleMs = 150, ModeSettleMs = 350;
         long lastClientUpdate;
         readonly string dataDir, webDir, settingsPath, exePath;
         readonly Options opts;
@@ -698,6 +699,7 @@ public static class Autostart
             if (!panelsShown) return;
             if (!ClientVisible || !settings.Follow) { PlaceManual(); return; }
             Native.RECT client = tracker.Rect;
+            if (!force && TranslatePanels(client)) return;
             Placement p = Layout.Compute(client, ClientWindow.Monitors(), settings.Compact);
             placementNote = p.Note;
             if (p.Mode == "manual") { PlaceManual(); RefreshUi(); return; }
@@ -710,6 +712,42 @@ public static class Autostart
             }
             pendingMode = "";
             Place(p);
+        }
+
+        Native.RECT placedClient;
+        readonly Dictionary<string, Native.RECT> placedRects = new Dictionary<string, Native.RECT>();
+        System.Windows.Forms.Timer settleTimer;
+
+        // Pendant un déplacement, les panneaux glissent sans changer de taille : un redimensionnement forcerait
+        // WebView2 à tout redessiner à chaque pas, d'où un retard visible. La taille est recalculée à l'arrêt.
+        bool TranslatePanels(Native.RECT client)
+        {
+            if (shownMode == "" || !PanelsReady(shownMode) || client.W != placedClient.W || client.H != placedClient.H) return false;
+            int dx = client.Left - placedClient.Left, dy = client.Top - placedClient.Top;
+            if (dx == 0 && dy == 0) return false;
+            string[] ids = shownMode == "two" ? new[] { "left", "right" } : new[] { "compact" };
+            if (ids.Any(id => !placedRects.ContainsKey(id))) return false;
+            PanelForm[] forms = ids.Select(id => panels[id]).ToArray();
+            Native.RECT[] rects = ids.Select(id => { Native.RECT r = placedRects[id]; return new Native.RECT(r.Left + dx, r.Top + dy, r.Right + dx, r.Bottom + dy); }).ToArray();
+            MoveTogether(forms, rects, true);
+            for (int i = 0; i < ids.Length; i++) placedRects[ids[i]] = rects[i];
+            placedClient = client;
+            MoveCount++;
+            if (settleTimer == null)
+            {
+                settleTimer = new System.Windows.Forms.Timer { Interval = MoveSettleMs };
+                settleTimer.Tick += (s, e) => { settleTimer.Stop(); UpdatePlacement(true); };
+            }
+            settleTimer.Stop();
+            settleTimer.Start();
+            return true;
+        }
+
+        void RememberPlacement(string[] ids, Native.RECT[] rects)
+        {
+            placedClient = tracker.Rect;
+            placedRects.Clear();
+            for (int i = 0; i < ids.Length; i++) placedRects[ids[i]] = rects[i];
         }
 
         bool PanelsReady(string mode)
@@ -733,21 +771,23 @@ public static class Autostart
                 PanelForm l = panels["left"], r = panels["right"];
                 HideOne("compact");
                 MoveTogether(new[] { l, r }, new[] { p.Left, p.Right });
+                RememberPlacement(new[] { "left", "right" }, new[] { p.Left, p.Right });
             }
             else
             {
                 HideOne("left"); HideOne("right");
                 MoveTogether(new[] { panels["compact"] }, new[] { p.Single });
+                RememberPlacement(new[] { "compact" }, new[] { p.Single });
             }
             MoveCount++;
         }
 
         void HideOne(string id) { PanelForm f; if (panels.TryGetValue(id, out f) && f.Visible) f.Hide(); }
 
-        void MoveTogether(PanelForm[] forms, Native.RECT[] rects)
+        void MoveTogether(PanelForm[] forms, Native.RECT[] rects, bool keepSize = false)
         {
             IntPtr after = settings.Topmost ? new IntPtr(-1) : new IntPtr(-2);
-            uint flags = Native.SWP_NOACTIVATE | (settings.Topmost ? 0 : Native.SWP_NOZORDER);
+            uint flags = Native.SWP_NOACTIVATE | (settings.Topmost ? 0 : Native.SWP_NOZORDER) | (keepSize ? Native.SWP_NOSIZE : 0);
             for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible) { forms[i].Show(); }
             IntPtr dwp = NativeHook.BeginDeferWindowPos(forms.Length);
             for (int i = 0; i < forms.Length; i++) dwp = NativeHook.DeferWindowPos(dwp, forms[i].Handle, after, rects[i].Left, rects[i].Top, rects[i].W, rects[i].H, flags);
@@ -867,6 +907,30 @@ public static class Autostart
             foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.PostWebMessageAsJson(json);
         }
 
+        // Ouvre les réglages comme le bouton du panneau, puis vérifie qu'ils se ferment des deux façons.
+        public async Task<string> TestFullWindow()
+        {
+            Func<Task<PanelForm>> open = async () =>
+            {
+                OpenFull("settings");
+                PanelForm w = null;
+                for (int i = 0; i < 200 && !(panels.TryGetValue("full", out w) && w.Visible && w.Ready.IsCompleted); i++) await Task.Delay(50);
+                for (int i = 0; i < 100 && await w.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.settings .ghost-btn')") != "true"; i++) await Task.Delay(50);
+                return w;
+            };
+            PanelForm f = await open();
+            string problem = f.FormBorderStyle == FormBorderStyle.Sizable && f.ControlBox ? "" : "pas de barre de titre ; ";
+            await f.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('.settings .ghost-btn').click()");
+            await Task.Delay(300);
+            if (f.Visible) problem += "le bouton Fermer ne ferme pas ; ";
+            f = await open();
+            if (!f.Visible) problem += "réouverture impossible ; ";
+            f.Close();
+            await Task.Delay(200);
+            if (f.Visible || f.IsDisposed || Quitting) problem += "la croix ne masque pas proprement ; ";
+            return problem;
+        }
+
         async void OpenFull(string tab)
         {
             bool exists = panels.ContainsKey("full");
@@ -905,6 +969,7 @@ public static class Autostart
             {
                 case "getHost": if (from.View.CoreWebView2 != null) from.View.CoreWebView2.PostWebMessageAsJson(HostJson()); break;
                 case "hideAll": ToggleManual(); break;
+                case "closeFull": { PanelForm full; if (panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
                 case "openFull": OpenFull(m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""); break;
                 case "setAutostart": Autostart.Set(val, exePath); RefreshUi(); break;
@@ -995,11 +1060,11 @@ public static class Autostart
         }
 
         // La fenêtre active peut changer si l'utilisateur clique ailleurs : seul compte que DraftMid ne la prenne pas.
-        static bool OwnsFocus()
+        // La fausse fenêtre LoL peut avoir le premier plan : seuls les panneaux ne doivent jamais le prendre.
+        static bool PanelHasFocus(CompanionApp app)
         {
-            uint pid;
-            Native.GetWindowThreadProcessId(NativeHook.GetForegroundWindow(), out pid);
-            return pid == (uint)Process.GetCurrentProcess().Id;
+            IntPtr front = NativeHook.GetForegroundWindow();
+            return new[] { "left", "right", "compact" }.Select(app.PanelFor).Any(p => p != null && p.Handle == front);
         }
 
         public static Func<IntPtr, bool> Matcher { get { return IsFake; } }
@@ -1100,6 +1165,8 @@ public static class Autostart
             t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed && !app.Lcu.Connected, "Scénario 1. Client fermé : veille, identifiants oubliés");
             t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les deux endpoints documentés sont appelés");
             t(await app.TestReleaseAndReopen(), "Client fermé puis rouvert : l'application reste ouverte et recrée ses panneaux");
+            string fullProblem = await app.TestFullWindow();
+            t(fullProblem == "", "Réglages : barre de titre, bouton Fermer et croix fonctionnent " + fullProblem);
         }
 
         public static async void Run(CompanionApp app, Options o)
@@ -1149,7 +1216,7 @@ public static class Autostart
                 Native.RECT c = app.Tracker.Rect, l = rectOfLeft(), r = rectOfRight();
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
                 t(l.Top == c.Top && l.H == c.H, "4. Hauteur et alignement sur le client");
-                t(!OwnsFocus(), "Aucun vol de focus à l'apparition");
+                t(!PanelHasFocus(app), "Aucun vol de focus à l'apparition");
                 t(app.HotkeyRegistered, "Raccourci Ctrl+Alt+D enregistré");
 
                 feed(Evidence.NotDraft, 1); feed(Evidence.Draft, 1); feed(Evidence.Unknown, 2); feed(Evidence.NotDraft, 2); feed(Evidence.Draft, 1);
@@ -1163,7 +1230,28 @@ public static class Autostart
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
                 t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == c.Top, "7. Déplacement : les panneaux suivent (" + c + ")");
                 s.AppendLine("MESURE : " + (app.Tracker.EventCount - evBefore) + " événements Windows, " + (app.MoveCount - movesBefore) + " déplacements de panneaux sur " + clock.ElapsedMilliseconds + " ms");
-                t(app.MoveCount - movesBefore <= steps, "7. Déplacements limités, sans dépasser le nombre d'étapes");
+                // Une mise à jour par étape au plus, plus le recalcul à l'arrêt et la dernière mise à jour en attente.
+                t(app.MoveCount - movesBefore <= steps + 3, "7. Déplacements limités à une mise à jour par étape");
+
+                // Client large, comme un 1280 sur 1920 : la place disponible change à chaque pas.
+                int ideal = (int)(340 * main.Scale), wide = main.Work.W - 2 * (ideal - 40), wx = main.Work.Left + (main.Work.W - wide) / 2;
+                fake.SetBounds(wx, cy, wide, ch);
+                await Task.Delay(500);
+                int widthBefore = rectOfLeft().W, widthChanges = 0, gapErrors = 0;
+                for (int i = 1; i <= 12; i++)
+                {
+                    fake.Location = new Point(wx - i * 3, cy);
+                    await Task.Delay(30);
+                    if (rectOfLeft().W != widthBefore) widthChanges++;
+                    if (rectOfLeft().Right != app.Tracker.Rect.Left) gapErrors++;
+                }
+                t(widthChanges == 0, "Déplacement : les panneaux gardent leur taille, sans redessin à chaque pas (" + widthChanges + " changement(s))");
+                t(gapErrors == 0, "Déplacement : le panneau reste collé au client à chaque pas (" + gapErrors + " écart(s))");
+                await Task.Delay(400);
+                c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
+                t(l.Right == c.Left && r.Left == c.Right && l.Inside(main.Work) && r.Inside(main.Work) && l.W < widthBefore, "À l'arrêt : la taille est recalculée et les panneaux restent sur l'écran (" + l + " | " + r + ")");
+                fake.SetBounds(cx, cy, cw, ch);
+                await Task.Delay(400);
 
                 fake.SetBounds(cx - 60, cy - 10, cw - 120, ch - 20);
                 await Task.Delay(200);
@@ -1263,7 +1351,7 @@ public static class Autostart
                 feed(Evidence.Draft, 2); await Task.Delay(300);
                 c = app.Tracker.Rect; l = rectOfLeft();
                 t(app.PanelsShown && l.Right <= c.Left, "11. Client relancé puis draft : panneaux replacés");
-                t(!OwnsFocus(), "Aucun vol de focus sur tout le scénario");
+                t(!PanelHasFocus(app), "Aucun vol de focus sur tout le scénario");
 
                 // Connecteur LCU sur données simulées : aucune connexion au vrai client.
                 feed(Evidence.NotDraft, 3); await Task.Delay(150);
@@ -1377,7 +1465,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.7.0");
+                k.SetValue("DisplayVersion", "2.7.1");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
