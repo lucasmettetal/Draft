@@ -206,12 +206,17 @@ const MID_INDEX = 2;
 const RATE_NAMES = { wukong:"monkeyking", renataglasc:"renata" };
 const UNKNOWN_SHARE = 0.2, SHARE_FLOOR = 0.02, MIN_MID_SHARE = 0.05;
 
+const LIVE_MIN_GAMES = 20;
+const sumOf = list => list ? list.reduce((a, b) => a + b, 0) : 0;
+
 // Part de chaque rôle pour un champion, ou null s'il n'a pas de données.
+// Les parties récentes passent d'abord. Les statistiques livrées servent de secours pour les champions rares.
 function roleShares(name) {
-  if (typeof ROLE_RATES === "undefined") return null;
   const key = norm(name);
-  const rates = ROLE_RATES.champions[RATE_NAMES[key] || key];
-  const total = rates ? rates.reduce((a, b) => a + b, 0) : 0;
+  const id = RATE_NAMES[key] || key;
+  const live = window.ROLE_RATES_LIVE && window.ROLE_RATES_LIVE.champions[id];
+  const rates = sumOf(live) >= LIVE_MIN_GAMES ? live : typeof ROLE_RATES !== "undefined" ? ROLE_RATES.champions[id] : null;
+  const total = sumOf(rates);
   return total > 0 ? rates.map(v => v / total) : null;
 }
 

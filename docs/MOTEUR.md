@@ -45,6 +45,7 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 | Type | Contenu |
 |---|---|
 | Officiel (Data Dragon) | Noms, portraits, illustrations, patch, classes de Locke et Zaahen |
-| Statistiques de rôles (Meraki Analytics) | Taux de jeu par rôle, patch 16.3 au 4 novembre 2026, donc anciens. Mise à jour avec `tools/update-role-rates.ps1`. Licence non confirmée : à vérifier avant toute distribution |
+| Rôles récents (API Riot) | Calculés par `tools/draft-update-roles.bat` sur 1 000 parties des 14 derniers jours, Silver à Emeraude. Stockés dans `%LOCALAPPDATA%\DraftMid\draft-role-rates-live.js`, sans nom de joueur. Clé personnelle : usage privé seulement |
+| Rôles de secours (Meraki Analytics) | Taux de jeu du patch 16.3, utilisés sous 20 parties récentes. Licence non confirmée : à vérifier avant toute distribution |
 | Heuristique | Matchups, profils, règles, plans de jeu |
 | Personnel | Journal et import Riot, affichés sans effet sur le classement |

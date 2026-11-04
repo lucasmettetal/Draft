@@ -125,6 +125,10 @@ unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas 
   t(guessMid(["Irelia", "Malphite", "Vi", "Jinx", "Leona"]) === "Irelia", "si Malphite prend le top et Vi la jungle, Irelia devient le mid probable");
   t(guessMid(["Swain", "Darius", "Amumu", "Kai'Sa", "Karma"]) !== null, "avec 5 adversaires, un mid est toujours supposé");
   t(guessMid(["Sett", "Vi"]) === null, "aucun mid n'est inventé si personne ne s'y joue");
+  window.ROLE_RATES_LIVE = { champions: { galio:[30,0,0,0,0], irelia:[0,0,40,0,0], sett:[0,0,5,0,0] } };
+  t(guessMid(["Irelia", "Galio"]) === "Irelia", "les parties récentes passent avant les statistiques livrées");
+  t(guessMid(["Sett", "Vi"]) === null, "un champion avec trop peu de parties récentes garde les statistiques livrées");
+  delete window.ROLE_RATES_LIVE;
   t(guessMid(["Wukong", "Renata Glasc", "Ahri"]) === "Ahri", "les noms particuliers de Riot sont reconnus");
   t(typeof ROLE_RATES.patch === "string" && Object.keys(ROLE_RATES.champions).length > 100, "les statistiques de rôles sont chargées");
 });
