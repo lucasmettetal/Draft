@@ -20,7 +20,9 @@
 <p>Chaque attente découle d'un principe de jeu, pas du score actuel. Un échec peut donc venir du moteur ou du principe : à examiner, pas à effacer. Le score sert à comparer les picks, ce n'est pas une probabilité.</p>
 <div id="summary"></div>
 <div id="out"></div>
+<script>try { localStorage.setItem("draftProfile", JSON.stringify({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] })); } catch (e) {}</script>
 <script src="draft-role-rates.js"></script>
+<script src="draft-champions.js"></script>
 <script src="draft-engine.js"></script>
 <script src="draft-providers.js"></script>
 <script>
@@ -115,6 +117,33 @@ function unitBlock(name, why, run) {
   run(t);
   out.insertAdjacentHTML("beforeend", `<div class="case${lines.join("").includes("ÉCHEC") ? " ko" : ""}"><h2>${name}</h2><p class="why">${why}</p>${lines.join("")}</div>`);
 }
+
+unitBlock("Profils de joueur", "N'importe quel rôle et n'importe quel pool doivent donner un conseil complet, puis ton profil doit revenir à l'identique.", t => {
+  const original = PROFILE;
+  const letters = /^[hkdipqolgrnwetcE]*$/;
+  t(NAMES.every(n => typeof CHAMPION_TRAITS[n] === "string"), "chaque champion a une fiche");
+  t(Object.keys(CHAMPION_TRAITS).every(n => ROSTER[n] !== undefined && letters.test(CHAMPION_TRAITS[n])), "aucune fiche avec un nom ou une lettre inconnus");
+  const team = ["Ornn", "Lee Sin", "Ahri", "Jinx", "Thresh"];
+  const pools = { top:["Darius", "Malphite"], jungle:["Vi", "Amumu"], mid:["Ahri", "Zed"], adc:["Jinx", "Ezreal"], support:["Leona", "Soraka"] };
+  const expected = { top:"Ornn", jungle:"Lee Sin", mid:"Ahri", adc:"Jinx", support:"Thresh" };
+  Object.keys(pools).forEach(role => {
+    applyProfile({ role, pool:pools[role] });
+    t(guessMid(team) === expected[role], `${role} : l'adversaire direct est ${expected[role]}`);
+    t(analyze(["Lux", "Garen"], null, true).ranking.length === 2, `${role} : les deux champions sont classés`);
+    t(championsForRole(role).length >= 10, `${role} : des champions sont proposés`);
+    const r = analyze(team, guessMid(team), true), texts = JSON.stringify(r.ranking.map(p => [p.criteria, buildPlan(p.pick, r.counts, guessMid(team), "Lee Sin"), winCondition(p.pick, r.counts), threatsFor(p.pick, r.counts), pickStyle(p.pick)]));
+    t(!/undefined|NaN/.test(texts), `${role} : aucun texte incomplet`);
+  });
+  applyProfile({ role:"top", pool:["Darius", "Ahri"] });
+  t(!matchupOf("Ahri"), "le tableau du mid ne s'applique pas à un autre rôle");
+  t(analyze(["Ahri"], "Ahri", true).ranking.map(p => p.pick).join() === "Darius", "un champion pris en face sort du classement");
+  applyProfile({ role:"mid", pool:["Ahri", "Fizz"] });
+  t(analyze(["Lux"], "Lux", true).ranking.length === 2, "un pool mêlant champions du tableau et autres reste classé");
+  applyProfile(null);
+  t(PICKS.length === 0 && analyze(team, null, true).ranking.length === 0, "sans profil, aucun conseil inventé");
+  applyProfile(original);
+  t(PICKS.join() === "TF,Fizz,Kog'Maw,Xerath" && myRole() === "mid", "ton profil revient à l'identique");
+});
 
 unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas être supposé mid si un candidat plus logique existe.", t => {
   t(guessMid(["Sett", "Vi", "Galio", "Samira", "Janna"]) === "Galio", "Galio est supposé mid dans l'exemple du brief");

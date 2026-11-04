@@ -1,6 +1,6 @@
 # DraftMid
 
-Application Windows qui aide à choisir son champion mid pendant la sélection de League of Legends, parmi Twisted Fate, Fizz, Kog'Maw et Xerath. Elle affiche une recommandation et ses raisons, et le joueur garde chaque décision.
+Application Windows qui aide à choisir son champion pendant la sélection de League of Legends, à n'importe quel rôle et parmi les champions que tu choisis. Elle affiche une recommandation et ses raisons, et le joueur garde chaque décision.
 
 **[Télécharger DraftMid-Portable.exe](https://github.com/lucasmettetal/Draft/releases/latest/download/DraftMid-Portable.exe)**
 
@@ -11,7 +11,7 @@ DraftMid n'est pas approuvé par Riot Games. Les portraits et illustrations appa
 Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déjà présent.
 
 1. Lance `DraftMid-Portable.exe`, sans installation. Aucune fenêtre ne s'ouvre : seule une icône apparaît près de l'horloge.
-2. Pour une détection fiable, ouvre **Réglages** depuis le menu de l'icône et coche **Lecture du client Riot**.
+2. Pour une détection fiable, ouvre **Réglages** depuis le menu de l'icône et choisis ton rôle et tes champions, puis coche **Lire la draft depuis le client LoL**.
 3. Lance une partie : les panneaux apparaissent autour du client pendant la sélection, puis disparaissent à la fin.
 
 `DraftMid-Setup.exe` est la variante à installer, sans droits administrateur, avec un raccourci dans le menu Démarrer.
@@ -21,7 +21,9 @@ Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déj�
 - **`Ctrl+Alt+D`** affiche ou masque les panneaux.
 - **Panneau gauche :** les champions adverses, remplis automatiquement avec la lecture du client, sinon à la main.
 - **Panneau droit :** le verdict, ses raisons et le ban conseillé.
-- **Mid supposé :** le client ne donne pas le rôle des adversaires. Le mid reste une supposition, à corriger d'un clic si besoin.
+- **Adversaire direct supposé :** le client ne donne pas le rôle des adversaires. Ton adversaire direct reste une supposition, à corriger d'un clic si besoin.
+- **Conseil approximatif hors du profil d'origine :** le tableau de matchups écrit à la main ne couvre que le mid avec Twisted Fate, Fizz, Kog'Maw et Xerath. Pour les autres, le conseil repose sur des fiches de champions écrites à la main, sans statistiques.
+- **Calcul des matchups :** **Mettre à jour les matchups** ne calcule pour l'instant que ces quatre champions au mid.
 
 Le menu de l'icône permet aussi de choisir le panneau unique, l'activation automatique, le positionnement automatique et le démarrage avec Windows.
 

@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.9.1.0")]
-[assembly: AssemblyFileVersion("2.9.1.0")]
+[assembly: AssemblyVersion("2.10.0.0")]
+[assembly: AssemblyFileVersion("2.10.0.0")]
 
 namespace DraftMid
 {
@@ -160,6 +160,8 @@ namespace DraftMid
         public bool Diagnostics;
         // Lecture du client : désactivée par défaut, à cocher dans les réglages.
         public bool LcuEnabled;
+        // Installation déjà passée aux profils : sinon, elle garde le profil d'origine sans rien refaire.
+        public bool ProfileKnown;
         public Dictionary<string, SavedRect> Rects = new Dictionary<string, SavedRect>();
         // Signatures réduites apprises localement : aucune image n'est conservée.
         public int[] NavBaseline;
@@ -362,7 +364,11 @@ public static class Autostart
         {
             opts = o; this.dataDir = dataDir; this.webDir = webDir; this.exePath = exePath;
             settingsPath = Path.Combine(dataDir, "settings.json");
+            bool hadSettings = File.Exists(settingsPath);
+            firstRun = !hadSettings && !o.Silent;
             settings = UserPreferences.Load(settingsPath);
+            legacyProfile = (hadSettings && !settings.ProfileKnown) || o.SelfTest || o.EndToEnd;
+            if (!hadSettings) { settings.ProfileKnown = true; try { settings.Save(settingsPath); } catch { } }
             detector = new DraftPhaseDetector(settings);
             grabber = new FrameGrabber();
             try { AppIcon = Icon.ExtractAssociatedIcon(exePath); } catch { }
@@ -442,6 +448,7 @@ public static class Autostart
         // Une lecture par seconde au maximum, et seulement si une conclusion est possible.
         async void Sample()
         {
+            if (firstRun) { firstRun = false; OpenFull("settings"); }
             if (await PollLcuOnce())
             {
                 // Le client donne la phase exacte : rien à estimer ni à apprendre à partir de l'image.
@@ -478,6 +485,8 @@ public static class Autostart
         string lastEnemies = "";
         string lcuInfo = "";
 
+        bool legacyProfile;
+        bool firstRun;
         string shownLcuStatus = "";
 
         string LcuStatus()
@@ -990,7 +999,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1064,6 +1073,7 @@ public static class Autostart
                 case "hideAll": ToggleManual(); break;
                 case "updateRoles": ToggleRiotUpdate(false); break;
                 case "updateMatchups": ToggleRiotUpdate(true); break;
+                case "profileAdopted": legacyProfile = false; settings.ProfileKnown = true; Persist(); break;
                 case "closeFull": { PanelForm full; if (panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
                 case "openFull": OpenFull(m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""); break;
@@ -1561,7 +1571,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.9.1");
+                k.SetValue("DisplayVersion", "2.10.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);

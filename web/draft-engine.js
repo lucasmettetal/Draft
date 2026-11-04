@@ -48,14 +48,59 @@ const ROSTER = Object.fromEntries("Aatrox:b|Ahri:sm|Akali:am|Akshan:sm|Alistar:t
 const ALIASES = { "Twisted Fate":["tf"], "Miss Fortune":["mf"], "Jarvan IV":["j4","jarvan"], "Xin Zhao":["xin"], "Kog'Maw":["kog"], "Aurelion Sol":["asol"], "Master Yi":["yi"], "Dr. Mundo":["mundo"], "Gangplank":["gp"], "LeBlanc":["lb"], "Lee Sin":["lee"], "Tahm Kench":["tahm"], "Katarina":["kata"], "Cassiopeia":["cass","cassio"], "Orianna":["ori"], "Malzahar":["malz"], "Malphite":["malph"], "Blitzcrank":["blitz"], "Warwick":["ww"], "Renata Glasc":["renata"], "Heimerdinger":["heim","donger"], "Fiddlesticks":["fiddle"], "Kassadin":["kassa"], "Lissandra":["liss"], "Pantheon":["panth"], "Yasuo":["yas"], "Tristana":["trist"], "Nautilus":["naut"], "Seraphine":["sera"], "Mordekaiser":["morde"], "Hecarim":["hec"] };
 
 const FULL = { "TF":"Twisted Fate" };
-const PICKS = ["TF", "Fizz", "Kog'Maw", "Xerath"];
+const PICKS = [];
 const HOLD_GAP = 2;
 const label = p => FULL[p] || p;
 const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// ---------- Profil du joueur : son rôle et ses champions ----------
+const PROFILE_KEY = "draftProfile";
+const ROLE_NAMES = { top:"Top", jungle:"Jungle", mid:"Mid", adc:"ADC", support:"Support" };
+const ROLE_AT = { top:"au top", jungle:"à la jungle", mid:"au mid", adc:"à l'ADC", support:"au support" };
+// Anciennes installations, créées avant les profils : elles gardent leurs réglages sans rien refaire.
+const FIRST_PROFILE = { role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] };
+const pickId = name => name === "Twisted Fate" ? "TF" : name;
+let PROFILE = null;
+
+function applyProfile(profile) {
+  PROFILE = profile;
+  PICKS.length = 0;
+  if (profile) profile.pool.forEach(p => { if (!PICKS.includes(pickId(p))) PICKS.push(pickId(p)); });
+}
+
+function loadProfile() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PROFILE_KEY));
+  } catch (e) {}
+  const valid = saved && ROLE_NAMES[saved.role] && Array.isArray(saved.pool) && saved.pool.length > 0;
+  applyProfile(valid ? saved : null);
+}
+
+function saveProfile(profile) {
+  applyProfile(profile);
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (e) {}
+}
+
+// Champions les plus joués à un rôle, pour proposer un pool sans chercher.
+function championsForRole(role) {
+  const index = ROLE_ORDER.indexOf(role);
+  const source = window.ROLE_RATES_LIVE || (typeof ROLE_RATES !== "undefined" ? ROLE_RATES : null);
+  const played = n => { const key = norm(n), row = source && source.champions[RATE_NAMES[key] || key]; return row ? row[index] : 0; };
+  return NAMES.filter(n => ((roleShares(n) || [])[index] || 0) >= .25).sort((a, b) => played(b) - played(a));
+}
+
+const myRole = () => PROFILE ? PROFILE.role : "mid";
+const oppName = () => ROLE_NAMES[myRole()];
+const oppAt = () => ROLE_AT[myRole()];
+const traitsOfPick = p => CHAMPION_TRAITS[label(p)] || "";
+const hasTrait = (p, t) => traitsOfPick(p).includes(t);
 const esc = s => s.replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 const NAMES = Object.keys(ROSTER).sort((x, y) => x.localeCompare(y, "fr"));
 const champKeys = n => [n].concat(ALIASES[n] || []).map(norm);
-const matchupOf = name => MATCHUPS.find(m => m.n === name) || null;
+// Le tableau écrit à la main ne couvre que le mid et ces quatre champions.
+const WRITTEN_PICKS = FIRST_PROFILE.pool;
+const matchupOf = name => myRole() === "mid" ? MATCHUPS.find(m => m.n === name) || null : null;
 
 
 // ---------- Moteur V2.1 ----------
@@ -74,8 +119,8 @@ ROSTER.Zaahen = "b";
 const POKE = new Set("Ashe,Caitlyn,Corki,Ezreal,Heimerdinger,Hwei,Jayce,Jhin,Karma,Kog'Maw,Lux,Mel,Nidalee,Orianna,Seraphine,Syndra,Varus,Vel'Koz,Viktor,Xerath,Ziggs,Zoe".split(","));
 
 const CRITERIA = [
-  { key:"matchup", label:"Matchup mid", weight:3, source:"Bilans calculés sur de vraies parties dès 30 parties, sinon tableau écrit à la main. Inclut la pression de lane, pour ne pas la compter deux fois." },
-  { key:"blind", label:"Sécurité sans mid connu", weight:1, source:"Calculé : part des mids du tableau où le pick est à éviter. Ne compte que si le mid est inconnu." },
+  { key:"matchup", label:"Matchup direct", weight:3, source:"Bilans calculés sur de vraies parties dès 30 parties, sinon tableau écrit à la main. Inclut la pression de lane, pour ne pas la compter deux fois." },
+  { key:"blind", label:"Sécurité sans adversaire connu", weight:1, source:"Calculé : part des mids du tableau où le pick est à éviter. Ne compte que si le mid est inconnu." },
   { key:"targets", label:"Cibles exploitables", weight:1.5, source:"Règle heuristique : nombre de carrys fragiles adverses." },
   { key:"front", label:"Tanks et bruisers", weight:2, source:"Règle heuristique : nombre de frontlines adverses." },
   { key:"dive", label:"Survie aux plongeurs", weight:2, source:"Règle heuristique : nombre d'assassins et de plongeurs adverses." },
@@ -95,7 +140,7 @@ const MATCHUP_MIN_GAMES = 30, MATCHUP_SHRINK = 50, MATCHUP_AVOID_GAP = -.03, MAT
 // Les joueurs suivis jouent souvent ce champion : seul l'écart à leur moyenne a un sens, pas le winrate brut.
 function liveMatchup(pick, mid) {
   const live = window.MATCHUPS_LIVE && window.MATCHUPS_LIVE.pool[norm(label(pick))];
-  if (!live || !live.games || !mid) return null;
+  if (!live || !live.games || !mid || myRole() !== "mid") return null;
   const key = norm(mid);
   const row = live.vs[RATE_NAMES[key] || key];
   if (!row || row[1] < MATCHUP_MIN_GAMES) return null;
@@ -112,7 +157,6 @@ function avoidedPicks(m) {
 }
 
 const avoidCount = pick => MATCHUPS.filter(m => avoidedPicks(m).includes(pick)).length;
-const MAX_AVOID = Math.max(...PICKS.map(avoidCount));
 const namesOf = list => list.slice(0, 3).join(", ");
 
 function compoOf(enemies) {
@@ -136,70 +180,77 @@ const RULES = {
       return [note, `${percent ? `${percent > 0 ? "+" : ""}${percent} % contre ${x.mid}` : `Sans écart net contre ${x.mid}`} sur ${live.games} parties`];
     }
     const m = matchupOf(x.mid);
-    if (!m) return null;
+    if (!m || !WRITTEN_PICKS.includes(p)) return null;
     if (avoidedPicks(m).includes(p)) return [-4 / 3, `À éviter contre ${x.mid}`];
     if (m.first === p) return [1, `1er choix contre ${x.mid}`];
     if (m.second === p) return [.5, `2e choix contre ${x.mid}`];
     return [0, `Pas d'avis marqué contre ${x.mid}`];
   },
   blind(p, c, x) {
-    if (x.mid) return null;
+    if (x.mid || !WRITTEN_PICKS.includes(p) || myRole() !== "mid") return null;
+    const maxAvoid = Math.max(...PICKS.filter(q => WRITTEN_PICKS.includes(q)).map(avoidCount), ...WRITTEN_PICKS.map(avoidCount));
+    if (!maxAvoid) return null;
     const bad = avoidCount(p);
-    const v = 1 - 2 * bad / MAX_AVOID;
+    const v = 1 - 2 * bad / maxAvoid;
     return [v, v > 0 ? `Mid inconnu : peu de mauvais matchups (${bad} sur ${MID_COUNT} dans le tableau)` : `Mid inconnu : risqué, mauvais dans ${bad} matchups sur ${MID_COUNT} du tableau`];
   },
   targets(p, c) {
     const n = c.carries.length;
-    if (p === "Fizz") {
+    if (hasTrait(p, "h")) {
       if (n >= 2) return [2, `${n} cibles fragiles : ${namesOf(c.carries)}`];
       if (n === 1) return [.5, `Une cible fragile : ${c.carries[0]}`];
       if (c.known.length >= 4) return [-2, "Aucune cible fragile à éliminer"];
     }
-    if (p === "Xerath" && n >= 2) return [.5, `${n} cibles à abîmer de loin : ${namesOf(c.carries)}`];
+    if (hasTrait(p, "E") && n >= 2) return [1, `${n} cibles fragiles à attraper : ${namesOf(c.carries)}`];
+    if (hasTrait(p, "l") && n >= 2) return [.5, `${n} cibles à abîmer de loin : ${namesOf(c.carries)}`];
     return null;
   },
   front(p, c) {
     const n = c.front.length;
-    if (p === "Kog'Maw") {
-      if (n >= 3) return [2, `${n} tanks ou bruisers : ses dégâts en % des PV font la différence`];
-      if (n === 2) return [1.5, "2 tanks ou bruisers : ses dégâts en % des PV sont utiles"];
+    if (hasTrait(p, "k")) {
+      if (n >= 3) return [2, `${n} tanks ou bruisers : ${p === "Kog'Maw" ? "ses dégâts en % des PV" : "ses dégâts contre les tanks"} font la différence`];
+      if (n === 2) return [1.5, `2 tanks ou bruisers : ${p === "Kog'Maw" ? "ses dégâts en % des PV" : "ses dégâts contre les tanks"} sont utiles`];
     }
-    if (p === "Fizz") {
+    if (hasTrait(p, "h") && hasTrait(p, "d")) {
       if (n >= 4) return [-1, `${n} frontlines à traverser`];
       if (n === 3) return [-.5, "Beaucoup de frontline à traverser"];
     }
-    if ((p === "TF" || p === "Xerath") && n >= 3) return [-.25, `${n} frontlines : peu de prise sur les tanks`];
+    if (hasTrait(p, "w") && n >= 3) return [-.25, `${n} frontlines : peu de prise sur les tanks`];
     return null;
   },
   dive(p, c) {
     const n = c.divers.length;
     if (n < 2) return null;
-    if (p === "Kog'Maw" || p === "Xerath") return [n >= 3 ? -2 : -1.5, `${n} plongeurs contre un champion immobile : ${namesOf(c.divers)}`];
-    if (p === "Fizz") return [0, "Son E lui laisse une sortie contre les plongeurs"];
-    return [0, "Son étourdissement l'aide à se défendre contre les plongeurs"];
+    if (hasTrait(p, "i")) return [n >= 3 ? -2 : -1.5, `${n} plongeurs contre un champion immobile : ${namesOf(c.divers)}`];
+    if (hasTrait(p, "t")) return [1, `Encaisse leurs ${n} plongeurs`];
+    if (hasTrait(p, "c")) return [1, `Peut protéger ses alliés de leurs ${n} plongeurs`];
+    return [0, p === "Fizz" ? "Son E lui laisse une sortie contre les plongeurs" : p === "TF" ? "Son étourdissement l'aide à se défendre contre les plongeurs" : "Peut survivre aux plongeurs"];
   },
   control(p, c) {
-    if (p === "Fizz" && c.cc.length >= 2) return [-1.5, `${c.cc.length} contrôles ciblés punissent ses plongeons : ${namesOf(c.cc)}`];
-    if (p === "TF" && (c.cc.length >= 2 || c.engage.length >= 2)) return [.75, "Peut jouer loin de leur engage et revenir avec son ultime"];
-    if ((p === "Kog'Maw" || p === "Xerath") && c.engage.length >= 3) return [-.5, `${c.engage.length} engages contre un champion lent : ${namesOf(c.engage)}`];
+    if (hasTrait(p, "h") && hasTrait(p, "d") && c.cc.length >= 2) return [-1.5, `${c.cc.length} contrôles ciblés punissent ses plongeons : ${namesOf(c.cc)}`];
+    if (hasTrait(p, "e") && (c.cc.length >= 2 || c.engage.length >= 2)) return [.75, p === "TF" ? "Peut jouer loin de leur engage et revenir avec son ultime" : "Peut jouer loin de leur engage et de leurs contrôles"];
+    if (hasTrait(p, "i") && c.engage.length >= 3) return [-.5, `${c.engage.length} engages contre un champion lent : ${namesOf(c.engage)}`];
     return null;
   },
   range(p, c) {
     if (c.poke.length < 2) return null;
-    if (p === "Xerath") return [1, `Peut rendre les coups à distance : ${namesOf(c.poke)}`];
-    if (p === "Kog'Maw") return [-1, `Se fait toucher avant de pouvoir frapper : ${namesOf(c.poke)}`];
+    if (hasTrait(p, "l")) return [1, `Peut rendre les coups à distance : ${namesOf(c.poke)}`];
+    if (hasTrait(p, "o")) return [-1, `Se fait toucher avant de pouvoir frapper : ${namesOf(c.poke)}`];
     return null;
   },
   peel(p, c, x) {
-    if (p === "Kog'Maw") return x.hasFront ? [0, "Suppose un frontline allié pour le protéger"] : [-2, "Ton équipe n'a pas de frontline pour le protéger"];
-    if (p !== "Xerath") return null;
+    if (hasTrait(p, "p")) return x.hasFront ? [0, "Suppose un frontline allié pour le protéger"] : [-2, "Ton équipe n'a pas de frontline pour le protéger"];
+    if (!hasTrait(p, "q")) return null;
     if (!x.hasFront && c.mobile.length >= 2) return [-2, "Personne pour te protéger de leur mobilité"];
     if (c.mobile.length >= 3) return [-4 / 3, `${c.mobile.length} champions très mobiles : ${namesOf(c.mobile)}`];
     if (x.hasFront && c.divers.length <= 1 && c.mobile.length <= 1 && c.known.length >= 3) return [4 / 3, "Peu de plongeurs et de mobilité, et un frontline devant toi"];
     return null;
   },
   map(p) {
-    return { "TF":[1, "Son ultime couvre toute la carte"], "Fizz":[.5, "Peut roamer une fois sa vague poussée"], "Kog'Maw":[-.5, "Peu d'impact hors des combats groupés"] }[p] || null;
+    if (hasTrait(p, "g")) return [1, p === "TF" ? "Son ultime couvre toute la carte" : "Peut peser sur toute la carte"];
+    if (hasTrait(p, "r")) return [.5, "Peut roamer une fois sa vague poussée"];
+    if (hasTrait(p, "n")) return [-.5, "Peu d'impact hors des combats groupés"];
+    return null;
   }
 };
 
@@ -234,7 +285,6 @@ function availablePicks(enemies) {
 // ---------- Mid probable ----------
 // Taux de jeu par rôle (draft-role-rates.js). Le résultat reste une supposition, jamais un rôle confirmé.
 const ROLE_ORDER = ["top", "jungle", "mid", "adc", "support"];
-const MID_INDEX = 2;
 const UNKNOWN_SHARE = 0.2, SHARE_FLOOR = 0.02, MIN_MID_SHARE = 0.05;
 
 const LIVE_MIN_GAMES = 20;
@@ -251,8 +301,10 @@ function roleShares(name) {
   return total > 0 ? rates.map(v => v / total) : null;
 }
 
-// Cherche la répartition des rôles la plus probable pour toute l'équipe, puis lit qui se retrouve au mid.
+// Cherche la répartition des rôles la plus probable pour toute l'équipe, puis lit qui se retrouve en face du joueur.
+// Le nom vient de la première version : « mid » désigne ici l'adversaire direct, quel que soit le rôle.
 function guessMid(enemies) {
+  const MID_INDEX = ROLE_ORDER.indexOf(myRole());
   const team = enemies.slice(0, ROLE_ORDER.length);
   const shares = team.map(roleShares);
   let bestScore = -Infinity, bestMid = -1;
@@ -284,8 +336,8 @@ function holdPick(ranking, held) {
 
 function suggestBans() {
   const own = PICKS.map(label);
-  const active = p => !ENGINE_PREFS.excluded.includes(p);
-  return MATCHUPS
+  const active = p => !ENGINE_PREFS.excluded.includes(p) && PICKS.includes(p);
+  const written = myRole() === "mid" ? MATCHUPS
     .filter(m => !own.includes(m.n))
     .map(m => ({
       n: m.n,
@@ -295,13 +347,34 @@ function suggestBans() {
     .filter(x => x.harm > 0)
     .sort((x, y) => y.harm - x.harm || y.threat - x.threat)
     .slice(0, 3)
+    .map(x => x.n) : [];
+  return written.length ? written : bansFromTraits();
+}
+
+// Pool sans tableau écrit : on vise les adversaires directs courants qui gênent le plus ses champions.
+function harmFromTraits(name) {
+  const t = ROSTER[name] || "";
+  return PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p)).filter(p =>
+    (hasTrait(p, "i") && t.includes("a")) || (hasTrait(p, "d") && t.includes("c")) || (hasTrait(p, "q") && t.includes("m"))).map(label);
+}
+
+function bansFromTraits() {
+  const own = PICKS.map(label);
+  const index = ROLE_ORDER.indexOf(myRole());
+  return NAMES.filter(n => !own.includes(n) && (roleShares(n) || [])[index] >= .3)
+    .map(n => ({ n, harm: harmFromTraits(n).length, share: roleShares(n)[index] }))
+    .filter(x => x.harm > 0)
+    .sort((x, y) => y.harm - x.harm || y.share - x.share)
+    .slice(0, 3)
     .map(x => x.n);
 }
 
 const banReason = name => {
   const m = matchupOf(name);
-  const hit = m && m.avoid ? m.avoid.split(", ").filter(p => !ENGINE_PREFS.excluded.includes(p)) : [];
-  return hit.length ? `gêne ${hit.map(label).join(", ")} dans le tableau de matchups` : "";
+  const hit = m && m.avoid ? m.avoid.split(", ").filter(p => !ENGINE_PREFS.excluded.includes(p) && PICKS.includes(p)) : [];
+  if (hit.length) return `gêne ${hit.map(label).join(", ")} dans le tableau de matchups`;
+  const rough = harmFromTraits(name);
+  return rough.length ? `gêne ${rough.join(", ")} d'après leurs profils` : "";
 };
 
 function positiveReasons(entry) {
@@ -320,6 +393,18 @@ const PICK_STYLES = {
   "Kog'Maw": "Artillerie immobile : fait de gros dégâts s'il est protégé.",
   "Xerath": "Artillerie à très longue portée : affaiblit avant le combat."
 };
+
+function pickStyle(p) {
+  if (PICK_STYLES[p]) return PICK_STYLES[p];
+  if (hasTrait(p, "c")) return "Protecteur : garde ses alliés en vie.";
+  if (hasTrait(p, "t") && hasTrait(p, "E")) return "Tank d'engage : lance les combats et encaisse.";
+  if (hasTrait(p, "t")) return "Tank : encaisse en première ligne.";
+  if (hasTrait(p, "h")) return "Assassin : cherche les cibles fragiles.";
+  if (hasTrait(p, "k")) return "Tueur de tanks : fait fondre la première ligne.";
+  if (hasTrait(p, "d")) return "Combattant : plonge dans le combat.";
+  if (hasTrait(p, "l")) return "Longue portée : affaiblit avant le combat.";
+  return "Polyvalent : s'adapte au déroulé de la partie.";
+}
 
 function comparePicks(a, b) {
   const byKey = (entry, key) => entry.criteria.find(c => c.key === key);
@@ -346,7 +431,7 @@ function whenBetter(target, other, enemies, mid) {
   };
   const found = [];
   if (beats(enemies, mid, false)) found.push("si ton équipe n'a pas de frontline");
-  enemies.filter(n => matchupOf(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(`si le mid adverse est ${n}`); });
+  enemies.filter(n => matchupOf(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(`si ton adversaire ${oppAt()} est ${n}`); });
   if (enemies.length < 5) WHAT_IF_ADDS.forEach(([text, champ]) => { if (!enemies.includes(champ) && beats(enemies.concat(champ), mid, true)) found.push(`avec ${text}`); });
   return found.slice(0, 3);
 }
@@ -401,18 +486,31 @@ const pickThreats = {
   "Kog'Maw": c => c.divers.concat(c.engage),
   "Xerath": c => c.divers.concat(c.mobile, c.engage)
 };
-const threatsFor = (pick, c) => [...new Set(pickThreats[pick](c))].slice(0, 2);
+const threatsFromTraits = (pick, c) => hasTrait(pick, "d") ? c.cc.concat(c.divers) : hasTrait(pick, "q") ? c.divers.concat(c.mobile, c.engage) : c.divers.concat(c.engage);
+const threatsFor = (pick, c) => [...new Set((pickThreats[pick] || (x => threatsFromTraits(pick, x)))(c))].slice(0, 2);
 function threatText(pick, name, c) {
-  if (c.cc.includes(name) && pick === "Fizz") return "Son contrôle ciblé peut stopper ton plongeon.";
-  if (c.divers.includes(name)) return pick === "Fizz" ? "Peut te rattraper quand tu ressors d'un combat." : "Peut te sauter dessus si tu es mal placé.";
+  if (c.cc.includes(name) && hasTrait(pick, "d")) return "Son contrôle ciblé peut stopper ton plongeon.";
+  if (c.divers.includes(name)) return hasTrait(pick, "d") ? "Peut te rattraper quand tu ressors d'un combat." : "Peut te sauter dessus si tu es mal placé.";
   if (c.mobile.includes(name)) return "Sa mobilité lui permet d'éviter tes sorts à distance.";
   if (c.engage.includes(name)) return "Peut démarrer le combat sur toi.";
   return "À surveiller pendant la partie.";
 }
-const targetsFor = (pick, c) => (pick === "Kog'Maw" ? c.front.concat(c.carries) : c.carries).filter((n, i, l) => l.indexOf(n) === i).slice(0, 2);
+const targetsFor = (pick, c) => (hasTrait(pick, "k") ? c.front.concat(c.carries) : c.carries).filter((n, i, l) => l.indexOf(n) === i).slice(0, 2);
+
+function winConditionFromTraits(pick, c) {
+  const carry = c.carries[0] || "leur carry";
+  if (hasTrait(pick, "c")) return `Protège ton meilleur carry, et fais échouer les engages sur lui.`;
+  if (hasTrait(pick, "E")) return `Lance le combat sur ${carry} dès que ton équipe peut suivre.`;
+  if (hasTrait(pick, "t")) return "Encaisse en première ligne, et prends l'espace autour des objectifs.";
+  if (hasTrait(pick, "h")) return `Prends ton avantage, puis élimine ${carry} avant l'objectif.`;
+  if (hasTrait(pick, "k")) return c.front.length >= 2 ? `Fais fondre ${c.front[0]}, et reste en vie jusqu'à la fin du combat.` : "Frappe la cible la plus proche, et reste en vie jusqu'à la fin du combat.";
+  if (hasTrait(pick, "l")) return "Affaiblis-les à distance avant l'objectif, sans te faire attraper.";
+  return "Prends ton avantage en lane, puis joue chaque objectif avec ton équipe.";
+}
 
 function winCondition(pick, c) {
   const carry = c.carries[0];
+  if (!WRITTEN_PICKS.includes(pick)) return winConditionFromTraits(pick, c);
   return {
     "Fizz": carry ? `Pousse ta vague, roam, et tue ${carry} avant l'objectif.` : "Pousse ta vague, roam, et tue leur carry avant l'objectif.",
     "TF": "Pousse à la carte bleue, puis crée un surnombre avec ton ultime.",
@@ -431,9 +529,14 @@ function buildPlan(pick, compo, mid, jungler) {
   const engager = compo.engage[0];
   const carry = compo.carries.filter(n => n !== mid)[0] || compo.carries[0];
   const tank = compo.front[0];
-  const ranged = pick === "Xerath" || pick === "Kog'Maw";
+  const ranged = hasTrait(pick, "i");
+  const role = myRole();
+  const roamer = role === "jungle" || role === "support";
 
   const lane = [
+    !WRITTEN_PICKS.includes(pick) && mid && midDive && `${mid} peut te sauter dessus : garde tes distances et ton sort de défense.`,
+    !WRITTEN_PICKS.includes(pick) && mid && midCc && !midDive && `${mid} a un contrôle ciblé : attends de le voir partir avant d'engager.`,
+    !WRITTEN_PICKS.includes(pick) && mid && !midDive && !midCc && `Contre ${mid}, observe ses sorts importants avant d'engager un échange.`,
     midBad && `${mid} est un matchup difficile : farme prudemment et n'échange qu'après avoir vu partir un de ses sorts importants.`,
     pick === "Fizz" && midCc && `${mid} a un contrôle ciblé : attends de le voir partir avant de lancer ton all-in.`,
     pick === "Fizz" && !midBad && mid && `Contre ${mid}, cherche des échanges courts, puis ressors avec ton E.`,
@@ -441,9 +544,9 @@ function buildPlan(pick, compo, mid, jungler) {
     pick === "Xerath" && !midDive && mid && `Touche ${mid} de loin dès qu'il vient au farm, sans dépasser la moitié de la lane.`,
     pick === "Kog'Maw" && !midDive && mid && `Contre ${mid}, farme à portée maximale et échange seulement quand ta vague te couvre.`,
     pick === "TF" && mid && `Contre ${mid}, garde ta carte dorée pour répondre à un engage ou préparer un gank.`,
-    jungler && `${jungler} peut venir en gank : place une ward avant de pousser ta vague.`,
-    !mid && "Le mid adverse n'est pas connu : joue d'abord la sécurité et observe son style.",
-    "Pousse ta vague avant de bouger, pour ne pas perdre de farm."
+    !roamer && jungler && `${jungler} peut venir en gank : place une ward avant de pousser ta vague.`,
+    !mid && `Ton adversaire ${oppAt()} n'est pas connu : joue d'abord la sécurité et observe son style.`,
+    role === "jungle" ? "Prépare ton chemin vers la lane qui peut le mieux profiter de ton aide." : role === "support" ? "Garde la vision de ton côté avant de chercher un engage." : "Pousse ta vague avant de bouger, pour ne pas perdre de farm."
   ];
   const midGame = [
     pick === "TF" && carry && `Utilise ton ultime dès qu'une lane peut punir ${carry}.`,
@@ -472,3 +575,6 @@ function buildPlan(pick, compo, mid, jungler) {
 }
 
 const matchupLink = (pick, mid) => `https://lolalytics.com/lol/${norm(label(pick))}/vs/${norm(mid)}/build/`;
+
+// Chargé en dernier : le moteur a besoin de tous ses tableaux pour lire le profil.
+loadProfile();
