@@ -1,6 +1,7 @@
 # Compile DraftMid-Portable.exe et DraftMid-Setup.exe avec le compilateur C# fourni par Windows.
 # Ni Node, ni Rust, ni Visual Studio nécessaires.
-param([string]$Out = "$PSScriptRoot\dist")
+# -SansMeraki : n'embarque pas la référence Meraki, dont la licence de redistribution n'est pas confirmée.
+param([string]$Out = "$PSScriptRoot\dist", [switch]$SansMeraki)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -25,7 +26,7 @@ $fs = [IO.File]::Create($icoPath); $icon.Save($fs); $fs.Close()
 # Interface, moteur et composants WebView2 sont intégrés à l'exe.
 $res = New-Object Collections.Generic.List[string]
 $webRoot = (Resolve-Path "$root\web").Path
-Get-ChildItem $webRoot -Recurse -File | Where-Object { $_.Name -notlike '*-tests.html' } | ForEach-Object {
+Get-ChildItem $webRoot -Recurse -File | Where-Object { $_.Name -notlike '*-tests.html' -and -not ($SansMeraki -and $_.Name -eq 'draft-role-rates.js') } | ForEach-Object {
   $rel = $_.FullName.Substring($webRoot.Length + 1).Replace('\', '/')
   $res.Add("/resource:`"$($_.FullName)`",web/$rel")
 }

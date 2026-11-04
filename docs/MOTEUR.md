@@ -64,3 +64,7 @@ L'API de Riot ne permet pas de chercher les parties d'un champion, et Kog'Maw mi
 | Bilans de matchups (API Riot) | Calculés par « Mettre à jour les matchups » (`src/RoleRatesUpdater.cs`). Stockés dans `%LOCALAPPDATA%DraftMiddraft-matchups-live.js`, sans nom de joueur. Clé personnelle : usage privé seulement |
 | Heuristique | Matchups sans assez de parties, profils, règles, plans de jeu |
 | Personnel | Journal et import Riot, affichés sans effet sur le classement |
+
+## Adversaire incertain
+
+Les règles et les poids ne changent pas. Quand plusieurs adversaires sont plausibles, chaque pick est évalué contre chacun, et son score est la moyenne pondérée. Une seule hypothèse donne exactement le calcul habituel. Voir [DONNEES.md](DONNEES.md).

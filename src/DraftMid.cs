@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.10.0.0")]
-[assembly: AssemblyFileVersion("2.10.0.0")]
+[assembly: AssemblyVersion("2.12.0.0")]
+[assembly: AssemblyFileVersion("2.12.0.0")]
 
 namespace DraftMid
 {
@@ -162,6 +162,9 @@ namespace DraftMid
         public bool LcuEnabled;
         // Installation déjà passée aux profils : sinon, elle garde le profil d'origine sans rien refaire.
         public bool ProfileKnown;
+        // Copie du profil pour le calcul des matchups, en noms de Riot. Aucune donnée personnelle.
+        public string ProfileRole;
+        public string[] ProfilePool;
         public Dictionary<string, SavedRect> Rects = new Dictionary<string, SavedRect>();
         // Signatures réduites apprises localement : aucune image n'est conservée.
         public int[] NavBaseline;
@@ -638,9 +641,16 @@ public static class Autostart
             string key;
             RiotRegion region;
             string what = matchups ? "matchups" : "rôles";
+            string role = settings.ProfileRole;
+            string[] pool = settings.ProfilePool;
+            if (matchups && pool == null)
+            {
+                if (legacyProfile) { role = "mid"; pool = MatchupStatsUpdater.DefaultPool; }
+                else { OpenFull("settings"); return; }
+            }
             string fileName = matchups ? "draft-matchups-live.js" : "draft-role-rates-live.js";
             string intro = matchups
-                ? "Calcule les bilans de ton pool contre chaque mid adverse, sur des parties des 30 derniers jours. Le calcul prend environ 65 minutes et tourne en arrière-plan."
+                ? "Calcule les bilans de ton pool contre chaque adversaire direct, à ton rôle, sur des parties des 30 derniers jours. Plus ton pool est grand, moins chaque champion aura de parties. Le calcul prend environ 65 minutes et tourne en arrière-plan."
                 : "Compte les rôles joués sur 1 000 parties récentes, pour mieux deviner le mid adverse. Le calcul prend environ 40 minutes et tourne en arrière-plan.";
             using (RiotKeyDialog dialog = new RiotKeyDialog(AppIcon, OpenExternal, "DraftMid : mettre à jour les " + what, intro))
             {
@@ -654,8 +664,8 @@ public static class Autostart
             RefreshUi();
             SynchronizationContext ui = SynchronizationContext.Current;
             RiotCrawler updater = matchups
-                ? (RiotCrawler)new MatchupStatsUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName), MatchupStatsUpdater.DefaultPool)
-                : new RoleRatesUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName));
+                ? (RiotCrawler)new MatchupStatsUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName), pool, role) { StatePath = Path.Combine(dataDir, "draft-matchups-state-" + role + ".json") }
+                : new RoleRatesUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName)) { StatePath = Path.Combine(dataDir, "draft-role-rates-state.json") };
             int shown = 0;
             updater.Progress = (done, total) =>
             {
@@ -673,11 +683,12 @@ public static class Autostart
                 rolesReloadPending = true;
                 ReloadRolesIfIdle();
             }
-            rolesStatus = r.Saved ? (matchups ? "Matchups mis à jour : " : "Rôles mis à jour : ") + r.Games + " parties, " + r.Champions + " champions."
+            rolesStatus = r.UpToDate ? (matchups ? "Matchups" : "Rôles") + " déjà à jour : aucune requête dépensée."
+                : r.Saved ? (matchups ? "Matchups mis à jour : " : "Rôles mis à jour : ") + r.Games + " parties, " + r.Champions + " champions."
                 : r.Error != "" ? r.Error
                 : "Calcul arrêté : " + r.Games + " parties, trop peu pour remplacer les données actuelles.";
             if (r.Saved && r.Error != "") rolesStatus += " " + r.Error;
-            tray.ShowBalloonTip(5000, "DraftMid", rolesStatus, r.Saved ? ToolTipIcon.Info : ToolTipIcon.Warning);
+            tray.ShowBalloonTip(5000, "DraftMid", rolesStatus, r.Saved || r.UpToDate ? ToolTipIcon.Info : ToolTipIcon.Warning);
             RefreshUi();
         }
 
@@ -1023,7 +1034,7 @@ public static class Autostart
             PanelForm f = await open();
             string problem = f.FormBorderStyle == FormBorderStyle.Sizable && f.ControlBox ? "" : "pas de barre de titre ; ";
             await f.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('.settings .ghost-btn').click()");
-            await Task.Delay(300);
+            for (int i = 0; i < 60 && f.Visible; i++) await Task.Delay(50);
             if (f.Visible) problem += "le bouton Fermer ne ferme pas ; ";
             f = await open();
             if (!f.Visible) problem += "réouverture impossible ; ";
@@ -1073,6 +1084,18 @@ public static class Autostart
                 case "hideAll": ToggleManual(); break;
                 case "updateRoles": ToggleRiotUpdate(false); break;
                 case "updateMatchups": ToggleRiotUpdate(true); break;
+                case "setProfile":
+                {
+                    object roleO, poolO;
+                    if (!m.TryGetValue("role", out roleO) || !m.TryGetValue("pool", out poolO)) break;
+                    string role = roleO as string;
+                    System.Collections.IEnumerable list = poolO as System.Collections.IEnumerable;
+                    if (MatchupStatsUpdater.PositionOf(role) == null || list == null || poolO is string) break;
+                    string[] pool = list.Cast<object>().Select(x => RiotCrawler.ChampionKey(x as string)).Where(x => x != "").ToArray();
+                    if (pool.Length == 0 || (role == settings.ProfileRole && settings.ProfilePool != null && pool.SequenceEqual(settings.ProfilePool))) break;
+                    settings.ProfileRole = role; settings.ProfilePool = pool; Persist();
+                    break;
+                }
                 case "profileAdopted": legacyProfile = false; settings.ProfileKnown = true; Persist(); break;
                 case "closeFull": { PanelForm full; if (panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
@@ -1224,7 +1247,12 @@ public static class Autostart
 
             sim.SessionJson = TheirTeam(Sett, Galio, Ahri); await poll();
             string midGuess = await js("currentMid()");
-            t(midGuess.Contains("Ahri") && (await js("state.manualMid === null")) == "true", "Scénario 7. Mid supposé sans le présenter comme certain (" + midGuess + ")");
+            // Les deux sont 100 % mid dans Meraki : personne n'est désigné. Les rôles écrits à la main, eux, les départagent.
+            bool withMeraki = (await js("typeof ROLE_RATES !== 'undefined'")) == "true";
+            t(withMeraki
+                ? midGuess == "null" && (await js("V.confidence === 'faible' && V.res.ranking[0].byScenario.length >= 2 && hypothesisText().includes('non identifié')")) == "true"
+                : midGuess.Contains("Ahri") && (await js("V.confidence !== 'élevée'")) == "true", "Scénario 7. Sett, Galio, Ahri : aucune certitude affichée (" + midGuess + ")");
+            t((await js("state.manualMid === null")) == "true", "Scénario 7. Aucune correction manuelle inventée");
             t((await js("V.reasons.length > 0")) == "true", "Le verdict affiche ses raisons (d'abord " + shownBefore + ")");
 
             sim.SessionJson = TheirTeam(Sett, Galio, Ahri, Jinx, Janna); await poll();
@@ -1571,7 +1599,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.10.0");
+                k.SetValue("DisplayVersion", "2.12.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);

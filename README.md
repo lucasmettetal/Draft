@@ -21,9 +21,9 @@ Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déj�
 - **`Ctrl+Alt+D`** affiche ou masque les panneaux.
 - **Panneau gauche :** les champions adverses, remplis automatiquement avec la lecture du client, sinon à la main.
 - **Panneau droit :** le verdict, ses raisons et le ban conseillé.
-- **Adversaire direct supposé :** le client ne donne pas le rôle des adversaires. Ton adversaire direct reste une supposition, à corriger d'un clic si besoin.
+- **Adversaire direct supposé :** le client ne donne pas le rôle des adversaires. Ton adversaire direct reste une supposition, à corriger d'un clic si besoin. Si plusieurs champions sont plausibles, le classement les pèse tous et le conseil est dit provisoire. Détails et limites des données : [docs/DONNEES.md](docs/DONNEES.md).
 - **Conseil approximatif hors du profil d'origine :** le tableau de matchups écrit à la main ne couvre que le mid avec Twisted Fate, Fizz, Kog'Maw et Xerath. Pour les autres, le conseil repose sur des fiches de champions écrites à la main, sans statistiques.
-- **Calcul des matchups :** **Mettre à jour les matchups** ne calcule pour l'instant que ces quatre champions au mid.
+- **Calcul des matchups :** **Mettre à jour les matchups** suit ton rôle et ton pool, avec ta propre clé Riot. Si tu changes de rôle, relance-le.
 
 Le menu de l'icône permet aussi de choisir le panneau unique, l'activation automatique, le positionnement automatique et le démarrage avec Windows.
 
@@ -39,7 +39,7 @@ Ces deux fonctions demandent une [clé Riot](https://developer.riotgames.com). E
 
 **Mettre à jour les rôles :** dans le menu de l'icône ou les réglages. L'application compte les rôles joués sur 1 000 parties récentes, pour deviner le mid adverse. Compte environ 40 minutes en arrière-plan, à refaire à chaque patch. Sinon, elle utilise des statistiques livrées, qui datent du patch 16.3.
 
-**Mettre à jour les matchups :** au même endroit. L'application calcule les bilans de ton pool contre chaque mid adverse, sur les 30 derniers jours. Compte environ 65 minutes en arrière-plan. Un matchup sous 30 parties garde l'avis écrit à la main.
+**Mettre à jour les matchups :** au même endroit. L'application calcule les bilans de ton pool contre chaque adversaire direct, à ton rôle, sur les 30 derniers jours. Compte environ 65 minutes en arrière-plan. Un matchup sous 30 parties garde l'avis écrit à la main.
 
 **Bilans personnels :** télécharge `tools/draft-import-stats.bat` et `tools/draft-import-stats.ps1` dans un même dossier, puis lance le `.bat`. Il demande tes comptes une fois et les garde dans un fichier ignoré par Git. Importe ensuite le résultat avec le menu de l'icône > **Importer mes statistiques...**
 

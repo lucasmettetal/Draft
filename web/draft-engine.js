@@ -136,16 +136,37 @@ const RATE_NAMES = { wukong:"monkeyking", renataglasc:"renata" };
 // Bilans calculés sur de vraies parties. Sous ce nombre de parties, on garde le tableau écrit à la main.
 const MATCHUP_MIN_GAMES = 30, MATCHUP_SHRINK = 50, MATCHUP_AVOID_GAP = -.03, MATCHUP_FULL_GAP = .05;
 
+const riotKey = name => { const key = norm(name); return RATE_NAMES[key] || key; };
+// Un fichier sans rôle date d'avant les profils : il ne concerne que le mid.
+const liveRoleOk = () => !!window.MATCHUPS_LIVE && (window.MATCHUPS_LIVE.role || "mid") === myRole();
+
 // Écart au winrate moyen du pick, ramené vers zéro quand il y a peu de parties.
 // Les joueurs suivis jouent souvent ce champion : seul l'écart à leur moyenne a un sens, pas le winrate brut.
 function liveMatchup(pick, mid) {
-  const live = window.MATCHUPS_LIVE && window.MATCHUPS_LIVE.pool[norm(label(pick))];
-  if (!live || !live.games || !mid || myRole() !== "mid") return null;
-  const key = norm(mid);
-  const row = live.vs[RATE_NAMES[key] || key];
-  if (!row || row[1] < MATCHUP_MIN_GAMES) return null;
-  const base = live.wins / live.games;
-  return { wins: row[0], games: row[1], gap: (row[0] + MATCHUP_SHRINK * base) / (row[1] + MATCHUP_SHRINK) - base };
+  if (!liveRoleOk() || !mid) return null;
+  const key = riotKey(label(pick)), opponent = riotKey(mid);
+  // Le patch actuel compte plein, les précédents de moins en moins, et n'importe quelle source de bilans convient.
+  let wins = 0, games = 0, rowWins = 0, rowGames = 0, seenWins = 0, seenGames = 0, recent = false;
+  DATA_PROVIDERS.forEach(provider => {
+    if (provider.matchupBuckets) provider.matchupBuckets().forEach(bucket => {
+      const live = bucket.pool && bucket.pool[key];
+      if (!live || !live.games) return;
+      const age = ageOf(bucket.patch, bucket.collected).age;
+      const weight = bucket.patch || bucket.collected ? ageWeight(age) : 1;
+      wins += live.wins * weight;
+      games += live.games * weight;
+      const row = live.vs && live.vs[opponent];
+      if (!row) return;
+      rowWins += row[0] * weight;
+      rowGames += row[1] * weight;
+      seenWins += row[0];
+      seenGames += row[1];
+      if (age === 0 || age === null) recent = true;
+    });
+  });
+  if (!games || rowGames < MATCHUP_MIN_GAMES) return null;
+  const base = wins / games;
+  return { wins:seenWins, games:seenGames, effective:rowGames, recent, gap:(rowWins + MATCHUP_SHRINK * base) / (rowGames + MATCHUP_SHRINK) - base };
 }
 
 function avoidedPicks(m) {
@@ -177,7 +198,7 @@ const RULES = {
     if (live) {
       const percent = Math.round(live.gap * 100);
       const note = Math.max(-4 / 3, Math.min(4 / 3, live.gap / MATCHUP_FULL_GAP));
-      return [note, `${percent ? `${percent > 0 ? "+" : ""}${percent} % contre ${x.mid}` : `Sans écart net contre ${x.mid}`} sur ${live.games} parties`];
+      return [note, `${percent ? `${percent > 0 ? "+" : ""}${percent} % contre ${x.mid}` : `Sans écart net contre ${x.mid}`} sur ${live.games} parties${live.recent ? "" : " (patchs précédents)"}`];
     }
     const m = matchupOf(x.mid);
     if (!m || !WRITTEN_PICKS.includes(p)) return null;
@@ -268,12 +289,31 @@ function evaluatePick(pick, compo, ctx) {
   };
 }
 
-function analyze(enemies, mid, hasFront) {
+// Plusieurs adversaires possibles : mêmes règles, pondérées par la probabilité de chaque hypothèse.
+function evaluateScenarios(pick, compo, hasFront, scenarios) {
+  const each = scenarios.map(s => ({ s, entry: evaluatePick(pick, compo, { mid:s.mid, hasFront }) }));
+  const criteria = CRITERIA.map(def => {
+    const found = each.map(x => ({ s:x.s, c:x.entry.criteria.find(c => c.key === def.key) })).filter(x => x.c);
+    if (!found.length) return null;
+    const v = found.reduce((sum, x) => sum + x.s.p * x.c.v, 0);
+    const texts = [...new Set(found.map(x => x.c.text))];
+    return { key:def.key, label:def.label, v, impact:v * def.weight, text:texts.length > 1 ? texts.slice(0, 2).join(" · ") : texts[0] };
+  }).filter(Boolean);
+  return {
+    pick, criteria,
+    score: criteria.reduce((sum, c) => sum + c.impact, 0),
+    why: criteria.filter(c => c.impact !== 0).map(c => ({ key:c.key, v:c.impact, text:c.text })),
+    byScenario: each.map(x => ({ mid:x.s.mid, p:x.s.p, score:x.entry.score }))
+  };
+}
+
+function analyze(enemies, mid, hasFront, scenarios) {
   const compo = compoOf(enemies);
   const ctx = { mid, hasFront };
+  const several = scenarios && scenarios.length > 1;
   // Égalité : on préfère le pick le moins pénalisé. L'ordre ne donne aucun avantage à un champion précis.
   const worst = p => Math.min(0, ...p.why.map(w => w.v));
-  const ranking = availablePicks(enemies).map(p => evaluatePick(p, compo, ctx))
+  const ranking = availablePicks(enemies).map(p => several ? evaluateScenarios(p, compo, hasFront, scenarios) : evaluatePick(p, compo, ctx))
     .sort((a, b) => b.score - a.score || worst(b) - worst(a) || (b.pick === ENGINE_PREFS.favorite) - (a.pick === ENGINE_PREFS.favorite));
   return { ranking, unknown: enemies.filter(n => PROVISIONAL.includes(n)), counts: compo };
 }
@@ -285,45 +325,22 @@ function availablePicks(enemies) {
 // ---------- Mid probable ----------
 // Taux de jeu par rôle (draft-role-rates.js). Le résultat reste une supposition, jamais un rôle confirmé.
 const ROLE_ORDER = ["top", "jungle", "mid", "adc", "support"];
-const UNKNOWN_SHARE = 0.2, SHARE_FLOOR = 0.02, MIN_MID_SHARE = 0.05;
+const MIN_MID_SHARE = .2;
 
-const LIVE_MIN_GAMES = 20;
-const sumOf = list => list ? list.reduce((a, b) => a + b, 0) : 0;
-
-// Part de chaque rôle pour un champion, ou null s'il n'a pas de données.
-// Les parties récentes passent d'abord. Les statistiques livrées servent de secours pour les champions rares.
+// Part de chaque rôle pour un champion, ou null s'il n'a aucune donnée (draft-data.js).
 function roleShares(name) {
-  const key = norm(name);
-  const id = RATE_NAMES[key] || key;
-  const live = window.ROLE_RATES_LIVE && window.ROLE_RATES_LIVE.champions[id];
-  const rates = sumOf(live) >= LIVE_MIN_GAMES ? live : typeof ROLE_RATES !== "undefined" ? ROLE_RATES.champions[id] : null;
-  const total = sumOf(rates);
-  return total > 0 ? rates.map(v => v / total) : null;
+  const evidence = roleEvidence(name);
+  return evidence.known ? evidence.shares : null;
 }
 
-// Cherche la répartition des rôles la plus probable pour toute l'équipe, puis lit qui se retrouve en face du joueur.
-// Le nom vient de la première version : « mid » désigne ici l'adversaire direct, quel que soit le rôle.
-function guessMid(enemies) {
-  const MID_INDEX = ROLE_ORDER.indexOf(myRole());
+// L'adversaire direct le plus probable. Le nom vient de la première version : quel que soit le rôle du joueur.
+// Tant que la draft est incomplète, le vrai adversaire n'est peut-être pas encore choisi.
+function guessMid(enemies, fixed) {
   const team = enemies.slice(0, ROLE_ORDER.length);
-  const shares = team.map(roleShares);
-  let bestScore = -Infinity, bestMid = -1;
-  const place = (i, used, score, mid) => {
-    if (i === team.length) {
-      if (score > bestScore) { bestScore = score; bestMid = mid; }
-      return;
-    }
-    ROLE_ORDER.forEach((_, role) => {
-      if (used & (1 << role)) return;
-      const share = shares[i] ? shares[i][role] : UNKNOWN_SHARE;
-      place(i + 1, used | (1 << role), score + Math.log(share + SHARE_FLOOR), role === MID_INDEX ? i : mid);
-    });
-  };
-  place(0, 0, 0, -1);
-  if (bestMid < 0 || !shares[bestMid]) return null;
-  // Tant que la draft est incomplète, le vrai mid n'est peut-être pas encore choisi. À 5, l'un d'eux y va forcément.
-  if (team.length < ROLE_ORDER.length && shares[bestMid][MID_INDEX] < MIN_MID_SHARE) return null;
-  return team[bestMid];
+  const best = opponentBelief(team, fixed).candidates[0];
+  if (!best || !best.known) return null;
+  if (team.length < ROLE_ORDER.length && best.share < MIN_MID_SHARE) return null;
+  return best.name;
 }
 
 // Le nom affiché ne change que si un autre pick mène d'au moins HOLD_GAP points.
@@ -335,6 +352,8 @@ function holdPick(ranking, held) {
 }
 
 function suggestBans() {
+  const measured = bansFromLive();
+  if (measured.length) return measured;
   const own = PICKS.map(label);
   const active = p => !ENGINE_PREFS.excluded.includes(p) && PICKS.includes(p);
   const written = myRole() === "mid" ? MATCHUPS
@@ -349,6 +368,17 @@ function suggestBans() {
     .slice(0, 3)
     .map(x => x.n) : [];
   return written.length ? written : bansFromTraits();
+}
+
+// Dès que de vrais bilans existent, ils désignent les adversaires qui gênent le plus le pool.
+function bansFromLive() {
+  if (!liveRoleOk()) return [];
+  const own = PICKS.map(label);
+  const active = PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p));
+  return NAMES.filter(n => !own.includes(n)).map(n => {
+    const bad = active.map(p => liveMatchup(p, n)).filter(x => x && x.gap <= MATCHUP_AVOID_GAP);
+    return { n, harm: bad.length, worst: Math.min(0, ...bad.map(x => x.gap)) };
+  }).filter(x => x.harm > 0).sort((x, y) => y.harm - x.harm || x.worst - y.worst).slice(0, 3).map(x => x.n);
 }
 
 // Pool sans tableau écrit : on vise les adversaires directs courants qui gênent le plus ses champions.
@@ -370,6 +400,8 @@ function bansFromTraits() {
 }
 
 const banReason = name => {
+  const measured = PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p) && (liveMatchup(p, name) || { gap:0 }).gap <= MATCHUP_AVOID_GAP);
+  if (measured.length) return `mauvais bilan de ${measured.map(label).join(", ")} sur de vraies parties`;
   const m = matchupOf(name);
   const hit = m && m.avoid ? m.avoid.split(", ").filter(p => !ENGINE_PREFS.excluded.includes(p) && PICKS.includes(p)) : [];
   if (hit.length) return `gêne ${hit.map(label).join(", ")} dans le tableau de matchups`;
@@ -422,6 +454,8 @@ function comparePicks(a, b) {
 const WHAT_IF_ADDS = [["un tank de plus", "Ornn"], ["un plongeur de plus", "Zed"], ["un contrôle ciblé de plus", "Leona"], ["un carry fragile de plus", "Jinx"], ["un poke de plus", "Ziggs"]];
 
 // Recalcule la draft avec le même moteur pour trouver quand l'autre pick passerait devant.
+const hasMatchupData = name => !!matchupOf(name) || PICKS.some(p => liveMatchup(p, name));
+
 function whenBetter(target, other, enemies, mid) {
   const beats = (list, m, front) => {
     const r = analyze(list, m, front).ranking;
@@ -431,14 +465,14 @@ function whenBetter(target, other, enemies, mid) {
   };
   const found = [];
   if (beats(enemies, mid, false)) found.push("si ton équipe n'a pas de frontline");
-  enemies.filter(n => matchupOf(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(`si ton adversaire ${oppAt()} est ${n}`); });
+  enemies.filter(n => hasMatchupData(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(`si ton adversaire ${oppAt()} est ${n}`); });
   if (enemies.length < 5) WHAT_IF_ADDS.forEach(([text, champ]) => { if (!enemies.includes(champ) && beats(enemies.concat(champ), mid, true)) found.push(`avec ${text}`); });
   return found.slice(0, 3);
 }
 
-function midSwapEffect(enemies, mid, shown, hasFront = true) {
-  for (const n of enemies) {
-    if (n === mid || !matchupOf(n)) continue;
+function midSwapEffect(enemies, mid, shown, hasFront = true, plausible) {
+  for (const n of plausible || enemies) {
+    if (n === mid || !hasMatchupData(n)) continue;
     const top = analyze(enemies, n, hasFront).ranking[0];
     if (top && top.pick !== shown) return { mid:n, pick:top.pick };
   }

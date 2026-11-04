@@ -448,6 +448,12 @@
   .lcu-state.wait { color:var(--gold); }
   .lcu-state.bad { color:var(--threat); }
   .lcu-state.idle { color:var(--muted); }
+  .data-list { margin:8px 0 0; padding:0; list-style:none; }
+  .data-list li { margin-bottom:9px; font-size:13px; }
+  .data-list li.off > b { color:var(--muted); }
+  .data-list p { margin:2px 0 0; color:var(--muted); font-size:12.5px; line-height:1.3; overflow-wrap:anywhere; }
+  .data-kind { color:var(--muted); font-size:12px; }
+  .data-old { color:var(--gold); font-size:12px; }
   .set-more { margin-top:12px; border-top:1px solid var(--line); padding-top:8px; }
   .set-more summary { min-height:24px; color:var(--muted); font-size:13.5px; cursor:pointer; }
   .set-more p, .set-more .set-check { margin-top:6px; }
@@ -581,7 +587,9 @@
 <script src="draft-role-rates-live.js"></script>
 <script src="draft-matchups-live.js"></script>
 <script src="draft-champions.js"></script>
+<script src="draft-role-sheet.js"></script>
 <script src="draft-engine.js"></script>
+<script src="draft-data.js"></script>
 <script src="draft-providers.js"></script>
 <script src="draft-champion-ids.js"></script>
 <script>
@@ -603,7 +611,7 @@ const suggest = query => matchByKeys(NAMES.filter(n => !state.enemies.includes(n
 
 function currentMid() {
   if (state.manualMid && state.enemies.includes(state.manualMid)) return state.manualMid;
-  return guessMid(state.enemies.filter(n => !(state.roleOf[n] && state.roleOf[n] !== myRole())));
+  return identifiedOpponent(state.enemies, state.roleOf);
 }
 
 // Statistiques personnelles, importées par draft-import-stats.bat (facultatif)
@@ -691,7 +699,9 @@ function deriveSlots() {
   const slots = {};
   const mid = currentMid();
   if (mid) slots[myRole()] = mid;
-  const others = state.enemies.filter(n => n !== mid);
+  // Sans adversaire identifié, le candidat le plus plausible se place en dernier : s'il faut remplir la ligne, c'est lui qu'elle montre.
+  const plausible = mid ? [] : opponentBelief(state.enemies, state.roleOf).candidates.map(c => c.name).reverse();
+  const others = (mid ? state.enemies : plausible).filter(n => n !== mid);
   others.filter(n => state.roleOf[n] && state.roleOf[n] !== myRole()).forEach(n => { if (!slots[state.roleOf[n]]) slots[state.roleOf[n]] = n; });
   others.filter(n => !Object.values(slots).includes(n)).forEach(n => {
     const role = roleHints(n).find(r => !slots[r]) || REQUIRED_ROLES.find(r => !slots[r]);
@@ -720,7 +730,10 @@ function computeVerdict() {
   if (!state.enemies.length) state.held = null;
   const n = state.enemies.length;
   const mid = currentMid();
-  const res = analyze(state.enemies, mid, PREFS.assumeFront);
+  const manual = !!state.manualMid && state.enemies.includes(state.manualMid);
+  const belief = manual ? null : opponentBelief(state.enemies, state.roleOf);
+  const scenarios = belief && n ? beliefScenarios(belief) : null;
+  const res = analyze(state.enemies, mid, PREFS.assumeFront, scenarios);
   if (!res.ranking.length) {
     state.held = null;
     state.shown = null;
@@ -745,7 +758,10 @@ function computeVerdict() {
     n, mid, res, shown, rival, clear, avoided, order,
     reasons: positiveReasons(heldEntry),
     risk: mainRisk(heldEntry),
-    midAlt: mid && !state.manualMid ? midSwapEffect(state.enemies, mid, shown, PREFS.assumeFront) : null,
+    midAlt: belief ? midSwapEffect(state.enemies, mid, shown, PREFS.assumeFront, belief.candidates.filter(c => c.p >= SCENARIO_MIN).map(c => c.name)) : null,
+    belief, confidence: belief ? belief.confidence : null,
+    hypothesis: belief && n ? beliefHypothesis(belief, mid) : null,
+    provisional: !!belief && n > 0 && (belief.confidence === "faible" || !!(scenarios && scenarios.length > 1 && scenarios.some(sc => analyze(state.enemies, sc.mid, PREFS.assumeFront).ranking[0].pick !== res.ranking[0].pick))),
     personal: personalLine(shown, mid),
     without: without && without.pick !== shown ? without.pick : null,
     bans: suggestBans(),
@@ -1062,6 +1078,16 @@ function SearchBox() {
   </div>`;
 }
 
+const CONFIDENCE_WORD = { "élevée":"très probable", moyenne:"probable", faible:"non identifié" };
+
+// Les hypothèses restent courtes, sans pourcentage : la qualité des données ne permet pas mieux.
+function hypothesisText() {
+  const h = V.hypothesis;
+  if (!h) return "";
+  if (!h.main) return `${oppName()} non identifié${h.others.length ? ` : ${h.others.join(" ou ")}` : ""}.`;
+  return `${oppName()} supposé : ${h.main}${h.others.length ? `, sinon ${h.others.join(" ou ")}` : ""}.`;
+}
+
 function RoleRow({ role, name, assumed }) {
   const isMid = role === myRole();
   const previous = useRef(name);
@@ -1082,7 +1108,7 @@ function RoleRow({ role, name, assumed }) {
         <${Portrait} name=${name} size=${44} />
         <span className="role-who">
           <span className="role-name" title=${name}>${name}</span>
-          <span className="role-traits" title=${traitsOf(name)}>${isMid && assumed ? html`<b className="assumed">${oppName()} probable</b> ` : ""}${traitsOf(name)}</span>
+          <span className="role-traits" title=${traitsOf(name)}>${isMid && assumed ? html`<b className="assumed">${oppName()} ${CONFIDENCE_WORD[V.confidence] || "probable"}</b> ` : ""}${traitsOf(name)}</span>
         </span>
       <//>
       <span className="role-tools">
@@ -1127,7 +1153,7 @@ function EnemyPanel() {
   return html`<aside className="col col-left" aria-label="Composition adverse">
     <h2 className="sec-title">Composition adverse <small>${V.n} sur 5</small></h2>
     <${SearchBox} />
-    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? `${oppName()} inconnu : place le bon champion ${oppAt()}.` : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
+    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? (V.hypothesis && V.hypothesis.others.length ? `${hypothesisText()} Corrige si tu sais.` : `${oppName()} inconnu : place le bon champion ${oppAt()}.`) : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
     <${LayoutGroup}>
       <div className="roles">
         ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} />`)}
@@ -1208,6 +1234,7 @@ function Stage() {
         ${V.avoided.length ? html`<p className="note">À éviter : <span className="avoid">${V.avoided.map(label).join(", ")}</span></p>` : null}
         ${V.personal ? html`<p className="note">Tes parties : ${V.personal}</p>` : null}
         ${V.without ? html`<p className="note">Sans frontline : <b>${label(V.without)}</b></p>` : null}
+        ${V.provisional ? html`<p className="note warn">Provisoire. ${hypothesisText()}</p>` : null}
         ${V.midAlt ? html`<p className="note warn">Si ton adversaire ${oppAt()} est ${V.midAlt.mid} : <b>${label(V.midAlt.pick)}</b></p>` : null}
       <//>
       <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
@@ -1324,7 +1351,8 @@ function AnalyseTab() {
   const entries = V.res.ranking;
   const rows = CRITERIA.filter(def => entries.some(p => p.criteria.some(c => c.key === def.key)));
   const uncertain = [];
-  if (V.mid && !state.manualMid) uncertain.push(`${oppName()} supposé : ${V.mid}.`);
+  if (V.hypothesis) uncertain.push(`${hypothesisText()} Confiance ${V.confidence}.`);
+  if (V.res.ranking[0] && V.res.ranking[0].byScenario) uncertain.push("Classement pondéré entre ces hypothèses, avec les mêmes règles.");
   if (!V.mid) uncertain.push(`${oppName()} inconnu : le matchup direct n'est pas évalué.`);
   if (V.mid && !matchupOf(V.mid) && !PICKS.some(p => liveMatchup(p, V.mid))) uncertain.push(`Pas de données de matchup contre ${V.mid} : ce critère n'est pas évalué.`);
   if (entries[0] && V.shown !== entries[0].pick) uncertain.push(`${label(V.shown)} reste affiché : ${label(entries[0].pick)} mène de trop peu pour changer de nom en cours de draft.`);
@@ -1418,7 +1446,25 @@ function CompareTab() {
 
 function MatchupsTab() {
   const [value, setValue] = useState("");
-  if (myRole() !== "mid" || !PICKS.some(p => WRITTEN_PICKS.includes(p))) return html`<p className="small">Pas encore de tableau de matchups pour ce profil. Le conseil repose sur la composition adverse et les fiches de champions.</p>`;
+  const hasTable = myRole() === "mid" && PICKS.some(p => WRITTEN_PICKS.includes(p));
+  if (!hasTable) {
+    if (!PICKS.some(p => liveRoleOk() && window.MATCHUPS_LIVE.pool[riotKey(label(p))])) return html`<p className="small">Pas encore de bilans pour ce profil : le conseil repose sur la composition adverse et les fiches de champions. Lance <b>Mettre à jour les matchups</b> dans les réglages.</p>`;
+    const key = norm(value);
+    const names = key ? NAMES.filter(n => champKeys(n).some(k => k.includes(key))).slice(0, 8) : [];
+    return html`<div>
+      <p className="small" style=${{ margin:"0 0 6px" }}>Regarde tes bilans contre un adversaire, sans toucher à ta draft.</p>
+      <input id="q" type="search" value=${value} autoComplete="off" spellCheck="false" aria-label="Chercher un adversaire" placeholder="Adversaire : ahri, tf, kata..."
+        onChange=${e => setValue(e.target.value)} onKeyDown=${e => { if (e.key === "Escape") { e.stopPropagation(); setValue(""); } }} />
+      ${names.map(n => {
+        const measured = PICKS.map(p => [p, liveMatchup(p, n)]).filter(x => x[1]);
+        return html`<div key=${n} className="mcard">
+          <${Portrait} name=${n} size=${32} />
+          <span className="mcard-name">${n}</span>
+          <span className="mcard-line">${measured.length ? `Bilans : ${measured.map(([p, x]) => `${label(p)} ${x.gap >= 0 ? "+" : ""}${Math.round(x.gap * 100)} % (${x.games})`).join(", ")}` : `Moins de ${MATCHUP_MIN_GAMES} parties : pas de bilan.`}</span>
+        </div>`;
+      })}
+    </div>`;
+  }
   const found = value.trim() ? searchMatchups(value) : [];
   return html`<div>
     <p className="small" style=${{ margin:"0 0 6px" }}>Regarde quoi prendre contre un mid, sans toucher à ta draft.</p>
@@ -1642,6 +1688,7 @@ function VerdictPanel() {
       <div><b>Menace principale</b><p>${threatText(V.shown, threat, c)}</p></div>
       <span className="p-threat-who"><${Portrait} name=${threat} size=${36} />${threat}</span>
     </section>` : null}
+    ${V.provisional ? html`<p className="note warn">Provisoire. ${hypothesisText()}</p>` : null}
     <section className="p-win"><b>Gagne si</b><p>${winCondition(V.shown, c)}</p></section>
     ${V.bans[0] ? html`<section className="p-ban" aria-label="Ban conseillé">
       <h2 className="p-h">Ban conseillé</h2>
@@ -1666,6 +1713,11 @@ const LCU_STATES = {
   off: ["idle", "Désactivée : la détection est estimée et peu fiable"]
 };
 
+// Le calcul des matchups tourne dans le programme : il a besoin du rôle et du pool, en noms de Riot.
+function sendProfile() {
+  if (PROFILE && IS_HOST) hostSend({ cmd:"setProfile", role: PROFILE.role, pool: PICKS.map(p => riotKey(label(p))) });
+}
+
 function saveMyProfile(role, names) {
   const pool = names.map(pickId);
   if (role !== myRole()) { state.manualMid = null; state.roleOf = {}; }
@@ -1673,6 +1725,7 @@ function saveMyProfile(role, names) {
   state.held = null;
   savePrefs({ excluded: PREFS.excluded.filter(p => pool.includes(p)), favorite: pool.includes(PREFS.favorite) ? PREFS.favorite : null });
   pool.forEach(p => preloadSplash(label(p)));
+  sendProfile();
 }
 
 function ProfileCard() {
@@ -1703,6 +1756,26 @@ function ProfileCard() {
       <p className="set-hint flush">Sans statistiques calculées, le conseil repose sur des fiches écrites à la main : c'est un avis général.</p>
     </div>
   </div>`;
+}
+
+function DataSources() {
+  // Le détail n'est calculé qu'à l'ouverture : les réglages restent immédiats.
+  const [open, setOpen] = useState(false);
+  const report = dataReport();
+  const changes = open ? roleChanges() : [];
+  const stale = report.filter(r => r.available && r.stale).length;
+  const missing = report.filter(r => !r.available).length;
+  const dateOf = d => { const t = Date.parse(d || ""); return isNaN(t) ? "inconnue" : new Date(t).toLocaleDateString("fr-FR"); };
+  return html`<details className="set-more" onToggle=${e => setOpen(e.currentTarget.open)}>
+    <summary>Sources de données${stale ? ` : ${stale} ancienne(s)` : ""}${missing ? `${stale ? "," : " :"} ${missing} absente(s)` : ""}</summary>
+    <ul className="data-list">${report.map(r => html`<li key=${r.id} className=${r.available ? "" : "off"}>
+      <b>${r.label}</b> <span className="data-kind">${r.kindLabel}</span>${r.stale ? html` <span className="data-old">Ancienne</span>` : null}${r.available ? null : html` <span className="data-old">Absente</span>`}
+      <p>${r.source}.${!r.available || r.kind === "heuristic" ? "" : ` Patch : ${r.patch || "inconnu"}${r.stale ? ` (${r.age} patchs d'écart)` : ""}.`}${r.collected ? ` Date : ${dateOf(r.collected)}.` : ""}${!r.available || r.kind === "official" || r.kind === "heuristic" ? "" : ` Observations : ${r.games === null ? "non mesurées" : `${r.games} ${r.unit}`}.`}${r.region ? ` Région : ${r.region}.` : ""}${r.rank ? ` Rang : ${r.rank}.` : ""}${r.uncertainty ? ` Incertitude ${r.uncertainty}.` : ""}</p>
+      <p>${r.note} ${r.terms}</p>
+    </li>`)}</ul>
+    ${changes.length ? html`<h3>Rôles à surveiller</h3>
+    <ul className="data-list">${changes.slice(0, 8).map(c => html`<li key=${c.name}><b>${c.name}</b> : plus souvent ${ROLE_NAMES[c.role]} que dans ${c.confirmed ? "les patchs précédents" : "la référence, à confirmer"} (${c.games} parties).</li>`)}</ul>` : null}
+  </details>`;
 }
 
 function Settings({ onClose }) {
@@ -1762,7 +1835,7 @@ function Settings({ onClose }) {
         <h3>Rôles des champions</h3>
         <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.`} Ils servent à deviner le mid adverse.</p>
         <h3>Matchups</h3>
-        <p className="small">${window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[norm(label(p))] || { games:0 }).games}`).join(", ")}.` : "Tableau écrit à la main, pas encore de bilans calculés."} Sous 30 parties, un matchup garde l'avis écrit à la main.</p>
+        <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? `Bilans calculés pour le rôle ${ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"]} : relance le calcul pour ton rôle actuel.` : window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games}`).join(", ")}.` : "Pas encore de bilans calculés."} Sous ${MATCHUP_MIN_GAMES} parties, le matchup n'utilise pas le bilan.</p>
         <p className="small" role="status">${hostState.rolesStatus || ""}</p>
         <p className="set-row">
           ${hostState.rolesRunning
@@ -1775,6 +1848,7 @@ function Settings({ onClose }) {
       <p className="small">Pour récupérer un ancien journal, importe son fichier ici. Rien n'est supprimé.</p>
       <p><input type="file" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
       ${importNote ? html`<p className="small">${importNote}</p>` : null}
+      <${DataSources} />
       <details className="set-more">
         <summary>Avancé</summary>
         <p><button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></p>
@@ -1826,7 +1900,9 @@ function App() {
           if (m.legacyProfile) {
             if (!PROFILE) { saveProfile(FIRST_PROFILE); computeVerdict(); }
             hostSend({ cmd:"profileAdopted" });
-          } else if (!PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"settings" }); }
+          }
+          if (PROFILE && !window.draftProfileSent) { window.draftProfileSent = true; sendProfile(); }
+          if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"settings" }); }
           force();
         }
         if (m.kind === "demo") runDemo(m.stepMs);
@@ -1852,7 +1928,7 @@ function App() {
     document.addEventListener("keydown", onKey);
     focusAdd();
     PICKS.forEach(p => preloadSplash(label(p)));
-    fetch("https://ddragon.leagueoflegends.com/api/versions.json").then(r => r.json()).then(list => { if (list && list[0]) { ddVersion = list[0]; force(); } }).catch(() => {});
+    fetch("https://ddragon.leagueoflegends.com/api/versions.json").then(r => r.json()).then(list => { if (list && list[0]) { ddVersion = list[0]; setKnownPatch(list[0]); force(); } }).catch(() => {});
     return () => document.removeEventListener("keydown", onKey);
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;

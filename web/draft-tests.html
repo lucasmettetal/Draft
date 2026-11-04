@@ -23,7 +23,9 @@
 <script>try { localStorage.setItem("draftProfile", JSON.stringify({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] })); } catch (e) {}</script>
 <script src="draft-role-rates.js"></script>
 <script src="draft-champions.js"></script>
+<script src="draft-role-sheet.js"></script>
 <script src="draft-engine.js"></script>
+<script src="draft-data.js"></script>
 <script src="draft-providers.js"></script>
 <script>
 const scenarios = [];
@@ -143,6 +145,164 @@ unitBlock("Profils de joueur", "N'importe quel rôle et n'importe quel pool doiv
   t(PICKS.length === 0 && analyze(team, null, true).ranking.length === 0, "sans profil, aucun conseil inventé");
   applyProfile(original);
   t(PICKS.join() === "TF,Fizz,Kog'Maw,Xerath" && myRole() === "mid", "ton profil revient à l'identique");
+});
+
+unitBlock("Bilans par rôle", "Les bilans ne valent que pour le rôle calculé, et les noms particuliers de Riot doivent être reconnus.", t => {
+  const original = PROFILE;
+  window.MATCHUPS_LIVE = { role:"top", updated:"2026-11-04", games:900, pool: {
+    darius: { wins:520, games:1000, vs:{ teemo:[20,100], ornn:[70,100], monkeyking:[62,100] } },
+    monkeyking: { wins:500, games:1000, vs:{ teemo:[70,100], darius:[50,100] } }
+  } };
+  applyProfile({ role:"top", pool:["Darius", "Wukong"] });
+  t(liveMatchup("Darius", "Teemo").gap < MATCHUP_AVOID_GAP, "le bilan s'applique au rôle calculé");
+  t(liveMatchup("Darius", "Wukong").games === 100, "Wukong en face est retrouvé sous son nom Riot");
+  t(liveMatchup("Wukong", "Teemo").gap > 0, "Wukong dans le pool est retrouvé sous son nom Riot");
+  t(/sur 100 parties/.test(RULES.matchup("Darius", null, { mid:"Teemo" })[1]), "la raison cite les vraies parties");
+  t(analyze(["Teemo"], "Teemo", true).ranking[0].pick === "Wukong", "le bilan change le classement");
+  t(suggestBans()[0] === "Teemo" && /vraies parties/.test(banReason("Teemo")), "le ban vise le pire bilan");
+  applyProfile({ role:"jungle", pool:["Darius", "Wukong"] });
+  t(liveMatchup("Darius", "Teemo") === null, "un autre rôle n'utilise pas ces bilans");
+  t(RULES.matchup("Darius", null, { mid:"Teemo" }) === null, "sans bilan, le critère reste neutre");
+  delete window.MATCHUPS_LIVE;
+  applyProfile(original);
+  t(PICKS.join() === "TF,Fizz,Kog'Maw,Xerath", "ton profil revient à l'identique");
+});
+
+// Données contrôlées : aucun de ces chiffres ne décrit la méta réelle.
+function withRoles(patches, now, run) {
+  const saved = { live: window.ROLE_RATES_LIVE, known: knownPatch };
+  window.ROLE_RATES_LIVE = patches ? { updated:"2026-11-04", games:0, regions:["Test"], patches } : undefined;
+  knownPatch = now;
+  try { run(); } finally { window.ROLE_RATES_LIVE = saved.live; knownPatch = saved.known; }
+}
+const bucket = champions => ({ games:100, collected:"2026-11-04", champions });
+const pOf = (b, name) => { const c = b.candidates.find(x => x.name === name); return c ? c.p : null; };
+const PURE = { vi:[0,300,0,0,0], garen:[300,0,0,0,0], jinx:[0,0,0,300,0], thresh:[0,0,0,0,300], ahri:[0,0,300,0,0], zed:[0,0,300,0,0] };
+
+unitBlock("Déduction des rôles", "Toutes les répartitions sont pesées, sans rendre un rôle rare impossible ni afficher une certitude que les données ne donnent pas.", t => {
+  withRoles({ "16.22": bucket(Object.assign({}, PURE, { ezreal:[0,0,8,292,0], yasuo:[150,0,150,0,0], yone:[150,0,150,0,0], vladimir:[150,0,150,0,0] })) }, "16.22", () => {
+    let b = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]);
+    t(pOf(b, "Ahri") > .9 && b.confidence === "élevée", "1. un champion presque toujours mid : très probable");
+    t(pOf(b, "Garen") < 1 && beliefScenarios(b)[0].mid === "Ahri", "1. la recommandation repose sur lui seul");
+    b = opponentBelief(["Vladimir"]);
+    t(Math.abs(b.candidates[0].share - .5) < .15 && b.confidence !== "élevée", "2. flex Top/Mid seul : aucune certitude");
+    b = opponentBelief(["Vladimir", "Garen", "Vi", "Jinx", "Thresh"]);
+    t(pOf(b, "Vladimir") > .8, "2. le même flex devient mid quand le top est pris");
+    b = opponentBelief(["Garen", "Vi", "Ezreal", "Jinx", "Thresh"]);
+    t(guessMid(["Garen", "Vi", "Ezreal", "Jinx", "Thresh"]) === "Ezreal" && pOf(b, "Ezreal") > .5, "3. un ADC devient mid si l'autre ADC occupe sa place");
+    t(opponentBelief(["Ezreal"]).candidates[0].share > 0, "3. un rôle rare n'est jamais impossible");
+    b = opponentBelief(["Yasuo", "Yone", "Vi", "Jinx", "Thresh"]);
+    t(b.confidence === "faible" && beliefScenarios(b).length >= 2 && Math.abs(pOf(b, "Yasuo") - pOf(b, "Yone")) < .1, "4 et 12. deux répartitions presque égales : confiance faible, les deux sont gardées");
+    t(identifiedOpponent(["Yasuo", "Yone", "Vi", "Jinx", "Thresh"]) === null, "confiance faible : personne n'est présenté comme l'adversaire");
+    t(identifiedOpponent(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]) === "Ahri", "confiance suffisante : l'adversaire est nommé");
+    t(identifiedOpponent(["Yasuo", "Yone", "Vi", "Jinx", "Thresh"], { Yone:"top" }) === "Yasuo", "une correction manuelle lève l'ambiguïté");
+    const hidden = opponentBelief(["Vi", "Jinx"]);
+    t(identifiedOpponent(["Vi", "Jinx"]) === null && beliefScenarios(hidden).some(x => x.mid === null), "adversaire pas encore révélé : personne n'est désigné");
+    t(Math.abs(beliefScenarios(b).reduce((sum, x) => sum + x.p, 0) - 1) < 1e-9, "12. les hypothèses totalisent bien 1");
+    b = opponentBelief(["Vi", "Jinx"]);
+    t(b.unrevealed > .8 && guessMid(["Vi", "Jinx"]) === null && beliefScenarios(b).some(x => x.mid === null), "5. draft incomplète : le vrai adversaire peut ne pas être révélé");
+    b = opponentBelief(["Ahri", "Vi"]);
+    t(pOf(b, "Ahri") > .8 && b.unrevealed < .2, "5. un mid déjà révélé réduit cette possibilité");
+    b = opponentBelief(["ChampionInconnu", "Vi"]);
+    const unknown = b.candidates.find(x => x.name === "ChampionInconnu");
+    t(!unknown.known && unknown.quality === "none" && !b.candidates.some(x => isNaN(x.p)), "6. un champion inconnu reste marqué sans donnée, sans chiffre inventé");
+    t(guessMid(["ChampionInconnu"]) === null, "6. un champion inconnu n'est jamais supposé adversaire");
+    t(!beliefScenarios(opponentBelief(["ChampionInconnu", "Vi", "Garen", "Jinx", "Thresh"])).some(x => x.mid === "ChampionInconnu"), "6. aucun matchup n'est évalué contre lui");
+    b = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"], { Ahri:"top", Garen:"mid" });
+    t(pOf(b, "Garen") > .99, "ta correction manuelle l'emporte sur les statistiques");
+    b = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"], { Ahri:"top", Garen:"top" });
+    t(b.candidates.every(x => !isNaN(x.p)) && pOf(b, "Ahri") > .5, "deux corrections contradictoires ne bloquent rien");
+    t(!/%|\d/.test(JSON.stringify(beliefHypothesis(opponentBelief(["Yasuo", "Yone", "Vi", "Jinx", "Thresh"]), "Yasuo"))), "les hypothèses ne contiennent aucun pourcentage");
+  });
+  applyProfile({ role:"support", pool:["Leona"] });
+  withRoles({ "16.22": bucket(PURE) }, "16.22", () => {
+    t(pOf(opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]), "Thresh") > .9, "le même calcul vaut pour un autre rôle");
+  });
+  applyProfile({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] });
+});
+
+unitBlock("Fraîcheur et méta", "Le patch actuel passe d'abord, l'ancien sert de référence, et quelques parties ne font jamais une nouvelle méta.", t => {
+  const row = { ahri:[0,0,300,0,0] };
+  withRoles({ "16.22": bucket(row) }, "16.22", () => {
+    const e = roleEvidence("Ahri");
+    t(e.quality === "observed" && e.currentGames === 300 && e.effective === 300, "7. patch actuel : compté en entier, comme une observation");
+  });
+  withRoles({ "16.21": bucket(row) }, "16.22", () => {
+    t(roleEvidence("Ahri").effective === 150 && roleEvidence("Ahri").currentGames === 0, "7. patch précédent : compte moitié moins, jamais comme du patch actuel");
+  });
+  withRoles({ "16.2": bucket(row) }, "16.22", () => {
+    const e = roleEvidence("Ahri");
+    t(e.quality === "old" || e.quality === "thin", "8. données très anciennes : signalées comme telles");
+    t(e.games === 300, "8. rien n'est supprimé");
+    t(opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]).confidence !== "élevée", "8. confiance plafonnée sur des données anciennes");
+    t(dataReport().find(r => r.id === "riot-roles").stale, "8. la source est marquée ancienne dans les réglages");
+  });
+  withRoles({ "16.22": bucket({ thresh:[0,0,3,0,0] }) }, "16.22", () => {
+    const e = roleEvidence("Thresh");
+    t(e.quality === "thin" && e.shares[4] > e.shares[2], "9. trois parties ne renversent pas la référence");
+    t(!e.shift, "9. trois parties ne font pas une méta");
+  });
+  withRoles({ "16.21": bucket({ yorick:[200,0,0,0,0] }), "16.22": bucket({ yorick:[0,0,60,0,0] }) }, "16.22", () => {
+    const e = roleEvidence("Yorick");
+    t(e.shift && ROLE_ORDER[e.shift.role] === "mid", "10. changement brutal : détecté avec assez de parties");
+    t(e.shares[2] > .6, "10. le nouveau rôle prend le dessus sans réécrire le moteur");
+    t(e.games === 260, "10. l'ancien patch reste conservé");
+    t(roleChanges().some(c => c.name === "Yorick" && c.confirmed), "10. le champion est signalé dans les réglages");
+  });
+  withRoles({ "16.21": bucket({ yorick:[200,0,0,0,0] }), "16.22": bucket({ yorick:[0,0,6,0,0] }) }, "16.22", () => {
+    const e = roleEvidence("Yorick");
+    t(!e.shift && e.shares[0] > e.shares[2], "10. six parties différentes ne suffisent pas");
+  });
+  withRoles({ "16.21": bucket({ yorick:[100,0,0,0,0] }), "16.22": bucket({ yorick:[56,0,4,0,0] }) }, "16.22", () => {
+    t(!roleEvidence("Yorick").shift, "10. une légère variation n'est pas un changement");
+  });
+});
+
+unitBlock("Rôles écrits à la main", "Le repère sans licence à vérifier doit couvrir chaque champion, sauf ceux trop récents pour lui attribuer un rôle.", t => {
+  t(NAMES.filter(n => !ROLE_SHEET[n]).join() === PROVISIONAL.slice().sort((a, b) => a.localeCompare(b, "fr")).join(), "seuls les champions provisoires sont absents");
+  t(Object.keys(ROLE_SHEET).every(n => ROSTER[n] !== undefined && /^[tjmas]+$/.test(ROLE_SHEET[n])), "aucun nom ni rôle inconnu");
+});
+
+unitBlock("Sources", "Une source absente fait baisser la confiance, sans casser le conseil et sans chiffre inventé.", t => {
+  withRoles(null, "16.22", () => {
+    const report = dataReport(), live = report.find(r => r.id === "riot-roles");
+    t(!live.available && live.games === null && live.patch === null, "11. source absente : aucun patch ni nombre inventés");
+    t(report.find(r => r.id === "meraki-roles").stale && report.find(r => r.id === "meraki-roles").games === null, "la référence Meraki est marquée ancienne, sans nombre de parties");
+    t(report.find(r => r.id === "written-matchups").kind === "heuristic" && report.find(r => r.id === "riot-roles").kind === "observed" && report.find(r => r.id === "meraki-roles").kind === "estimate", "observé, estimation et règle écrite restent distincts");
+    t(opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]).confidence !== "élevée", "avec la seule référence, la confiance reste plafonnée");
+    t(analyze(["Garen", "Vi", "Ahri", "Jinx", "Thresh"], guessMid(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]), true).ranking.length === 4, "le conseil continue de fonctionner");
+    const meraki = DATA_PROVIDERS.find(p => p.id === "meraki-roles"), written = DATA_PROVIDERS.find(p => p.id === "written-roles"), prior = meraki.rolePrior, sheet = written.rolePrior;
+    meraki.rolePrior = () => null;
+    const noMeraki = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]);
+    t(pOf(noMeraki, "Ahri") > .5 && noMeraki.confidence !== "élevée" && analyze(["Garen"], null, true).ranking.length === 4, "Meraki retiré : les rôles écrits à la main prennent le relais, confiance plafonnée");
+    written.rolePrior = () => null;
+    const b = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]);
+    t(b.confidence === "faible" && identifiedOpponent(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]) === null && guessMid(["Garen", "Vi"]) === null && analyze(["Garen"], null, true).ranking.length === 4, "11. plus aucune donnée de rôle : personne n'est désigné, sans erreur");
+    meraki.rolePrior = prior; written.rolePrior = sheet;
+  });
+  withRoles(null, null, () => { t(ageOf(null, null).age === null, "âge impossible à connaître : il reste inconnu"); });
+  const before = window.ROLE_RATES_LIVE;
+  window.ROLE_RATES_LIVE = { updated:"2026-11-04", games:1000, champions:{ ahri:[2,0,117,2,2] } };
+  t(roleEvidence("Ahri").games === 123 && dataReport().find(r => r.id === "riot-roles").patch === null, "un ancien fichier, sans patch, reste lu et son patch reste inconnu");
+  window.ROLE_RATES_LIVE = before;
+});
+
+unitBlock("Recommandation sous incertitude", "Le classement pèse les hypothèses avec les mêmes règles, et ne suppose pas arbitrairement un seul adversaire.", t => {
+  const team = ["Garen", "Vi", "Jinx", "Thresh", "Yasuo"];
+  const scenarios = [{ mid:"Akali", p:.6 }, { mid:"Malzahar", p:.4 }];
+  const enemies = ["Akali", "Malzahar", "Vi", "Jinx", "Thresh"];
+  const a = analyze(enemies, "Akali", true), b = analyze(enemies, "Malzahar", true), mixed = analyze(enemies, "Akali", true, scenarios);
+  ["TF", "Xerath"].forEach(p => {
+    const sa = a.ranking.find(x => x.pick === p).score, sb = b.ranking.find(x => x.pick === p).score, sm = mixed.ranking.find(x => x.pick === p);
+    t(Math.abs(sm.score - (.6 * sa + .4 * sb)) < 1e-9, `${p} : le score est la moyenne pondérée des hypothèses`);
+    t(sm.byScenario.length === 2, `${p} : chaque hypothèse reste consultable`);
+  });
+  const single = analyze(team, "Yasuo", true, [{ mid:"Yasuo", p:1 }]), plain = analyze(team, "Yasuo", true);
+  t(JSON.stringify(single.ranking) === JSON.stringify(plain.ranking), "une seule hypothèse donne exactement l'ancien calcul");
+  const blind = analyze(["Vi", "Jinx"], null, true, [{ mid:"Vi", p:.5 }, { mid:null, p:.5 }]);
+  t(blind.ranking.every(p => !isNaN(p.score)), "« pas encore choisi » est évalué comme un adversaire inconnu");
+  const held = holdPick(mixed.ranking, mixed.ranking[1].pick);
+  t(mixed.ranking[0].score - mixed.ranking[1].score < HOLD_GAP ? held === mixed.ranking[1].pick : held === mixed.ranking[0].pick, "la stabilité du verdict reste la même");
 });
 
 unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas être supposé mid si un candidat plus logique existe.", t => {
