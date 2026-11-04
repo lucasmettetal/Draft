@@ -37,13 +37,16 @@ Ces deux fonctions demandent une [clé Riot](https://developer.riotgames.com). E
 
 **Mettre à jour les rôles :** dans le menu de l'icône ou les réglages. L'application compte les rôles joués sur 1 000 parties récentes, pour deviner le mid adverse. Compte environ 40 minutes en arrière-plan, à refaire à chaque patch. Sinon, elle utilise des statistiques livrées, qui datent du patch 16.3.
 
+**Mettre à jour les matchups :** au même endroit. L'application calcule les bilans de ton pool contre chaque mid adverse, sur les 30 derniers jours. Compte environ 65 minutes en arrière-plan. Un matchup sous 30 parties garde l'avis écrit à la main.
+
 **Bilans personnels :** télécharge `tools/draft-import-stats.bat` et `tools/draft-import-stats.ps1` dans un même dossier, puis lance le `.bat`. Il demande tes comptes une fois et les garde dans un fichier ignoré par Git. Importe ensuite le résultat avec le menu de l'icône > **Importer mes statistiques...**
 
 ## Limites connues
 
 - **Testé en réel :** une partie personnalisée, de la sélection à la lecture des 5 adversaires. Le classé, le chargement et la partie restent à valider.
-- **Testé seulement en simulation :** deux écrans, changement de résolution, reconnexion et requête bloquée.
-- **Recommandations :** les matchups et les règles sont des choix de conception, pas des statistiques. Voir [MOTEUR.md](docs/MOTEUR.md).
+- **Deux écrans :** testé en réel à 100 % et 125 %, avec une fausse fenêtre LoL.
+- **Testé seulement en simulation :** changement de résolution, reconnexion, requête bloquée et calcul des matchups avec Riot.
+- **Recommandations :** les poids et les règles de composition sont des choix de conception. Les matchups viennent de vrais bilans une fois calculés, sinon d'un tableau écrit à la main. Voir [MOTEUR.md](docs/MOTEUR.md).
 
 Tes préférences, ton journal et tes données restent sur ton PC, dans `%LOCALAPPDATA%\DraftMid`. L'application n'a ni compte, ni télémétrie.
 

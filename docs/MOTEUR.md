@@ -1,6 +1,6 @@
 # Moteur de recommandation
 
-Le score sert uniquement à comparer les picks. Ce n'est ni un winrate ni une probabilité. Les règles et les poids sont des choix de conception, jamais mesurés sur de vraies parties.
+Le score sert uniquement à comparer les picks. Ce n'est ni un winrate ni une probabilité. Les poids et les règles de composition sont des choix de conception, jamais mesurés sur de vraies parties.
 
 ## Calcul
 
@@ -8,7 +8,7 @@ Chaque critère donne une note de -2 à +2, multipliée par son poids. Le score,
 
 | Critère | Poids | Source |
 |---|---|---|
-| Matchup mid | 3 | Tableau écrit à la main, inclut la pression de lane |
+| Matchup mid | 3 | Bilans réels dès 30 parties, sinon tableau écrit à la main. Inclut la pression de lane |
 | Tanks et bruisers | 2 | Règle heuristique |
 | Survie aux plongeurs | 2 | Règle heuristique |
 | Engages et contrôles | 2 | Règle heuristique |
@@ -45,6 +45,15 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 - **Rôles récents :** s'ils ont été calculés, ils passent avant les statistiques livrées, pour chaque champion joué au moins 20 fois dans cet échantillon. Ces valeurs viennent de la commande « Mettre à jour les rôles » de l'application.
 - **Draft complète :** avec 5 adversaires, un mid est toujours supposé. Sur une draft incomplète, aucun mid n'est retenu si sa part est inférieure à 5 %.
 
+## Bilans de matchups (V2.9)
+
+L'API de Riot ne permet pas de chercher les parties d'un champion, et Kog'Maw mid est trop rare dans des parties prises au hasard. Le calcul part donc de joueurs au hasard, de Silver à Emeraude, puis suit ceux qui jouent un champion du pool mid : leur historique en contient bien plus. Il lit les 30 derniers jours, dans la limite de 800 parties par champion et de 3 000 requêtes, soit environ 65 minutes.
+
+- **Biais de l'échantillon :** ces joueurs connaissent souvent bien leur champion et gagnent plus que la moyenne. Le moteur utilise donc l'écart au winrate moyen du pick dans le même échantillon, jamais le winrate brut. Cet écart ne compare pas les picks entre eux en valeur absolue.
+- **Petits échantillons :** un matchup sous 30 parties garde l'avis écrit à la main. Au-delà, le bilan est ramené vers la moyenne du pick avec 50 parties fictives.
+- **Note :** 5 points d'écart donnent la note d'un 1er choix (+1, soit +3 au score). La note est limitée à ±1,33. Un écart de -3 points ou moins classe le pick « à éviter ».
+- **Limites :** ces seuils sont des choix de conception. Un bilan de 100 parties garde environ ±10 points d'incertitude, et les joueurs d'un même champion ne sont pas un échantillon neutre de ton elo.
+
 ## Données
 
 | Type | Contenu |
@@ -52,5 +61,6 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 | Officiel (Data Dragon) | Noms, portraits, illustrations, patch, classes de Locke et Zaahen |
 | Rôles récents (API Riot) | Calculés par « Mettre à jour les rôles » (`src/RoleRatesUpdater.cs`) sur 1 000 parties des 14 derniers jours, Silver à Emeraude. Stockés dans `%LOCALAPPDATA%\DraftMid\draft-role-rates-live.js`, sans nom de joueur. Résultat local, jamais livré avec l'exécutable. Clé personnelle : usage privé seulement |
 | Rôles de secours (Meraki Analytics) | Taux de jeu du patch 16.3, utilisés sous 20 parties récentes et livrés avec l'exécutable. Licence non confirmée : point ouvert, voir [INTEGRATION-RIOT.md](INTEGRATION-RIOT.md) |
-| Heuristique | Matchups, profils, règles, plans de jeu |
+| Bilans de matchups (API Riot) | Calculés par « Mettre à jour les matchups » (`src/RoleRatesUpdater.cs`). Stockés dans `%LOCALAPPDATA%DraftMiddraft-matchups-live.js`, sans nom de joueur. Clé personnelle : usage privé seulement |
+| Heuristique | Matchups sans assez de parties, profils, règles, plans de jeu |
 | Personnel | Journal et import Riot, affichés sans effet sur le classement |

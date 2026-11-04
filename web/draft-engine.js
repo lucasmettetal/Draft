@@ -74,7 +74,7 @@ ROSTER.Zaahen = "b";
 const POKE = new Set("Ashe,Caitlyn,Corki,Ezreal,Heimerdinger,Hwei,Jayce,Jhin,Karma,Kog'Maw,Lux,Mel,Nidalee,Orianna,Seraphine,Syndra,Varus,Vel'Koz,Viktor,Xerath,Ziggs,Zoe".split(","));
 
 const CRITERIA = [
-  { key:"matchup", label:"Matchup mid", weight:3, source:"Tableau de matchups écrit à la main. Inclut la pression de lane, pour ne pas la compter deux fois." },
+  { key:"matchup", label:"Matchup mid", weight:3, source:"Bilans calculés sur de vraies parties dès 30 parties, sinon tableau écrit à la main. Inclut la pression de lane, pour ne pas la compter deux fois." },
   { key:"blind", label:"Sécurité sans mid connu", weight:1, source:"Calculé : part des mids du tableau où le pick est à éviter. Ne compte que si le mid est inconnu." },
   { key:"targets", label:"Cibles exploitables", weight:1.5, source:"Règle heuristique : nombre de carrys fragiles adverses." },
   { key:"front", label:"Tanks et bruisers", weight:2, source:"Règle heuristique : nombre de frontlines adverses." },
@@ -85,7 +85,33 @@ const CRITERIA = [
   { key:"map", label:"Pression sur la carte", weight:.5, source:"Atout propre au champion. Poids faible, car il ne dépend pas de la draft." }
 ];
 const MID_COUNT = MATCHUPS.length;
-const avoidCount = pick => MATCHUPS.filter(m => (m.avoid || "").split(", ").includes(pick)).length;
+// Noms que Riot écrit autrement dans ses données.
+const RATE_NAMES = { wukong:"monkeyking", renataglasc:"renata" };
+
+// Bilans calculés sur de vraies parties. Sous ce nombre de parties, on garde le tableau écrit à la main.
+const MATCHUP_MIN_GAMES = 30, MATCHUP_SHRINK = 50, MATCHUP_AVOID_GAP = -.03, MATCHUP_FULL_GAP = .05;
+
+// Écart au winrate moyen du pick, ramené vers zéro quand il y a peu de parties.
+// Les joueurs suivis jouent souvent ce champion : seul l'écart à leur moyenne a un sens, pas le winrate brut.
+function liveMatchup(pick, mid) {
+  const live = window.MATCHUPS_LIVE && window.MATCHUPS_LIVE.pool[norm(label(pick))];
+  if (!live || !live.games || !mid) return null;
+  const key = norm(mid);
+  const row = live.vs[RATE_NAMES[key] || key];
+  if (!row || row[1] < MATCHUP_MIN_GAMES) return null;
+  const base = live.wins / live.games;
+  return { wins: row[0], games: row[1], gap: (row[0] + MATCHUP_SHRINK * base) / (row[1] + MATCHUP_SHRINK) - base };
+}
+
+function avoidedPicks(m) {
+  const written = (m.avoid || "").split(", ").filter(Boolean);
+  return PICKS.filter(p => {
+    const live = liveMatchup(p, m.n);
+    return live ? live.gap <= MATCHUP_AVOID_GAP : written.includes(p);
+  });
+}
+
+const avoidCount = pick => MATCHUPS.filter(m => avoidedPicks(m).includes(pick)).length;
 const MAX_AVOID = Math.max(...PICKS.map(avoidCount));
 const namesOf = list => list.slice(0, 3).join(", ");
 
@@ -103,9 +129,15 @@ function compoOf(enemies) {
 // Renvoie [note, explication], ou null si le critère n'a rien à dire pour ce pick.
 const RULES = {
   matchup(p, c, x) {
+    const live = liveMatchup(p, x.mid);
+    if (live) {
+      const percent = Math.round(live.gap * 100);
+      const note = Math.max(-4 / 3, Math.min(4 / 3, live.gap / MATCHUP_FULL_GAP));
+      return [note, `${percent ? `${percent > 0 ? "+" : ""}${percent} % contre ${x.mid}` : `Sans écart net contre ${x.mid}`} sur ${live.games} parties`];
+    }
     const m = matchupOf(x.mid);
     if (!m) return null;
-    if ((m.avoid || "").split(", ").includes(p)) return [-4 / 3, `À éviter contre ${x.mid}`];
+    if (avoidedPicks(m).includes(p)) return [-4 / 3, `À éviter contre ${x.mid}`];
     if (m.first === p) return [1, `1er choix contre ${x.mid}`];
     if (m.second === p) return [.5, `2e choix contre ${x.mid}`];
     return [0, `Pas d'avis marqué contre ${x.mid}`];
@@ -203,7 +235,6 @@ function availablePicks(enemies) {
 // Taux de jeu par rôle (draft-role-rates.js). Le résultat reste une supposition, jamais un rôle confirmé.
 const ROLE_ORDER = ["top", "jungle", "mid", "adc", "support"];
 const MID_INDEX = 2;
-const RATE_NAMES = { wukong:"monkeyking", renataglasc:"renata" };
 const UNKNOWN_SHARE = 0.2, SHARE_FLOOR = 0.02, MIN_MID_SHARE = 0.05;
 
 const LIVE_MIN_GAMES = 20;

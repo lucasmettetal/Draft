@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.8.0.0")]
-[assembly: AssemblyFileVersion("2.8.0.0")]
+[assembly: AssemblyVersion("2.9.0.0")]
+[assembly: AssemblyFileVersion("2.9.0.0")]
 
 namespace DraftMid
 {
@@ -346,7 +346,7 @@ public static class Autostart
         string placementNote = "Client LoL non détecté.";
         public bool Quitting;
         public Icon AppIcon;
-        ToolStripMenuItem miRoles, miCompact, miFollow, miAutoDraft, miAutostart, miShow, miPhase;
+        ToolStripMenuItem miRoles, miMatchups, miCompact, miFollow, miAutoDraft, miAutostart, miShow, miPhase;
         public long MoveCount;
 
         public Phase CurrentPhase { get { return machine.Current; } }
@@ -387,8 +387,10 @@ public static class Autostart
             menu.Items.Add("Analyse détaillée", null, (s, e) => OpenFull(""));
             menu.Items.Add("Réglages", null, (s, e) => OpenFull("settings"));
             menu.Items.Add("Importer mes statistiques...", null, (s, e) => ImportStats());
-            miRoles = new ToolStripMenuItem("Mettre à jour les rôles...", null, (s, e) => ToggleRolesUpdate());
+            miRoles = new ToolStripMenuItem("Mettre à jour les rôles...", null, (s, e) => ToggleRiotUpdate(false));
+            miMatchups = new ToolStripMenuItem("Mettre à jour les matchups...", null, (s, e) => ToggleRiotUpdate(true));
             menu.Items.Add(miRoles);
+            menu.Items.Add(miMatchups);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(miAutostart);
             menu.Items.Add("Quitter", null, (s, e) => Quit());
@@ -598,7 +600,7 @@ public static class Autostart
         string rolesStatus = "";
         bool rolesReloadPending;
 
-        async void ToggleRolesUpdate()
+        async void ToggleRiotUpdate(bool matchups)
         {
             if (rolesCts != null)
             {
@@ -609,7 +611,12 @@ public static class Autostart
             }
             string key;
             RiotRegion region;
-            using (RiotKeyDialog dialog = new RiotKeyDialog(AppIcon, OpenExternal))
+            string what = matchups ? "matchups" : "rôles";
+            string fileName = matchups ? "draft-matchups-live.js" : "draft-role-rates-live.js";
+            string intro = matchups
+                ? "Calcule les bilans de ton pool contre chaque mid adverse, sur des parties des 30 derniers jours. Le calcul prend environ 65 minutes et tourne en arrière-plan."
+                : "Compte les rôles joués sur 1 000 parties récentes, pour mieux deviner le mid adverse. Le calcul prend environ 40 minutes et tourne en arrière-plan.";
+            using (RiotKeyDialog dialog = new RiotKeyDialog(AppIcon, OpenExternal, "DraftMid : mettre à jour les " + what, intro))
             {
                 if (dialog.ShowDialog() != DialogResult.OK) return;
                 key = dialog.Key;
@@ -617,16 +624,18 @@ public static class Autostart
             }
             CancellationTokenSource cts = new CancellationTokenSource();
             rolesCts = cts;
-            rolesStatus = "Calcul des rôles : démarrage...";
+            rolesStatus = "Calcul des " + what + " : démarrage...";
             RefreshUi();
             SynchronizationContext ui = SynchronizationContext.Current;
-            RoleRatesUpdater updater = new RoleRatesUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, "draft-role-rates-live.js"));
+            RiotCrawler updater = matchups
+                ? (RiotCrawler)new MatchupStatsUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName), MatchupStatsUpdater.DefaultPool)
+                : new RoleRatesUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName));
             int shown = 0;
             updater.Progress = (done, total) =>
             {
                 if (done - shown < 10 && done < total) return;
                 shown = done;
-                ui.Post(_ => { if (rolesCts == null || rolesCts.IsCancellationRequested) return; rolesStatus = "Calcul des rôles : " + done + " sur " + total + " parties"; RefreshUi(); }, null);
+                ui.Post(_ => { if (rolesCts == null || rolesCts.IsCancellationRequested) return; rolesStatus = "Calcul des " + what + " : " + done + " sur " + total + " parties"; RefreshUi(); }, null);
             };
             RoleUpdateResult r = await Task.Run(() => updater.Run(cts.Token));
             rolesCts = null;
@@ -634,11 +643,11 @@ public static class Autostart
             if (Quitting) return;
             if (r.Saved)
             {
-                File.Copy(Path.Combine(dataDir, "draft-role-rates-live.js"), Path.Combine(webDir, "draft-role-rates-live.js"), true);
+                File.Copy(Path.Combine(dataDir, fileName), Path.Combine(webDir, fileName), true);
                 rolesReloadPending = true;
                 ReloadRolesIfIdle();
             }
-            rolesStatus = r.Saved ? "Rôles mis à jour : " + r.Games + " parties, " + r.Champions + " champions."
+            rolesStatus = r.Saved ? (matchups ? "Matchups mis à jour : " : "Rôles mis à jour : ") + r.Games + " parties, " + r.Champions + " champions."
                 : r.Error != "" ? r.Error
                 : "Calcul arrêté : " + r.Games + " parties, trop peu pour remplacer les données actuelles.";
             if (r.Saved && r.Error != "") rolesStatus += " " + r.Error;
@@ -788,7 +797,8 @@ public static class Autostart
         {
             if (shownMode == "" || !PanelsReady(shownMode) || client.W != placedClient.W || client.H != placedClient.H) return false;
             int dx = client.Left - placedClient.Left, dy = client.Top - placedClient.Top;
-            if (dx == 0 && dy == 0) return false;
+            // Mise à jour sans mouvement pendant un déplacement : surtout ne pas recalculer la taille maintenant.
+            if (dx == 0 && dy == 0) return settleTimer != null && settleTimer.Enabled;
             string[] ids = shownMode == "two" ? new[] { "left", "right" } : new[] { "compact" };
             if (ids.Any(id => !placedRects.ContainsKey(id))) return false;
             PanelForm[] forms = ids.Select(id => panels[id]).ToArray();
@@ -946,7 +956,8 @@ public static class Autostart
         {
             string phase = PhaseText.Of(machine.Current);
             miPhase.Text = phase;
-            miRoles.Text = rolesCts != null ? "Arrêter la mise à jour des rôles" : "Mettre à jour les rôles...";
+            miRoles.Text = rolesCts != null ? "Arrêter le calcul en cours" : "Mettre à jour les rôles...";
+            miMatchups.Visible = rolesCts == null;
             miShow.Text = (panelsShown ? "Masquer" : "Afficher") + " les panneaux" + (hotkey != null && hotkey.Registered ? " (Ctrl+Alt+D)" : "");
             miCompact.Checked = settings.Compact;
             miFollow.Checked = settings.Follow;
@@ -1034,7 +1045,8 @@ public static class Autostart
             {
                 case "getHost": if (from.View.CoreWebView2 != null) from.View.CoreWebView2.PostWebMessageAsJson(HostJson()); break;
                 case "hideAll": ToggleManual(); break;
-                case "updateRoles": ToggleRolesUpdate(); break;
+                case "updateRoles": ToggleRiotUpdate(false); break;
+                case "updateMatchups": ToggleRiotUpdate(true); break;
                 case "closeFull": { PanelForm full; if (panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
                 case "openFull": OpenFull(m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""); break;
@@ -1532,7 +1544,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.8.0");
+                k.SetValue("DisplayVersion", "2.9.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -1732,6 +1744,7 @@ public class Options
             DetectionTests.Run(t, s, dataDir);
             LcuTests.Run(t);
             RoleRatesTests.Run(t, dataDir);
+            MatchupStatsTests.Run(t, dataDir);
 
             ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();
@@ -1790,6 +1803,8 @@ public class Options
             if (File.Exists(stats)) File.Copy(stats, Path.Combine(dir, "draft-stats.js"), true);
             string liveRoles = Path.Combine(dataDir, "draft-role-rates-live.js");
             if (File.Exists(liveRoles)) File.Copy(liveRoles, Path.Combine(dir, "draft-role-rates-live.js"), true);
+            string liveMatchups = Path.Combine(dataDir, "draft-matchups-live.js");
+            if (File.Exists(liveMatchups)) File.Copy(liveMatchups, Path.Combine(dir, "draft-matchups-live.js"), true);
             return dir;
         }
 

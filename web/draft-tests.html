@@ -129,6 +129,27 @@ unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas 
   t(guessMid(["Irelia", "Galio"]) === "Irelia", "les parties récentes passent avant les statistiques livrées");
   t(guessMid(["Sett", "Vi"]) === null, "un champion avec trop peu de parties récentes garde les statistiques livrées");
   delete window.ROLE_RATES_LIVE;
+});
+unitBlock("Bilans de matchups", "De vrais chiffres remplacent le tableau, sans croire aux petits échantillons ni au winrate brut des joueurs suivis.", t => {
+  const before = { ahri: avoidedPicks(matchupOf("Ahri")).join(), lux: RULES.matchup("Fizz", null, { mid:"Lux" })[1] };
+  window.MATCHUPS_LIVE = { pool: {
+    fizz: { wins:620, games:1000, vs:{ ahri:[20,100], lux:[10,20], galio:[60,100] } },
+    kogmaw: { wins:120, games:200, vs:{ ahri:[90,120] } },
+    twistedfate: { wins:500, games:1000, vs:{ ahri:[50,100] } }
+  } };
+  t(liveMatchup("Fizz", "Lux") === null, "sous 30 parties, le bilan est ignoré");
+  t(RULES.matchup("Fizz", null, { mid:"Lux" })[1] === before.lux, "sous 30 parties, l'avis écrit reste utilisé");
+  const bad = liveMatchup("Fizz", "Ahri");
+  t(bad.gap < MATCHUP_AVOID_GAP && bad.gap > -.42, "un mauvais bilan compte, mais il est ramené vers la moyenne");
+  t(avoidedPicks(matchupOf("Ahri")).includes("Fizz"), "un mauvais bilan fait passer le pick en « à éviter »");
+  t(!avoidedPicks(matchupOf("Ahri")).includes("Kog'Maw"), "un bon bilan retire un « à éviter » écrit à la main");
+  t(Math.abs(liveMatchup("TF", "Ahri").gap) < .001, "le winrate du matchup se compare à la moyenne du pick, pas à 50 %");
+  t(liveMatchup("Fizz", "Galio").gap < 0 && liveMatchup("Fizz", "Galio").wins === 60, "60 % de victoires reste un écart négatif si le pick gagne 62 % en moyenne");
+  const r = RULES.matchup("Fizz", null, { mid:"Ahri" });
+  t(r[0] === -4 / 3 && /sur 100 parties/.test(r[1]), "la raison affiche l'écart et le nombre de parties");
+  t(RULES.matchup("Kog'Maw", null, { mid:"Ahri" })[0] > 0, "le score suit le bilan");
+  delete window.MATCHUPS_LIVE;
+  t(avoidedPicks(matchupOf("Ahri")).join() === before.ahri, "sans bilans, le tableau écrit reste identique");
   t(guessMid(["Wukong", "Renata Glasc", "Ahri"]) === "Ahri", "les noms particuliers de Riot sont reconnus");
   t(typeof ROLE_RATES.patch === "string" && Object.keys(ROLE_RATES.champions).length > 100, "les statistiques de rôles sont chargées");
 });

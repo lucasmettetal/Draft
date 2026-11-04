@@ -555,6 +555,7 @@
 <script src="draft-stats.js"></script>
 <script src="draft-role-rates.js"></script>
 <script src="draft-role-rates-live.js"></script>
+<script src="draft-matchups-live.js"></script>
 <script src="draft-engine.js"></script>
 <script src="draft-providers.js"></script>
 <script src="draft-champion-ids.js"></script>
@@ -707,7 +708,7 @@ function computeVerdict() {
   const heldEntry = res.ranking.find(p => p.pick === shown);
   const m = matchupOf(mid);
   const available = availablePicks(state.enemies);
-  const avoided = m ? (m.avoid || "").split(", ").filter(p => available.includes(p) && p !== shown) : [];
+  const avoided = m ? avoidedPicks(m).filter(p => available.includes(p) && p !== shown) : [];
   const others = res.ranking.filter(p => p.pick !== shown);
   const rival = others.find(p => !avoided.includes(p.pick)) || others[0];
   const clear = !n || !rival || heldEntry.score - rival.score >= HOLD_GAP;
@@ -929,10 +930,12 @@ function searchMatchups(query) {
 
 function optionsFor(m) {
   const available = availablePicks([m.n]);
-  const avoid = (m.avoid || "").split(", ");
-  const chosen = [m.first, m.second].filter(p => available.includes(p));
-  PICKS.filter(p => available.includes(p) && !avoid.includes(p) && !chosen.includes(p)).forEach(p => { if (chosen.length < 2) chosen.push(p); });
-  return chosen;
+  const avoid = avoidedPicks(m);
+  // Les notes viennent des vrais bilans quand ils existent, sinon du tableau : tri stable, donc le 1er choix écrit reste devant à égalité.
+  const written = [m.first, m.second, ...PICKS].filter((p, i, all) => all.indexOf(p) === i);
+  const note = p => RULES.matchup(p, null, { mid: m.n })[0];
+  const ranked = written.filter(p => available.includes(p) && !avoid.includes(p)).sort((a, b) => note(b) - note(a));
+  return ranked.concat(written.filter(p => available.includes(p) && avoid.includes(p))).slice(0, 2);
 }
 
 function groupRows(rows, keyOf) {
@@ -1394,12 +1397,16 @@ function MatchupsTab() {
     ${value.trim() && !found.length ? html`<p className="small">Pas dans le tableau : par défaut, prends <b>Twisted Fate</b>.</p>` : null}
     ${found.map(m => {
       const [first, second] = optionsFor(m);
-      const avoid = (m.avoid || "").split(", ").filter(Boolean).map(label).join(", ");
+      const avoid = avoidedPicks(m).map(label).join(", ");
+      const measured = PICKS.map(p => [p, liveMatchup(p, m.n)]).filter(x => x[1]);
       return html`<div key=${m.n} className="mcard">
         <${Portrait} name=${m.n} size=${32} />
         <span className="mcard-name">${m.n}</span>
         <span className="mcard-line">Prends <b>${label(first)}</b>, sinon <b>${label(second)}</b></span>
         <span className="mcard-line">À éviter : <span className="avoid">${avoid || "rien de particulier"}</span></span>
+        ${measured.length
+          ? html`<span className="mcard-line">Bilans : ${measured.map(([p, x]) => `${label(p)} ${x.gap >= 0 ? "+" : ""}${Math.round(x.gap * 100)} % (${x.games})`).join(", ")}</span>`
+          : html`<span className="mcard-line">Avis écrit à la main, pas encore de bilan.</span>`}
         ${m.rec ? html`<span className="mcard-line">Tes parties : ${m.rec} (peu de parties)</span>` : null}
       </div>`;
     })}
@@ -1510,8 +1517,8 @@ const RulesTab = () => html`<div>
   <h3>Provenance des données</h3>
   <ul className="plain">
     <li><b>Officiel (Riot, Data Dragon) :</b> noms, portraits, illustrations, numéro de patch, classes de Locke et Zaahen.</li>
-    <li><b>Statistiques observées :</b> aucune source intégrée. Le lien LoLalytics ouvre simplement leur page.</li>
-    <li><b>Heuristique (écrit à la main) :</b> tableau de matchups, profils de champions, règles, plan de jeu.</li>
+    <li><b>Statistiques observées :</b> rôles et bilans de matchups, si tu les as calculés avec l'API Riot. Le lien LoLalytics ouvre simplement leur page.</li>
+    <li><b>Heuristique (écrit à la main) :</b> matchups sans assez de parties, profils de champions, règles, plan de jeu.</li>
     <li><b>Personnel :</b> ton journal et ton import Riot. Affichés, mais sans effet sur le classement.</li>
   </ul>
   <h3>Fiabilité</h3>
@@ -1667,8 +1674,15 @@ function Settings({ onClose }) {
         <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
         <h3>Rôles des champions</h3>
         <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.`} Ils servent à deviner le mid adverse.</p>
+        <h3>Matchups</h3>
+        <p className="small">${window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[norm(label(p))] || { games:0 }).games}`).join(", ")}.` : "Tableau écrit à la main, pas encore de bilans calculés."} Sous 30 parties, un matchup garde l'avis écrit à la main.</p>
         <p className="small" role="status">${hostState.rolesStatus || ""}</p>
-        <p><button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>${hostState.rolesRunning ? "Arrêter le calcul" : "Mettre à jour les rôles"}</button></p>
+        <p className="set-row">
+          ${hostState.rolesRunning
+            ? html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Arrêter le calcul</button>`
+            : html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Mettre à jour les rôles</button>
+                <button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateMatchups" })}>Mettre à jour les matchups</button>`}
+        </p>
         <h3>État</h3>
         <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
         <p className="small">Sans la lecture du client, la détection de la draft est une estimation peu fiable. ${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
