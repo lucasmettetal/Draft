@@ -477,6 +477,7 @@
 <script src="draft-vendor/framer-motion.js"></script>
 <script src="draft-vendor/htm.js"></script>
 <script src="draft-stats.js"></script>
+<script src="draft-role-rates.js"></script>
 <script src="draft-engine.js"></script>
 <script src="draft-providers.js"></script>
 <script src="draft-champion-ids.js"></script>
@@ -576,10 +577,10 @@ const REQUIRED_ROLES = ["top", "jungle", "mid", "adc", "support"];
 const ROLE_LABEL = { top:"Top", jungle:"Jungle", mid:"Mid", adc:"ADC", support:"Support" };
 
 function roleHints(name) {
-  if (MARKSMEN.has(name)) return ["adc", "top", "jungle", "support"];
-  if (SUPPORTS.has(name)) return ["support", "top", "jungle", "adc"];
-  if (JUNGLERS.has(name)) return ["jungle", "top", "support", "adc"];
-  return ["top", "jungle", "adc", "support"];
+  const shares = roleShares(name);
+  const others = ROLE_ORDER.filter(role => role !== "mid");
+  if (!shares) return others;
+  return others.sort((a, b) => shares[ROLE_ORDER.indexOf(b)] - shares[ROLE_ORDER.indexOf(a)]);
 }
 
 // Les rôles servent à l'affichage ; seul le mid influence le calcul, comme avant.

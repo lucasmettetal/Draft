@@ -35,11 +35,16 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 - **Favori :** il ne départage qu'une égalité exacte et ne modifie aucun score.
 - **Frontline :** sa supposition devient une préférence, activée par défaut.
 
+## Changements de la V2.5
+
+- **Mid probable :** les listes écrites à la main sont remplacées par les taux de jeu par rôle. Le moteur cherche la répartition la plus probable des adversaires connus, puis lit qui se retrouve au mid.
+- **Mid inconnu :** si aucun adversaire connu n'a de chance sérieuse d'être mid, aucun mid n'est inventé, et le matchup direct n'est pas évalué.
+
 ## Données
 
 | Type | Contenu |
 |---|---|
 | Officiel (Data Dragon) | Noms, portraits, illustrations, patch, classes de Locke et Zaahen |
-| Statistiques observées | Aucune intégrée |
+| Statistiques de rôles (Meraki Analytics) | Taux de jeu par rôle, patch 16.3 au 4 novembre 2026, donc anciens. Mise à jour avec `tools/update-role-rates.ps1`. Licence non confirmée : à vérifier avant toute distribution |
 | Heuristique | Matchups, profils, règles, plans de jeu |
 | Personnel | Journal et import Riot, affichés sans effet sur le classement |

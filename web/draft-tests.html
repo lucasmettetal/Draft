@@ -20,6 +20,7 @@
 <p>Chaque attente découle d'un principe de jeu, pas du score actuel. Un échec peut donc venir du moteur ou du principe : à examiner, pas à effacer. Le score sert à comparer les picks, ce n'est pas une probabilité.</p>
 <div id="summary"></div>
 <div id="out"></div>
+<script src="draft-role-rates.js"></script>
 <script src="draft-engine.js"></script>
 <script src="draft-providers.js"></script>
 <script>
@@ -119,9 +120,13 @@ unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas 
   t(guessMid(["Sett", "Vi", "Galio", "Samira", "Janna"]) === "Galio", "Galio est supposé mid dans l'exemple du brief");
   t(guessMid(["Lulu", "Ornn", "Zed"]) === "Zed", "Zed passe avant Lulu, typée support");
   t(guessMid(["Diana", "Ahri"]) === "Ahri", "Ahri passe avant Diana, typée jungle");
-  t(guessMid(["Locke", "Bard"]) === null, "aucune supposition sans fiche de matchup");
-  t(guessMid(["Irelia", "Galio"]) === "Galio", "Galio passe avant Irelia, jouée surtout top");
-  t(guessMid(["Irelia", "Malphite"]) === "Irelia", "sans vrai mid en face, Irelia reste possible");
+  t(guessMid(["Locke", "Bard"]) === null, "aucune supposition sans donnée de mid");
+  t(guessMid(["Irelia", "Galio"]) === "Galio", "Galio, surtout mid, laisse le top à Irelia");
+  t(guessMid(["Irelia", "Malphite", "Vi", "Jinx", "Leona"]) === "Irelia", "si Malphite prend le top et Vi la jungle, Irelia devient le mid probable");
+  t(guessMid(["Swain", "Darius", "Amumu", "Kai'Sa", "Karma"]) !== null, "avec 5 adversaires, un mid est toujours supposé");
+  t(guessMid(["Sett", "Vi"]) === null, "aucun mid n'est inventé si personne ne s'y joue");
+  t(guessMid(["Wukong", "Renata Glasc", "Ahri"]) === "Ahri", "les noms particuliers de Riot sont reconnus");
+  t(typeof ROLE_RATES.patch === "string" && Object.keys(ROLE_RATES.champions).length > 100, "les statistiques de rôles sont chargées");
 });
 
 unitBlock("Préférences", "Exclure un pick le retire partout. Le favori ne départage qu'une égalité exacte et ne change aucun score.", t => {

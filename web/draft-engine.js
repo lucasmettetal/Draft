@@ -49,7 +49,6 @@ const ALIASES = { "Twisted Fate":["tf"], "Miss Fortune":["mf"], "Jarvan IV":["j4
 
 const FULL = { "TF":"Twisted Fate" };
 const PICKS = ["TF", "Fizz", "Kog'Maw", "Xerath"];
-const MID_ORDER = { Mage:0, Assassin:1, Combattant:2, Tank:3 };
 const HOLD_GAP = 2;
 const label = p => FULL[p] || p;
 const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -201,22 +200,42 @@ function availablePicks(enemies) {
 }
 
 // ---------- Mid probable ----------
-// Listes indicatives, écrites à la main. Le résultat reste une supposition, jamais un rôle confirmé.
-const MARKSMEN = new Set("Aphelios,Ashe,Caitlyn,Corki,Draven,Ezreal,Graves,Jhin,Jinx,Kai'Sa,Kalista,Kindred,Kog'Maw,Lucian,Miss Fortune,Nilah,Samira,Senna,Sivir,Smolder,Tristana,Twitch,Varus,Vayne,Xayah,Yunara,Zeri".split(","));
-const SUPPORTS = new Set("Alistar,Bard,Blitzcrank,Braum,Janna,Karma,Leona,Lulu,Milio,Morgana,Nami,Nautilus,Pyke,Rakan,Rell,Renata Glasc,Seraphine,Sona,Soraka,Tahm Kench,Taric,Thresh,Yuumi,Zilean,Zyra".split(","));
-const JUNGLERS = new Set("Amumu,Bel'Veth,Briar,Diana,Ekko,Elise,Evelynn,Fiddlesticks,Gragas,Hecarim,Ivern,Jarvan IV,Karthus,Kayn,Kha'Zix,Lee Sin,Lillia,Maokai,Master Yi,Nidalee,Nocturne,Nunu,Rammus,Rek'Sai,Rengar,Sejuani,Shaco,Shyvana,Skarner,Trundle,Udyr,Vi,Viego,Volibear,Warwick,Wukong,Xin Zhao,Zac".split(","));
+// Taux de jeu par rôle (draft-role-rates.js). Le résultat reste une supposition, jamais un rôle confirmé.
+const ROLE_ORDER = ["top", "jungle", "mid", "adc", "support"];
+const MID_INDEX = 2;
+const RATE_NAMES = { wukong:"monkeyking", renataglasc:"renata" };
+const UNKNOWN_SHARE = 0.2, SHARE_FLOOR = 0.02, MIN_MID_SHARE = 0.05;
 
-// Peuvent aller mid, mais se jouent surtout top : ils passent après un vrai mid, même typé tank comme Galio.
-const OFTEN_TOP = new Set("Cho'Gath,Irelia,Malphite,Pantheon,Sion".split(","));
+// Part de chaque rôle pour un champion, ou null s'il n'a pas de données.
+function roleShares(name) {
+  if (typeof ROLE_RATES === "undefined") return null;
+  const key = norm(name);
+  const rates = ROLE_RATES.champions[RATE_NAMES[key] || key];
+  const total = rates ? rates.reduce((a, b) => a + b, 0) : 0;
+  return total > 0 ? rates.map(v => v / total) : null;
+}
 
+// Cherche la répartition des rôles la plus probable pour toute l'équipe, puis lit qui se retrouve au mid.
 function guessMid(enemies) {
-  const rank = n => {
-    const offRole = MARKSMEN.has(n) || SUPPORTS.has(n) || JUNGLERS.has(n) ? 10 : OFTEN_TOP.has(n) ? 5 : 0;
-    return offRole + MID_ORDER[matchupOf(n).t];
+  const team = enemies.slice(0, ROLE_ORDER.length);
+  const shares = team.map(roleShares);
+  let bestScore = -Infinity, bestMid = -1;
+  const place = (i, used, score, mid) => {
+    if (i === team.length) {
+      if (score > bestScore) { bestScore = score; bestMid = mid; }
+      return;
+    }
+    ROLE_ORDER.forEach((_, role) => {
+      if (used & (1 << role)) return;
+      const share = shares[i] ? shares[i][role] : UNKNOWN_SHARE;
+      place(i + 1, used | (1 << role), score + Math.log(share + SHARE_FLOOR), role === MID_INDEX ? i : mid);
+    });
   };
-  const known = enemies.filter(matchupOf);
-  if (!known.length) return null;
-  return known.reduce((best, n) => rank(n) < rank(best) ? n : best);
+  place(0, 0, 0, -1);
+  if (bestMid < 0 || !shares[bestMid]) return null;
+  // Tant que la draft est incomplète, le vrai mid n'est peut-être pas encore choisi. À 5, l'un d'eux y va forcément.
+  if (team.length < ROLE_ORDER.length && shares[bestMid][MID_INDEX] < MIN_MID_SHARE) return null;
+  return team[bestMid];
 }
 
 // Le nom affiché ne change que si un autre pick mène d'au moins HOLD_GAP points.
