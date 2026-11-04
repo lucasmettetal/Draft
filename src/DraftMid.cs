@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.4.0.0")]
-[assembly: AssemblyFileVersion("2.4.0.0")]
+[assembly: AssemblyVersion("2.4.1.0")]
+[assembly: AssemblyFileVersion("2.4.1.0")]
 
 namespace DraftMid
 {
@@ -259,8 +259,9 @@ public static class Autostart
 
         protected override void WndProc(ref Message m)
         {
-            const int WM_NCHITTEST = 0x84, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
+            const int WM_NCHITTEST = 0x84, WM_ENTERSIZEMOVE = 0x231, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
             if (m.Msg == WM_DPICHANGED) { base.WndProc(ref m); app.OnDpiChanged(); return; }
+            if (m.Msg == WM_ENTERSIZEMOVE) beforeMove = Bounds;
             if (m.Msg == WM_NCHITTEST)
             {
                 Point p = PointToClient(new Point((short)(m.LParam.ToInt64() & 0xFFFF), (short)((m.LParam.ToInt64() >> 16) & 0xFFFF)));
@@ -269,7 +270,21 @@ public static class Autostart
                 if (hit != 0) { m.Result = new IntPtr(hit); return; }
             }
             base.WndProc(ref m);
-            if (m.Msg == WM_EXITSIZEMOVE) app.PanelMovedByUser(this);
+            if (m.Msg == WM_EXITSIZEMOVE)
+            {
+                // Un simple clic sur un bord ne doit pas couper le suivi du client.
+                if (MovedOnPurpose(beforeMove, Bounds)) app.PanelMovedByUser(this);
+                else app.UpdatePlacement(true);
+            }
+        }
+
+        Rectangle beforeMove;
+
+        public static bool MovedOnPurpose(Rectangle before, Rectangle after)
+        {
+            const int Tolerance = 8;
+            return Math.Abs(before.Left - after.Left) > Tolerance || Math.Abs(before.Top - after.Top) > Tolerance
+                || Math.Abs(before.Right - after.Right) > Tolerance || Math.Abs(before.Bottom - after.Bottom) > Tolerance;
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -584,6 +599,16 @@ public static class Autostart
         }
 
         // ---------- WebView2, créé seulement quand le client est là ----------
+        static bool loaderFolderSet;
+
+        // Simule une fermeture puis un retour du client, comme en usage réel.
+        public async Task<bool> TestReleaseAndReopen()
+        {
+            ReleaseWeb();
+            await EnsurePanels("two");
+            return env != null && PanelFor("left") != null && PanelFor("right") != null;
+        }
+
         Task EnsureEnv()
         {
             if (envTask == null) envTask = CreateEnv();
@@ -594,7 +619,8 @@ public static class Autostart
         {
             try
             {
-                CoreWebView2Environment.SetLoaderDllFolderPath(webDir);
+                // WebView2 n'accepte cet appel qu'une fois par processus, or l'environnement est recréé à chaque retour du client.
+                if (!loaderFolderSet) { CoreWebView2Environment.SetLoaderDllFolderPath(webDir); loaderFolderSet = true; }
                 env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(dataDir, "webview"), new CoreWebView2EnvironmentOptions());
             }
             catch (Exception ex)
@@ -1073,6 +1099,7 @@ public static class Autostart
             app.StepPhase(false, false, Evidence.Unknown, 1);
             t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed && !app.Lcu.Connected, "Scénario 1. Client fermé : veille, identifiants oubliés");
             t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les deux endpoints documentés sont appelés");
+            t(await app.TestReleaseAndReopen(), "Client fermé puis rouvert : l'application reste ouverte et recrée ses panneaux");
         }
 
         public static async void Run(CompanionApp app, Options o)
@@ -1350,7 +1377,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.4.0");
+                k.SetValue("DisplayVersion", "2.4.1");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -1505,6 +1532,9 @@ public class Options
             check("1 écran 1920, client décalé à gauche", new Native.RECT(0, 100, 1280, 820), fhd, false, "compact");
             check("1 écran 1366, client 1024x576", new Native.RECT(171, 96, 1195, 672), new List<Monitor> { mon(0, 0, 1366, 728, 1) }, false, "manual");
             check("1 écran 2560, client 1600x900", new Native.RECT(480, 200, 2080, 1100), new List<Monitor> { mon(0, 0, 2560, 1400, 1) }, false, "two");
+            Rectangle placed = new Rectangle(0, 155, 320, 720);
+            t(!PanelForm.MovedOnPurpose(placed, new Rectangle(0, 155, 320, 721)), "Un clic sur un bord (1 pixel) ne coupe pas le suivi");
+            t(PanelForm.MovedOnPurpose(placed, new Rectangle(0, 300, 320, 720)) && PanelForm.MovedOnPurpose(placed, new Rectangle(0, 155, 260, 720)), "Un vrai déplacement ou redimensionnement reste mémorisé");
             List<Monitor> mixedDpi = new List<Monitor> { mon(0, 0, 1920, 1040, 1), mon(1920, 0, 3840, 2120, 2) };
             check("Scénario 15. Deux écrans 100 % et 200 %, client sur le 200 %", new Native.RECT(2560, 340, 5120, 1780), mixedDpi, false, "two");
             check("Scénario 15. Deux écrans 100 % et 200 %, client sur le 100 %", new Native.RECT(320, 160, 1600, 880), mixedDpi, false, "two");

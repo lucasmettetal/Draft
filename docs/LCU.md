@@ -54,6 +54,8 @@ Sont volontairement ignorés : noms et identifiants de joueurs, `championPickInt
 
 Le scénario de `--e2e` déroule une draft complète sur `SimulatedLcuTransport` : accueil, lobby, début de sélection, adversaires ajoutés et changés, réponses abîmées, requête bloquée, déconnexion, redémarrage, annulation, chargement, partie, fermeture. Ces données simulées suivent des sources communautaires : elles ne prouvent pas le format réel du client.
 
+**Validé sur une vraie partie personnalisée le 4 novembre 2026 :** phases `None`, `Lobby`, `ReadyCheck`, `ChampSelect`, et adversaires lus de 0 à 5. Le journal ne contient pas les noms : l'exactitude des champions se vérifie à l'écran. `GameStart` et `InProgress` n'ont pas encore été observés.
+
 Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nombre d'adversaires`, ou `lcu=absent(erreur)`, sans identifiant ni nom.
 
 ## Avant une distribution
