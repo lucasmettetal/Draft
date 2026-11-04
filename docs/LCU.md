@@ -4,7 +4,7 @@
 
 Il faut à la fois `LcuGate.ReadingEnabled = true` dans `src/LcuConnector.cs` et l'option « Lecture du client Riot » cochée dans les réglages. L'option reste décochée par défaut.
 
-**Avant toute distribution :** repasser `ReadingEnabled` à `false` tant que Riot n'a pas répondu par écrit.
+**Publication :** le 4 novembre 2026, le propriétaire du projet a choisi de publier le code et l'exécutable sur GitHub sans attendre la réponse de Riot. L'option reste décochée par défaut. Si Riot refuse cet usage, repasser `ReadingEnabled` à `false` et republier.
 
 ## Politiques vérifiées le 3 novembre 2026, relues le 4 novembre pour les trois pages principales
 
@@ -58,10 +58,9 @@ Le scénario de `--e2e` déroule une draft complète sur `SimulatedLcuTransport`
 
 Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nombre d'adversaires`, ou `lcu=absent(erreur)`, sans identifiant ni nom.
 
-## Avant une distribution
+## Question posée à Riot
 
-1. Obtenir une réponse écrite de Riot, à partir de la note ci-dessous.
-2. Sans confirmation, mettre `LcuGate.ReadingEnabled` à `false` et recompiler.
+La note ci-dessous résume la demande de clarification.
 
 ## Note proposée pour Riot
 

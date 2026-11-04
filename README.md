@@ -15,7 +15,9 @@ L'application démarre en arrière-plan, avec une icône près de l'horloge et a
 
 La [lecture du client](docs/LCU.md) donne la phase exacte et remplit les adversaires, sans confirmation de Riot à ce jour. Si elle ne répond pas, l'application revient à une [estimation visuelle](docs/DETECTION.md) peu fiable et à la saisie manuelle.
 
-Aucune distribution n'est prévue pour l'instant : DraftMid reste un outil personnel.
+**Téléchargement :** [DraftMid-Portable.exe](https://github.com/lucasmettetal/Draft/releases/latest/download/DraftMid-Portable.exe). L'exécutable n'est pas signé, donc Windows peut afficher un avertissement.
+
+La lecture du client est décochée par défaut. Riot n'a pas confirmé que cet usage est autorisé : l'activer se fait à tes risques.
 
 Les préférences, le journal et le cache d'images sont dans `%LOCALAPPDATA%\DraftMid`.
 

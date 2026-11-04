@@ -1,6 +1,6 @@
 // Connecteur de lecture du client League of Legends, en lecture seule.
 // Riot indique que cette API n'est pas prise en charge pour les applications tierces.
-// Activé pour un usage personnel uniquement : voir docs/LCU.md avant toute distribution.
+// Option décochée par défaut, sans confirmation de Riot : voir docs/LCU.md.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,8 +18,8 @@ namespace DraftMid
 {
     public static class LcuGate
     {
-        // Décision du propriétaire du projet pour son usage personnel, sans réponse de Riot à ce jour.
-        // À repasser à false avant toute distribution, tant que Riot n'a pas confirmé.
+        // Décision du propriétaire du projet, sans réponse de Riot à ce jour.
+        // À repasser à false si Riot refuse cet usage.
         public static readonly bool ReadingEnabled = true;
 
         // L'interrupteur de compilation et l'option de l'utilisateur sont tous deux nécessaires.

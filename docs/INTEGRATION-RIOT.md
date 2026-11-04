@@ -1,6 +1,6 @@
 # Intégration Riot : état et conditions
 
-La lecture du client est activée pour l'usage personnel du propriétaire du projet, sans confirmation de Riot : voir [LCU.md](LCU.md). DraftMid fonctionne entièrement sans elle.
+La lecture du client est disponible en option, décochée par défaut, sans confirmation de Riot : voir [LCU.md](LCU.md). DraftMid fonctionne entièrement sans elle.
 
 Politiques consultées le 3 novembre 2026, et relues le 4 novembre pour ces trois pages. Elles peuvent évoluer : à relire avant toute activation.
 
@@ -19,21 +19,21 @@ Politiques consultées le 3 novembre 2026, et relues le 4 novembre pour ces troi
 | Position de la fenêtre via l'API Windows | Lecture du titre, du processus et du rectangle, sans lien avec le contenu du jeu | Active, désactivable |
 | Data Dragon | Service officiel de données statiques | Active |
 | API officielle Riot pour l'historique | Clé personnelle, prévue pour ses propres statistiques | Script manuel, aucune clé dans l'exécutable |
-| API du client (lockfile) | Non prise en charge, statut à clarifier | Lecture seule, usage personnel, option à cocher |
+| API du client (lockfile) | Non prise en charge, statut à clarifier | Lecture seule, option à cocher |
 | Lecture mémoire, injection, contournement de Vanguard | Hors de question | Jamais |
 | Reconnaissance visuelle locale du client | Sans contact avec le client, non validée par Riot | Active, comme estimation : voir [DETECTION.md](DETECTION.md) |
 | Noms de joueurs masqués en sélection | Information volontairement cachée | Jamais |
 
-## Avant une distribution
+## Démarche à suivre auprès de Riot
 
 1. Enregistrer le projet sur le portail développeur en décrivant l'usage : lecture seule de la phase et des champions adverses visibles.
 2. Obtenir une réponse écrite de Riot, en demandant explicitement si un conseil de pick en sélection reste acceptable.
 3. Limiter la lecture à la phase et aux champions adverses verrouillés, sans action sur le client ni donnée de joueur.
 4. Conserver la saisie manuelle en secours.
 
-## Avant une distribution publique
+## Distribution publique
 
-Aucune distribution n'est autorisée avant le retour de Riot et l'accord du propriétaire du projet. Le workflow compile et teste, sans publier d'exécutable.
+Depuis le 4 novembre 2026, le code et l'exécutable sont publics sur GitHub, par choix du propriétaire du projet et sans réponse de Riot à ce jour. Le workflow publie l'exécutable à chaque tag `v*`. Les points ci-dessous restent à traiter :
 
 - **Audit :** le produit et chacune de ses évolutions passent par le portail développeur.
 - **Illustrations :** l'application affiche des portraits de Riot, et la page des applications tierces vise celles qui « allow the use of our assets for free ». Le cadre applicable reste à vérifier.
