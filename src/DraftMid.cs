@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.3.2.0")]
-[assembly: AssemblyFileVersion("2.3.2.0")]
+[assembly: AssemblyVersion("2.4.0.0")]
+[assembly: AssemblyFileVersion("2.4.0.0")]
 
 namespace DraftMid
 {
@@ -158,7 +158,7 @@ namespace DraftMid
         public bool AutoDraft = true;
         public bool Topmost;
         public bool Diagnostics;
-        // Sans effet tant que LcuGate reste fermé.
+        // Lecture du client : désactivée par défaut, à cocher dans les réglages.
         public bool LcuEnabled;
         public Dictionary<string, SavedRect> Rects = new Dictionary<string, SavedRect>();
         // Signatures réduites apprises localement : aucune image n'est conservée.
@@ -422,7 +422,13 @@ public static class Autostart
         // Une lecture par seconde au maximum, et seulement si une conclusion est possible.
         async void Sample()
         {
-            if (await PollLcuOnce()) return;
+            if (await PollLcuOnce())
+            {
+                // Le client donne la phase exacte : rien à estimer ni à apprendre à partir de l'image.
+                frameValid = false;
+                if (settings.Diagnostics) Diagnose(Evidence.Unknown);
+                return;
+            }
             Evidence ev = Evidence.Unknown;
             frameValid = false;
             bool game = GameRunning();
@@ -441,13 +447,21 @@ public static class Autostart
             // Chiffres uniquement : aucune image, aucun nom. Le journal repart de zéro au-delà de 2 Mo.
             string logPath = Path.Combine(dataDir, "diagnostic.log");
             try { if (File.Exists(logPath) && new FileInfo(logPath).Length > 2 * 1024 * 1024) File.Delete(logPath); } catch { }
-            try { File.AppendAllText(logPath, DateTime.Now.ToString("HH:mm:ss") + " " + machine.Current + " preuve=" + ev + " panneaux=" + panelsShown + " image=" + frameValid + " " + detector.LastMetrics + Environment.NewLine); } catch { }
+            try { File.AppendAllText(logPath, DateTime.Now.ToString("HH:mm:ss") + " " + machine.Current + " preuve=" + ev + " panneaux=" + panelsShown + " image=" + frameValid + " lcu=" + LcuDiag() + " " + detector.LastMetrics + Environment.NewLine); } catch { }
         }
 
         // ---------- Lecture LCU : verrouillée, voir docs/LCU.md ----------
         LcuSession lcu;
         bool lcuBusy;
         string lastEnemies = "";
+        string lcuInfo = "";
+
+        // Phase et nombre d'adversaires uniquement : aucun identifiant, aucun nom.
+        string LcuDiag()
+        {
+            if (lcu == null) return "off";
+            return lcu.Connected ? lcuInfo : "absent(" + LocalHttpsTransport.LastError + ")";
+        }
 
         public void TestUseLcu(Func<ILcuTransport> open) { lcu = new LcuSession(open) { RetryMs = 0, PollTimeoutMs = 400 }; lastEnemies = ""; }
         public LcuSession Lcu { get { return lcu; } }
@@ -481,6 +495,7 @@ public static class Autostart
             {
                 LcuSnapshot s = await lcu.PollAsync();
                 if (!s.Available) return false;
+                lcuInfo = s.PhaseName + "/" + (s.EnemyChampionIds == null ? "illisible" : s.EnemyChampionIds.Count.ToString());
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
                 AfterPhase(before, machine.Current);
@@ -816,7 +831,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.RiotConfirmed } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1335,7 +1350,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.3.2");
+                k.SetValue("DisplayVersion", "2.4.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);

@@ -1,8 +1,10 @@
-# Connecteur LCU : lecture seule et verrouillé
+# Connecteur LCU : lecture seule, usage personnel
 
-**État : implémenté, testé sur des données simulées, jamais connecté à un vrai client.**
+**État : activé le 4 novembre 2026 pour l'usage personnel du propriétaire du projet, à sa demande. Riot n'a pas confirmé que cette lecture est autorisée.**
 
-Le connecteur est fermé par `LcuGate.RiotConfirmed = false` dans `src/LcuConnector.cs`. Tant que cette valeur n'est pas modifiée et l'application recompilée, cocher l'option ne provoque aucune lecture du lockfile ni aucune requête.
+Il faut à la fois `LcuGate.ReadingEnabled = true` dans `src/LcuConnector.cs` et l'option « Lecture du client Riot » cochée dans les réglages. L'option reste décochée par défaut.
+
+**Avant toute distribution :** repasser `ReadingEnabled` à `false` tant que Riot n'a pas répondu par écrit.
 
 ## Politiques vérifiées le 3 novembre 2026, relues le 4 novembre pour les trois pages principales
 
@@ -31,7 +33,7 @@ Sont volontairement ignorés : noms et identifiants de joueurs, `championPickInt
 
 - **Lecture seule :** `ILcuTransport` n'expose que `GetAsync`, et le seul transport réel fixe `Method = "GET"`. Aucun abonnement WebSocket : la lecture périodique suffit et reste plus simple.
 - **Local :** l'adresse est fixée à `127.0.0.1`, et le certificat auto-signé n'est accepté que pour cette requête.
-- **Client figé :** une requête est abandonnée après 800 ms, une lecture complète après 2 secondes, et l'application revient à l'estimation visuelle et au mode manuel.
+- **Client figé :** une requête est abandonnée après 1,5 seconde, une lecture complète après 3,5 secondes, et l'application revient à l'estimation visuelle et au mode manuel.
 - **Reconnexion :** `LcuSession` oublie les identifiants dès qu'une lecture échoue ou que le client se ferme. Elle relit le lockfile au plus toutes les 3 secondes, donc un client redémarré est retrouvé sans action.
 - **Réponse incomplète :** une session tronquée, absente ou expirée ne vide pas la composition. La dernière connue reste affichée.
 - **Identifiants temporaires :** le port et le mot de passe restent en mémoire. Ils ne sont ni écrits, ni journalisés, ni ajoutés aux préférences.
@@ -52,13 +54,12 @@ Sont volontairement ignorés : noms et identifiants de joueurs, `championPickInt
 
 Le scénario de `--e2e` déroule une draft complète sur `SimulatedLcuTransport` : accueil, lobby, début de sélection, adversaires ajoutés et changés, réponses abîmées, requête bloquée, déconnexion, redémarrage, annulation, chargement, partie, fermeture. Ces données simulées suivent des sources communautaires : elles ne prouvent pas le format réel du client.
 
-## Pour l'activer
+Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nombre d'adversaires`, ou `lcu=absent(erreur)`, sans identifiant ni nom.
 
-1. Enregistrer le projet sur le [portail développeur](https://developer.riotgames.com/) et y laisser la note ci-dessous.
-2. Obtenir une réponse écrite de Riot.
-3. Mettre `LcuGate.RiotConfirmed` à `true`, adapter le test du verrou, recompiler.
-4. Valider sur une vraie draft : les noms de phases et le format de session viennent de sources communautaires, jamais confirmés sur un vrai client.
-5. Cocher l'option dans les réglages. Elle reste désactivée par défaut.
+## Avant une distribution
+
+1. Obtenir une réponse écrite de Riot, à partir de la note ci-dessous.
+2. Sans confirmation, mettre `LcuGate.ReadingEnabled` à `false` et recompiler.
 
 ## Note proposée pour Riot
 

@@ -36,8 +36,8 @@ class MockDraftProvider extends DraftProvider {
   stop() { this.timers.forEach(clearTimeout); this.timers = []; }
 }
 
-// Désactivé côté interface : cette page ne se connecte jamais au client.
-// La lecture éventuelle se fait côté application, verrouillée en attendant une réponse de Riot : voir docs/LCU.md.
+// Cette page ne se connecte jamais au client.
+// La lecture se fait côté application, en lecture seule : voir docs/LCU.md.
 class RiotDraftProvider extends DraftProvider {
   constructor(onEvent) { super(onEvent); this.detected = []; }
   get id() { return "riot"; }

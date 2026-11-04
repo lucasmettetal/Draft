@@ -23,7 +23,7 @@ La détection de la fenêtre et celle de la phase sont indépendantes.
 
 ## Reconnaissance visuelle
 
-**Mesuré le 4 novembre 2026, sur 133 images d'une partie personnalisée :** le salon et la sélection ont presque le même haut et le même bas d'écran. Ce qui les sépare est le centre : vide dans le salon, chargé en portraits dans la sélection. L'accueil garde sa barre de navigation et n'a pas de centre chargé. Je suppose que le salon était bien l'écran sans portraits : le journal ne contient que des chiffres, pas de nom d'écran.
+**Peu fiable, à utiliser seulement en secours quand la lecture du client ne répond pas.** Le journal du 4 novembre 2026 montre que le centre « chargé » n'apparaît parfois qu'une ou deux secondes pendant une sélection, ce qui fait disparaître les panneaux trop tôt. Quand le client répond, cette estimation n'est pas utilisée.
 
 | Écran | Centre chargé | Conclusion |
 |---|---|---|

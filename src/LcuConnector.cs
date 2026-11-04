@@ -1,6 +1,6 @@
-// Connecteur de lecture du client League of Legends, en lecture seule et VERROUILLÉ.
+// Connecteur de lecture du client League of Legends, en lecture seule.
 // Riot indique que cette API n'est pas prise en charge pour les applications tierces.
-// Voir docs/LCU.md : ne pas déverrouiller sans réponse écrite de Riot.
+// Activé pour un usage personnel uniquement : voir docs/LCU.md avant toute distribution.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,11 +18,12 @@ namespace DraftMid
 {
     public static class LcuGate
     {
-        // À passer à true uniquement après confirmation écrite de Riot, en recompilant.
-        public static readonly bool RiotConfirmed = false;
+        // Décision du propriétaire du projet pour son usage personnel, sans réponse de Riot à ce jour.
+        // À repasser à false avant toute distribution, tant que Riot n'a pas confirmé.
+        public static readonly bool ReadingEnabled = true;
 
-        // L'option de l'utilisateur ne suffit jamais seule.
-        public static bool Allowed(bool optionEnabled) { return RiotConfirmed && optionEnabled; }
+        // L'interrupteur de compilation et l'option de l'utilisateur sont tous deux nécessaires.
+        public static bool Allowed(bool optionEnabled) { return ReadingEnabled && optionEnabled; }
     }
 
     public static class LcuEndpoints
@@ -59,9 +60,17 @@ namespace DraftMid
 
     public class LocalHttpsTransport : ILcuTransport
     {
-        const int TimeoutMs = 800;
+        const int TimeoutMs = 1500;
         readonly LockfileInfo info;
-        public LocalHttpsTransport(LockfileInfo info) { this.info = info; }
+        // Nature de la dernière erreur réseau, pour le journal : jamais d'identifiant.
+        public static string LastError = "";
+
+        public LocalHttpsTransport(LockfileInfo info)
+        {
+            this.info = info;
+            // Sans cela, .NET Framework peut proposer des protocoles que le client refuse.
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        }
 
         public async Task<string> GetAsync(string path)
         {
@@ -79,11 +88,16 @@ namespace DraftMid
             {
                 using (WebResponse w = await r.GetResponseAsync())
                 using (StreamReader rd = new StreamReader(w.GetResponseStream(), Encoding.UTF8))
-                    return await rd.ReadToEndAsync();
+                {
+                    string body = await rd.ReadToEndAsync();
+                    LastError = "";
+                    return body;
+                }
             }
             catch (WebException e)
             {
                 HttpWebResponse h = e.Response as HttpWebResponse;
+                LastError = h != null ? "http " + (int)h.StatusCode : e.Status.ToString();
                 return h != null && h.StatusCode == HttpStatusCode.NotFound ? "" : null;
             }
         }
@@ -196,7 +210,7 @@ namespace DraftMid
         LcuReader reader;
         int nextAttempt = Environment.TickCount;
         public int RetryMs = 3000;
-        public int PollTimeoutMs = 2000;
+        public int PollTimeoutMs = 3500;
 
         public LcuSession(Func<ILcuTransport> open) { this.open = open; }
         public bool Connected { get { return reader != null; } }
@@ -250,9 +264,9 @@ namespace DraftMid
 
         public static void Run(Action<bool, string> t)
         {
-            t(LcuGate.RiotConfirmed == false, "LCU : le verrou est fermé dans cette version");
-            t(!LcuGate.Allowed(false) && !LcuGate.Allowed(true), "LCU : même l'option cochée ne permet aucune connexion");
-            t(LcuFactory.CreateReal(true, Path.GetTempPath()) == null, "LCU : aucun connecteur réel n'est créé, verrou fermé");
+            t(!LcuGate.Allowed(false), "LCU : option décochée, aucune connexion");
+            t(LcuFactory.CreateReal(false, Path.GetTempPath()) == null, "LCU : option décochée, le lockfile n'est pas ouvert");
+            t(LcuFactory.CreateReal(true, Path.GetTempPath()) == null, "LCU : sans lockfile, aucun connecteur n'est créé");
 
             t(LcuEndpoints.IsAllowed(LcuEndpoints.Phase) && LcuEndpoints.IsAllowed(LcuEndpoints.Session), "LCU : les deux endpoints documentés sont autorisés");
             t(!LcuEndpoints.IsAllowed("/lol-summoner/v1/current-summoner") && !LcuEndpoints.IsAllowed("/lol-champ-select/v1/session/actions/1"), "LCU : tout autre endpoint est refusé");
@@ -318,7 +332,7 @@ namespace DraftMid
                 LocalHttpsTransport frozen = new LocalHttpsTransport(new LockfileInfo { Port = ((IPEndPoint)silent.LocalEndpoint).Port, Password = "test" });
                 Stopwatch clock = Stopwatch.StartNew();
                 string answer = Task.Run(() => frozen.GetAsync(LcuEndpoints.Phase)).GetAwaiter().GetResult();
-                t(answer == null && clock.ElapsedMilliseconds < 3000, "LCU : un client figé est abandonné après le délai (" + clock.ElapsedMilliseconds + " ms)");
+                t(answer == null && clock.ElapsedMilliseconds < 4000, "LCU : un client figé est abandonné après le délai (" + clock.ElapsedMilliseconds + " ms)");
             }
             finally { silent.Stop(); }
         }

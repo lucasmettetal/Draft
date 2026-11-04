@@ -1592,7 +1592,7 @@ function Settings({ onClose }) {
       <ul className="plain">
         <li><b>Saisie manuelle :</b> active.</li>
         <li><b>Simulation :</b> <button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></li>
-        <li><label className="set-check"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> <b>Lecture du client Riot</b></label> Verrouillée : aucune connexion au client tant que Riot n'a pas confirmé que c'est autorisé.</li>
+        <li><label className="set-check"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> <b>Lecture du client Riot</b></label> Lit la phase et les champions adverses verrouillés, sans jamais rien modifier. Usage personnel : Riot ne l'a pas confirmé.</li>
       </ul>
     </section>
   </div>`;

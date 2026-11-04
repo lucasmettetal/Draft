@@ -2,7 +2,7 @@
 
 Application Windows compagnon pour choisir son champion mid pendant la sélection de League of Legends, parmi un pool de Twisted Fate, Fizz, Kog'Maw et Xerath. Elle explique chaque recommandation.
 
-DraftMid est un outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games. Il ne modifie pas le client, ne s'y connecte pas et n'injecte rien.
+DraftMid est un outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games. Il ne modifie pas le client et n'injecte rien. Si l'option est cochée, il lit localement la phase et les champions adverses verrouillés.
 
 ## Utilisation
 
@@ -13,7 +13,7 @@ Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déj�
 
 L'application démarre en arrière-plan, avec une icône près de l'horloge et aucun panneau. Quand elle reconnaît une sélection, les panneaux apparaissent autour du client et le suivent. `Ctrl+Alt+D` les affiche ou les masque si elle se trompe. Saisis les champions adverses dans le panneau gauche : le verdict s'affiche dans le panneau droit.
 
-La détection de la draft est une estimation visuelle locale, calibrée sur une seule partie personnalisée : voir [la détection](docs/DETECTION.md). La lecture du client est [implémentée mais verrouillée](docs/LCU.md), et testée uniquement sur un faux client.
+La [lecture du client](docs/LCU.md) donne la phase exacte et remplit les adversaires, sans confirmation de Riot à ce jour. Si elle ne répond pas, l'application revient à une [estimation visuelle](docs/DETECTION.md) peu fiable et à la saisie manuelle.
 
 Aucune distribution n'est prévue pour l'instant : DraftMid reste un outil personnel.
 
