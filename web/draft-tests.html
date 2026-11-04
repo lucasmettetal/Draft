@@ -120,6 +120,8 @@ unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas 
   t(guessMid(["Lulu", "Ornn", "Zed"]) === "Zed", "Zed passe avant Lulu, typée support");
   t(guessMid(["Diana", "Ahri"]) === "Ahri", "Ahri passe avant Diana, typée jungle");
   t(guessMid(["Locke", "Bard"]) === null, "aucune supposition sans fiche de matchup");
+  t(guessMid(["Irelia", "Galio"]) === "Galio", "Galio passe avant Irelia, jouée surtout top");
+  t(guessMid(["Irelia", "Malphite"]) === "Irelia", "sans vrai mid en face, Irelia reste possible");
 });
 
 unitBlock("Préférences", "Exclure un pick le retire partout. Le favori ne départage qu'une égalité exacte et ne change aucun score.", t => {

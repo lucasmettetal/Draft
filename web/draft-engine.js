@@ -206,9 +206,12 @@ const MARKSMEN = new Set("Aphelios,Ashe,Caitlyn,Corki,Draven,Ezreal,Graves,Jhin,
 const SUPPORTS = new Set("Alistar,Bard,Blitzcrank,Braum,Janna,Karma,Leona,Lulu,Milio,Morgana,Nami,Nautilus,Pyke,Rakan,Rell,Renata Glasc,Seraphine,Sona,Soraka,Tahm Kench,Taric,Thresh,Yuumi,Zilean,Zyra".split(","));
 const JUNGLERS = new Set("Amumu,Bel'Veth,Briar,Diana,Ekko,Elise,Evelynn,Fiddlesticks,Gragas,Hecarim,Ivern,Jarvan IV,Karthus,Kayn,Kha'Zix,Lee Sin,Lillia,Maokai,Master Yi,Nidalee,Nocturne,Nunu,Rammus,Rek'Sai,Rengar,Sejuani,Shaco,Shyvana,Skarner,Trundle,Udyr,Vi,Viego,Volibear,Warwick,Wukong,Xin Zhao,Zac".split(","));
 
+// Peuvent aller mid, mais se jouent surtout top : ils passent après un vrai mid, même typé tank comme Galio.
+const OFTEN_TOP = new Set("Cho'Gath,Irelia,Malphite,Pantheon,Sion".split(","));
+
 function guessMid(enemies) {
   const rank = n => {
-    const offRole = MARKSMEN.has(n) || SUPPORTS.has(n) || JUNGLERS.has(n) ? 10 : 0;
+    const offRole = MARKSMEN.has(n) || SUPPORTS.has(n) || JUNGLERS.has(n) ? 10 : OFTEN_TOP.has(n) ? 5 : 0;
     return offRole + MID_ORDER[matchupOf(n).t];
   };
   const known = enemies.filter(matchupOf);
