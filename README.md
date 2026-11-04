@@ -1,51 +1,85 @@
 # DraftMid
 
-Application Windows compagnon pour choisir son champion mid pendant la sélection de League of Legends, parmi un pool de Twisted Fate, Fizz, Kog'Maw et Xerath. Elle explique chaque recommandation.
+Application Windows qui aide à choisir son champion mid pendant la sélection de League of Legends, parmi Twisted Fate, Fizz, Kog'Maw et Xerath. Elle affiche une recommandation et ses raisons, et le joueur garde chaque décision.
 
-DraftMid est un outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games. Il ne modifie pas le client et n'injecte rien. Si l'option est cochée, il lit localement la phase et les champions adverses verrouillés.
+**[Télécharger DraftMid-Portable.exe](https://github.com/lucasmettetal/Draft/releases/latest/download/DraftMid-Portable.exe)**
+
+DraftMid n'est pas approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games. L'exécutable n'est pas signé, donc Windows peut afficher un avertissement.
+
+## Démarrage
+
+Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déjà présent.
+
+1. Lance `DraftMid-Portable.exe`, sans installation. Aucune fenêtre ne s'ouvre : seule une icône apparaît près de l'horloge.
+2. Pour une détection fiable, ouvre **Réglages** depuis le menu de l'icône et coche **Lecture du client Riot**.
+3. Lance une partie : les panneaux apparaissent autour du client pendant la sélection, puis disparaissent à la fin.
+
+`DraftMid-Setup.exe` est la variante à installer, sans droits administrateur, avec un raccourci dans le menu Démarrer.
 
 ## Utilisation
 
-- `DraftMid-Portable.exe` : se lance directement, sans installation.
-- `DraftMid-Setup.exe` : installe l'application pour l'utilisateur courant, sans droits administrateur, avec un raccourci dans le menu Démarrer.
+- **`Ctrl+Alt+D`** affiche ou masque les panneaux.
+- **Panneau gauche :** les champions adverses, remplis automatiquement avec la lecture du client, sinon à la main.
+- **Panneau droit :** le verdict, ses raisons et le ban conseillé.
+- **Mid supposé :** le client ne donne pas le rôle des adversaires. Le mid reste une supposition, à corriger d'un clic si besoin.
 
-Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déjà présent. Node.js n'est pas nécessaire.
+Le menu de l'icône permet aussi de choisir le panneau unique, l'activation automatique, le positionnement automatique et le démarrage avec Windows.
 
-L'application démarre en arrière-plan, avec une icône près de l'horloge et aucun panneau. Quand elle reconnaît une sélection, les panneaux apparaissent autour du client et le suivent. `Ctrl+Alt+D` les affiche ou les masque si elle se trompe. Saisis les champions adverses dans le panneau gauche : le verdict s'affiche dans le panneau droit.
+## Lecture du client Riot
 
-La [lecture du client](docs/LCU.md) donne la phase exacte et remplit les adversaires, sans confirmation de Riot à ce jour. Si elle ne répond pas, l'application revient à une [estimation visuelle](docs/DETECTION.md) peu fiable et à la saisie manuelle.
+L'option est décochée par défaut. Elle lit localement la phase de jeu et les champions adverses verrouillés, en lecture seule, sans rien modifier dans le client et sans rien injecter.
 
-**Téléchargement :** [DraftMid-Portable.exe](https://github.com/lucasmettetal/Draft/releases/latest/download/DraftMid-Portable.exe). L'exécutable n'est pas signé, donc Windows peut afficher un avertissement.
+**Riot n'a pas confirmé que cet usage est autorisé, et son activation se fait à tes risques.** Sans elle, tu saisis les adversaires à la main, et l'application utilise une estimation visuelle peu fiable, qui exige un client visible. Détails dans [LCU.md](docs/LCU.md) et [DETECTION.md](docs/DETECTION.md).
 
-La lecture du client est décochée par défaut. Riot n'a pas confirmé que cet usage est autorisé : l'activer se fait à tes risques.
+## Données facultatives
 
-Les préférences, le journal et le cache d'images sont dans `%LOCALAPPDATA%\DraftMid`.
+Ces deux scripts se trouvent dans `tools/` et demandent une [clé Riot](https://developer.riotgames.com). Elle reste masquée et n'est pas enregistrée. Une clé de développement ou personnelle est réservée à un usage privé.
 
-## Compilation
+| Script | Rôle | Après la fin |
+|---|---|---|
+| `draft-update-roles.bat` | Calcule les rôles joués par champion sur 1 000 parties récentes, pour deviner le mid. Compte environ 40 minutes, à relancer à chaque patch | Relancer DraftMid |
+| `draft-import-stats.bat` | Importe tes bilans personnels. Il demande tes comptes une fois et les garde dans un fichier ignoré par Git | Menu de l'icône > **Importer mes statistiques...** |
+
+Pour lancer un script, télécharge le `.bat` et le `.ps1` du même nom dans un même dossier.
+
+Sans le premier script, l'application utilise des statistiques de rôles livrées avec elle, qui datent du patch 16.3.
+
+## Limites connues
+
+- **Testé en réel :** une partie personnalisée, de la sélection à la lecture des 5 adversaires. Le classé, le chargement et la partie restent à valider.
+- **Testé seulement en simulation :** deux écrans, changement de résolution, reconnexion et requête bloquée.
+- **Recommandations :** les matchups et les règles sont des choix de conception, pas des statistiques. Voir [MOTEUR.md](docs/MOTEUR.md).
+
+Tes préférences, ton journal et tes données restent sur ton PC, dans `%LOCALAPPDATA%\DraftMid`. L'application n'a ni compte, ni télémétrie.
+
+## Développement
 
 ```powershell
 .\build.ps1
 ```
 
-Les exécutables sont créés dans `dist\`. Seul le compilateur C# fourni avec Windows est utilisé. Le workflow GitHub Actions produit les mêmes fichiers à chaque push.
+Les exécutables sont créés dans `dist\`. Seul le compilateur C# fourni avec Windows est utilisé.
 
-## Structure
+GitHub Actions compile et teste à chaque push. Pour publier une version, pousse un tag `v*` : le lien de téléchargement ci-dessus pointe alors vers cette version.
 
 | Élément | Emplacement |
 |---|---|
 | Moteur stratégique | `web/draft-engine.js` |
 | Connecteurs de draft | `web/draft-providers.js` |
-| Fenêtre du client et phase | `src/DraftDetection.cs` |
-| Lecture du client, verrouillée | `src/LcuConnector.cs` |
 | Interface | `web/index.html` (React et Motion, sans compilation) |
+| Statistiques de rôles livrées | `web/draft-role-rates.js`, mises à jour avec `tools/update-role-rates.ps1` |
+| Fenêtre du client et estimation visuelle | `src/DraftDetection.cs` |
+| Lecture du client | `src/LcuConnector.cs` |
 | Fenêtres, icône, installateur | `src/DraftMid.cs` |
 | Persistance | `localStorage` pour le journal, `settings.json` pour les fenêtres |
-| Import des statistiques | `tools/draft-import-stats.ps1` |
-| Tests du moteur | `web/draft-tests.html` |
-| Tests natifs | `DraftMid-Portable.exe --selftest --out resultat.txt`, et `--e2e --data dossier --out resultat.txt` pour le scénario avec une fausse fenêtre |
 
-Voir aussi [le moteur](docs/MOTEUR.md) et [l'intégration Riot](docs/INTEGRATION-RIOT.md).
+**Tests :**
+- Moteur : ouvrir `web/draft-tests.html` dans un navigateur.
+- Tests natifs : `DraftMid-Portable.exe --selftest --out resultat.txt`.
+- Scénario complet, avec une fausse fenêtre et un faux client : `DraftMid-Portable.exe --e2e --data dossier --out resultat.txt`. Le raccourci y échoue si DraftMid tourne déjà.
+
+Voir aussi [l'intégration Riot](docs/INTEGRATION-RIOT.md).
 
 ## Choix technique
 
-Tauri 2 aurait été le premier choix, mais il exige Rust et Node pour compiler. DraftMid utilise un hôte C# natif avec WebView2, le même moteur d'affichage que Tauri sous Windows. L'exécutable pèse 1,3 Mo et se compile sans rien installer. L'interface reste en HTML et JavaScript, donc une migration vers Tauri resterait possible.
+Tauri 2 aurait été le premier choix, mais il exige Rust et Node pour compiler. DraftMid utilise un hôte C# natif avec WebView2, le même moteur d'affichage que Tauri sous Windows. L'exécutable pèse 1,4 Mo et se compile sans rien installer. L'interface reste en HTML et JavaScript, donc une migration vers Tauri resterait possible.

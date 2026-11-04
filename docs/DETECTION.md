@@ -10,7 +10,7 @@ La détection de la fenêtre et celle de la phase sont indépendantes.
 | `PanelVisibilityController` | Décide de l'affichage |
 | `Layout` | Calcule la position des panneaux |
 | `UserPreferences` | Enregistre les préférences et ce qui a été appris |
-| `LcuReader` | Lecture LCU, verrouillée : voir [LCU.md](LCU.md) |
+| `LcuSession`, `LcuReader` | Lecture du client, prioritaire si l'option est cochée : voir [LCU.md](LCU.md) |
 
 ## Fiabilité de chaque signal
 
@@ -19,7 +19,8 @@ La détection de la fenêtre et celle de la phase sont indépendantes.
 | Client fermé | Fenêtre Windows | Certain |
 | Client réduit | Fenêtre Windows | Certain |
 | Partie en cours | Processus `League of Legends` | Certain |
-| Draft ou hors draft | Reconnaissance visuelle locale | **Estimation, calibrée sur une seule partie personnalisée** |
+| Draft ou hors draft, option cochée | Lecture du client | Exacte tant que le client répond |
+| Draft ou hors draft, sans lecture du client | Reconnaissance visuelle locale | **Estimation peu fiable** |
 
 ## Reconnaissance visuelle
 

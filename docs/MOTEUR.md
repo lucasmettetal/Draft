@@ -40,12 +40,17 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 - **Mid probable :** les listes écrites à la main sont remplacées par les taux de jeu par rôle. Le moteur cherche la répartition la plus probable des adversaires connus, puis lit qui se retrouve au mid.
 - **Mid inconnu :** si aucun adversaire connu n'a de chance sérieuse d'être mid, aucun mid n'est inventé, et le matchup direct n'est pas évalué.
 
+## Changements de la V2.6
+
+- **Rôles récents :** s'ils ont été calculés, ils passent avant les statistiques livrées, pour chaque champion joué au moins 20 fois dans cet échantillon. Ces valeurs viennent de `draft-update-roles.bat`.
+- **Draft complète :** avec 5 adversaires, un mid est toujours supposé. Sur une draft incomplète, aucun mid n'est retenu si sa part est inférieure à 5 %.
+
 ## Données
 
 | Type | Contenu |
 |---|---|
 | Officiel (Data Dragon) | Noms, portraits, illustrations, patch, classes de Locke et Zaahen |
-| Rôles récents (API Riot) | Calculés par `tools/draft-update-roles.bat` sur 1 000 parties des 14 derniers jours, Silver à Emeraude. Stockés dans `%LOCALAPPDATA%\DraftMid\draft-role-rates-live.js`, sans nom de joueur. Clé personnelle : usage privé seulement |
-| Rôles de secours (Meraki Analytics) | Taux de jeu du patch 16.3, utilisés sous 20 parties récentes. Licence non confirmée : à vérifier avant toute distribution |
+| Rôles récents (API Riot) | Calculés par `tools/draft-update-roles.bat` sur 1 000 parties des 14 derniers jours, Silver à Emeraude. Stockés dans `%LOCALAPPDATA%\DraftMid\draft-role-rates-live.js`, sans nom de joueur. Résultat local, jamais livré avec l'exécutable. Clé personnelle : usage privé seulement |
+| Rôles de secours (Meraki Analytics) | Taux de jeu du patch 16.3, utilisés sous 20 parties récentes et livrés avec l'exécutable. Licence non confirmée : point ouvert, voir [INTEGRATION-RIOT.md](INTEGRATION-RIOT.md) |
 | Heuristique | Matchups, profils, règles, plans de jeu |
 | Personnel | Journal et import Riot, affichés sans effet sur le classement |

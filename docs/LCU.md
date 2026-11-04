@@ -1,10 +1,10 @@
-# Connecteur LCU : lecture seule, usage personnel
+# Connecteur LCU : lecture seule
 
-**État : activé le 4 novembre 2026 pour l'usage personnel du propriétaire du projet, à sa demande. Riot n'a pas confirmé que cette lecture est autorisée.**
+**État : disponible en option depuis le 4 novembre 2026, par décision du propriétaire du projet. Riot n'a pas confirmé que cette lecture est autorisée.**
 
-Il faut à la fois `LcuGate.ReadingEnabled = true` dans `src/LcuConnector.cs` et l'option « Lecture du client Riot » cochée dans les réglages. L'option reste décochée par défaut.
+Il faut à la fois `LcuGate.ReadingEnabled = true` dans `src/LcuConnector.cs` et l'option « Lecture du client Riot » cochée dans les réglages, décochée par défaut.
 
-**Publication :** le 4 novembre 2026, le propriétaire du projet a choisi de publier le code et l'exécutable sur GitHub sans attendre la réponse de Riot. L'option reste décochée par défaut. Si Riot refuse cet usage, repasser `ReadingEnabled` à `false` et republier.
+**Publication :** le code et l'exécutable sont publics sur GitHub, sans attendre la réponse de Riot. Si Riot refuse cet usage, repasser `ReadingEnabled` à `false` et republier.
 
 ## Politiques vérifiées le 3 novembre 2026, relues le 4 novembre pour les trois pages principales
 
@@ -58,11 +58,9 @@ Le scénario de `--e2e` déroule une draft complète sur `SimulatedLcuTransport`
 
 Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nombre d'adversaires`, ou `lcu=absent(erreur)`, sans identifiant ni nom.
 
-## Question posée à Riot
+## Note pour Riot
 
-La note ci-dessous résume la demande de clarification.
-
-## Note proposée pour Riot
+Une demande de précisions a été envoyée à Riot par le propriétaire du projet, sans réponse connue au 4 novembre 2026. Cette note résume ce qu'il faut clarifier, notamment pour un enregistrement sur le portail développeur.
 
 > DraftMid est une application Windows qui conseille un pick mid à partir de la composition adverse visible. Nous souhaitons lire localement, en GET uniquement, `/lol-gameflow/v1/gameflow-phase` et `/lol-champ-select/v1/session`, pour afficher nos fenêtres pendant la sélection et récupérer les champions adverses déjà verrouillés et visibles. Nous n'effectuons aucune écriture ni action automatique, et nous ne lisons ni noms, ni identifiants de joueurs, ni intentions de pick. Le joueur garde chaque décision.
 >
