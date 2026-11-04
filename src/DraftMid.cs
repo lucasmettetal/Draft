@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.9.0.0")]
-[assembly: AssemblyFileVersion("2.9.0.0")]
+[assembly: AssemblyVersion("2.9.1.0")]
+[assembly: AssemblyFileVersion("2.9.1.0")]
 
 namespace DraftMid
 {
@@ -447,6 +447,7 @@ public static class Autostart
                 // Le client donne la phase exacte : rien à estimer ni à apprendre à partir de l'image.
                 frameValid = false;
                 if (settings.Diagnostics) Diagnose(Evidence.Unknown);
+                NotifyLcuStatus();
                 return;
             }
             Evidence ev = Evidence.Unknown;
@@ -460,6 +461,7 @@ public static class Autostart
             StepPhase(ClientOpen, game, ev, SampleMs / 1000.0);
             if (machine.DraftTimedOut) detector.ForgetBaseline();
             if (settings.Diagnostics) Diagnose(ev);
+            NotifyLcuStatus();
         }
 
         void Diagnose(Evidence ev)
@@ -475,6 +477,21 @@ public static class Autostart
         bool lcuBusy;
         string lastEnemies = "";
         string lcuInfo = "";
+
+        string shownLcuStatus = "";
+
+        string LcuStatus()
+        {
+            if (!LcuGate.Allowed(settings.LcuEnabled)) return "off";
+            if (lcu != null && lcu.Connected) return "connected";
+            return ClientOpen ? "failed" : "waiting";
+        }
+
+        void NotifyLcuStatus()
+        {
+            string now = LcuStatus();
+            if (now != shownLcuStatus) { shownLcuStatus = now; RefreshUi(); }
+        }
 
         // Phase et nombre d'adversaires uniquement : aucun identifiant, aucun nom.
         string LcuDiag()
@@ -973,7 +990,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1544,7 +1561,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.9.0");
+                k.SetValue("DisplayVersion", "2.9.1");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);

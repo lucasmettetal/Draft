@@ -16,6 +16,7 @@ $Runs = @()
 foreach ($s in 'empty', 'one', 'partial', 'full', 'midunknown', 'close', 'excluded', 'none', 'picked', 'history', 'extreme') { $Runs += , @($s, "state=$s", $false) }
 foreach ($t in 'analyse', 'compare', 'matchups', 'parties', 'rules') { $Runs += , @("onglet $t", "state=history&set=full&tabclick=$t", $false) }
 $Runs += , @('reglages', 'state=full&set=full&tab=settings', $false)
+$Runs += , @('reglages application', 'state=full&set=full&tab=settings&host=on', $false)
 $Runs += , @('sans reseau', 'state=full', $true)
 
 $failures = 0

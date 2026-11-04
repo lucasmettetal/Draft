@@ -427,6 +427,22 @@
   .p-btn:focus-visible, .mini:focus-visible, .cmp-btn:focus-visible, .seg-tab:focus-visible, .tab:focus-visible, .res:focus-visible { outline-offset:-2px; }
   .pick-detail a { display:inline-block; padding:5px 0; }
   .settings input[type=file] { min-height:28px; }
+  /* Réglages : l'essentiel d'abord, et une ligne d'aide sous les options qui en ont besoin. */
+  .settings h3 { color:var(--text); }
+  .set-card { margin-bottom:8px; padding:9px 11px; background:var(--bg); border:1px solid var(--line); border-radius:6px; }
+  .set-card.on { border-color:#1f4a4a; }
+  .set-main { margin-bottom:3px; font-size:14.5px; font-weight:600; }
+  .set-hint { margin:0 0 6px 21px; color:var(--muted); font-size:12.5px; line-height:1.3; }
+  .set-hint.flush { margin-left:0; }
+  .lcu-state { display:flex; align-items:center; gap:7px; margin:0 0 6px 21px; font-size:13px; font-weight:600; }
+  .lcu-state i { flex:none; width:8px; height:8px; background:currentColor; border-radius:50%; }
+  .lcu-state.good { color:var(--accent); }
+  .lcu-state.wait { color:var(--gold); }
+  .lcu-state.bad { color:var(--threat); }
+  .lcu-state.idle { color:var(--muted); }
+  .set-more { margin-top:12px; border-top:1px solid var(--line); padding-top:8px; }
+  .set-more summary { min-height:24px; color:var(--muted); font-size:13.5px; cursor:pointer; }
+  .set-more p, .set-more .set-check { margin-top:6px; }
 
   /* Le panneau gauche défile au lieu de comprimer son contenu quand la hauteur manque. */
   .panel .col-left { overflow:auto; }
@@ -1628,6 +1644,13 @@ function VerdictPanel() {
   </div>`;
 }
 
+const LCU_STATES = {
+  connected: ["good", "Connecté au client LoL"],
+  waiting: ["wait", "En attente : lance le client LoL pour vérifier"],
+  failed: ["bad", "Client ouvert, mais connexion impossible"],
+  off: ["idle", "Désactivée : la détection est estimée et peu fiable"]
+};
+
 function Settings({ onClose }) {
   const toggleExcluded = p => savePrefs({ excluded: PREFS.excluded.includes(p) ? PREFS.excluded.filter(x => x !== p) : PREFS.excluded.concat(p) });
   const importJournal = e => {
@@ -1654,9 +1677,25 @@ function Settings({ onClose }) {
   return html`<div className="settings-back" onClick=${e => { if (e.target === e.currentTarget) onClose(); }}>
     <section className="settings" role="dialog" aria-modal="true" aria-label="Réglages">
       <header className="sec-title">Réglages <button type="button" className="ghost-btn" autoFocus=${true} onClick=${onClose}>Fermer</button></header>
-      <h3>Exclure temporairement</h3>
+      ${hostState.available ? html`<div>
+        <h3>Détection de la draft</h3>
+        <div className=${`set-card${hostState.lcuEnabled ? " on" : ""}`}>
+          <label className="set-check set-main"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> Lire la draft depuis le client LoL</label>
+          <p className="set-hint">Recommandé : les panneaux s'ouvrent au bon moment et les adversaires se remplissent seuls. Lecture seule, rien n'est modifié dans le client.</p>
+          <p className=${`lcu-state ${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[0]}`} role="status"><i aria-hidden="true"></i>${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[1]}</p>
+          <p className="set-hint">Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques.</p>
+        </div>
+        <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> Afficher les panneaux automatiquement pendant la draft</label>
+        <p className="set-hint">${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
+        <h3>Fenêtres</h3>
+        <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Coller les panneaux au client LoL</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Un seul panneau</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
+        <label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> Démarrer avec Windows</label>
+      </div>` : null}
+      <h3>Mes picks</h3>
+      <p className="set-hint flush">Exclure pour l'instant :</p>
       <div className="set-row">${PICKS.map(p => html`<label key=${p} className="set-check"><input type="checkbox" checked=${PREFS.excluded.includes(p)} onChange=${() => toggleExcluded(p)} /> ${label(p)}</label>`)}</div>
-      <h3>Préférences de jeu</h3>
       <label className="set-line">À égalité exacte, préférer
         <select value=${PREFS.favorite || ""} onChange=${e => savePrefs({ favorite: e.target.value || null })}>
           <option value="">Aucun</option>
@@ -1665,13 +1704,6 @@ function Settings({ onClose }) {
       </label>
       <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Supposer un frontline dans mon équipe</label>
       ${hostState.available ? html`<div>
-        <h3>Application</h3>
-        <label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> Démarrer avec Windows</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> Activation automatique pendant la draft</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Positionnement automatique</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Panneau unique</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
         <h3>Rôles des champions</h3>
         <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.`} Ils servent à deviner le mid adverse.</p>
         <h3>Matchups</h3>
@@ -1683,20 +1715,19 @@ function Settings({ onClose }) {
             : html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Mettre à jour les rôles</button>
                 <button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateMatchups" })}>Mettre à jour les matchups</button>`}
         </p>
-        <h3>État</h3>
-        <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
-        <p className="small">Sans la lecture du client, la détection de la draft est une estimation peu fiable. ${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
       </div>` : null}
       <h3>Journal</h3>
-      <p className="small">Pour récupérer l'ancien journal : télécharge-le depuis l'ancienne page, onglet Journal, puis importe le fichier ici. Rien n'est supprimé.</p>
+      <p className="small">Pour récupérer un ancien journal, importe son fichier ici. Rien n'est supprimé.</p>
       <p><input type="file" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
       ${importNote ? html`<p className="small">${importNote}</p>` : null}
-      <h3>Source de la draft</h3>
-      <ul className="plain">
-        <li><b>Saisie manuelle :</b> active.</li>
-        <li><b>Simulation :</b> <button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></li>
-        <li><label className="set-check"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> <b>Lecture du client Riot</b></label> Lit la phase et les champions adverses verrouillés, sans jamais rien modifier. Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques.</li>
-      </ul>
+      <details className="set-more">
+        <summary>Avancé</summary>
+        <p><button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></p>
+        ${hostState.available ? html`<div>
+          <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
+          <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
+        </div>` : null}
+      </details>
     </section>
   </div>`;
 }
