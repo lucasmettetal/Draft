@@ -11,9 +11,11 @@ DraftMid est un outil personnel non approuvé par Riot Games. Les portraits et i
 
 Prérequis : Windows 10 ou 11 avec Microsoft Edge WebView2, généralement déjà présent. Node.js n'est pas nécessaire.
 
-L'application démarre en arrière-plan, avec une icône près de l'horloge et aucun panneau. Quand elle estime qu'une draft commence, les panneaux apparaissent autour du client et le suivent. `Ctrl+Alt+D` les affiche ou les masque si l'estimation se trompe. Saisis les champions adverses dans le panneau gauche : le verdict s'affiche dans le panneau droit.
+L'application démarre en arrière-plan, avec une icône près de l'horloge et aucun panneau. Quand elle reconnaît une sélection, les panneaux apparaissent autour du client et le suivent. `Ctrl+Alt+D` les affiche ou les masque si elle se trompe. Saisis les champions adverses dans le panneau gauche : le verdict s'affiche dans le panneau droit.
 
-La détection de la draft est une estimation visuelle locale, pas encore validée sur une vraie draft : voir [la détection](docs/DETECTION.md). La lecture du client est [implémentée mais verrouillée](docs/LCU.md).
+La détection de la draft est une estimation visuelle locale, calibrée sur une seule partie personnalisée : voir [la détection](docs/DETECTION.md). La lecture du client est [implémentée mais verrouillée](docs/LCU.md), et testée uniquement sur un faux client.
+
+Aucune distribution n'est prévue pour l'instant : DraftMid reste un outil personnel.
 
 Les préférences, le journal et le cache d'images sont dans `%LOCALAPPDATA%\DraftMid`.
 

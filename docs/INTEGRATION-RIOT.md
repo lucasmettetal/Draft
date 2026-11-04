@@ -2,7 +2,7 @@
 
 La lecture du client est implémentée côté application, mais verrouillée : voir [LCU.md](LCU.md). DraftMid fonctionne entièrement sans elle.
 
-Politiques consultées le 3 novembre 2026. Elles peuvent évoluer : à relire avant toute activation.
+Politiques consultées le 3 novembre 2026, et relues le 4 novembre pour ces trois pages. Elles peuvent évoluer : à relire avant toute activation.
 
 ## Ce que disent les sources officielles
 
@@ -26,10 +26,19 @@ Politiques consultées le 3 novembre 2026. Elles peuvent évoluer : à relire av
 
 ## Avant d'ouvrir le verrou
 
-1. Enregistrer le projet sur le portail développeur en décrivant l'usage : lecture seule des champions et bans visibles.
+1. Enregistrer le projet sur le portail développeur en décrivant l'usage : lecture seule de la phase et des champions adverses visibles.
 2. Obtenir une réponse écrite de Riot, en demandant explicitement si un conseil de pick en sélection reste acceptable.
-3. Limiter la lecture aux champions, aux bans et à la position du joueur, sans action sur le client ni donnée de joueur.
+3. Limiter la lecture à la phase et aux champions adverses verrouillés, sans action sur le client ni donnée de joueur.
 4. Conserver la saisie manuelle en secours.
+
+## Avant une distribution publique
+
+Aucune distribution n'est autorisée avant le retour de Riot et l'accord du propriétaire du projet. Le workflow compile et teste, sans publier d'exécutable.
+
+- **Audit :** le produit et chacune de ses évolutions passent par le portail développeur.
+- **Illustrations :** l'application affiche des portraits de Riot, et la page des applications tierces vise celles qui « allow the use of our assets for free ». Le cadre applicable reste à vérifier.
+- **Identifiants :** aucune clé Riot dans l'exécutable. Le script d'import reste séparé.
+- **Conseil de pick :** garder plusieurs options et les raisons affichées, car la politique permet de mettre une décision en évidence mais pas de la retirer au joueur.
 
 ## Risque résiduel
 

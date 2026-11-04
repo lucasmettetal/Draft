@@ -222,7 +222,7 @@ namespace DraftMid
     public class DraftPhaseDetector
     {
         const int NavRows = 6, NavCols = 43, StableFrames = 8, MinDetail = 6;
-        const double NavDiff = 16, SampleMatch = 9, StableDiff = 4, MinSat = 22, MinEdges = 4;
+        const double NavDiff = 16, SampleMatch = 9, SameScreen = 3, StableDiff = 4, MinSat = 22, MinEdges = 4;
         readonly UserPreferences prefs;
         int[] lastNav;
         int stable;
@@ -280,14 +280,19 @@ namespace DraftMid
             bool busy = BusyCenter(f);
             LastMetrics = string.Format("pos={0:0.0} neg={1:0.0} nav={2:0.0} centre={3} detail={4:0.0} stable={5}", pos, neg, navDiff, busy, Detail(nav), stable);
 
-            // Les corrections de l'utilisateur passent avant toute règle.
+            // Mesuré sur un vrai client : salon et sélection ont presque le même haut et le même bas.
+            // Seul le centre chargé en portraits les distingue. Sans lui, ce n'est pas une sélection.
+            if (!busy)
+            {
+                LearnNav(nav);
+                return Evidence.NotDraft;
+            }
+
+            // Les corrections de l'utilisateur passent avant la barre de navigation.
             if (neg < SampleMatch && neg <= pos) return Evidence.NotDraft;
             if (pos < SampleMatch) return Evidence.Draft;
-
-            LearnNav(nav);
             if (prefs.NavBaseline == null) return Evidence.Unknown;
-            if (Dist(nav, prefs.NavBaseline) < NavDiff) return Evidence.NotDraft;
-            return busy ? Evidence.Draft : Evidence.Unknown;
+            return Dist(nav, prefs.NavBaseline) < NavDiff ? Evidence.NotDraft : Evidence.Draft;
         }
 
         void LearnNav(int[] nav)
@@ -300,11 +305,19 @@ namespace DraftMid
         // Une draft ne dure pas indéfiniment : la référence apprise était sûrement fausse.
         public void ForgetBaseline() { prefs.NavBaseline = null; stable = 0; }
 
-        public void Teach(Frame f, bool isDraft)
+        // Faux si l'écran ne peut pas être une sélection : sans portraits au centre, il n'est pas retenu comme draft.
+        public bool Teach(Frame f, bool isDraft)
         {
+            if (isDraft && !BusyCenter(f)) return false;
+            int[] sig = Signature(f);
+            // La dernière correction remplace une correction contraire sur le même écran.
+            (isDraft ? prefs.OtherSamples : prefs.DraftSamples).RemoveAll(s => Dist(s, sig) < SameScreen);
+            // Si la référence ressemble à une draft confirmée, elle a été apprise au mauvais moment.
+            if (isDraft && Dist(NavBand(f), prefs.NavBaseline) < NavDiff) ForgetBaseline();
             List<int[]> list = isDraft ? prefs.DraftSamples : prefs.OtherSamples;
-            list.Add(Signature(f));
+            list.Add(sig);
             if (list.Count > UserPreferences.MaxSamples) list.RemoveAt(0);
+            return true;
         }
     }
 

@@ -728,11 +728,9 @@ const draftApi = {
   }
 };
 const dispatchDraft = ev => applyDraftEvent(ev, draftApi);
-let detectedEnemies = [];
+const riotProvider = new RiotDraftProvider(dispatchDraft);
 function applyDetected(ids) {
-  const names = ids.map(id => toName(CHAMPION_IDS[id])).filter(n => ROSTER[n] !== undefined);
-  diffDetected(detectedEnemies, names).forEach(dispatchDraft);
-  detectedEnemies = names;
+  riotProvider.update(ids.map(id => toName(CHAMPION_IDS[id])).filter(n => ROSTER[n] !== undefined));
 }
 let demoProvider = null;
 function runDemo(stepMs) {
@@ -1630,7 +1628,7 @@ function App() {
         const m = e.data;
         if (m.kind === "host") { Object.assign(hostState, m, { available:true }); force(); }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") { detectedEnemies = []; dispatchDraft({ type:"session-start" }); }
+        if (m.kind === "draftStart") { riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         if (m.kind === "draftEnd") dispatchDraft({ type:"session-end" });
         if (m.kind === "openSettings") setShowSettings(true);

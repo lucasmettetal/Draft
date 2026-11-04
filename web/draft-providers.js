@@ -39,9 +39,16 @@ class MockDraftProvider extends DraftProvider {
 // Désactivé côté interface : cette page ne se connecte jamais au client.
 // La lecture éventuelle se fait côté application, verrouillée en attendant une réponse de Riot : voir docs/LCU.md.
 class RiotDraftProvider extends DraftProvider {
+  constructor(onEvent) { super(onEvent); this.detected = []; }
   get id() { return "riot"; }
   get enabled() { return false; }
   start() { throw new Error("RiotDraftProvider est désactivé : conditions d'utilisation à confirmer auprès de Riot."); }
+  reset() { this.detected = []; }
+  // Reçoit de l'application les champions lus : cette classe ne se connecte à rien.
+  update(names) {
+    diffDetected(this.detected, names).forEach(this.onEvent);
+    this.detected = names;
+  }
 }
 
 // Ne traduit que ce qui change entre deux lectures : les corrections manuelles restent intactes.

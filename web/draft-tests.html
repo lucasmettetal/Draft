@@ -164,6 +164,12 @@ unitBlock("Connecteurs de draft", "Les événements doivent produire le même r�
   try { riot.start(); } catch (e) { blocked = true; }
   t(blocked, "son démarrage est refusé");
   t(!/fetch\(|XMLHttpRequest|WebSocket|lockfile/.test(RiotDraftProvider.toString()), "il ne contient aucun code de connexion");
+  const received = [];
+  const fed = new RiotDraftProvider(ev => received.push(ev.type + ":" + ev.champion));
+  fed.update(["Sett"]); fed.update(["Sett", "Vi"]); fed.update(["Galio", "Vi"]);
+  t(received.join() === "enemy-added:Sett,enemy-added:Vi,enemy-removed:Sett,enemy-added:Galio", "les lectures successives deviennent des événements");
+  fed.reset(); received.length = 0; fed.update(["Sett"]);
+  t(received.join() === "enemy-added:Sett", "une nouvelle session repart de zéro");
 });
 scenarios.forEach(s => {
   const r = analyze(s.enemies, s.mid, true);

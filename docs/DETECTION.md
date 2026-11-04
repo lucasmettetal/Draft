@@ -19,25 +19,36 @@ La détection de la fenêtre et celle de la phase sont indépendantes.
 | Client fermé | Fenêtre Windows | Certain |
 | Client réduit | Fenêtre Windows | Certain |
 | Partie en cours | Processus `League of Legends` | Certain |
-| Draft ou hors draft | Reconnaissance visuelle locale | **Estimation, jamais validée sur une vraie draft** |
+| Draft ou hors draft | Reconnaissance visuelle locale | **Estimation, calibrée sur une seule partie personnalisée** |
 
 ## Reconnaissance visuelle
 
-**Hypothèse à confirmer :** la barre de navigation du client disparaît pendant la sélection, et le centre de l'écran se remplit de portraits.
+**Mesuré le 4 novembre 2026, sur 133 images d'une partie personnalisée :** le salon et la sélection ont presque le même haut et le même bas d'écran. Ce qui les sépare est le centre : vide dans le salon, chargé en portraits dans la sélection. L'accueil garde sa barre de navigation et n'a pas de centre chargé. Je suppose que le salon était bien l'écran sans portraits : le journal ne contient que des chiffres, pas de nom d'écran.
+
+| Écran | Centre chargé | Conclusion |
+|---|---|---|
+| Accueil, salon, chargement | Non | Hors draft |
+| Écran corrigé « pas une draft » | Oui | Hors draft |
+| Écran proche d'une draft retenue | Oui | Draft |
+| Barre de navigation présente | Oui | Hors draft |
+| Barre absente | Oui | Draft |
+| Aucune référence ni correction | Oui | Incertain, aucun panneau |
 
 - Une fois par seconde, si le client est réellement visible, une image de 96x54 pixels est lue en mémoire, puis remplacée à la lecture suivante.
 - Si une autre fenêtre le recouvre, aucune lecture n'est faite et aucune conclusion n'est tirée.
-- La barre de navigation est apprise seule, quand elle reste stable plusieurs secondes.
-- `Ctrl+Alt+D` et le menu de l'icône corrigent l'affichage. Une correction enregistre une signature de 48 valeurs dans `settings.json`, jamais une image, et elle passe avant les règles.
-- Rien n'est transmis.
+- La barre de navigation est apprise seule, seulement sur un écran sans portraits au centre.
+- `Ctrl+Alt+D` affiche ou masque les panneaux. L'affichage retient l'écran s'il contient des portraits, le masquage n'apprend rien. Le menu de l'icône permet de marquer un écran comme draft ou non.
+- Une signature de 48 valeurs est enregistrée dans `settings.json`, jamais une image. Rien n'est transmis.
 
 **Risques connus :**
 
-- Lancé en pleine draft, DraftMid peut apprendre une mauvaise référence. Une draft de plus de 8 minutes redevient incertaine, et la référence est oubliée.
-- D'autres écrans sans barre de navigation peuvent déclencher une fausse détection.
-- Une capture d'écran à chaque seconde coûte environ 20 ms.
+- Le classé et les autres modes n'ont pas encore été mesurés.
+- Une référence apprise dans un salon empêche de reconnaître une sélection tant qu'aucune draft n'a été retenue. Un affichage avec `Ctrl+Alt+D` en sélection corrige ce cas.
+- Une fin de sélection sans portraits au centre masquerait les panneaux après 3 lectures.
+- Client recouvert : aucune détection tant qu'il le reste. Une draft de plus de 8 minutes redevient incertaine, et la référence est oubliée.
+- Une capture d'écran à chaque seconde coûte environ 17 ms.
 
-**Diagnostic :** l'option « Journal de diagnostic » écrit des chiffres dans `%LOCALAPPDATA%\DraftMid\diagnostic.log`, sans image ni nom. C'est ce qu'il faut pour calibrer les seuils après une vraie draft.
+**Diagnostic :** l'option « Journal de diagnostic » écrit des chiffres dans `%LOCALAPPDATA%\DraftMid\diagnostic.log`, sans image ni nom. Le fichier repart de zéro au-delà de 2 Mo.
 
 ## Anti-clignotement
 

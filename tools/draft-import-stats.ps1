@@ -1,8 +1,8 @@
 # Importe tes parties classees solo/duo via l'API officielle de Riot,
-# puis ecrit draft-stats.js a cote de draft-mid-rpcopi.html.
+# puis ecrit draft-stats.js a cote de la page.
 # La cle n'est ni affichee ni enregistree. Le fichier ne contient aucun nom de joueur.
 param(
-    [string[]]$Accounts = @('rpcopi#FISH', 'rpcopix#EUW'),
+    [string[]]$Accounts,
     [datetime]$Since = '2026-01-01',
     [string]$OutDir = $PSScriptRoot,
     [string]$TestMatchFile,
@@ -89,6 +89,16 @@ if ($TestMatchFile) {
     Write-Stats @($row) @('test#TEST')
     Write-Host 'Test ecrit.'
     return
+}
+
+# Les comptes restent sur ce PC, dans un fichier ignore par Git.
+$AccountsPath = Join-Path $PSScriptRoot 'draft-accounts.txt'
+if (-not $Accounts -and (Test-Path $AccountsPath)) { $Accounts = @(Get-Content $AccountsPath -Encoding UTF8 | Where-Object { $_.Trim() }) }
+if (-not $Accounts) {
+    $typed = Read-Host 'Tes comptes, separes par une virgule (exemple Nom#TAG, le principal en premier)'
+    $Accounts = @($typed.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    if (-not $Accounts) { throw 'Aucun compte fourni.' }
+    Write-Utf8 $AccountsPath ($Accounts -join "`r`n")
 }
 
 $key = $env:RIOT_API_KEY

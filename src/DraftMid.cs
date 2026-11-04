@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.2.0.0")]
-[assembly: AssemblyFileVersion("2.2.0.0")]
+[assembly: AssemblyVersion("2.3.2.0")]
+[assembly: AssemblyFileVersion("2.3.2.0")]
 
 namespace DraftMid
 {
@@ -78,7 +78,7 @@ namespace DraftMid
     // Calcul pur, sans fenêtre : testé par --selftest sur plusieurs écrans et résolutions.
     public static class Layout
     {
-        const int MinW = 230, IdealW = 340, MinH = 520, Gap = 6;
+        const int MinW = 230, IdealW = 340, MinH = 520, Gap = 0;
 
         public static Placement Compute(Native.RECT client, IList<Monitor> monitors, bool preferCompact)
         {
@@ -247,7 +247,8 @@ public static class Autostart
             ShowInTaskbar = id == "full";
             StartPosition = FormStartPosition.Manual;
             BackColor = Color.FromArgb(10, 15, 22);
-            Padding = new Padding(Border);
+            // La marge sert à redimensionner : aucune du côté collé au client, pour ne pas laisser de cadre visible.
+            Padding = id == "left" ? new Padding(Border, Border, 0, Border) : id == "right" ? new Padding(0, Border, Border, Border) : new Padding(Border);
             Text = id == "full" ? "DraftMid" : "DraftMid : " + id;
             if (app.AppIcon != null) Icon = app.AppIcon;
             View = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.FromArgb(10, 15, 22) };
@@ -437,48 +438,49 @@ public static class Autostart
 
         void Diagnose(Evidence ev)
         {
-            // Chiffres uniquement : aucune image, aucun nom.
-            try { File.AppendAllText(Path.Combine(dataDir, "diagnostic.log"), DateTime.Now.ToString("HH:mm:ss") + " " + machine.Current + " preuve=" + ev + " panneaux=" + panelsShown + " image=" + frameValid + " " + detector.LastMetrics + Environment.NewLine); } catch { }
+            // Chiffres uniquement : aucune image, aucun nom. Le journal repart de zéro au-delà de 2 Mo.
+            string logPath = Path.Combine(dataDir, "diagnostic.log");
+            try { if (File.Exists(logPath) && new FileInfo(logPath).Length > 2 * 1024 * 1024) File.Delete(logPath); } catch { }
+            try { File.AppendAllText(logPath, DateTime.Now.ToString("HH:mm:ss") + " " + machine.Current + " preuve=" + ev + " panneaux=" + panelsShown + " image=" + frameValid + " " + detector.LastMetrics + Environment.NewLine); } catch { }
         }
 
         // ---------- Lecture LCU : verrouillée, voir docs/LCU.md ----------
-        LcuReader lcu;
+        LcuSession lcu;
         bool lcuBusy;
         string lastEnemies = "";
 
-        public void TestUseLcu(ILcuTransport transport) { lcu = new LcuReader(transport); }
+        public void TestUseLcu(Func<ILcuTransport> open) { lcu = new LcuSession(open) { RetryMs = 0, PollTimeoutMs = 400 }; lastEnemies = ""; }
+        public LcuSession Lcu { get { return lcu; } }
 
-        void TryOpenLcu()
+        // Verrou fermé : la session n'est jamais créée, le lockfile n'est donc jamais ouvert.
+        void EnsureLcu()
         {
-            if (lcu != null || !LcuGate.Allowed(settings.LcuEnabled) || !ClientOpen) return;
+            if (lcu == null && LcuGate.Allowed(settings.LcuEnabled)) lcu = new LcuSession(OpenRealLcu);
+        }
+
+        ILcuTransport OpenRealLcu()
+        {
+            if (!ClientOpen) return null;
             try
             {
                 uint pid;
                 Native.GetWindowThreadProcessId(tracker.Handle, out pid);
                 using (Process p = Process.GetProcessById((int)pid))
-                {
-                    ILcuTransport t = LcuFactory.CreateReal(settings.LcuEnabled, Path.GetDirectoryName(p.MainModule.FileName));
-                    if (t != null) lcu = new LcuReader(t);
-                }
+                    return LcuFactory.CreateReal(settings.LcuEnabled, Path.GetDirectoryName(p.MainModule.FileName));
             }
-            catch { }
+            catch { return null; }
         }
 
         // Vrai si le client a répondu. Sinon, l'estimation visuelle et le mode manuel prennent le relais.
         public async Task<bool> PollLcuOnce()
         {
-            TryOpenLcu();
+            EnsureLcu();
             if (lcu == null || lcuBusy) return false;
             lcuBusy = true;
             try
             {
                 LcuSnapshot s = await lcu.PollAsync();
-                if (!s.Available)
-                {
-                    // Le mot de passe change à chaque lancement du client : on le relira.
-                    if (!opts.SimulatedPhase) lcu = null;
-                    return false;
-                }
+                if (!s.Available) return false;
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
                 AfterPhase(before, machine.Current);
@@ -492,6 +494,8 @@ public static class Autostart
         void PostEnemies(LcuSnapshot s)
         {
             if (s.Phase != Phase.Draft) { lastEnemies = ""; return; }
+            // Réponse incomplète ou expirée : on garde la dernière composition connue.
+            if (s.EnemyChampionIds == null) return;
             string key = string.Join(",", s.EnemyChampionIds);
             if (key == lastEnemies || pendingStart) return;
             PanelForm target = panels.Values.FirstOrDefault(f => f.Id != "full" && f.Ready.IsCompleted && f.View.CoreWebView2 != null);
@@ -515,6 +519,8 @@ public static class Autostart
                 if (now == Phase.Draft && before != Phase.Draft) NotifyDraftStart();
                 else if (before == Phase.Draft) SendAll("{\"kind\":\"draftEnd\"}");
                 if (env == null && now != Phase.ClientClosed) Prewarm();
+                // Le mot de passe change à chaque lancement du client : il est oublié dès sa fermeture.
+                if (now == Phase.ClientClosed && lcu != null) lcu.Forget();
                 if (now == Phase.ClientClosed && !opts.SimulatedPhase && !panelsShown) ReleaseWeb();
                 RefreshUi();
             }
@@ -756,13 +762,9 @@ public static class Autostart
         public void ToggleManual()
         {
             bool target = !panelsShown;
-            // Une correction apprend à l'application à reconnaître cet écran la prochaine fois.
-            if (frameValid && machine.Current != Phase.InGame)
-            {
-                if (target && machine.Current != Phase.Draft) detector.Teach(frame, true);
-                if (!target && machine.Current == Phase.Draft) detector.Teach(frame, false);
-                Persist();
-            }
+            // Afficher les panneaux apprend cet écran. Les masquer n'apprend rien : on peut vouloir les cacher en pleine draft.
+            // Pour une fausse détection, le menu propose « Ce n'est pas une draft ».
+            if (target && frameValid && machine.Current != Phase.InGame && machine.Current != Phase.Draft && detector.Teach(frame, true)) Persist();
             visibility.Manual = target;
             ApplyVisibility();
             RefreshUi();
@@ -771,7 +773,7 @@ public static class Autostart
         void Teach(bool isDraft)
         {
             if (!frameValid) { tray.ShowBalloonTip(3000, "DraftMid", "Le client doit être visible à l'écran pour retenir cette vue.", ToolTipIcon.Info); return; }
-            detector.Teach(frame, isDraft);
+            if (!detector.Teach(frame, isDraft)) { tray.ShowBalloonTip(3000, "DraftMid", "Aucun portrait au centre : cet écran n'a pas été retenu comme une draft.", ToolTipIcon.Info); return; }
             Persist();
         }
 
@@ -868,7 +870,7 @@ public static class Autostart
                 case "setFollow": SetFollow(val); break;
                 case "setAutoDraft": SetAutoDraft(val); break;
                 case "setDiagnostics": settings.Diagnostics = val; Persist(); RefreshUi(); break;
-                case "setLcu": settings.LcuEnabled = val; Persist(); RefreshUi(); break;
+                case "setLcu": settings.LcuEnabled = val; if (!val) lcu = null; Persist(); RefreshUi(); break;
                 case "setTopmost": settings.Topmost = val; Persist(); UpdatePlacement(true); RefreshUi(); break;
             }
         }
@@ -961,6 +963,103 @@ public static class Autostart
 
         public static Func<IntPtr, bool> Matcher { get { return IsFake; } }
 
+        static string TheirTeam(params int[] ids)
+        {
+            return "{\"theirTeam\":[" + string.Join(",", ids.Select(i => "{\"championId\":" + i + "}")) + "]}";
+        }
+
+        // Déroulé complet d'une draft sur un faux client LCU : aucune connexion réelle.
+        static async Task RunLcuScenario(CompanionApp app, Action<bool, string> t, Func<string, Task<string>> js)
+        {
+            const int Sett = 875, Vi = 254, Galio = 3, Janna = 40, Aphelios = 523, Ahri = 103, Syndra = 134, Jinx = 222;
+            int opens = 0;
+            SimulatedLcuTransport sim = new SimulatedLcuTransport();
+            app.TestUseLcu(() => { opens++; return sim; });
+            Func<Task> poll = async () => { await app.PollLcuOnce(); await Task.Delay(120); };
+            Func<Task<string>> enemies = async () => await js("state.enemies.join()");
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await poll(); };
+
+            sim.PhaseJson = "\"None\"";
+            await poll();
+            t(!app.PanelsShown, "Scénario 2. Accueil du client : aucun panneau");
+            await phase("Lobby");
+            t(!app.PanelsShown, "Scénario 3. Lobby : aucun panneau");
+            await phase("ReadyCheck");
+            t(!app.PanelsShown, "Scénario : partie trouvée, aucun panneau avant la sélection");
+
+            sim.SessionJson = TheirTeam();
+            await phase("ChampSelect");
+            for (int i = 0; i < 40 && !app.PanelsShown; i++) await Task.Delay(50);
+            await Task.Delay(200);
+            t(app.PanelsShown && (await enemies()) == "\"\"", "Scénario 4. Début de sélection : panneaux affichés, composition vide");
+            t((await js("V.bans.length > 0")) == "true", "Scénario 4. Un ban est conseillé avant les picks");
+
+            sim.SessionJson = TheirTeam(Sett); await poll();
+            sim.SessionJson = TheirTeam(Sett, Vi); await poll();
+            string two = await enemies();
+            t(two.Contains("Sett") && two.Contains("Vi"), "Scénario 5. Adversaires ajoutés un par un (" + two + ")");
+            t((await js("state.manualMid === null")) == "true", "Scénario 7. Mid non confirmé : il reste une supposition");
+            string shownBefore = await js("state.shown");
+
+            sim.SessionJson = TheirTeam(Sett, Galio); await poll();
+            string changed = await enemies();
+            t(changed.Contains("Galio") && !changed.Contains("Vi"), "Scénario 6. Changement de champion (" + changed + ")");
+
+            sim.SessionJson = "{\"theirTeam\":[{\"champ"; await poll();
+            t((await enemies()) == changed, "Réponse tronquée : composition conservée");
+            sim.SessionJson = ""; await poll();
+            t((await enemies()) == changed && app.PanelsShown, "Session absente : composition et panneaux conservés");
+
+            sim.SessionJson = TheirTeam(Sett, Galio, Ahri); await poll();
+            string midGuess = await js("currentMid()");
+            t(midGuess.Contains("Ahri") && (await js("state.manualMid === null")) == "true", "Scénario 7. Mid supposé sans le présenter comme certain (" + midGuess + ")");
+            t((await js("V.reasons.length > 0")) == "true", "Le verdict affiche ses raisons (d'abord " + shownBefore + ")");
+
+            sim.SessionJson = TheirTeam(Sett, Galio, Ahri, Jinx, Janna); await poll();
+            t((await js("state.enemies.length")) == "5" && app.PanelsShown, "Scénario 8. Draft complète");
+
+            int opensBefore = opens;
+            sim.Hang = true;
+            Stopwatch frozen = Stopwatch.StartNew();
+            bool answered = await app.PollLcuOnce();
+            t(!answered && frozen.ElapsedMilliseconds < 1500 && app.PanelsShown, "Scénario 13. Requête bloquée : abandon en " + frozen.ElapsedMilliseconds + " ms, panneaux conservés");
+            sim.Hang = false;
+            await poll();
+            t(opens == opensBefore + 1 && (await js("state.enemies.length")) == "5", "Scénario 13. Reprise après blocage, composition conservée");
+
+            sim.Offline = true;
+            t(!await app.PollLcuOnce() && app.PanelsShown && !app.Lcu.Connected, "Scénario 11. Client déconnecté : panneaux conservés, identifiants oubliés");
+            sim.Offline = false;
+            SimulatedLcuTransport restarted = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            sim = restarted;
+            await poll();
+            t(!app.PanelsShown && app.Lcu.Connected, "Scénario 12. Client redémarré : reconnexion, retour au lobby, panneaux masqués");
+
+            sim.SessionJson = TheirTeam(Syndra);
+            await phase("ChampSelect");
+            for (int i = 0; i < 40 && !app.PanelsShown; i++) await Task.Delay(50);
+            await poll();
+            await Task.Delay(150);
+            string fresh = await enemies();
+            t(fresh.Contains("Syndra") && !fresh.Contains("Sett") && !fresh.Contains("Janna"), "Nouvelle sélection : la draft précédente est effacée (" + fresh + ")");
+
+            await phase("Lobby");
+            t(!app.PanelsShown, "Scénario 10. Sélection annulée : panneaux masqués");
+            sim.SessionJson = TheirTeam(Aphelios);
+            await phase("ChampSelect");
+            for (int i = 0; i < 40 && !app.PanelsShown; i++) await Task.Delay(50);
+            await phase("GameStart");
+            t(!app.PanelsShown && app.CurrentPhase == Phase.InGame, "Scénario 9. Fin de sélection : chargement sans panneau");
+            await phase("InProgress");
+            t(!app.PanelsShown, "Scénario : partie en cours, aucun panneau");
+            await phase("EndOfGame");
+            t(!app.PanelsShown, "Scénario : fin de partie, aucun panneau");
+
+            app.StepPhase(false, false, Evidence.Unknown, 1);
+            t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed && !app.Lcu.Connected, "Scénario 1. Client fermé : veille, identifiants oubliés");
+            t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les deux endpoints documentés sont appelés");
+        }
+
         public static async void Run(CompanionApp app, Options o)
         {
             StringBuilder s = new StringBuilder();
@@ -998,8 +1097,10 @@ public static class Autostart
                 t(!app.PanelsShown, "Une seule lecture positive ne suffit pas");
                 feed(Evidence.NotDraft, 1);
 
+                Stopwatch appear = Stopwatch.StartNew();
                 feed(Evidence.Draft, 2);
                 for (int i = 0; i < 200 && !(app.PanelFor("left") != null && app.PanelFor("left").Visible); i++) await Task.Delay(50);
+                s.AppendLine("MESURE : panneaux visibles " + appear.ElapsedMilliseconds + " ms après la détection");
                 await Task.Delay(300);
                 t(app.PanelsShown && app.CurrentPhase == Phase.Draft, "4. Début de draft : panneaux affichés");
                 t(app.PanelFor("left").Visible && app.PanelFor("right").Visible, "4. Les deux panneaux sont visibles");
@@ -1074,7 +1175,11 @@ public static class Autostart
                 await Task.Delay(150);
                 t(!app.PanelsShown && app.CurrentPhase == Phase.OutOfDraft, "5. Fin de draft : panneaux masqués");
 
-                feed(Evidence.Draft, 2); await Task.Delay(150);
+                Stopwatch warm = Stopwatch.StartNew();
+                feed(Evidence.Draft, 2);
+                for (int i = 0; i < 200 && !app.PanelFor("left").Visible; i++) await Task.Delay(5);
+                s.AppendLine("MESURE : panneaux déjà préparés, visibles " + warm.ElapsedMilliseconds + " ms après la détection");
+                await Task.Delay(150);
                 t(app.PanelsShown, "Nouvelle draft : panneaux affichés");
                 feed(Evidence.NotDraft, 3); await Task.Delay(150);
                 t(!app.PanelsShown, "6. Draft annulée : panneaux masqués");
@@ -1121,7 +1226,7 @@ public static class Autostart
                 // Connecteur LCU sur données simulées : aucune connexion au vrai client.
                 feed(Evidence.NotDraft, 3); await Task.Delay(150);
                 SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
-                app.TestUseLcu(sim);
+                app.TestUseLcu(() => sim);
                 await app.PollLcuOnce(); await Task.Delay(100);
                 t(!app.PanelsShown && app.CurrentPhase == Phase.OutOfDraft, "LCU simulé : lobby, aucun panneau");
                 sim.PhaseJson = "\"ChampSelect\"";
@@ -1162,6 +1267,8 @@ public static class Autostart
                 await app.PollLcuOnce(); await Task.Delay(100);
                 t(!app.PanelsShown && app.CurrentPhase == Phase.InGame, "LCU simulé : partie lancée, panneaux masqués");
                 t(sim.Requests.All(LcuEndpoints.IsAllowed), "LCU simulé : seuls les deux endpoints documentés sont appelés");
+
+                await RunLcuScenario(app, t, js);
             }
             catch (Exception e) { fails++; s.AppendLine("EXC " + e); }
             if (fake != null && !fake.IsDisposed) { fake.Close(); fake.Dispose(); }
@@ -1228,7 +1335,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.2.0");
+                k.SetValue("DisplayVersion", "2.3.2");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -1281,22 +1388,35 @@ public class Options
 
             UserPreferences p = new UserPreferences();
             DraftPhaseDetector d = new DraftPhaseDetector(p);
-            t(d.Classify(loading) == Evidence.Unknown, "Détecteur sans référence : écran noir incertain");
+            t(d.Classify(loading) == Evidence.NotDraft, "Détecteur sans référence : un écran noir n'est pas une sélection");
             for (int i = 0; i < 12; i++) d.Classify(home);
             t(p.NavBaseline != null, "Détecteur : la barre stable est apprise seule");
             t(d.Classify(home) == Evidence.NotDraft, "Détecteur : accueil reconnu hors draft");
             t(d.Classify(lobby) == Evidence.NotDraft, "Détecteur : un centre chargé avec la barre reste hors draft");
             t(d.Classify(draft) == Evidence.Draft, "Détecteur : barre absente et centre chargé donnent une draft");
-            t(d.Classify(loading) == Evidence.Unknown, "Détecteur : écran de chargement noir reste incertain");
+            t(d.Classify(loading) == Evidence.NotDraft, "Détecteur : écran de chargement sans panneau");
+
+            // Comme sur le vrai client : même haut et même bas que la sélection, mais aucun portrait au centre.
+            Frame salon = Make((x, y) => y < 6 ? new[] { 10, 14, 20 } : new[] { 12, 16, 22 });
+            UserPreferences lp = new UserPreferences();
+            DraftPhaseDetector ld = new DraftPhaseDetector(lp);
+            t(!ld.Teach(salon, true) && lp.DraftSamples.Count == 0, "Un salon n'est pas retenu comme une draft");
+            lp.DraftSamples.Add(DraftPhaseDetector.Signature(salon));
+            t(ld.Classify(salon) == Evidence.NotDraft, "Réglages existants : un salon appris par erreur n'affiche plus les panneaux");
+            t(ld.Classify(draft) == Evidence.Draft, "Réglages existants : la sélection reste reconnue dès le premier passage");
 
             UserPreferences q = new UserPreferences();
             DraftPhaseDetector dq = new DraftPhaseDetector(q);
             for (int i = 0; i < 12; i++) dq.Classify(draftTitled);
-            t(q.NavBaseline != null && dq.Classify(home) != Evidence.NotDraft, "Risque connu : lancé en pleine draft, une mauvaise référence peut être apprise");
+            t(q.NavBaseline == null && dq.Classify(draftTitled) == Evidence.Unknown, "Lancé en pleine draft : aucune mauvaise référence n'est apprise");
             dq.Teach(home, false);
             t(dq.Classify(home) == Evidence.NotDraft, "Une correction manuelle passe avant la règle");
             dq.Teach(draft, true);
             t(dq.Classify(draft) == Evidence.Draft, "Une draft enseignée est reconnue ensuite");
+            dq.Teach(draft, false);
+            t(q.DraftSamples.Count == 0 && dq.Classify(draft) == Evidence.NotDraft, "La dernière correction remplace la correction contraire sur le même écran");
+            dq.Teach(draft, true);
+            t(q.OtherSamples.All(x => DraftPhaseDetector.Dist(x, DraftPhaseDetector.Signature(draft)) >= 3) && dq.Classify(draft) == Evidence.Draft, "Reconfirmer une draft annule la correction contraire");
             int[] sig = DraftPhaseDetector.Signature(draft);
             t(sig.Length <= 60, "La signature retenue ne fait que " + sig.Length + " valeurs : aucune image conservée");
             dq.ForgetBaseline();
@@ -1370,6 +1490,13 @@ public class Options
             check("1 écran 1920, client décalé à gauche", new Native.RECT(0, 100, 1280, 820), fhd, false, "compact");
             check("1 écran 1366, client 1024x576", new Native.RECT(171, 96, 1195, 672), new List<Monitor> { mon(0, 0, 1366, 728, 1) }, false, "manual");
             check("1 écran 2560, client 1600x900", new Native.RECT(480, 200, 2080, 1100), new List<Monitor> { mon(0, 0, 2560, 1400, 1) }, false, "two");
+            List<Monitor> mixedDpi = new List<Monitor> { mon(0, 0, 1920, 1040, 1), mon(1920, 0, 3840, 2120, 2) };
+            check("Scénario 15. Deux écrans 100 % et 200 %, client sur le 200 %", new Native.RECT(2560, 340, 5120, 1780), mixedDpi, false, "two");
+            check("Scénario 15. Deux écrans 100 % et 200 %, client sur le 100 %", new Native.RECT(320, 160, 1600, 880), mixedDpi, false, "two");
+            t(Layout.Compute(new Native.RECT(2560, 340, 5120, 1780), mixedDpi, false).Left.W == 640 && Layout.Compute(new Native.RECT(320, 160, 1600, 880), mixedDpi, false).Left.W == 320, "Scénario 15. La largeur suit le DPI de l'écran du client");
+            Native.RECT sameClient = new Native.RECT(171, 96, 1451, 816);
+            check("Scénario 14. Résolution 1920 : deux panneaux", new Native.RECT(320, 160, 1600, 880), fhd, false, "two");
+            check("Scénario 14. Résolution réduite à 1600 : panneau unique ou manuel, sans couvrir le client", sameClient, new List<Monitor> { mon(0, 0, 1600, 860, 1) }, false, "manual");
             check("1 écran 4K à 200 %, client 2560x1440", new Native.RECT(640, 300, 3200, 1740), new List<Monitor> { mon(0, 0, 3840, 2100, 2) }, false, "two");
             check("1 écran 1920 à 125 %, client 1280x720", new Native.RECT(320, 160, 1600, 880), new List<Monitor> { mon(0, 0, 1920, 1030, 1.25) }, false, "two");
             check("Client petit : hauteur minimale respectée", new Native.RECT(320, 300, 1600, 500), fhd, false, "two");
