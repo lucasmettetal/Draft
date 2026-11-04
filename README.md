@@ -75,6 +75,8 @@ GitHub Actions compile et teste à chaque push. Pour publier une version, pousse
 
 **Tests :**
 - Moteur : ouvrir `web/draft-tests.html` dans un navigateur.
+- Rendu : `tools\run-layout-tests.ps1`, ou `-Shots` pour écrire aussi des captures. Il mesure chaque état et onglet sur 29 tailles au plus, dont 230 et 256 pixels d'interface, soit les panneaux réels à 125 %. Il ne remplace pas un contrôle à l'œil.
+- Rendu : `toolsun-layout-tests.ps1`, ou `-Shots` pour écrire aussi des captures. Il mesure chaque état et onglet sur 29 tailles, dont 230 et 256 pixels d'interface, soit les panneaux réels à 125 %. Ce test ne remplace pas un contrôle à l'œil.
 - Tests natifs : `DraftMid-Portable.exe --selftest --out resultat.txt`.
 - Scénario complet, avec une fausse fenêtre et un faux client : `DraftMid-Portable.exe --e2e --data dossier --out resultat.txt`. Le raccourci y échoue si DraftMid tourne déjà.
 

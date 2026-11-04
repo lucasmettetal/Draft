@@ -402,6 +402,80 @@
   .settings select { padding:3px 6px; background:var(--bg); border:1px solid var(--line); border-radius:4px; }
   @keyframes shimmer { from { background-position:120% 0; } to { background-position:-120% 0; } }
 
+  /* V2.7 : textes longs. Un mot sans espace se coupe au lieu de sortir de son conteneur. */
+  .p-reasons li, .reasons li, .p-win p, .p-threat p, .p-change, .note, .small, .tips li, .wincon, .effects, .why li, .plain li, .p-empty, .hint, .result-note, td { overflow-wrap:anywhere; }
+  .p-name, .champ-name, .p-threat-who, .face, .p-alt-text { min-width:0; overflow-wrap:anywhere; }
+  .p-name.long { font-size:21px; line-height:1.1; }
+  .champ-name.long { font-size:clamp(26px,2.4vw,36px); line-height:1.08; }
+  .cta { max-width:100%; }
+  .settings input[type=file] { max-width:100%; }
+  .set-check { align-items:flex-start; }
+  .set-check input { flex:none; margin-top:3px; }
+  .p-ban-row { flex-wrap:wrap; }
+  /* Dans le petit bandeau du verdict, ce message passerait sur le nom : l'absence d'image se voit déjà. */
+  .p-reco .splash-fail { display:none; }
+  .results { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .res { min-width:0; padding-left:4px; padding-right:4px; }
+  /* La scène grandit avec son contenu : un verdict long ne déborde plus sur le classement. */
+  .col-mid .stage { flex:1 0 auto; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-end; }
+  .stage-body { position:relative; left:auto; bottom:auto; }
+  /* Le bandeau de changement reste dans le flux : long ou court, il ne couvre jamais le verdict. */
+  .change { position:relative; top:auto; left:auto; right:auto; flex:none; margin:14px 22px auto; align-self:flex-start; }
+  .stage:has(.change) .splash-fail { display:none; }
+  .cmp-head { flex-wrap:wrap; justify-content:center; }
+  .pick-detail a { display:inline-block; padding:5px 0; }
+  .settings input[type=file] { min-height:28px; }
+
+  /* Le panneau gauche défile au lieu de comprimer son contenu quand la hauteur manque. */
+  .panel .col-left { overflow:auto; }
+  .panel-left .col-left > * { flex-shrink:0; }
+  .tab { padding-left:5px; padding-right:5px; }
+  .panel-left .meter { grid-template-columns:96px minmax(0,1fr) 16px; }
+  .who-wrap, .panel-left .who-wrap { padding-right:32px; }
+
+  /* Noms entiers en mode compact, sur deux lignes si nécessaire. */
+  .compact-roles .role-name, .compact-roles .role.is-mid .role-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; white-space:normal; overflow-wrap:anywhere; font-size:11.5px; line-height:1.12; }
+  .compact-roles .mini.x { min-width:24px; height:24px; }
+  .compact-roles .role-tools { top:12px; right:-2px; }
+  .panel-compact .p-actions { bottom:0; }
+
+  /* Panneaux étroits : 125 % d'affichage Windows réduit 320 pixels physiques à 256 pixels d'interface. */
+  @media (max-width:300px) {
+    .panel .brand { font-size:18px; }
+    .panel-left .col-left, .panel .p-body { padding-left:9px; padding-right:9px; }
+    .panel .p-actions { margin-left:-9px; margin-right:-9px; padding-left:9px; padding-right:9px; }
+    .p-compact-enemies { padding-left:9px; padding-right:9px; }
+    .panel-left .roles > .role { gap:6px; padding:5px 4px; }
+    .panel-left .role-icon { width:30px; font-size:9.5px; }
+    .panel-left .role .portrait, .panel-left .slot-ghost { width:38px !important; height:38px !important; }
+    .panel-left .who-wrap { gap:6px; padding-right:32px; }
+    .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:15px; }
+    .panel-left .meter { grid-template-columns:90px minmax(0,1fr) 14px; gap:6px; }
+    .p-actions .cta { flex:1 1 auto; padding-left:10px; padding-right:10px; }
+    .opt-word { display:none; }
+    .p-alt { font-size:16px; gap:8px; }
+    .p-threat { padding:7px 8px; }
+  }
+
+  /* Hauteur réduite : le verdict et l'alternative restent visibles sans défiler. */
+  @media (max-height:600px) {
+    .panel .p-reco { height:96px; }
+    .compact-roles .role { min-height:70px; padding-top:2px; padding-bottom:2px; }
+    .compact-roles .portrait, .compact-roles .slot-ghost { width:30px !important; height:30px !important; }
+    .panel .p-body { gap:7px; padding-top:7px; }
+    .panel .p-title { height:34px; }
+    .panel-left .roles > .role { min-height:48px; padding-top:3px; padding-bottom:3px; }
+    .panel-left .role .portrait, .panel-left .slot-ghost { width:38px !important; height:38px !important; }
+    .panel-left .hint { margin-bottom:6px; }
+    .panel .p-name { font-size:24px; }
+    .panel .p-name.long { font-size:19px; }
+  }
+
+  /* Le mouvement réduit concerne aussi le CSS, pas seulement Motion. */
+  @media (prefers-reduced-motion:reduce) {
+    *, *::before, *::after { transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
+  }
+
   @media (max-height:800px) and (min-width:1101px) {
     .col-left { padding:10px 12px; }
     .col-mid { padding:10px; gap:8px; }
@@ -976,7 +1050,7 @@ function RoleRow({ role, name, assumed }) {
     ${name ? html`<${motion.span} key=${name} layoutId=${`who-${name}`} initial=${{ scale:.86, opacity:.4 }} animate=${{ scale:1, opacity:1 }} transition=${SNAP} className="who-wrap">
         <${Portrait} name=${name} size=${44} />
         <span className="role-who">
-          <span className="role-name">${name}</span>
+          <span className="role-name" title=${name}>${name}</span>
           <span className="role-traits" title=${traitsOf(name)}>${isMid && assumed ? html`<b className="assumed">Mid probable</b> ` : ""}${traitsOf(name)}</span>
         </span>
       <//>
@@ -1091,7 +1165,7 @@ function Stage() {
         ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
         ${V.n < 5 ? html`<span className="badge">Provisoire ${V.n}/5</span>` : null}
       <//>
-      <${motion.div} className="champ-name" variants=${item}>${name}<//>
+      <${motion.div} className=${`champ-name${name.length > 18 ? " long" : ""}`} variants=${item}>${name}<//>
       ${V.rival ? html`<${motion.div} className="alt-line" variants=${item}>
         <em>${V.clear ? "Sinon" : "Ou"}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}
       <//>` : null}
@@ -1142,7 +1216,7 @@ function Ranking() {
             <span className="rank-top">
               <${Portrait} name=${name} size=${36} />
               <span style=${{ minWidth:0 }}>
-                <span className="rank-name" style=${{ display:"block" }}>${name}</span>
+                <span className="rank-name" title=${name} style=${{ display:"block" }}>${name}</span>
                 <${motion.span} key=${word} className=${`rank-word ${tone}`} initial=${{ y:5, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${word}<//>
               </span>
             </span>
@@ -1511,7 +1585,7 @@ function VerdictPanel() {
       <div className="p-reco-scrim"></div>
       <${motion.div} key=${name} className="p-reco-text" initial=${{ y:8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
         <span className="p-chip">Recommandé</span>
-        <div className="p-name">${name}</div>
+        <div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div>
       <//>
     </section>
     ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}><b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}</${motion.p}>` : null}
@@ -1536,7 +1610,7 @@ function VerdictPanel() {
     </section>` : null}
     <div className="p-actions">
       <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} enregistré` : `Je prends ${name}`}<//>
-      <button type="button" className="ghost-btn" onClick=${() => openDetail("analyse")}>Analyse détaillée</button>
+      <button type="button" className="ghost-btn" onClick=${() => openDetail("analyse")}>Analyse<span className="opt-word"> détaillée</span></button>
     </div>
     ${entry || pending ? html`<div>
       ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b></p>` : null}
@@ -1584,7 +1658,7 @@ function Settings({ onClose }) {
         <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Panneau unique</label>
         <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
         <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
-        <p className="small">La détection de la draft est une estimation locale. Si elle se trompe, ${hostState.hotkey ? "Ctrl+Alt+D" : "le menu de l'icône"} affiche ou masque les panneaux et retient ta correction.</p>
+        <p className="small">Sans la lecture du client, la détection de la draft est une estimation peu fiable. ${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
       </div>` : null}
       <h3>Journal</h3>
       <p className="small">Pour récupérer l'ancien journal : télécharge-le depuis l'ancienne page, onglet Journal, puis importe le fichier ici. Rien n'est supprimé.</p>
@@ -1594,7 +1668,7 @@ function Settings({ onClose }) {
       <ul className="plain">
         <li><b>Saisie manuelle :</b> active.</li>
         <li><b>Simulation :</b> <button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></li>
-        <li><label className="set-check"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> <b>Lecture du client Riot</b></label> Lit la phase et les champions adverses verrouillés, sans jamais rien modifier. Usage personnel : Riot ne l'a pas confirmé.</li>
+        <li><label className="set-check"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> <b>Lecture du client Riot</b></label> Lit la phase et les champions adverses verrouillés, sans jamais rien modifier. Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques.</li>
       </ul>
     </section>
   </div>`;

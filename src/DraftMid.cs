@@ -21,8 +21,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.6.0.0")]
-[assembly: AssemblyFileVersion("2.6.0.0")]
+[assembly: AssemblyVersion("2.7.0.0")]
+[assembly: AssemblyFileVersion("2.7.0.0")]
 
 namespace DraftMid
 {
@@ -1377,7 +1377,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.6.0");
+                k.SetValue("DisplayVersion", "2.7.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);

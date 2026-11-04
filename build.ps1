@@ -25,7 +25,7 @@ $fs = [IO.File]::Create($icoPath); $icon.Save($fs); $fs.Close()
 # Interface, moteur et composants WebView2 sont intégrés à l'exe.
 $res = New-Object Collections.Generic.List[string]
 $webRoot = (Resolve-Path "$root\web").Path
-Get-ChildItem $webRoot -Recurse -File | Where-Object { $_.Name -ne 'draft-tests.html' } | ForEach-Object {
+Get-ChildItem $webRoot -Recurse -File | Where-Object { $_.Name -notlike '*-tests.html' } | ForEach-Object {
   $rel = $_.FullName.Substring($webRoot.Length + 1).Replace('\', '/')
   $res.Add("/resource:`"$($_.FullName)`",web/$rel")
 }
