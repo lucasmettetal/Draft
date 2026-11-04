@@ -34,6 +34,14 @@ $script:failures = 0
 function Get-RiotMessage($ErrorRecord) {
     $body = ''
     if ($ErrorRecord.ErrorDetails) { $body = [string]$ErrorRecord.ErrorDetails.Message }
+    if (-not $body) {
+        # PowerShell 5.1 ne remplit pas toujours ErrorDetails : le corps reste lisible dans la reponse.
+        try {
+            $stream = $ErrorRecord.Exception.Response.GetResponseStream()
+            if ($stream.CanSeek) { [void]$stream.Seek(0, 'Begin') }
+            $body = (New-Object IO.StreamReader($stream)).ReadToEnd()
+        } catch { }
+    }
     if ($body -match '"message"\s*:\s*"([^"]{1,150})"') { return $Matches[1] }
     return 'sans detail'
 }
