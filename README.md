@@ -33,16 +33,11 @@ L'option est décochée par défaut. Elle lit localement la phase de jeu et les 
 
 ## Données facultatives
 
-Ces deux scripts se trouvent dans `tools/` et demandent une [clé Riot](https://developer.riotgames.com). Elle reste masquée et n'est pas enregistrée. Une clé de développement ou personnelle est réservée à un usage privé.
+Ces deux fonctions demandent une [clé Riot](https://developer.riotgames.com). Elle reste masquée et n'est pas enregistrée. Une clé de développement ou personnelle est réservée à un usage privé.
 
-| Script | Rôle | Après la fin |
-|---|---|---|
-| `draft-update-roles.bat` | Calcule les rôles joués par champion sur 1 000 parties récentes, pour deviner le mid. Compte environ 40 minutes, à relancer à chaque patch | Relancer DraftMid |
-| `draft-import-stats.bat` | Importe tes bilans personnels. Il demande tes comptes une fois et les garde dans un fichier ignoré par Git | Menu de l'icône > **Importer mes statistiques...** |
+**Mettre à jour les rôles :** dans le menu de l'icône ou les réglages. L'application compte les rôles joués sur 1 000 parties récentes, pour deviner le mid adverse. Compte environ 40 minutes en arrière-plan, à refaire à chaque patch. Sinon, elle utilise des statistiques livrées, qui datent du patch 16.3.
 
-Pour lancer un script, télécharge le `.bat` et le `.ps1` du même nom dans un même dossier.
-
-Sans le premier script, l'application utilise des statistiques de rôles livrées avec elle, qui datent du patch 16.3.
+**Bilans personnels :** télécharge `tools/draft-import-stats.bat` et `tools/draft-import-stats.ps1` dans un même dossier, puis lance le `.bat`. Il demande tes comptes une fois et les garde dans un fichier ignoré par Git. Importe ensuite le résultat avec le menu de l'icône > **Importer mes statistiques...**
 
 ## Limites connues
 

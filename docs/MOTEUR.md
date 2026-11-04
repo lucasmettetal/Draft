@@ -42,7 +42,7 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 
 ## Changements de la V2.6
 
-- **Rôles récents :** s'ils ont été calculés, ils passent avant les statistiques livrées, pour chaque champion joué au moins 20 fois dans cet échantillon. Ces valeurs viennent de `draft-update-roles.bat`.
+- **Rôles récents :** s'ils ont été calculés, ils passent avant les statistiques livrées, pour chaque champion joué au moins 20 fois dans cet échantillon. Ces valeurs viennent de la commande « Mettre à jour les rôles » de l'application.
 - **Draft complète :** avec 5 adversaires, un mid est toujours supposé. Sur une draft incomplète, aucun mid n'est retenu si sa part est inférieure à 5 %.
 
 ## Données
@@ -50,7 +50,7 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 | Type | Contenu |
 |---|---|
 | Officiel (Data Dragon) | Noms, portraits, illustrations, patch, classes de Locke et Zaahen |
-| Rôles récents (API Riot) | Calculés par `tools/draft-update-roles.bat` sur 1 000 parties des 14 derniers jours, Silver à Emeraude. Stockés dans `%LOCALAPPDATA%\DraftMid\draft-role-rates-live.js`, sans nom de joueur. Résultat local, jamais livré avec l'exécutable. Clé personnelle : usage privé seulement |
+| Rôles récents (API Riot) | Calculés par « Mettre à jour les rôles » (`src/RoleRatesUpdater.cs`) sur 1 000 parties des 14 derniers jours, Silver à Emeraude. Stockés dans `%LOCALAPPDATA%\DraftMid\draft-role-rates-live.js`, sans nom de joueur. Résultat local, jamais livré avec l'exécutable. Clé personnelle : usage privé seulement |
 | Rôles de secours (Meraki Analytics) | Taux de jeu du patch 16.3, utilisés sous 20 parties récentes et livrés avec l'exécutable. Licence non confirmée : point ouvert, voir [INTEGRATION-RIOT.md](INTEGRATION-RIOT.md) |
 | Heuristique | Matchups, profils, règles, plans de jeu |
 | Personnel | Journal et import Riot, affichés sans effet sur le classement |

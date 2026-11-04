@@ -423,6 +423,8 @@
   .change { position:relative; top:auto; left:auto; right:auto; flex:none; margin:14px 22px auto; align-self:flex-start; }
   .stage:has(.change) .splash-fail { display:none; }
   .cmp-head { flex-wrap:wrap; justify-content:center; }
+  /* Boutons très rapprochés : le contour de focus reste à l'intérieur pour ne pas toucher le voisin. */
+  .p-btn:focus-visible, .mini:focus-visible, .cmp-btn:focus-visible, .seg-tab:focus-visible, .tab:focus-visible, .res:focus-visible { outline-offset:-2px; }
   .pick-detail a { display:inline-block; padding:5px 0; }
   .settings input[type=file] { min-height:28px; }
 
@@ -1663,6 +1665,11 @@ function Settings({ onClose }) {
         <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
         <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Panneau unique</label>
         <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
+        <h3>Rôles des champions</h3>
+        <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.`} Ils servent à deviner le mid adverse.</p>
+        <p className="small" role="status">${hostState.rolesStatus || ""}</p>
+        <p><button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>${hostState.rolesRunning ? "Arrêter le calcul" : "Mettre à jour les rôles"}</button></p>
+        <h3>État</h3>
         <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
         <p className="small">Sans la lecture du client, la détection de la draft est une estimation peu fiable. ${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
       </div>` : null}
