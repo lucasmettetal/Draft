@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
@@ -21,8 +22,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.12.0.0")]
-[assembly: AssemblyFileVersion("2.12.0.0")]
+[assembly: AssemblyVersion("2.13.0.0")]
+[assembly: AssemblyFileVersion("2.13.0.0")]
 
 namespace DraftMid
 {
@@ -42,7 +43,7 @@ namespace DraftMid
         [DllImport("shcore.dll")] public static extern int GetDpiForMonitor(IntPtr m, int type, out uint x, out uint y);
         [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int ht, uint flags);
         public delegate bool MonitorProc(IntPtr m, IntPtr dc, ref RECT r, IntPtr l);
-        public const uint SWP_NOSIZE = 0x1, SWP_NOACTIVATE = 0x10, SWP_NOZORDER = 0x4, SWP_SHOWWINDOW = 0x40;
+        public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOACTIVATE = 0x10, SWP_NOZORDER = 0x4, SWP_SHOWWINDOW = 0x40;
         public static readonly IntPtr PMV2 = new IntPtr(-4);
 
         [StructLayout(LayoutKind.Sequential)]
@@ -131,6 +132,20 @@ namespace DraftMid
                 }
             }
             return new Placement { Mode = "manual", Note = "Pas de place autour du client : place les panneaux à la main pour ne rien couvrir." };
+        }
+
+        // Aucune place libre : un seul panneau étroit, au bord de l'écran, couvre le moins possible du client.
+        public static Placement Narrowest(Native.RECT client, IList<Monitor> monitors)
+        {
+            Monitor home = monitors.OrderByDescending(m => OverlapArea(m.Work, client)).First();
+            int y, h, w = Math.Min((int)(MinW * home.Scale), home.Work.W);
+            Vertical(client, home, out y, out h);
+            return new Placement
+            {
+                Mode = "compact",
+                Single = new Native.RECT(home.Work.Right - w, y, home.Work.Right, y + h),
+                Note = "Pas de place autour du client : panneau étroit au bord de l'écran, il en couvre une partie. Déplace-le si besoin."
+            };
         }
 
         static void Vertical(Native.RECT client, Monitor m, out int y, out int h)
@@ -328,13 +343,14 @@ public static class Autostart
 
     public class CompanionApp : ApplicationContext
     {
-        const int SlowPollMs = 2000, SampleMs = 1000, MoveCoalesceMs = 16, MinUpdateMs = 8, MoveSettleMs = 150, ModeSettleMs = 350;
-        long lastClientUpdate;
+        const int SlowPollMs = 2000, SampleMs = 1000, MoveSettleMs = 150, ModeSettleMs = 350;
+        bool movePosted;
+        public double LastFollowLagMs = -1;
         readonly string dataDir, webDir, settingsPath, exePath;
         readonly Options opts;
         readonly UserPreferences settings;
         readonly NotifyIcon tray;
-        readonly System.Windows.Forms.Timer slowPoll, sampler, moveTimer;
+        readonly System.Windows.Forms.Timer slowPoll, sampler;
         readonly Dictionary<string, PanelForm> panels = new Dictionary<string, PanelForm>();
         readonly ClientWindowTracker tracker;
         readonly DraftPhaseDetector detector;
@@ -413,12 +429,13 @@ public static class Autostart
             // Réaction immédiate au premier événement, puis au plus une mise à jour toutes les 16 ms.
             tracker.Changed += () =>
             {
-                long now = Environment.TickCount;
-                if (now - lastClientUpdate >= MinUpdateMs) { lastClientUpdate = now; OnClientChanged(); }
-                else if (!moveTimer.Enabled) moveTimer.Start();
+                // Une seule mise à jour par passage de la file de messages, avec la dernière position connue :
+                // une rafale se regroupe seule, sans attendre un minuteur qui laisserait les panneaux en retard.
+                if (movePosted) return;
+                movePosted = true;
+                SynchronizationContext.Current.Post(_ => { movePosted = false; OnClientChanged(); }, null);
             };
-            moveTimer = new System.Windows.Forms.Timer { Interval = MoveCoalesceMs };
-            moveTimer.Tick += (s, e) => { moveTimer.Stop(); lastClientUpdate = Environment.TickCount; OnClientChanged(); };
+            tracker.BroughtToFront += RaisePanels;
             slowPoll = new System.Windows.Forms.Timer { Interval = SlowPollMs };
             slowPoll.Tick += (s, e) => { tracker.Refresh(); OnClientChanged(); };
             sampler = new System.Windows.Forms.Timer { Interval = SampleMs };
@@ -581,7 +598,7 @@ public static class Autostart
             if (now != before)
             {
                 if (now == Phase.Draft && before != Phase.Draft) NotifyDraftStart();
-                else if (before == Phase.Draft) SendAll("{\"kind\":\"draftEnd\"}");
+                else if (before == Phase.Draft) { validationPending = true; SendAll("{\"kind\":\"draftEnd\"}"); }
                 if (env == null && now != Phase.ClientClosed) Prewarm();
                 // Le mot de passe change à chaque lancement du client : il est oublié dès sa fermeture.
                 if (now == Phase.ClientClosed && lcu != null) lcu.Forget();
@@ -607,8 +624,34 @@ public static class Autostart
             if (show) ShowPanels(); else HidePanels();
         }
 
+        public int ShowCount;
+
+        // Relevé de validation : une ligne par sélection, dans un fichier local. Les trois dernières colonnes se remplissent à la main.
+        const string ValidationHeader = "date;version;role;pool;adversaires;mid_affiche;confiance;hypotheses;recommande;alternative;provisoire;corrections;joue;phase_suivante;mid_reel;roles_reels;remarques";
+        bool validationPending;
+        public string ValidationPath { get { return Path.Combine(dataDir, "validation-drafts.csv"); } }
+        public void TestSetDiagnostics(bool on) { settings.Diagnostics = on; RefreshUi(); }
+
+        void WriteValidationRow(System.Collections.IEnumerable values)
+        {
+            List<string> cells = new List<string> { DateTime.Now.ToString("yyyy-MM-dd HH:mm"), typeof(CompanionApp).Assembly.GetName().Version.ToString(3) };
+            foreach (object v in values) cells.Add(Regex.Replace(Convert.ToString(v), "[;\\r\\n\"]", " "));
+            cells.Add(machine.Current.ToString());
+            string line = string.Join(";", cells) + ";;;\r\n";
+            // Fichier ouvert dans Excel : la ligne part dans un fichier voisin plutôt que d'être perdue.
+            foreach (string path in new[] { ValidationPath, Path.Combine(dataDir, "validation-drafts-attente.csv") })
+                try
+                {
+                    if (!File.Exists(path)) File.WriteAllText(path, ValidationHeader + "\r\n", new UTF8Encoding(true));
+                    File.AppendAllText(path, line, new UTF8Encoding(false));
+                    return;
+                }
+                catch (IOException) { }
+        }
+
         async void ShowPanels()
         {
+            ShowCount++;
             panelsShown = true;
             shownMode = "";
             RefreshUi();
@@ -710,7 +753,6 @@ public static class Autostart
         }
 
         // ---------- WebView2, créé seulement quand le client est là ----------
-        static bool loaderFolderSet;
 
         // Simule une fermeture puis un retour du client, comme en usage réel.
         public async Task<bool> TestReleaseAndReopen()
@@ -731,16 +773,17 @@ public static class Autostart
             try
             {
                 // WebView2 n'accepte cet appel qu'une fois par processus, or l'environnement est recréé à chaque retour du client.
-                if (!loaderFolderSet) { CoreWebView2Environment.SetLoaderDllFolderPath(webDir); loaderFolderSet = true; }
+                RuntimeHelp.EnsureLoader(webDir);
                 env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(dataDir, "webview"), new CoreWebView2EnvironmentOptions());
             }
             catch (Exception ex)
             {
                 Program.Log(dataDir, ex.ToString());
-                string text = ex is WebView2RuntimeNotFoundException
-                    ? "DraftMid a besoin du composant Microsoft Edge WebView2, absent de ce PC. Installe-le depuis le site de Microsoft, puis relance DraftMid."
-                    : "DraftMid n'a pas pu démarrer. Détail dans " + Path.Combine(dataDir, "draftmid.log");
-                if (!opts.Silent) MessageBox.Show(text, "DraftMid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (!opts.Silent)
+                {
+                    if (ex is WebView2RuntimeNotFoundException) RuntimeHelp.Explain();
+                    else MessageBox.Show("DraftMid n'a pas pu démarrer. Détail dans " + Path.Combine(dataDir, "draftmid.log"), "DraftMid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
                 Quit();
             }
         }
@@ -809,10 +852,24 @@ public static class Autostart
             if (!panelsShown) return;
             if (!ClientVisible || !settings.Follow) { PlaceManual(); return; }
             Native.RECT client = tracker.Rect;
-            if (!force && TranslatePanels(client)) return;
+            // Le panneau étroit reste calé sur l'écran : il ne suit pas le client.
+            if (!force && !narrowPlacement && TranslatePanels(client)) return;
             Placement p = Layout.Compute(client, ClientWindow.Monitors(), settings.Compact);
             placementNote = p.Note;
-            if (p.Mode == "manual") { PlaceManual(); RefreshUi(); return; }
+            if (p.Mode == "manual")
+            {
+                string wanted = settings.Compact ? "compact" : "two";
+                bool saved = wanted == "two" ? settings.Rects.ContainsKey("left") && settings.Rects.ContainsKey("right") : settings.Rects.ContainsKey("compact");
+                if (saved) { PlaceManual(); RefreshUi(); return; }
+                p = Layout.Narrowest(client, ClientWindow.Monitors());
+                placementNote = p.Note;
+                narrowPlacement = true;
+                pendingMode = "";
+                Place(p);
+                RefreshUi();
+                return;
+            }
+            narrowPlacement = false;
             // Un changement de disposition attend que le client ne bouge plus, pour ne pas sauter pendant un déplacement.
             if (!force && shownMode != "" && p.Mode != shownMode)
             {
@@ -824,6 +881,7 @@ public static class Autostart
             Place(p);
         }
 
+        bool narrowPlacement;
         Native.RECT placedClient;
         readonly Dictionary<string, Native.RECT> placedRects = new Dictionary<string, Native.RECT>();
         System.Windows.Forms.Timer settleTimer;
@@ -844,6 +902,7 @@ public static class Autostart
             for (int i = 0; i < ids.Length; i++) placedRects[ids[i]] = rects[i];
             placedClient = client;
             MoveCount++;
+            LastFollowLagMs = (Stopwatch.GetTimestamp() - tracker.LastEventTicks) * 1000.0 / Stopwatch.Frequency;
             if (settleTimer == null)
             {
                 settleTimer = new System.Windows.Forms.Timer { Interval = MoveSettleMs };
@@ -891,6 +950,15 @@ public static class Autostart
                 RememberPlacement(new[] { "compact" }, new[] { p.Single });
             }
             MoveCount++;
+        }
+
+        // Retour sur le client depuis une autre application : sans cela, les panneaux restent derrière elle.
+        // Jamais au-dessus des autres applications, et sans prendre le focus.
+        public void RaisePanels()
+        {
+            if (!panelsShown || settings.Topmost) return;
+            foreach (PanelForm f in panels.Values)
+                if (f.Id != "full" && f.Visible) Native.SetWindowPos(f.Handle, IntPtr.Zero, 0, 0, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOMOVE | Native.SWP_NOACTIVATE);
         }
 
         void HideOne(string id) { PanelForm f; if (panels.TryGetValue(id, out f) && f.Visible) f.Hide(); }
@@ -1051,7 +1119,17 @@ public static class Autostart
             await EnsureEnv();
             if (env == null) return;
             PanelForm f = await Ensure("full", q);
-            if (exists) f.View.CoreWebView2.Navigate("https://draftmid.local/index.html?" + q);
+            if (exists)
+            {
+                // La fenêtre n'apparaît qu'une fois la page chargée : sinon un clic sur l'ancienne page se perdrait.
+                TaskCompletionSource<bool> loaded = new TaskCompletionSource<bool>();
+                EventHandler<CoreWebView2NavigationCompletedEventArgs> done = null;
+                done = (s, e) => { f.View.CoreWebView2.NavigationCompleted -= done; loaded.TrySetResult(true); };
+                f.View.CoreWebView2.NavigationCompleted += done;
+                f.View.CoreWebView2.Navigate("https://draftmid.local/index.html?" + q);
+                await Task.WhenAny(loaded.Task, Task.Delay(3000));
+                if (f.IsDisposed) return;
+            }
             Monitor m = ClientWindow.Monitors().OrderByDescending(x => x.Work.W).First();
             if (!f.Visible) f.Show();
             f.PlaceNoActivate(new Native.RECT(m.Work.Left + 40, m.Work.Top + 20, m.Work.Left + 40 + Math.Min((int)(1280 * m.Scale), m.Work.W - 80), m.Work.Top + 20 + Math.Min((int)(820 * m.Scale), m.Work.H - 40)), false);
@@ -1094,6 +1172,14 @@ public static class Autostart
                     string[] pool = list.Cast<object>().Select(x => RiotCrawler.ChampionKey(x as string)).Where(x => x != "").ToArray();
                     if (pool.Length == 0 || (role == settings.ProfileRole && settings.ProfilePool != null && pool.SequenceEqual(settings.ProfilePool))) break;
                     settings.ProfileRole = role; settings.ProfilePool = pool; Persist();
+                    break;
+                }
+                case "logDraft":
+                {
+                    object rowO;
+                    if (!validationPending || !settings.Diagnostics || !m.TryGetValue("row", out rowO) || !(rowO is System.Collections.IEnumerable)) break;
+                    validationPending = false;
+                    WriteValidationRow((System.Collections.IEnumerable)rowO);
                     break;
                 }
                 case "profileAdopted": legacyProfile = false; settings.ProfileKnown = true; Persist(); break;
@@ -1150,7 +1236,7 @@ public static class Autostart
         {
             Quitting = true;
             if (rolesCts != null) rolesCts.Cancel();
-            slowPoll.Stop(); sampler.Stop(); moveTimer.Stop();
+            slowPoll.Stop(); sampler.Stop();
             SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
             Persist();
             tracker.Dispose();
@@ -1190,6 +1276,59 @@ public static class Autostart
 
         // La fenêtre active peut changer si l'utilisateur clique ailleurs : seul compte que DraftMid ne la prenne pas.
         // La fausse fenêtre LoL peut avoir le premier plan : seuls les panneaux ne doivent jamais le prendre.
+        static bool IsAbove(IntPtr a, IntPtr b)
+        {
+            for (IntPtr h = NativeHook.GetWindow(a, 2); h != IntPtr.Zero; h = NativeHook.GetWindow(h, 2)) if (h == b) return true;
+            return false;
+        }
+
+        // Plusieurs parties de suite sur un faux client : la mémoire et les poignées ne doivent pas monter à chaque cycle.
+        public static async void RunSoak(CompanionApp app, Options o)
+        {
+            StringBuilder s = new StringBuilder();
+            try
+            {
+                await Task.Delay(1000);
+                Monitor main = ClientWindow.Monitors().First(m => m.Primary);
+                Process me = Process.GetCurrentProcess();
+                for (int cycle = 1; cycle <= o.Soak; cycle++)
+                {
+                    FakeClient fake = new FakeClient();
+                    fake.SetBounds(main.Work.Left + 400, main.Work.Top + 20, Math.Min(1000, main.Work.W - 900), Math.Min(720, main.Work.H - 40));
+                    fake.Show();
+                    await Task.Delay(100);
+                    app.Tracker.Refresh();
+                    Action<Evidence, int> feed = (ev, n) => { for (int i = 0; i < n; i++) app.StepPhase(true, false, ev, 1); };
+                    feed(Evidence.NotDraft, 3);
+                    feed(Evidence.Draft, 2);
+                    for (int i = 0; i < 300 && !(app.PanelFor("left") != null && app.PanelFor("left").Visible); i++) await Task.Delay(50);
+                    PanelForm left = app.PanelFor("left");
+                    if (left == null || !left.Visible) { s.AppendLine("ECHEC : cycle " + cycle + " : panneaux absents"); break; }
+                    await Task.Delay(1000);
+                    await left.View.CoreWebView2.ExecuteScriptAsync("['Sett','Vi','Galio','Jinx','Janna'].forEach(n => addEnemy(n))");
+                    await Task.Delay(1000);
+                    // Premier cycle : une sélection immobile, pour mesurer le processeur de l'extérieur.
+                    if (cycle == 1) { File.WriteAllText(o.Out + ".idle", ""); await Task.Delay(22000); File.Delete(o.Out + ".idle"); }
+                    me.Refresh();
+                    string during = (me.PrivateMemorySize64 / 1048576) + " Mo, " + me.HandleCount + " poignées, " + me.Threads.Count + " threads";
+                    feed(Evidence.NotDraft, 3);
+                    app.StepPhase(false, true, Evidence.Unknown, 1);
+                    await Task.Delay(500);
+                    feed(Evidence.NotDraft, 1);
+                    fake.Close(); fake.Dispose();
+                    app.Tracker.Refresh();
+                    app.StepPhase(false, false, Evidence.Unknown, 1);
+                    await Task.Delay(2500);
+                    me.Refresh();
+                    s.AppendLine("CYCLE " + cycle + " : draft " + during + " | client fermé " + (me.PrivateMemorySize64 / 1048576) + " Mo, " + me.HandleCount + " poignées, " + me.Threads.Count + " threads");
+                }
+                s.AppendLine("OK : " + o.Soak + " cycles terminés");
+            }
+            catch (Exception e) { s.AppendLine("ECHEC : " + e); }
+            File.WriteAllText(o.Out, s.ToString());
+            Environment.Exit(0);
+        }
+
         static bool PanelHasFocus(CompanionApp app)
         {
             IntPtr front = NativeHook.GetForegroundWindow();
@@ -1295,6 +1434,35 @@ public static class Autostart
             await phase("EndOfGame");
             t(!app.PanelsShown, "Scénario : fin de partie, aucun panneau");
 
+            // Partie complète, draft annulée comprise : les panneaux suivent exactement les phases, sans aucun clignotement.
+            string[][] journey = {
+                new[] { "None", "non" }, new[] { "Lobby", "non" }, new[] { "Matchmaking", "non" }, new[] { "ReadyCheck", "non" }, new[] { "ChampSelect", "oui" }, new[] { "ChampSelect", "oui" },
+                new[] { "Lobby", "non" }, new[] { "Matchmaking", "non" }, new[] { "ReadyCheck", "non" }, new[] { "ChampSelect", "oui" }, new[] { "GameStart", "non" }, new[] { "InProgress", "non" },
+                new[] { "Reconnect", "non" }, new[] { "InProgress", "non" }, new[] { "WaitingForStats", "non" }, new[] { "PreEndOfGame", "non" }, new[] { "EndOfGame", "non" }, new[] { "Lobby", "non" },
+                new[] { "ChampSelect", "oui" }, new[] { "None", "non" }
+            };
+            string wrong = "";
+            int showsBefore = app.ShowCount;
+            app.TestSetDiagnostics(true);
+            await Task.Delay(100);
+            await phase("ChampSelect");
+            sim.SessionJson = TheirTeam(Sett, Vi, Galio, Jinx, Janna); await poll();
+            await phase("GameStart");
+            await Task.Delay(300);
+            string[] rows = File.Exists(app.ValidationPath) ? File.ReadAllLines(app.ValidationPath) : new string[0];
+            t(rows.Length == 2 && rows[0].StartsWith("date;version;role") && rows[1].Contains("Sett,Vi,Galio,Jinx,Janna") && rows[1].Contains(";InGame;;;"), "Relevé : une ligne par sélection, colonnes réelles à remplir (" + rows.Length + " lignes)");
+            app.TestSetDiagnostics(false);
+            await phase("None");
+            showsBefore = app.ShowCount;
+            foreach (string[] step in journey)
+            {
+                await phase(step[0]);
+                if (app.PanelsShown != (step[1] == "oui")) wrong += step[0] + " ";
+            }
+            t(wrong == "", "Parcours complet : panneaux visibles seulement en sélection " + wrong);
+            t(app.ShowCount - showsBefore == 3, "Parcours complet : 3 sélections, 3 apparitions, aucun clignotement (" + (app.ShowCount - showsBefore) + ")");
+            sim.SessionJson = "";
+
             app.StepPhase(false, false, Evidence.Unknown, 1);
             t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed && !app.Lcu.Connected, "Scénario 1. Client fermé : veille, identifiants oubliés");
             t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les deux endpoints documentés sont appelés");
@@ -1366,6 +1534,38 @@ public static class Autostart
                 s.AppendLine("MESURE : " + (app.Tracker.EventCount - evBefore) + " événements Windows, " + (app.MoveCount - movesBefore) + " déplacements de panneaux sur " + clock.ElapsedMilliseconds + " ms");
                 // Une mise à jour par étape au plus, plus le recalcul à l'arrêt et la dernière mise à jour en attente.
                 t(app.MoveCount - movesBefore <= steps + 3, "7. Déplacements limités à une mise à jour par étape");
+
+                // Rafales plus rapides qu'une image : combien de temps les panneaux restent-ils en retard sur la dernière position ?
+                {
+                    double total = 0, worst = 0;
+                    int missed = 0;
+                    for (int b = 0; b < 40; b++)
+                    {
+                        await Task.Delay(30);
+                        app.LastFollowLagMs = -1;
+                        for (int k = 1; k <= 3; k++) fake.Location = new Point(cx + (b % 7) * 3 + k + 40 * (b % 2), cy + (b % 3));
+                        await Task.Delay(60);
+                        if (app.LastFollowLagMs < 0 || fake.Left - rectOfLeft().Right > 10 || fake.Left < rectOfLeft().Right) { missed++; continue; }
+                        total += app.LastFollowLagMs;
+                        worst = Math.Max(worst, app.LastFollowLagMs);
+                    }
+                    s.AppendLine("MESURE : rafales : du dernier événement au déplacement, moyenne " + (total / Math.Max(1, 40 - missed)).ToString("0.0") + " ms, maximum " + worst.ToString("0.0") + " ms (fenêtre simulée, sans le client réel ni l'affichage)");
+                    t(missed == 0, "7. Rafales : les panneaux rattrapent toujours la dernière position");
+                }
+
+                // Retour sur le client : les panneaux repassent devant une autre fenêtre, sans prendre le focus.
+                Form otherApp = new Form { FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual, ShowInTaskbar = false, Text = "Autre application" };
+                otherApp.Bounds = app.PanelFor("left").Bounds;
+                otherApp.Show();
+                Native.SetWindowPos(otherApp.Handle, IntPtr.Zero, 0, 0, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOMOVE | Native.SWP_NOACTIVATE);
+                await Task.Delay(50);
+                bool behind = !IsAbove(app.PanelFor("left").Handle, otherApp.Handle);
+                app.RaisePanels();
+                await Task.Delay(50);
+                t(behind && IsAbove(app.PanelFor("left").Handle, otherApp.Handle), "Retour sur le client : les panneaux repassent devant l'autre fenêtre");
+                t(!PanelHasFocus(app), "Retour sur le client : aucun vol de focus");
+                t((NativeHook.GetWindowLong(app.PanelFor("left").Handle, -20) & 0x8) == 0, "Panneaux non épinglés au-dessus des autres applications par défaut");
+                otherApp.Close(); otherApp.Dispose();
 
                 // Client large, comme un 1280 sur 1920 : la place disponible change à chaque pas.
                 int ideal = (int)(340 * main.Scale), wide = main.Work.W - 2 * (ideal - 40), wx = main.Work.Left + (main.Work.W - wide) / 2;
@@ -1542,11 +1742,45 @@ public static class Autostart
         }
     }
 
-public class Options
+// WebView2 est fourni par Windows 11 et la plupart des Windows 10, mais il peut manquer.
+    public static class RuntimeHelp
+    {
+        public const string DownloadUrl = "https://developer.microsoft.com/microsoft-edge/webview2/";
+        static bool loaderSet;
+
+        public static void EnsureLoader(string webDir)
+        {
+            // WebView2 n'accepte cet appel qu'une fois par processus.
+            if (loaderSet) return;
+            CoreWebView2Environment.SetLoaderDllFolderPath(webDir);
+            loaderSet = true;
+        }
+
+        // Version installée, ou null si le composant est absent.
+        public static string Version(string webDir)
+        {
+            try
+            {
+                EnsureLoader(webDir);
+                return CoreWebView2Environment.GetAvailableBrowserVersionString();
+            }
+            catch (WebView2RuntimeNotFoundException) { return null; }
+        }
+
+        public static void Explain()
+        {
+            DialogResult r = MessageBox.Show("DraftMid a besoin du composant gratuit Microsoft Edge WebView2, absent de ce PC.\n\nOuvrir la page de Microsoft pour l'installer ? Choisis « Evergreen Bootstrapper », puis relance DraftMid.", "DraftMid", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (r != DialogResult.Yes) return;
+            try { Process.Start(new ProcessStartInfo(DownloadUrl) { UseShellExecute = true }); } catch { }
+        }
+    }
+
+    public class Options
     {
         public string Script, CaptureDir, Out, DataDir, InstallDir;
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
-        public int AutoExit, SettleMs = 2500;
+        public int AutoExit, SettleMs = 2500, Soak;
+        public bool CheckRuntime;
         public string RunKey;
 
         public static Options Parse(string[] a)
@@ -1564,6 +1798,8 @@ public class Options
                     case "--auto-exit": o.AutoExit = int.Parse(next()); o.Silent = true; break;
                     case "--settle": o.SettleMs = int.Parse(next()); break;
                     case "--selftest": o.SelfTest = true; o.Silent = true; break;
+                    case "--check-runtime": o.CheckRuntime = true; o.Silent = true; break;
+                    case "--soak": o.Soak = int.Parse(next()); o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
                     case "--e2e": o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
                     case "--install": o.Install = true; break;
                     case "--uninstall": o.Uninstall = true; break;
@@ -1599,7 +1835,7 @@ public class Options
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.12.0");
+                k.SetValue("DisplayVersion", "2.13.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -1757,6 +1993,46 @@ public class Options
             Rectangle placed = new Rectangle(0, 155, 320, 720);
             t(!PanelForm.MovedOnPurpose(placed, new Rectangle(0, 155, 320, 721)), "Un clic sur un bord (1 pixel) ne coupe pas le suivi");
             t(PanelForm.MovedOnPurpose(placed, new Rectangle(0, 300, 320, 720)) && PanelForm.MovedOnPurpose(placed, new Rectangle(0, 155, 260, 720)), "Un vrai déplacement ou redimensionnement reste mémorisé");
+            // Toutes les combinaisons de résolution, d'échelle et de taille du client. Calcul seul : ce n'est pas un test sur de vrais écrans.
+            int layoutCases = 0, narrowCases = 0;
+            string layoutProblem = "";
+            foreach (int[] res in new[] { new[] { 1920, 1080 }, new[] { 2560, 1440 }, new[] { 1366, 768 }, new[] { 1280, 720 }, new[] { 3840, 2160 } })
+                foreach (double scale in new[] { 1, 1.25, 1.5, 1.75 })
+                    foreach (int[] size in new[] { new[] { 1024, 576 }, new[] { 1280, 720 }, new[] { 1600, 900 } })
+                        foreach (bool compact in new[] { false, true })
+                        {
+                            int bar = (int)(40 * scale);
+                            if (size[0] > res[0] || size[1] > res[1] - bar) continue;
+                            layoutCases++;
+                            List<Monitor> one = new List<Monitor> { mon(0, 0, res[0], res[1] - bar, scale) };
+                            int left = (res[0] - size[0]) / 2, top = (res[1] - bar - size[1]) / 2;
+                            Native.RECT win = new Native.RECT(left, top, left + size[0], top + size[1]);
+                            string label2 = res[0] + "x" + res[1] + "@" + scale + " client " + size[0] + (compact ? " compact" : "") + " ";
+                            Placement computed = Layout.Compute(win, one, compact);
+                            int minWidth = (int)(230 * scale);
+                            List<Native.RECT> boxes = new List<Native.RECT>();
+                            if (computed.Mode == "two") { boxes.Add(computed.Left); boxes.Add(computed.Right); }
+                            else if (computed.Mode == "compact") boxes.Add(computed.Single);
+                            else
+                            {
+                                narrowCases++;
+                                Native.RECT narrow = Layout.Narrowest(win, one).Single;
+                                if (!narrow.Inside(one[0].Work) || narrow.W != Math.Min(minWidth, one[0].Work.W)) layoutProblem += label2 + "panneau étroit hors écran ; ";
+                                continue;
+                            }
+                            foreach (Native.RECT box in boxes)
+                            {
+                                if (box.Overlaps(win)) layoutProblem += label2 + "couvre le client ; ";
+                                if (!box.Inside(one[0].Work)) layoutProblem += label2 + "hors écran ; ";
+                                if (box.W < minWidth) layoutProblem += label2 + "trop étroit ; ";
+                            }
+                            if (boxes.Count == 2 && boxes[0].Overlaps(boxes[1])) layoutProblem += label2 + "panneaux superposés ; ";
+                        }
+            t(layoutProblem == "", "Placement : " + layoutCases + " combinaisons résolution, échelle et client, dont " + narrowCases + " sans place libre " + layoutProblem);
+            List<Monitor> mixed = new List<Monitor> { mon(0, 0, 1920, 1040, 1), mon(-2560, 0, 2560, 1400, 1.5) };
+            Placement toOther = Layout.Compute(new Native.RECT(0, 0, 1920, 1040), mixed, false);
+            t(toOther.Mode == "two" && toOther.Left.W == 510 && toOther.Left.Right <= 0 && toOther.Right.Right <= 0, "Placement : client plein écran à 100 %, panneaux sur l'autre écran à 150 %, à sa propre échelle");
+
             List<Monitor> mixedDpi = new List<Monitor> { mon(0, 0, 1920, 1040, 1), mon(1920, 0, 3840, 2120, 2) };
             check("Scénario 15. Deux écrans 100 % et 200 %, client sur le 200 %", new Native.RECT(2560, 340, 5120, 1780), mixedDpi, false, "two");
             check("Scénario 15. Deux écrans 100 % et 200 %, client sur le 100 %", new Native.RECT(320, 160, 1600, 880), mixedDpi, false, "two");
@@ -1863,10 +2139,16 @@ public class Options
             return dir;
         }
 
+        static string logDir;
+
         [STAThread]
         static int Main(string[] args)
         {
             AppDomain.CurrentDomain.AssemblyResolve += ResolveEmbedded;
+            // Une erreur imprévue est journalisée : elle ne doit ni interrompre une draft, ni rester silencieuse.
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.ThreadException += (s, e) => { if (logDir != null) Log(logDir, e.Exception.ToString()); };
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => { if (logDir != null) Log(logDir, Convert.ToString(e.ExceptionObject)); };
             return Run(args);
         }
 
@@ -1878,7 +2160,20 @@ public class Options
             Application.SetCompatibleTextRenderingDefault(false);
             string self = Application.ExecutablePath;
             string dataDir = o.DataDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DraftMid");
-            Directory.CreateDirectory(dataDir);
+            try
+            {
+                Directory.CreateDirectory(dataDir);
+                string probe = Path.Combine(dataDir, "ecriture.tmp");
+                File.WriteAllText(probe, "");
+                File.Delete(probe);
+            }
+            catch (Exception e)
+            {
+                if (e is OutOfMemoryException) throw;
+                if (!o.Silent) MessageBox.Show("DraftMid ne peut pas écrire dans ce dossier :\n" + dataDir + "\n\nVérifie ses droits, ou que le disque n'est pas plein.", "DraftMid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return 2;
+            }
+            logDir = dataDir;
             if (o.RunKey != null) Autostart.Key = o.RunKey;
 
             if (o.SelfTest) return SelfTest.Run(o, dataDir, self);
@@ -1895,8 +2190,12 @@ public class Options
                     return 0;
                 }
                 string webDir = Extract(dataDir);
+                string runtime = RuntimeHelp.Version(webDir);
+                if (o.CheckRuntime) { File.WriteAllText(o.Out, runtime ?? "absent"); return 0; }
+                if (runtime == null && !o.Silent) { RuntimeHelp.Explain(); return 0; }
                 CompanionApp app = new CompanionApp(o, dataDir, webDir, self, o.EndToEnd ? EndToEnd.Matcher : ClientWindowTracker.IsRealClient);
-                if (o.EndToEnd) EndToEnd.Run(app, o);
+                if (o.Soak > 0) EndToEnd.RunSoak(app, o);
+                else if (o.EndToEnd) EndToEnd.Run(app, o);
                 Application.Run(app);
             }
             return 0;

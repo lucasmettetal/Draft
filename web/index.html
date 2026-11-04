@@ -860,7 +860,8 @@ function runDemo(stepMs) {
   demoProvider.start();
 }
 
-const focusAdd = () => { const el = document.getElementById("add"); if (el && state.enemies.length < 5) el.focus(); };
+// Jamais de focus pendant que l'utilisateur est ailleurs : une lecture du client ne doit rien interrompre.
+const focusAdd = () => { const el = document.getElementById("add"); if (el && state.enemies.length < 5 && document.hasFocus()) el.focus(); };
 
 function addEnemy(name) {
   if (!name || state.enemies.includes(name) || state.enemies.length >= 5) return;
@@ -1076,6 +1077,19 @@ function SearchBox() {
         </button>`) : html`<div className="sugg-empty">Aucun champion ne correspond à « ${value} ».</div>`}
     </div>` : null}
   </div>`;
+}
+
+// Relevé de validation : ce qui était affiché à la fin de la sélection. Local, sans joueur, seulement si le diagnostic est activé.
+function sendValidationRow() {
+  if (!hostState.diagnostics || !state.enemies.length || !V || V.none) return;
+  const manual = state.manualMid && state.enemies.includes(state.manualMid);
+  const corrections = (manual ? [`${state.manualMid}=${myRole()}`] : []).concat(Object.keys(state.roleOf || {}).filter(n => state.enemies.includes(n)).map(n => `${n}=${state.roleOf[n]}`));
+  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  hostSend({ cmd:"logDraft", row:[
+    myRole(), PICKS.map(label).join(","), state.enemies.join(","), V.mid || "", manual ? "manuel" : V.confidence || "",
+    V.hypothesis ? V.hypothesis.others.join(",") : "", label(V.shown), V.rival ? label(V.rival.pick) : "", V.provisional ? "oui" : "non",
+    corrections.join(","), entry && entry.picked ? label(entry.picked) : ""
+  ] });
 }
 
 const CONFIDENCE_WORD = { "élevée":"très probable", moyenne:"probable", faible:"non identifié" };
@@ -1483,7 +1497,6 @@ function MatchupsTab() {
         ${measured.length
           ? html`<span className="mcard-line">Bilans : ${measured.map(([p, x]) => `${label(p)} ${x.gap >= 0 ? "+" : ""}${Math.round(x.gap * 100)} % (${x.games})`).join(", ")}</span>`
           : html`<span className="mcard-line">Avis écrit à la main, pas encore de bilan.</span>`}
-        ${m.rec ? html`<span className="mcard-line">Tes parties : ${m.rec} (peu de parties)</span>` : null}
       </div>`;
     })}
   </div>`;
@@ -1684,11 +1697,11 @@ function VerdictPanel() {
     <ul className="p-reasons">
       ${(V.reasons.length ? V.reasons : ["Aucun argument marqué pour l'instant : ajoute des adversaires."]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
     </ul>
+    ${V.hypothesis ? html`<p className=${`note p-opponent${V.provisional ? " warn" : ""}`}>${V.provisional ? "Provisoire. " : ""}${hypothesisText()}</p>` : null}
     ${threat ? html`<section className="p-threat" aria-label="Menace principale">
       <div><b>Menace principale</b><p>${threatText(V.shown, threat, c)}</p></div>
       <span className="p-threat-who"><${Portrait} name=${threat} size=${36} />${threat}</span>
     </section>` : null}
-    ${V.provisional ? html`<p className="note warn">Provisoire. ${hypothesisText()}</p>` : null}
     <section className="p-win"><b>Gagne si</b><p>${winCondition(V.shown, c)}</p></section>
     ${V.bans[0] ? html`<section className="p-ban" aria-label="Ban conseillé">
       <h2 className="p-h">Ban conseillé</h2>
@@ -1833,7 +1846,7 @@ function Settings({ onClose }) {
       <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Supposer un frontline dans mon équipe</label>
       ${hostState.available ? html`<div>
         <h3>Rôles des champions</h3>
-        <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.`} Ils servent à deviner le mid adverse.</p>
+        <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : (typeof ROLE_RATES !== "undefined" ? `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.` : "Pas encore calculés : les rôles habituels écrits à la main servent de repère.")} Ils servent à deviner le mid adverse.</p>
         <h3>Matchups</h3>
         <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? `Bilans calculés pour le rôle ${ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"]} : relance le calcul pour ton rôle actuel.` : window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games}`).join(", ")}.` : "Pas encore de bilans calculés."} Sous ${MATCHUP_MIN_GAMES} parties, le matchup n'utilise pas le bilan.</p>
         <p className="small" role="status">${hostState.rolesStatus || ""}</p>
@@ -1908,7 +1921,7 @@ function App() {
         if (m.kind === "demo") runDemo(m.stepMs);
         if (m.kind === "draftStart") { riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
-        if (m.kind === "draftEnd") dispatchDraft({ type:"session-end" });
+        if (m.kind === "draftEnd") { sendValidationRow(); dispatchDraft({ type:"session-end" }); }
         if (m.kind === "openSettings") setShowSettings(true);
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
       });

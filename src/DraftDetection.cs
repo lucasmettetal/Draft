@@ -30,7 +30,7 @@ namespace DraftMid
     // ---------- Fenêtre du client ----------
     public class ClientWindowTracker : IDisposable
     {
-        const uint EVENT_MIN = 0x0016, EVENT_MAX = 0x0017, EVENT_MOVESIZEEND = 0x000B, EVENT_LOCATION = 0x800B, EVENT_DESTROY = 0x8001, EVENT_SHOW = 0x8002, EVENT_HIDE = 0x8003;
+        const uint EVENT_FOREGROUND = 0x0003, EVENT_MIN = 0x0016, EVENT_MAX = 0x0017, EVENT_MOVESIZEEND = 0x000B, EVENT_LOCATION = 0x800B, EVENT_DESTROY = 0x8001, EVENT_SHOW = 0x8002, EVENT_HIDE = 0x8003;
         const uint OUT_OF_CONTEXT = 0, SKIP_OWN = 0x2;
 
         readonly Func<IntPtr, bool> matcher;
@@ -41,8 +41,9 @@ namespace DraftMid
         public IntPtr Handle { get; private set; }
         public Native.RECT Rect { get; private set; }
         public bool Minimized { get; private set; }
-        public long EventCount;
+        public long EventCount, LastEventTicks;
         public event Action Changed;
+        public event Action BroughtToFront;
 
         public ClientWindowTracker(Func<IntPtr, bool> matcher, bool skipOwnProcess)
         {
@@ -91,7 +92,7 @@ namespace DraftMid
             Native.GetWindowThreadProcessId(h, out pid);
             hookedPid = pid;
             uint flags = OUT_OF_CONTEXT | (skipOwnProcess ? SKIP_OWN : 0);
-            foreach (uint[] range in new[] { new[] { EVENT_LOCATION, EVENT_LOCATION }, new[] { EVENT_MIN, EVENT_MAX }, new[] { EVENT_MOVESIZEEND, EVENT_MOVESIZEEND }, new[] { EVENT_DESTROY, EVENT_HIDE } })
+            foreach (uint[] range in new[] { new[] { EVENT_FOREGROUND, EVENT_FOREGROUND }, new[] { EVENT_LOCATION, EVENT_LOCATION }, new[] { EVENT_MIN, EVENT_MAX }, new[] { EVENT_MOVESIZEEND, EVENT_MOVESIZEEND }, new[] { EVENT_DESTROY, EVENT_HIDE } })
                 hooks.Add(NativeHook.SetWinEventHook(range[0], range[1], IntPtr.Zero, proc, pid, 0, flags));
         }
 
@@ -99,6 +100,8 @@ namespace DraftMid
         {
             if (hwnd != Handle || obj != 0) return;
             EventCount++;
+            LastEventTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (ev == EVENT_FOREGROUND) { Action front = BroughtToFront; if (front != null) front(); return; }
             if (ev == EVENT_DESTROY || ev == EVENT_HIDE) { Handle = IntPtr.Zero; Minimized = false; Unhook(); }
             else Update();
             Action c = Changed;
@@ -135,6 +138,8 @@ namespace DraftMid
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
         [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int attr, out Native.RECT r, int size);
         [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h, uint cmd);
+        [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int index);
         [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(Pt p);
         [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
         [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);

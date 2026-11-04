@@ -18,6 +18,8 @@ foreach ($t in 'analyse', 'compare', 'matchups', 'parties', 'rules') { $Runs += 
 $Runs += , @('reglages', 'state=full&set=full&tab=settings', $false)
 $Runs += , @('reglages application', 'state=full&set=full&tab=settings&host=on', $false)
 $Runs += , @('profil support, noms longs', 'state=full&set=full&profile=support&frozen=1', $false)
+$Runs += , @('uncertain', 'state=uncertain&frozen=1', $false)
+$Runs += , @('sans profil', 'state=full&set=full&profile=none&frozen=1', $false)
 $Runs += , @('sources de donnees ouvertes', 'state=full&set=full&tab=settings&host=on&open=1', $false)
 $Runs += , @('sans reseau', 'state=full', $true)
 

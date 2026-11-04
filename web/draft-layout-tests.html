@@ -5,7 +5,7 @@ const LONG='Nom De Champion Vraiment Extrêmement Long';
 const STATES={
 empty:w=>{},one:w=>{w.addEnemy('Aurelion Sol')},partial:w=>{['Renata Glasc','Miss Fortune','Ahri'].forEach(w.addEnemy)},
 full:w=>{['Aurelion Sol','Miss Fortune','Renata Glasc','Tahm Kench','Master Yi'].forEach(w.addEnemy)},
-midunknown:w=>{['Sett','Vi'].forEach(w.addEnemy)},close:w=>{w.addEnemy('Ahri')},
+midunknown:w=>{['Sett','Vi'].forEach(w.addEnemy)},uncertain:w=>{['Yasuo','Yone','Lee Sin','Jinx','Thresh'].forEach(w.addEnemy)},close:w=>{w.addEnemy('Ahri')},
 excluded:w=>{w.savePrefs({excluded:['Fizz']});['Ahri','Ornn'].forEach(w.addEnemy)},
 none:w=>{w.savePrefs({excluded:['TF','Fizz',"Kog'Maw",'Xerath']})},
 picked:w=>{['Ahri','Ornn','Jinx'].forEach(w.addEnemy);w.choosePick(w.V.shown)},

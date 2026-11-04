@@ -1,6 +1,6 @@
 // DraftMid : données et moteur de recommandation. Fichier chargé par la page et par draft-tests.html.
 const MATCHUPS = [
-  { n:"Ahri", t:"Mage", first:"Fizz", second:"TF", avoid:"Kog'Maw", rec:"Kog'Maw : 2V 6D" },
+  { n:"Ahri", t:"Mage", first:"Fizz", second:"TF", avoid:"Kog'Maw" },
   { n:"Anivia", t:"Mage", first:"Fizz", second:"Xerath", avoid:"Kog'Maw" },
   { n:"Annie", t:"Mage", first:"TF", second:"Xerath", avoid:"Fizz" },
   { n:"Aurelion Sol", t:"Mage", a:["asol"], first:"Fizz", second:"TF", avoid:"Kog'Maw" },
@@ -8,10 +8,10 @@ const MATCHUPS = [
   { n:"Cassiopeia", t:"Mage", a:["cass","cassio"], first:"Xerath", second:"TF", avoid:"Fizz" },
   { n:"Hwei", t:"Mage", first:"Fizz", second:"TF" },
   { n:"Lissandra", t:"Mage", a:["liss"], first:"TF", second:"Xerath", avoid:"Fizz" },
-  { n:"Lux", t:"Mage", first:"Fizz", second:"Xerath", rec:"Xerath : 1V 0D" },
-  { n:"Malzahar", t:"Mage", a:["malz"], first:"Kog'Maw", second:"TF", avoid:"Fizz", rec:"Kog'Maw : 10V 2D" },
+  { n:"Lux", t:"Mage", first:"Fizz", second:"Xerath" },
+  { n:"Malzahar", t:"Mage", a:["malz"], first:"Kog'Maw", second:"TF", avoid:"Fizz" },
   { n:"Mel", t:"Mage", first:"Fizz", second:"TF", avoid:"Xerath" },
-  { n:"Orianna", t:"Mage", a:["ori"], first:"Fizz", second:"Xerath", rec:"Xerath : 1V 0D" },
+  { n:"Orianna", t:"Mage", a:["ori"], first:"Fizz", second:"Xerath" },
   { n:"Swain", t:"Mage", first:"Kog'Maw", second:"Xerath", avoid:"Fizz" },
   { n:"Syndra", t:"Mage", first:"Fizz", second:"Xerath" },
   { n:"Twisted Fate", t:"Mage", a:["tf"], first:"Fizz", second:"Xerath" },
@@ -21,7 +21,7 @@ const MATCHUPS = [
   { n:"Viktor", t:"Mage", first:"Fizz", second:"Xerath" },
   { n:"Xerath", t:"Mage", first:"Fizz", second:"TF" },
   { n:"Ziggs", t:"Mage", first:"Fizz", second:"TF" },
-  { n:"Zoe", t:"Mage", first:"Fizz", second:"Xerath", rec:"Xerath : 1V 0D" },
+  { n:"Zoe", t:"Mage", first:"Fizz", second:"Xerath" },
   { n:"Akali", t:"Assassin", first:"TF", second:"Fizz", avoid:"Kog'Maw, Xerath" },
   { n:"Fizz", t:"Assassin", first:"TF", second:"Kog'Maw", avoid:"Xerath" },
   { n:"Kassadin", t:"Assassin", a:["kass","kassa"], first:"TF", second:"Xerath", avoid:"Fizz" },
@@ -32,7 +32,7 @@ const MATCHUPS = [
   { n:"Talon", t:"Assassin", first:"TF", second:"Fizz", avoid:"Kog'Maw, Xerath" },
   { n:"Zed", t:"Assassin", first:"Fizz", second:"TF", avoid:"Kog'Maw, Xerath" },
   { n:"Cho'Gath", t:"Tank", a:["chogath","cho"], first:"Kog'Maw", second:"Xerath", avoid:"Fizz" },
-  { n:"Diana", t:"Combattant", first:"Kog'Maw", second:"TF", avoid:"Xerath", rec:"Kog'Maw : 4V 3D" },
+  { n:"Diana", t:"Combattant", first:"Kog'Maw", second:"TF", avoid:"Xerath" },
   { n:"Galio", t:"Tank", first:"Kog'Maw", second:"TF", avoid:"Fizz" },
   { n:"Irelia", t:"Combattant", first:"TF", second:"Kog'Maw", avoid:"Xerath" },
   { n:"Malphite", t:"Tank", a:["malph"], first:"Kog'Maw", second:"Xerath", avoid:"Fizz" },
@@ -40,7 +40,7 @@ const MATCHUPS = [
   { n:"Sion", t:"Tank", first:"Kog'Maw", second:"Xerath", avoid:"Fizz" },
   { n:"Sylas", t:"Combattant", first:"TF", second:"Kog'Maw", avoid:"Fizz" },
   { n:"Yasuo", t:"Combattant", a:["yas"], first:"Fizz", second:"Kog'Maw", avoid:"TF" },
-  { n:"Yone", t:"Combattant", first:"Kog'Maw", second:"TF", avoid:"Fizz", rec:"Kog'Maw : 5V 2D" }
+  { n:"Yone", t:"Combattant", first:"Kog'Maw", second:"TF", avoid:"Fizz" }
 ].sort((x, y) => x.n.localeCompare(y.n, "fr"));
 
 // Profils : t tank, b bruiser, s carry fragile, a assassin/plongeur, c contrôle ciblé, e engage, m très mobile, ? inconnu

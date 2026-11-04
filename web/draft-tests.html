@@ -305,6 +305,42 @@ unitBlock("Recommandation sous incertitude", "Le classement pèse les hypothèse
   t(mixed.ranking[0].score - mixed.ranking[1].score < HOLD_GAP ? held === mixed.ranking[1].pick : held === mixed.ranking[0].pick, "la stabilité du verdict reste la même");
 });
 
+unitBlock("Données personnelles", "Aucun bilan personnel ne doit rester dans le code livré.", t => {
+  t(!MATCHUPS.some(m => "rec" in m), "le tableau de matchups ne contient plus aucun bilan");
+  t(!/\d+V \d+D/.test(JSON.stringify(MATCHUPS)), "aucune trace de victoires ou défaites écrites en dur");
+});
+
+unitBlock("Cohérence du moteur", "Sur 400 drafts tirées avec une graine fixe : score, raisons et classement doivent toujours se répondre.", t => {
+  let a = 987654321;
+  const rnd = () => { a = a + 0x6D2B79F5 | 0; let x = Math.imul(a ^ a >>> 15, 1 | a); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; };
+  const problems = { somme:0, ordre:0, raisons:0, pris:0, nan:0, stats:0, maintien:0, moyenne:0 };
+  for (let i = 0; i < 400; i++) {
+    const list = []; const size = 1 + i % 5;
+    while (list.length < size) { const n = NAMES[Math.floor(rnd() * NAMES.length)]; if (!list.includes(n)) list.push(n); }
+    const belief = opponentBelief(list), scenarios = beliefScenarios(belief);
+    const r = analyze(list, identifiedOpponent(list), rnd() < .5, scenarios);
+    r.ranking.forEach((p, k) => {
+      if (isNaN(p.score)) problems.nan++;
+      if (Math.abs(p.score - p.criteria.reduce((s, c) => s + c.impact, 0)) > 1e-9) problems.somme++;
+      if (k && r.ranking[k - 1].score < p.score) problems.ordre++;
+      if (list.includes(label(p.pick))) problems.pris++;
+      const risk = mainRisk(p);
+      if (positiveReasons(p).some(text => p.why.find(w => w.text === text).v <= 0) || (risk && p.why.find(w => w.text === risk).v >= 0)) problems.raisons++;
+      if (p.criteria.some(c => /sur \d+ parties/.test(c.text))) problems.stats++;
+      if (p.byScenario && Math.abs(p.score - p.byScenario.reduce((s, x) => s + x.p * x.score, 0)) > 1e-9) problems.moyenne++;
+    });
+    if (r.ranking.length && !r.ranking.some(p => p.pick === holdPick(r.ranking, "absent"))) problems.maintien++;
+  }
+  t(!problems.nan, "aucun score invalide");
+  t(!problems.somme, "le score est toujours la somme des raisons");
+  t(!problems.moyenne, "avec plusieurs hypothèses, le score reste leur moyenne pondérée");
+  t(!problems.ordre, "le classement suit toujours les scores");
+  t(!problems.raisons, "une raison positive n'est jamais un risque, et l'inverse");
+  t(!problems.pris, "un champion pris en face n'est jamais conseillé");
+  t(!problems.stats, "sans bilans calculés, aucune raison ne cite de parties : une règle n'est jamais présentée comme une statistique");
+  t(!problems.maintien, "le maintien du verdict renvoie toujours un pick disponible");
+});
+
 unitBlock("Mid probable", "Un champion typé jungle, ADC ou support ne doit pas être supposé mid si un candidat plus logique existe.", t => {
   t(guessMid(["Sett", "Vi", "Galio", "Samira", "Janna"]) === "Galio", "Galio est supposé mid dans l'exemple du brief");
   t(guessMid(["Lulu", "Ornn", "Zed"]) === "Zed", "Zed passe avant Lulu, typée support");
