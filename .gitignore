@@ -4,3 +4,4 @@ draft-stats-cache.json
 *.log
 dist-*/
 draft-accounts.txt
+web/draft-role-rates.js
