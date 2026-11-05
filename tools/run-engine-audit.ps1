@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent; $web = Join-Path $repo 'web'
 Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Work | Out-Null
-foreach ($f in 'draft-engine.js', 'draft-data.js', 'draft-champions.js', 'draft-role-sheet.js', 'draft-champion-official.js') { Copy-Item (Join-Path $web $f) $Work }
+foreach ($f in 'draft-engine.js', 'draft-data.js', 'draft-champions.js', 'draft-role-sheet.js', 'draft-champion-official.js', 'draft-coaching.js', 'draft-mastery.js') { Copy-Item (Join-Path $web $f) $Work }
 Copy-Item (Join-Path $PSScriptRoot "experiments\$Page") $Work
 $live = Join-Path $DataDir 'draft-role-rates-live.js'
 if (-not (Test-Path $live)) { throw "Aucun calcul de rôles dans $DataDir." }

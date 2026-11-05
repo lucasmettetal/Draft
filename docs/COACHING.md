@@ -148,3 +148,5 @@ En cas d'égalité, les conseils décrivent le premier champion du groupe, chois
 - Relecture humaine de tous les textes et des tables de dégâts.
 - Évaluation réelle : utile, compris, redondant ?
 - Conseils après partie, à partir du journal.
+
+La difficulté, l'expérience et le classement personnalisé sont traités à part : `docs/MAITRISE.md`.
