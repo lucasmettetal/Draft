@@ -2,7 +2,7 @@
 
 Explique une draft à partir de règles explicites et de données locales. Déterministe et hors ligne, sans clé Riot ni IA générative. Il lit le moteur stratégique et **ne change jamais le classement**.
 
-**Statut : prototype, sans interface.** `web/draft-coaching.js` n'est chargé par aucune page de l'application.
+**Statut :** intégré sur `integration/v2.15-coaching`, non publié. Pendant la draft, un seul conseil, issu d'une donnée ou d'un calcul. Les avis à relire restent dans l'onglet Conseils, sous « À confirmer ».
 
 ## Intégration
 

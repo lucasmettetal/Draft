@@ -1,25 +1,24 @@
 # Préparation de l'intégration V2.15
 
-Rien ici n'est fusionné, installé ni publié. La V2.14 est sur une autre branche.
+Branche `integration/v2.15-coaching`, partie de `7690f79` (V2.14). Rien n'est fusionné dans la version stable, installé ni publié.
+
+**Intégré sur cette branche :** égalités à l'écran, import dans les réglages, le plus joué, conseils sur 3 niveaux, onglet Conseils. Le classement reste le modèle A, et le modèle T reste désactivé.
 
 ## Contenu de la branche
 
 | Élément | Fichier | État |
 |---|---|---|
-| Égalités explicites | `web/draft-engine.js` | Dans le moteur, scores inchangés |
-| Conseils pédagogiques | `web/draft-coaching.js` | Non chargé par l'interface |
-| Données officielles | `web/draft-champion-official.js` | Non chargé par l'interface |
-| Familiarité et compromis | `web/draft-mastery.js` | Non chargé par l'interface |
-| Import de l'historique | `src/HistoryImporter.cs` | Accessible par `--import-history`, sans bouton |
+| Égalités explicites | `web/draft-engine.js`, `web/index.html` | Scores inchangés, ex æquo présentés au même niveau |
+| Conseils pédagogiques | `web/draft-coaching.js`, onglet Conseils | Au plus un conseil pendant la draft, issu d'une donnée ou d'un calcul |
+| Données officielles | `web/draft-champion-official.js` | Chargées |
+| Familiarité et compromis | `web/draft-mastery.js` | Affichage seulement |
+| Import de l'historique | `src/HistoryImporter.cs`, réglages | Bouton « Importer mon historique Riot » |
 
-## Ordre conseillé
+## Reste à faire avant une version stable
 
-1. **Fusionner la V2.14 dans une branche d'essai,** puis relancer tous les tests. Une simulation de fusion ne signale aucun conflit de fichiers, mais les comportements combinés n'ont pas été testés.
-2. **Afficher les égalités** avec `tiedWith`. Sans cela, l'ordre alphabétique reste un biais visible.
-3. **Ajouter le bouton d'import** et le chargement de `draft-history.js`.
-4. **Afficher les deux lectures** de `playerChoices`, sans changer le classement.
-5. **Relire les conseils** avec un joueur.
-6. **Décider du modèle T** après observation sur de vraies drafts.
+1. Tester l'import avec une vraie clé, et voir sa fenêtre à l'écran.
+2. Essayer la compilation sur de vraies drafts.
+3. Faire relire les conseils par un joueur.
 
 ## Chargement dans `index.html`
 
@@ -60,35 +59,28 @@ La draft penche légèrement vers Camille. Darius est le champion que tu as le p
 
 ## Import de l'historique
 
-**Commande d'essai :** `DraftMid-Portable.exe --import-history`, depuis `dist-coaching\build`. Elle n'exige pas de fermer DraftMid, et n'installe rien.
+**Parcours :** Réglages, « Importer mon historique Riot », puis fenêtre dédiée (consentement, comptes, clé masquée, région, nombre de parties). Le premier import lit 100 parties par défaut. Le bouton devient ensuite « Importer plus de parties ». Aucun appel n'a lieu sans ce clic, et l'import est refusé pendant une draft ou un autre calcul Riot.
 
 | Garantie | Mise en œuvre | Testé |
 |---|---|---|
 | Clé non conservée | Saisie masquée, gardée en mémoire par le client HTTP. L'importeur n'y a pas accès, et elle n'est écrite nulle part | Oui, avec une fausse clé |
 | Clé hors des adresses | En-tête `X-Riot-Token` | Oui |
-| Données existantes intactes | Écrit seulement `draft-history.js` et sa copie `.precedent`. `draft-stats.js`, son cache, `draft-accounts.txt` et `settings.json` ne sont pas touchés | Oui, par empreinte |
+| Données existantes intactes | Écrit seulement `draft-history.js`, sa copie `.precedent` et une copie datée dans `sauvegardes-historique` (les 5 dernières). `draft-stats.js`, son cache, `draft-accounts.txt` et `settings.json` ne sont pas touchés | Oui, par empreinte |
+| Consentement | Case obligatoire : le bouton reste bloqué sans elle | Oui |
 | Aucun autre joueur | Champions adverses seulement, ni identifiant ni nom | Oui |
 | Pas de perte | Écriture atomique, sauvegarde toutes les 25 parties, reprise sans doublon, fichier abîmé mis de côté | Oui |
 | Refus de Riot | Clé refusée, limite de requêtes, panne, compte introuvable, réponse illisible | Oui, sur un serveur simulé |
 | Rythme | 1 requête toutes les 1,3 seconde, soit environ 22 minutes pour 1 000 parties | Réglage repris de l'existant |
 
-**Non testé :** un import avec une vraie clé, et la fenêtre affichée à l'écran. Elle a seulement été créée sans affichage par les tests natifs.
+**Limites :**
+
+- Testé sur un serveur simulé seulement : jamais avec une vraie clé, et la fenêtre de saisie n'a jamais été affichée à l'écran.
+- Solo/duo uniquement, depuis juin 2021 au mieux.
+- Une clé de développement expire après 24 heures et reste limitée à 100 requêtes par 2 minutes, soit environ 1 minute 30 par 60 parties.
+- Les régions proposées sont celles de la fenêtre existante : EUW, EUNE, TR, NA et KR.
+- L'onglet Parties et les cartes du pool lisent toujours l'ancien import, pas ce fichier.
 
 **Le fichier contient le `Nom#TAG`** de tes comptes, comme l'ancien import. Il reste sur ce PC, dans `%LOCALAPPDATA%\DraftMid`, et `draft-history.js*` est ignoré par Git.
-
-**À faire pour le bouton de la V2.15 :**
-
-1. Appeler `HistoryImportDialog.RunWindow(dataDir)`, sans l'exécuter pendant une draft.
-2. Copier `draft-history.js` vers le dossier web, comme `draft-stats.js`, et ajouter sa balise de script.
-3. Recharger les panneaux hors draft, comme pour les rôles.
-4. Ajouter le fichier à la procédure de sauvegarde et de restauration.
-
-## Conflits à surveiller
-
-- **`src/DraftMid.cs` :** 4 petites lignes (option, appel, test natif).
-- **`web/draft-engine.js` :** tri d'`analyze` et nouveaux champs. À revérifier avec `run-ties-compare.ps1` après fusion.
-- **`web/draft-tests.html` :** modifié des deux côtés, sans conflit à la simulation. La tolérance d'un millionième doit rester.
-- **`.gitignore` :** une ligne.
 
 ## Conditions avant d'aller plus loin
 

@@ -1,6 +1,6 @@
 # Familiarité, difficulté et compromis
 
-**Statut : prototype.** `web/draft-mastery.js` n'est chargé par aucune page. Le classement par défaut reste celui du moteur (modèle A).
+**Statut :** affichage intégré sur `integration/v2.15-coaching`, non publié. Le classement reste celui du moteur (modèle A), et le modèle T reste désactivé.
 
 - Exemples pour débutant et effet sur le classement : `docs/MAITRISE-EXEMPLES.md`
 - Préparation de la V2.15 : `docs/INTEGRATION-V215.md`
