@@ -1799,7 +1799,6 @@ public static class Autostart
                     case "--auto-exit": o.AutoExit = int.Parse(next()); o.Silent = true; break;
                     case "--settle": o.SettleMs = int.Parse(next()); break;
                     case "--selftest": o.SelfTest = true; o.Silent = true; break;
-                    case "--import-history": o.ImportHistory = true; break;
                     case "--check-runtime": o.CheckRuntime = true; o.Silent = true; break;
                     case "--soak": o.Soak = int.Parse(next()); o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
                     case "--e2e": o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
@@ -1808,6 +1807,7 @@ public static class Autostart
                     case "--install-dir": o.InstallDir = next(); break;
                     case "--test-install": o.TestInstall = true; o.Silent = true; break;
                     case "--run-key": o.RunKey = next(); break;
+                    case "--import-history": o.ImportHistory = true; break;
                 }
             }
             return o;
