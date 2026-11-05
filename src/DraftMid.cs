@@ -1778,6 +1778,7 @@ public static class Autostart
     public class Options
     {
         public string Script, CaptureDir, Out, DataDir, InstallDir;
+        public bool ImportHistory;
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime;
@@ -1798,6 +1799,7 @@ public static class Autostart
                     case "--auto-exit": o.AutoExit = int.Parse(next()); o.Silent = true; break;
                     case "--settle": o.SettleMs = int.Parse(next()); break;
                     case "--selftest": o.SelfTest = true; o.Silent = true; break;
+                    case "--import-history": o.ImportHistory = true; break;
                     case "--check-runtime": o.CheckRuntime = true; o.Silent = true; break;
                     case "--soak": o.Soak = int.Parse(next()); o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
                     case "--e2e": o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
@@ -2076,6 +2078,7 @@ public static class Autostart
             LcuTests.Run(t);
             RoleRatesTests.Run(t, dataDir);
             MatchupStatsTests.Run(t, dataDir);
+            HistoryImporterTests.Run(t, dataDir);
 
             ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();
@@ -2177,6 +2180,7 @@ public static class Autostart
             if (o.RunKey != null) Autostart.Key = o.RunKey;
 
             if (o.SelfTest) return SelfTest.Run(o, dataDir, self);
+            if (o.ImportHistory) return HistoryImportDialog.RunWindow(dataDir);
             if (o.Uninstall) { Installer.Uninstall(o, self); return 0; }
             if (o.Install || (!o.TestInstall && Path.GetFileName(self).IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0)) { Installer.Install(o, self); return 0; }
             if (o.TestInstall) { Installer.Install(o, self); return 0; }
