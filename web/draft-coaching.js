@@ -59,6 +59,31 @@ const coachNum = v => v.toFixed(1).replace(".", ",");
 const coachList = names => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
 const coachRangeWord = range => range === null ? null : range >= 500 ? "longue portée" : range >= 300 ? "portée moyenne" : "corps à corps";
 
+// Trois noms au plus, sans cacher qu'il y en a d'autres.
+const coachNames = names => names.length <= 3 ? coachList(names) : `${names.slice(0, 3).join(", ")} et ${names.length - 3} autre${names.length > 4 ? "s" : ""}`;
+// Raison écrite par le moteur, à placer au milieu d'une phrase : sans majuscule isolée, et sans laisser croire qu'une liste coupée est complète.
+function coachReason(text, fallback) {
+  if (!text) return fallback;
+  const m = text.match(/^(\d+) ([^:]+) : ([^:]+)$/);
+  let out = text;
+  if (m) { const shown = m[3].split(", ").length, total = +m[1]; if (shown < total) out = `${text} et ${total - shown} autre${total - shown > 1 ? "s" : ""}`; }
+  return NAMES.some(n => out.startsWith(n)) ? out : out.charAt(0).toLowerCase() + out.slice(1);
+}
+const coachRangeWords = names => { const w = names.map(n => coachRangeWord(coachRange(n)) || "portée inconnue"); return names.length === 2 && w[0] === w[1] ? `Les deux : ${w[0]}` : names.map((n, i) => `${n} : ${w[i]}`).join(", "); };
+// Champions qui changent de forme : une seule portée de base ne les décrit pas.
+const COACH_RANGE_CHANGES = ["Jayce", "Nidalee", "Elise", "Gnar", "Kayle"];
+// La portée d'attaque n'aide à préparer la voie que dans un vrai duel, entre champions dont elle décrit le jeu.
+function coachRangeDuel(c) {
+  if (!c.opponent || !c.pick || !["top", "mid", "adc"].includes(c.role)) return null;
+  if (COACH_RANGE_CHANGES.includes(c.pick) || COACH_RANGE_CHANGES.includes(c.opponent)) return null;
+  const mine = coachRange(c.pick), theirs = coachRange(c.opponent);
+  if (mine === null || theirs === null || Math.abs(mine - theirs) < 200) return null;
+  const longer = theirs > mine;
+  // Avoir plus de portée qu'un champion fait pour arriver sur toi n'est pas un avantage à conseiller.
+  if (!longer && /[am]/.test(ROSTER[c.opponent] || "")) return null;
+  return { mine, theirs, longer };
+}
+
 // Prépare tout ce que les règles lisent. Un champion inconnu du moteur reste à part, sans chiffre inventé.
 function coachingContext(input) {
   const raw = input.enemies || [];
@@ -82,26 +107,48 @@ function coachingContext(input) {
   };
 }
 
+// Conseils dont le contenu se déduit d'une donnée ou d'un calcul, et qu'un test peut vérifier.
+// Tous les autres portent un avis sur le jeu : un joueur doit les relire avant de les considérer comme fiables.
+const COACH_CHECKED = new Set(["draft.tie", "draft.why", "draft.close", "draft.conflict", "draft.incomplete", "matchup.measured", "matchup.written", "matchup.unknown", "limits.opponent-assumed", "limits.unknown-champion", "limits.rules-only", "personal.experience", "personal.results", "personal.too-few", "champ.difficulty"]);
+
 // ---------- Règles ----------
 // when(ctx) dit si le conseil s'applique, en renvoyant ce dont build a besoin. text : [débutant, intermédiaire, avancé].
 const COACH_RULES = [
   // ----- Décision -----
   { id:"draft.tie", category:"decision", priority:96, basis:"heuristic",
-    when: c => c.rival && c.n && Math.abs(c.entry.score - c.rival.score) < 1e-9 ? {} : null,
-    build: c => ({ title:`${c.pick} et ${label(c.rival.pick)} sont à égalité`,
-      text:[`Le classement ne les départage pas : choisis celui que tu joues le mieux.`,
-        `Mêmes scores dans cette draft. Leur ordre vient seulement de ta liste, pas du jeu : ton aisance sur chacun compte davantage ici.`,
-        `Égalité exacte des scores : le tri garde l'ordre de ton pool. Ce n'est pas un avantage de ${c.pick}.`],
-      limits:"Les règles ne distinguent pas ces deux champions dans cette composition.", evidence:[{ kind:"score", value:+c.entry.score.toFixed(2) }] }) },
+    when: c => {
+      if (!c.n || !c.entry || !c.entry.tiedWith || !c.entry.tiedWith.length) return null;
+      const others = c.entry.tiedWith.map(label);
+      const sameSheet = others.every(n => CHAMPION_TRAITS[n] !== undefined && CHAMPION_TRAITS[n] === CHAMPION_TRAITS[c.pick]);
+      return { others, sameSheet };
+    },
+    build: (c, d) => { const names = coachList([c.pick].concat(d.others)); return { title:`Égalité : ${names}`,
+      text:[`Le classement ne les départage pas. Choisis celui que tu connais le mieux.`,
+        d.sameSheet ? `Leurs fiches sont identiques : l'outil ne peut pas les distinguer dans cette draft. Ta maîtrise et ton envie comptent davantage que le classement.`
+          : `Même score pour des raisons différentes. Regarde ce que chacun apporte dans « Comparer », et choisis selon ta maîtrise.`,
+        `Score identique (${coachNum(c.entry.score)}). Le nom affiché en premier ne vient que de l'ordre alphabétique, ou de ton favori : ce n'est pas un avantage.${d.sameSheet ? " Fiches identiques : aucune règle ne peut les séparer." : ""}`],
+      limits:"Les règles ne les distinguent pas ici : ce n'est pas une preuve qu'ils se valent en jeu.", evidence:[{ kind:"tie", picks:[c.pick].concat(d.others), score:+c.entry.score.toFixed(2) }] }; } },
+  { id:"draft.why", category:"decision", priority:82, basis:"heuristic",
+    when: c => {
+      if (!c.n || !c.entry || (c.entry.tiedWith && c.entry.tiedWith.length) || (c.rival && c.entry.score - c.rival.score < HOLD_GAP)) return null;
+      const live = c.opponent && liveMatchup(c.entry.pick, c.opponent);
+      const best = c.entry.criteria.filter(x => x.impact > 0 && x.text && !(live && x.key === "matchup")).sort((a, b) => b.impact - a.impact)[0];
+      return best ? { best } : null;
+    },
+    build: (c, d) => ({ title:`Pourquoi ${c.pick}`,
+      text:[`La raison principale : ${coachReason(d.best.text)}.`,
+        `« ${d.best.label} » pèse le plus : ${coachReason(d.best.text)}.`,
+        `Critère le plus lourd : « ${d.best.label} » (+${coachNum(d.best.impact)})${c.rival ? `, pour ${coachNum(c.entry.score - c.rival.score)} points d'écart avec ${label(c.rival.pick)}` : ""}.`],
+      evidence:[{ kind:"criterion", key:d.best.key, value:+d.best.impact.toFixed(2) }], stance:{ key:d.best.key, sign:1 } }) },
   { id:"draft.close", category:"decision", priority:84, basis:"heuristic",
     when: c => {
-      if (!c.rival || !c.n || c.entry.score - c.rival.score >= HOLD_GAP || c.entry.score === c.rival.score) return null;
+      if (!c.rival || !c.n || c.entry.score - c.rival.score >= HOLD_GAP || (c.entry.tiedWith && c.entry.tiedWith.length)) return null;
       const row = comparePicks(c.entry, c.rival).decisive.find(r => r.diff > 0);
       return row ? { row } : null;
     },
     build: (c, d) => ({ title:`${c.pick} ou ${label(c.rival.pick)} : le choix est serré`,
-      text:[`Les deux peuvent convenir. ${c.pick} passe devant : ${d.row.textA}. Prends celui avec lequel tu es le plus à l'aise.`,
-        `${c.pick} mène surtout sur « ${d.row.label} » : ${d.row.textA}. L'écart reste faible : la maîtrise et ton équipe peuvent décider.`,
+      text:[`Les deux peuvent convenir. ${c.pick} passe devant : ${coachReason(d.row.textA, `avantage sur « ${d.row.label} »`)}. Prends celui avec lequel tu es le plus à l'aise.`,
+        `${c.pick} mène surtout sur « ${d.row.label} »${d.row.textA ? ` : ${coachReason(d.row.textA)}` : ""}. L'écart reste faible : la maîtrise et ton équipe peuvent décider.`,
         `Écart de ${coachNum(c.entry.score - c.rival.score)} point : sous le seuil de ${HOLD_GAP} utilisé pour parler de choix net. Le critère décisif est « ${d.row.label} ». Ces points servent à comparer, ce n'est pas une probabilité de victoire.`],
       evidence:[{ kind:"criterion", key:d.row.key, value:+d.row.diff.toFixed(2) }], stance:{ key:d.row.key, sign:Math.sign(d.row.a - d.row.b), relative:true } }) },
   { id:"draft.conflict", category:"decision", priority:90, basis:"heuristic",
@@ -110,9 +157,9 @@ const COACH_RULES = [
       const worst = c.entry.criteria.filter(x => x.impact <= -2).sort((a, b) => a.impact - b.impact)[0];
       return worst && c.entry.score > 0 ? { worst } : null;
     },
-    build: (c, d) => ({ title:`${c.pick} est conseillé malgré un vrai risque`,
-      text:[`Le risque : ${d.worst.text}. ${c.pick} reste devant car le reste de la draft lui convient mieux qu'à tes autres champions.`,
-        `Le score reste le meilleur, mais « ${d.worst.label} » pèse contre lui : ${d.worst.text}. Vérifie que tu peux jouer avec cette contrainte.`,
+    build: (c, d) => ({ title:`${c.pick} ressort malgré un vrai risque`,
+      text:[`Le risque : ${coachReason(d.worst.text)}. ${c.pick} reste devant car le reste de la draft compense, par rapport à tes autres champions.`,
+        `Le score reste le meilleur, mais « ${d.worst.label} » pèse contre ce choix : ${coachReason(d.worst.text)}. Vérifie que tu peux jouer avec cette contrainte.`,
         `Critère négatif « ${d.worst.label} » (${coachNum(d.worst.impact)}), compensé par les autres. Un classement par somme peut masquer ce type de faiblesse : décide si elle est acceptable pour toi.`],
       evidence:[{ kind:"criterion", key:d.worst.key, value:+d.worst.impact.toFixed(2) }], stance:{ key:d.worst.key, sign:-1 } }) },
   { id:"draft.incomplete", category:"decision", priority:40, basis:"general",
@@ -140,18 +187,13 @@ const COACH_RULES = [
       const cr = c.crit("matchup");
       return cr && cr.impact !== 0 ? { cr } : null;
     },
-    build: (c, d) => { const good = d.cr.impact > 0; return { title:`${c.pick} contre ${c.opponent} : ${good ? "plutôt un bon choix" : "un matchup difficile"}`,
-      text:[good ? `Le tableau de DraftMid place ${c.pick} parmi les bons choix contre ${c.opponent}.` : `Le tableau de DraftMid déconseille ${c.pick} contre ${c.opponent}. S'il reste devant, c'est pour le reste de la draft.`,
+    build: (c, d) => { const good = d.cr.impact > 0; return { title:`${c.pick} contre ${c.opponent}${!c.manual && c.belief.confidence !== "élevée" ? " (supposé)" : ""} : ${good ? "plutôt un bon choix" : "un matchup difficile"}`,
+      text:[good ? `Le tableau de DraftMid place ${c.pick} parmi les bons choix contre ${c.opponent}.` : `Le tableau de DraftMid déconseille ${c.pick} contre ${c.opponent}. Si ce choix reste devant, c'est pour le reste de la draft.`,
         `${d.cr.text}, selon un tableau écrit à la main. Ce critère est le plus lourd du classement.`,
         `${d.cr.text} : avis écrit à la main (${coachNum(d.cr.impact)} points), sans statistiques ni patch. Un bilan calculé le remplacera dès ${MATCHUP_MIN_GAMES} parties utiles.`],
       limits:"Avis écrit à la main, pas une statistique.", evidence:[{ kind:"criterion", key:"matchup", value:+d.cr.impact.toFixed(2) }], stance:{ key:"matchup", sign:Math.sign(d.cr.impact) } }; } },
   { id:"matchup.range", category:"matchup", priority:78, basis:"official",
-    when: c => {
-      if (!c.opponent || !c.pick) return null;
-      const mine = coachRange(c.pick), theirs = coachRange(c.opponent);
-      if (mine === null || theirs === null || Math.abs(mine - theirs) < 200) return null;
-      return { mine, theirs, longer:theirs > mine };
-    },
+    when: coachRangeDuel,
     build: (c, d) => ({ title:d.longer ? `${c.opponent} te touche de plus loin` : `Tu touches ${c.opponent} de plus loin`,
       terms:["portée", "échange", "farm"],
       text:d.longer ? [
@@ -159,24 +201,27 @@ const COACH_RULES = [
         `Écart de portée de ${d.theirs - d.mine} (${d.mine} contre ${d.theirs}). Choisis tes échanges : engage juste après un sort important de ${c.opponent}, puis ressors.`,
         `Écart de portée d'attaque de base : ${d.mine} contre ${d.theirs}. Il pèse surtout tôt dans la partie, et ne dit rien de la portée des sorts ni des outils pour le combler.`
       ] : [
-        `Tu attaques à ${d.mine}, ${c.opponent} à ${d.theirs}. Quand il vient chercher un sbire, tu peux le toucher sans qu'il te réponde.`,
-        `Écart de portée de ${d.mine - d.theirs} en ta faveur : profites-en pour le toucher quand il vient farmer, sans t'exposer à ses outils pour se rapprocher.`,
+        `Tu attaques à ${d.mine}, ${c.opponent} à ${d.theirs}. Ses attaques de base ne t'atteignent pas de loin, mais ses sorts peuvent changer ça : regarde-les avant d'avancer.`,
+        `Écart de portée de ${d.mine - d.theirs} en ta faveur : ${c.opponent} doit s'approcher pour farmer, ce qui t'offre des occasions de frapper. Garde un œil sur ses sorts.`,
         `Avantage de portée d'attaque de base : ${d.mine} contre ${d.theirs}. Il ne compte que si ${c.opponent} n'a pas de quoi le combler : à vérifier dans ses sorts.`
       ], evidence:[{ kind:"range", mine:d.mine, theirs:d.theirs }], limits:"Portée d'attaque de base seulement : les sorts ne sont pas comptés." }) },
   { id:"matchup.tank", category:"matchup", priority:66, basis:"heuristic",
     when: c => c.opponent && c.pick && /t/.test(ROSTER[c.opponent] || "") ? {} : null,
     build: c => { const killer = hasTrait(c.entry.pick, "k"); return { title:`${c.opponent} encaisse beaucoup`, terms:["frontline", "roam"],
-      text:killer ? [`${c.opponent} est solide, mais ${c.pick} fait de bons dégâts aux joueurs solides. Ne cherche pas à le tuer tout de suite : il faut du temps.`,
+      text:killer ? [`${c.opponent} est solide, mais ${c.pick} fait de bons dégâts aux joueurs solides. Tuer ${c.opponent} prend du temps : n'en fais pas ta priorité tout de suite.`,
         `Un tank en face tue rarement vite : joue la durée. ${c.pick} a ce qu'il faut contre une grosse barre de vie.`,
         `Face à un tank, l'intérêt de ${c.pick} grandit avec le temps. C'est une règle générale de sa fiche, pas un bilan mesuré de ce matchup.`]
+      : !["top", "mid", "adc"].includes(c.role) ? [`Tu mettras du temps à tuer ${c.opponent}. Ne t'acharne pas : regarde s'il y a une cible plus fragile à ta portée.`,
+        `Tuer un tank est long : garde tes sorts pour une cible plus fragile, sauf si tes alliés se concentrent sur lui.`,
+        `Contre un tank, ton impact passe souvent par les cibles fragiles et le timing. À nuancer selon ce que ton équipe peut tuer.`]
       : [`Tu mettras du temps à tuer ${c.opponent}. Ne t'acharne pas : va plutôt aider ailleurs quand ta vague est poussée.`,
-        `Tuer un tank en voie rapporte peu. Pousse ta vague et cherche à peser ailleurs sur la carte.`,
+        `Tuer un tank en voie est long et rarement rentable tôt : pousse ta vague et regarde où ton aide pèserait davantage.`,
         `Contre un tank, l'objectif de voie est souvent le tempo plutôt que le meurtre. À nuancer selon ta capacité à le punir.`],
       limits:"Avis général, pas un bilan de ce matchup." }; } },
   { id:"matchup.assassin", category:"matchup", priority:70, basis:"heuristic",
-    when: c => c.opponent && c.pick && /a/.test(ROSTER[c.opponent] || "") && !/t/.test(ROSTER[c.opponent] || "") ? {} : null,
+    when: c => c.opponent && c.pick && /a/.test(ROSTER[c.opponent] || "") && !/t/.test(ROSTER[c.opponent] || "") && !(c.compo.divers.length >= 2 && c.compo.divers.includes(c.opponent)) ? {} : null,
     build: c => ({ title:`${c.opponent} peut te sauter dessus`, terms:["assassin"],
-      text:[`${c.opponent} cherche à te surprendre et à te tuer vite. Garde de quoi te défendre tant qu'il n'a pas utilisé ses sorts pour s'approcher.`,
+      text:[`${c.opponent} cherche à te surprendre et à te tuer vite. Garde de quoi te défendre tant que ses sorts pour s'approcher sont disponibles.`,
         `Sa menace dépend de sa capacité à arriver sur toi. Quand ses sorts de déplacement sont utilisés, c'est ta fenêtre pour échanger.`,
         `Menace d'accès rapide : la zone dangereuse dépend de ses sorts de déplacement, pas de sa portée d'attaque. Le niveau d'objets de chacun change vite ce rapport.`],
       limits:"Avis général, pas un bilan de ce matchup." }) },
@@ -188,8 +233,8 @@ const COACH_RULES = [
     },
     build: (c, d) => ({ title:d.names.length ? `${c.opp} pas encore identifié : prépare les deux cas` : `${c.opp} pas encore visible`, terms:["portée"],
       text: d.names.length ? [
-        `Ce peut être ${d.names.join(" ou ")}. ${d.names.map(n => `${n} : ${coachRangeWord(coachRange(n)) || "portée inconnue"}`).join(", ")}. Regarde les sorts d'invocateur et le placement au début de la partie.`,
-        `Hypothèses : ${d.names.join(", ")}. Le conseil tient compte des deux. ${d.names.map(n => `${n} : ${coachRangeWord(coachRange(n)) || "portée inconnue"}`).join(", ")}.`,
+        `Ce peut être ${d.names.join(" ou ")}. ${coachRangeWords(d.names)}. Regarde les sorts d'invocateur et le placement au début de la partie.`,
+        `Hypothèses : ${d.names.join(", ")}. Le conseil tient compte des deux. ${coachRangeWords(d.names)}.`,
         `Classement pondéré entre ${d.names.join(" et ")}${d.hidden ? ", et un adversaire pas encore révélé" : ""}. Si tu connais le vrai rôle, corrige-le : le calcul redevient exact pour ce matchup.`
       ] : [
         `Tant qu'il n'est pas visible, le conseil ne porte pas sur ton duel. Si tu peux, choisis après l'avoir vu.`,
@@ -201,7 +246,7 @@ const COACH_RULES = [
   { id:"comp.assassins", category:"composition", priority:80, basis:"heuristic",
     when: c => c.compo.divers.length >= 2 && c.pick ? {} : null,
     build: c => {
-      const names = coachList(c.compo.divers.slice(0, 3)), cr = c.crit("dive"), risky = cr && cr.impact < 0, solid = cr && cr.impact > 0;
+      const names = coachNames(c.compo.divers), cr = c.crit("dive"), risky = cr && cr.impact < 0, solid = cr && cr.impact > 0;
       return { title:risky ? `${names} peuvent atteindre ${c.pick}` : `${c.compo.divers.length} adversaires sautent sur leurs cibles`, terms:["assassin"],
         text:risky ? [`${names} peuvent venir sur toi d'un coup, et ${c.pick} s'échappe mal. Joue près d'un allié qui peut te protéger.`,
           `${c.pick} a peu de sorties contre ${names}. Reste dans la zone de protection de ton équipe, et repère-les avant d'avancer.`,
@@ -216,8 +261,8 @@ const COACH_RULES = [
     } },
   { id:"comp.frontline", category:"composition", priority:62, basis:"heuristic",
     when: c => { const solid = c.compo.front.filter(coachIsSolid); return solid.length >= 2 && c.pick ? { solid } : null; },
-    build: (c, d) => { const names = coachList(d.solid.slice(0, 3)), cr = c.crit("front"), good = cr && cr.impact > 0, bad = cr && cr.impact < 0; return { title:`Des joueurs solides en face : ${names}`, terms:["frontline", "carry"],
-      text:good ? [`${names} encaissent beaucoup, et ${c.pick} fait de bons dégâts à ce type de cible. Frappe le plus proche plutôt que de traverser le combat.`,
+    build: (c, d) => { const names = coachNames(d.solid), cr = c.crit("front"), good = cr && cr.impact > 0, bad = cr && cr.impact < 0; return { title:`Des joueurs solides en face : ${names}`, terms:["frontline", "carry"],
+      text:good ? [`${names} encaissent beaucoup, et ${c.pick} fait de bons dégâts à ce type de cible. Si l'un d'eux te barre la route, tes coups restent utiles.`,
         `${d.solid.length} joueurs très solides : le profil de ${c.pick} est valorisé ici. Reste en vie assez longtemps pour que tes dégâts comptent.`,
         `Bonus du critère « ${cr.label} » (+${coachNum(cr.impact)}). Attention : il compte aussi les bruisers (${c.compo.front.length} ici), et se déclenche dès 2 : ne le lis pas comme un avantage rare.`]
       : bad ? [`${names} se mettent devant leurs joueurs fragiles. Cherche à les contourner : foncer dans le tas ne marchera pas.`,
@@ -230,35 +275,35 @@ const COACH_RULES = [
   { id:"comp.no-frontline", category:"composition", priority:64, basis:"heuristic",
     when: c => c.n >= 4 && !c.compo.front.length ? {} : null,
     build: c => ({ title:"Personne pour encaisser en face", terms:["frontline", "carry"],
-      text:[`Aucun des ${c.n} adversaires n'est vraiment solide : un combat qui s'engage bien peut se terminer très vite.`,
-        `Sans frontline, leurs joueurs fragiles sont exposés dès que quelqu'un arrive sur eux. L'attaquant bien placé a l'avantage.`,
+      text:[`Aucun des ${c.n} adversaires n'encaisse vraiment : si ton équipe les atteint, le combat peut basculer vite.`,
+        `Sans frontline, leurs joueurs fragiles sont exposés dès que quelqu'un les atteint. À l'inverse, ils peuvent te tuer vite si tu arrives seul.`,
         `Absence de tank ou de bruiser sur ${c.n} champions visibles. Leur force dépend alors de tuer avant d'être atteint : le premier engagement réussi pèse lourd.`],
       evidence:[{ kind:"count", key:"frontline", value:0 }] }) },
   { id:"comp.control", category:"composition", priority:60, basis:"heuristic",
     when: c => c.compo.cc.length >= 2 && c.pick ? {} : null,
-    build: c => { const names = coachList(c.compo.cc.slice(0, 3)), cr = c.crit("control"), bad = cr && cr.impact < 0, good = cr && cr.impact > 0; return { title:`${names} peuvent t'immobiliser`, terms:["contrôle"],
-      text:bad ? [`Si tu fonces et qu'ils t'immobilisent, tu meurs sans rien faire. Attends de voir leurs sorts partir.`,
+    build: c => { const names = coachNames(c.compo.cc), cr = c.crit("control"), bad = cr && cr.impact < 0, good = cr && cr.impact > 0; return { title:`${names} peuvent t'immobiliser`, terms:["contrôle"],
+      text:bad ? [`Si tu fonces et qu'ils t'immobilisent, tu ne peux plus rien faire. Mieux vaut entrer après avoir vu leurs sorts partir.`,
         `Leurs contrôles punissent ${c.pick} : ${cr.text}. Regarde quel sort vient de partir avant d'entrer.`,
         `Malus du critère « ${cr.label} » : ${c.compo.cc.length} contrôles ciblés visibles.`]
       : good ? [`${c.pick} peut rester loin de leurs contrôles, puis revenir au bon moment. Ne te place pas devant ton équipe.`,
         `${cr.text}. Garde cette distance : c'est ce qui rend ce pick intéressant ici.`,
         `Bonus du critère « ${cr.label} » : profil capable de jouer loin de l'engage et des contrôles.`]
-      : [`Un seul de leurs sorts peut t'empêcher d'agir. Évite d'être le premier visible quand ils sont proches.`,
+      : [`Un seul de leurs sorts peut t'empêcher d'agir : évite d'être le premier à portée quand tu ne sais pas où ils sont.`,
         `Plusieurs contrôles ciblés : joue autour du moment où ils sont utilisés.`,
         `${c.compo.cc.length} contrôles ciblés : à lire avec les délais de récupération, que l'outil ne connaît pas.`],
       stance:cr ? { key:"control", sign:Math.sign(cr.impact) } : null, evidence:[{ kind:"champions", value:c.compo.cc }] }; } },
   { id:"comp.engage", category:"composition", priority:56, basis:"heuristic",
     when: c => c.compo.engage.length >= 3 ? {} : null,
-    build: c => { const names = coachList(c.compo.engage.slice(0, 3)); return { title:`${names} peuvent lancer le combat`, terms:["engage", "objectif"],
+    build: c => { const names = coachNames(c.compo.engage); return { title:`${names} peuvent lancer le combat`, terms:["engage", "objectif"],
       text:[`Ils peuvent démarrer un combat d'un coup. Évite de rester seul dans une zone que tu ne vois pas, surtout près d'un objectif.`,
         `Équipe qui choisit quand le combat commence : place-toi avant l'apparition des objectifs, pas au dernier moment.`,
         `${c.compo.engage.length} sources d'engage : leur force est de forcer le combat. La vision et l'ordre d'arrivée sur les objectifs deviennent décisifs.`],
       evidence:[{ kind:"champions", value:c.compo.engage }] }; } },
   { id:"comp.poke", category:"composition", priority:54, basis:"heuristic",
     when: c => c.compo.poke.length >= 2 ? {} : null,
-    build: c => { const names = coachList(c.compo.poke.slice(0, 3)), cr = c.crit("range"); return { title:`${names} touchent de très loin`, terms:["poke", "portée"],
+    build: c => { const names = coachNames(c.compo.poke), cr = c.crit("range"); return { title:`${names} touchent de très loin`, terms:["poke", "portée"],
       text:[`Ils t'abîment de loin avant le combat. Ne reste pas à découvert sans raison : ta vie baisse pour rien.`,
-        `Équipe de poke : si vous arrivez affaiblis, le combat est perdu d'avance. Cherche à engager vite, ou à ne pas rester à portée.`,
+        `Équipe de poke : si vous arrivez affaiblis, le combat démarre mal. Cherche à engager vite, ou à ne pas rester à portée.`,
         cr ? `Le moteur en tient compte pour ${c.pick} (« ${cr.label} » : ${cr.text}).` : `Le poke gagne le temps : il faut soit le raccourcir, soit soigner. Ton équipe n'est pas connue de l'outil.`],
       stance:cr ? { key:"range", sign:Math.sign(cr.impact) } : null, evidence:[{ kind:"champions", value:c.compo.poke }] }; } },
   { id:"comp.damage", category:"composition", priority:50, basis:"estimate",
@@ -272,8 +317,8 @@ const COACH_RULES = [
       return null;
     },
     build: (c, d) => ({ title:`Dégâts surtout ${d.type} en face`, terms:[],
-      text:[`Leurs principaux dégâts semblent ${d.type}. Une seule protection peut donc beaucoup t'aider : renseigne-toi sur les objets qui protègent des dégâts ${d.type}.`,
-        `Répartition déséquilibrée sur ${d.kinds.length} champions : une résistance bien choisie vaut plus que d'habitude.`,
+      text:[`Leurs principaux dégâts semblent ${d.type}. Un objet qui protège des dégâts ${d.type} peut donc être plus utile que d'habitude : regarde lesquels existent.`,
+        `Répartition déséquilibrée sur ${d.kinds.length} champions : une résistance adaptée a plus de valeur. Vérifie en partie, car les objets adverses changent le partage.`,
         `Estimation d'après les notes de Riot et une table écrite à la main. Le vrai partage dépend des objets et de chaque partie : à confirmer une fois en jeu.`],
       limits:"Estimation, pas une mesure : les dégâts réels dépendent des objets.", evidence:[{ kind:"damage", value:d.type, champions:d.kinds.length }] }) },
 
@@ -283,29 +328,31 @@ const COACH_RULES = [
     build: c => {
       const o = coachOfficial(c.pick), traits = CHAMPION_TRAITS[c.pick], word = coachRangeWord(o.range);
       const assets = [], risks = [];
-      if (traits.includes("l")) assets.push("il touche de très loin");
-      if (traits.includes("k")) assets.push("il fait de bons dégâts aux joueurs solides");
-      if (traits.includes("h")) assets.push("il peut tuer une cible fragile");
-      if (traits.includes("t")) assets.push("il encaisse bien");
-      if (traits.includes("c")) assets.push("il protège ses alliés");
-      if (traits.includes("E")) assets.push("il peut lancer les combats");
-      if (traits.includes("g")) assets.push("il peut peser sur toute la carte");
-      if (traits.includes("i")) risks.push("il se déplace peu : un adversaire mobile peut l'atteindre");
-      if (traits.includes("p")) risks.push("il a besoin d'alliés pour le protéger");
-      if (traits.includes("d") && !traits.includes("t")) risks.push("il doit entrer dans le combat, donc s'exposer");
-      if (traits.includes("w")) risks.push("il a peu de prise sur les joueurs solides");
-      const main = assets.length ? assets.slice(0, 2).join(" et ") : "son intérêt dépend surtout de la partie";
+      if (traits.includes("l")) assets.push("touche de très loin");
+      if (traits.includes("k")) assets.push("fait de bons dégâts aux joueurs solides");
+      if (traits.includes("h")) assets.push("peut tuer une cible fragile");
+      if (traits.includes("t")) assets.push("encaisse bien");
+      if (traits.includes("c")) assets.push("protège ses alliés");
+      if (traits.includes("E")) assets.push("peut lancer les combats");
+      if (traits.includes("g")) assets.push("peut peser sur toute la carte");
+      if (traits.includes("i")) risks.push("se déplace peu, donc un adversaire mobile peut l'atteindre");
+      if (traits.includes("p")) risks.push("a besoin d'alliés autour");
+      if (traits.includes("d") && !traits.includes("t")) risks.push("doit entrer dans le combat, donc s'exposer");
+      if (traits.includes("w")) risks.push("a peu de prise sur les joueurs solides");
+      const main = assets.length ? assets.slice(0, 2).join(" et ") : null;
       const risk = risks.length ? ` Attention : ${risks[0]}.` : "";
+      const changes = COACH_RANGE_CHANGES.includes(c.pick), how = changes ? `${c.pick} change de portée selon sa forme ou sa transformation` : `${c.pick} se joue à ${word} (${o.range})`;
+      const points = main ? ` Points forts : ${main}.` : " Sa fiche ne lui donne pas de point fort particulier.", rangeText = changes ? "portée variable" : `portée ${o.range}`;
       return { title:`Comprendre ${c.pick}`, terms:["portée"],
-        text:[`${c.pick} se joue à ${word} (${o.range}) : ${main}.${risk}`,
-          `Classes Riot : ${o.tags.join(", ")}. Portée ${o.range}. Points forts : ${main}.${risk}`,
-          `Classes Riot : ${o.tags.join(", ")}, portée ${o.range}, difficulté notée ${o.difficulty}/10 par Riot. Points forts : ${main}.${risk}`],
+        text:[`${how}.${main ? ` Points forts : ${main}.` : ""}${risk}`,
+          `Classes Riot : ${o.tags.join(", ")}. ${rangeText.charAt(0).toUpperCase() + rangeText.slice(1)}.${points}${risk}`,
+          `Classes Riot : ${o.tags.join(", ")}, ${rangeText}, difficulté notée ${o.difficulty}/10 par Riot.${points}${risk}`],
         limits:"Portée et classes viennent de Riot. Forces et risques sont un avis écrit à la main.", evidence:[{ kind:"official", tags:o.tags, range:o.range, difficulty:o.difficulty }] };
     } },
   { id:"champ.difficulty", category:"champion", priority:44, basis:"official", maxLevel:1,
     when: c => { const o = c.pick ? coachOfficial(c.pick) : null; return o && o.difficulty >= 8 ? { value:o.difficulty } : null; },
     build: (c, d) => ({ title:`${c.pick} demande de l'entraînement`,
-      text:[`Riot le note ${d.value}/10 en difficulté. Si tu ne l'as jamais joué, ce n'est pas le moment idéal pour le découvrir en partie classée.`],
+      text:[`Riot note sa difficulté ${d.value}/10. Si tu n'as jamais joué ce champion, ce n'est pas le moment idéal pour le découvrir en partie classée.`],
       evidence:[{ kind:"official", difficulty:d.value }] }) },
   { id:"champ.alternative", category:"champion", priority:48, basis:"heuristic", minLevel:2,
     when: c => {
@@ -315,7 +362,7 @@ const COACH_RULES = [
     },
     build: (c, d) => ({ title:`Quand préférer ${label(c.rival.pick)} ?`,
       text:[`${label(c.rival.pick)} fait mieux sur un point : ${d.row.textA}.`,
-        `${label(c.rival.pick)} reste meilleur sur « ${d.row.label} » : ${d.row.textA}. Si ce point compte le plus pour ta partie, il devient un bon choix.`,
+        `${label(c.rival.pick)} reste meilleur sur « ${d.row.label} » : ${d.row.textA}. Si ce point compte le plus pour ta partie, ce choix devient intéressant.`,
         `${label(c.rival.pick)} : avantage de ${coachNum(d.row.diff)} sur « ${d.row.label} ». ${when2(c)}`],
       evidence:[{ kind:"criterion", key:d.row.key, value:+d.row.diff.toFixed(2) }] }) },
 
@@ -364,12 +411,12 @@ const COACH_RULES = [
   { id:"personal.too-few", category:"personal", priority:30, basis:"general", minLevel:2,
     when: c => { if (!c.personal || !c.pick) return null; const s = c.personal.byChampion[c.pick]; return (s ? s.games : 0) < PERSONAL_MIN_RESULT ? { games:s ? s.games : 0 } : null; },
     build: (c, d) => ({ title:`Trop peu de parties pour juger sur ${c.pick}`,
-      text:[`${d.games} partie${d.games > 1 ? "s" : ""} sur ce champion : trop peu pour dire comment il te réussit.`, `${d.games} partie${d.games > 1 ? "s" : ""} : aucune tendance personnelle n'est tirée sous ${PERSONAL_MIN_RESULT} parties.`, `Moins de ${PERSONAL_MIN_RESULT} parties (${d.games}) : aucune conclusion sur tes résultats.`] }) }
+      text:[`${d.games} partie${d.games > 1 ? "s" : ""} sur ce champion : trop peu pour dire comment ce champion te réussit.`, `${d.games} partie${d.games > 1 ? "s" : ""} : aucune tendance personnelle n'est tirée sous ${PERSONAL_MIN_RESULT} parties.`, `Moins de ${PERSONAL_MIN_RESULT} parties (${d.games}) : aucune conclusion sur tes résultats.`] }) }
 ];
 
 function when2(c) {
   const found = whenBetter(c.rival.pick, c.entry.pick, c.enemies, c.opponent);
-  return found.length ? `Il passerait devant ${found.slice(0, 2).join(", ou ")}.` : "Aucun changement simple de la draft ne le fait passer devant.";
+  return found.length ? `Ce choix passerait devant ${found.slice(0, 2).join(", ou ")}.` : "Aucun changement simple de la draft ne le fait passer devant.";
 }
 
 // ---------- Principes pour débuter : choisis d'après la draft, jamais au hasard ----------
@@ -377,12 +424,12 @@ const COACH_FUNDAMENTALS = [
   { id:"fund.damage-types", term:null, trigger:c => c.n >= 3, roles:null, priority:20, title:"Dégâts physiques et magiques",
     text:"L'armure réduit les dégâts physiques, la résistance magique réduit les dégâts magiques. Regarde ce que font surtout tes adversaires avant de choisir un objet de protection." },
   { id:"fund.cc", trigger:c => c.compo.cc.length >= 1, roles:null, priority:27, title:"Pourquoi les contrôles comptent", text:"Un joueur immobilisé ne peut ni fuir ni attaquer. Quand un adversaire vient de rater ou d'utiliser son contrôle, c'est souvent le bon moment pour agir." },
-  { id:"fund.positioning", trigger:c => c.compo.divers.length >= 1 || c.compo.engage.length >= 2, roles:null, priority:26, title:"Se placer avant le combat", text:"Avant un combat, demande-toi qui peut t'atteindre. Si tu es fragile, reste derrière un allié solide : celui qui est touché en premier est souvent mort." },
-  { id:"fund.range", trigger:c => c.opponent && coachRange(c.opponent) !== null && c.pick && Math.abs(coachRange(c.opponent) - coachRange(c.pick)) >= 200, roles:["top", "mid", "adc"], priority:28, title:"Jouer avec la portée", text:"Le plus court doit s'approcher pour toucher : il ne doit le faire que lorsqu'il y gagne quelque chose. Le plus long doit le punir à chaque fois qu'il avance pour un sbire." },
+  { id:"fund.positioning", trigger:c => c.compo.divers.length >= 1 || c.compo.engage.length >= 2, roles:null, priority:26, title:"Se placer avant le combat", text:"Avant un combat, demande-toi qui peut t'atteindre. Si tu es fragile, reste derrière un allié solide : le joueur touché en premier a peu de chances de finir le combat." },
+  { id:"fund.range", trigger:c => !!coachRangeDuel(c), roles:["top", "mid", "adc"], priority:28, title:"Jouer avec la portée", text:"Le plus court doit s'approcher pour toucher : il ne doit le faire que lorsqu'il y gagne quelque chose. Le plus long doit le punir à chaque fois qu'il avance pour un sbire." },
   { id:"fund.trades", trigger:c => !!c.opponent, roles:["top", "mid", "adc"], priority:18, title:"Un bon échange", text:"Attaque quand un sort important de ton adversaire vient de partir, puis recule. Tu lui prends de la vie sans qu'il puisse répondre aussi fort." },
-  { id:"fund.farm", trigger:() => true, roles:["top", "mid", "adc"], priority:12, title:"Le farm passe avant tout", text:"Chaque sbire que tu achèves te donne de l'or. Une quinzaine de sbires rapporte à peu près autant qu'une mise à mort : ne prends pas de gros risques pour un échange inutile." },
+  { id:"fund.farm", trigger:() => true, roles:["top", "mid", "adc"], priority:12, title:"L'or vient d'abord des sbires", text:"Chaque sbire que tu achèves te donne de l'or. Une quinzaine de sbires rapporte à peu près autant qu'une mise à mort : ne prends pas de gros risques pour un échange inutile." },
   { id:"fund.waves", trigger:c => !!c.pick && hasTrait(pickId(c.pick), "r") || !!c.pick && hasTrait(pickId(c.pick), "g"), roles:["top", "mid"], priority:22, title:"Pousser avant de bouger", text:"Avant de quitter ta voie, pousse ta vague contre la tour adverse. Tes sbires occupent l'ennemi, et tu perds moins d'or pendant ton absence." },
-  { id:"fund.objectives", trigger:c => c.n >= 4, roles:null, priority:14, title:"Les objectifs gagnent les parties", text:"Une mise à mort ne sert que si elle mène à quelque chose : une tour, un dragon, un baron. Après un combat gagné, regarde d'abord ce que ton équipe peut prendre." },
+  { id:"fund.objectives", trigger:c => c.n >= 4, roles:null, priority:14, title:"Les objectifs gagnent les parties", text:"Une mise à mort rapporte davantage si elle mène à quelque chose : une tour, un dragon, un baron. Après un combat gagné, regarde d'abord ce que ton équipe peut prendre." },
   { id:"fund.vision", trigger:c => c.compo.engage.length >= 2 || c.compo.divers.length >= 2, roles:null, priority:16, title:"Voir avant d'avancer", text:"Une balise montre qui arrive. Sans elle, considère que l'adversaire absent de la carte peut se trouver près de toi." },
   { id:"fund.role-top", trigger:() => true, roles:["top"], priority:24, title:"Le rôle du top", text:"Tu joues souvent seul et loin de ton équipe. Une téléportation ou une tour prise peut peser plus qu'un duel gagné." },
   { id:"fund.role-jungle", trigger:() => true, roles:["jungle"], priority:24, title:"Le rôle du jungler", text:"Tu n'as pas de voie : tu choisis où aider. Va là où un allié peut suivre, et regarde les objectifs qui apparaissent bientôt." },
@@ -420,6 +467,8 @@ function personalTrends(rows, options = {}) {
 
 // ---------- Point d'entrée pour l'interface ----------
 const COACH_LIMIT_SHORT = 3;
+// Vue détaillée : assez pour apprendre, pas au point de noyer la draft. Limites et résultats personnels restent toujours visibles.
+const COACH_MAX_ITEMS = { 1:7, 2:6, 3:7 };
 function coachingAdvice(input) {
   const level = COACH_LEVELS[input.level] || COACH_LEVELS.beginner;
   const c = coachingContext(input);
@@ -432,20 +481,41 @@ function coachingAdvice(input) {
     const basis = built.basis || rule.basis;
     items.push({ id:rule.id, category:rule.category, level:input.level || "beginner", title:built.title, text, priority:rule.priority,
       basis, basisLabel:COACH_BASIS[basis], limits:built.limits || null, terms:(built.terms || []).filter(t => COACH_TERMS[t]), evidence:built.evidence || [],
-      stance:built.stance || null, reviewed:COACH_REVIEWED });
+      stance:built.stance || null, reviewed:COACH_REVIEWED, verification:COACH_CHECKED.has(rule.id) ? "rule" : "human" });
   });
   // Bases du jeu, pour débuter seulement : un ou deux, ceux que cette draft rend utiles.
   if (level === 1 && input.fundamentals !== false) {
     COACH_FUNDAMENTALS.filter(f => (!f.roles || f.roles.includes(c.role)) && f.trigger(c)).sort((a, b) => b.priority - a.priority).slice(0, 2).forEach(f => {
-      items.push({ id:f.id, category:"fundamentals", level:"beginner", title:f.title, text:f.text, priority:f.priority, basis:"general", basisLabel:COACH_BASIS.general, limits:null, terms:[], evidence:[], stance:null, reviewed:COACH_REVIEWED });
+      items.push({ id:f.id, category:"fundamentals", level:"beginner", title:f.title, text:f.text, priority:f.priority, basis:"general", basisLabel:COACH_BASIS.general, limits:null, terms:[], evidence:[], stance:null, reviewed:COACH_REVIEWED, verification:"human" });
     });
   }
   items.sort((a, b) => b.priority - a.priority || (a.id < b.id ? -1 : 1));
+  const cap = input.maxItems || COACH_MAX_ITEMS[level];
+  for (let i = items.length - 1; i >= 0 && items.length > cap; i--) if (items[i].category !== "limits" && items[i].category !== "personal") items.splice(i, 1);
   // Vue courte : les plus importants, sans trois conseils de la même famille.
   const short = [], perCategory = {};
   items.forEach(i => { if (short.length < (input.limit || COACH_LIMIT_SHORT) && (perCategory[i.category] || 0) < 2 && i.category !== "fundamentals") { short.push(i.id); perCategory[i.category] = (perCategory[i.category] || 0) + 1; } });
   return { version:1, level:input.level || "beginner", role:c.role, pick:c.pick, rival:c.rival ? label(c.rival.pick) : null, opponent:c.opponent, confidence:c.manual ? "manuel" : c.belief.confidence,
     complete:c.n >= 5, unknown:c.unknown, items, short, offline:true };
+}
+
+// Résumé pour l'interface : une ligne, une explication facultative, un risque, un conseil pour apprendre, et leur provenance.
+function coachingSummary(input) {
+  const a = coachingAdvice(Object.assign({}, input, { fundamentals:true }));
+  const risky = i => i.category !== "personal" && ((i.stance && !i.stance.relative && i.stance.sign < 0) || i.id === "matchup.range" && /te touche/.test(i.title) || i.id === "matchup.assassin");
+  const tie = a.items.find(i => i.id === "draft.tie");
+  const risk = a.items.find(risky) || null;
+  const main = a.items.find(i => i.category === "decision" && i.id !== "draft.incomplete" && i !== risk) || a.items.find(i => i.category !== "fundamentals" && i !== risk) || null;
+  const lessonOrder = (COACH_LEVELS[input.level] || 1) === 1 ? ["fundamentals", "matchup", "composition"] : ["matchup", "composition", "champion"];
+  let lesson = null;
+  lessonOrder.some(cat => { lesson = a.items.find(i => i.category === cat && i !== main && i !== risk) || null; return !!lesson; });
+  const shorten = i => i ? { id:i.id, title:i.title, text:i.text, source:i.basisLabel, basis:i.basis, limits:i.limits } : null;
+  return {
+    version:1, level:a.level, pick:a.pick, rival:a.rival, opponent:a.opponent, confidence:a.confidence,
+    headline: !a.pick ? null : tie ? tie.title : a.rival ? `${a.pick}, sinon ${a.rival}` : a.pick,
+    tied: tie ? tie.evidence[0].picks : [],
+    explanation:shorten(main), risk:shorten(risk), lesson:shorten(lesson)
+  };
 }
 
 // Définition courte d'un terme, pour une infobulle.

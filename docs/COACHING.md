@@ -55,6 +55,35 @@ Réponse :
 
 **Vue courte :** afficher les éléments dont l'`id` est dans `short`. **Vue détaillée :** tous les `items`, déjà triés. Afficher `basisLabel` et `limits` pour ne jamais faire passer une règle pour une statistique.
 
+La vue détaillée compte au plus 7 conseils en Débutant et Avancé, 6 en Intermédiaire. Les limites et les résultats personnels ne sont jamais retirés, donc ils peuvent s'y ajouter. `maxItems` change ce plafond.
+
+Chaque conseil porte aussi `verification` : `"rule"` si son contenu se déduit d'une donnée ou d'un calcul, `"human"` s'il exprime un avis sur le jeu qu'un joueur doit relire.
+
+## Résumé pour la draft
+
+Pour ne pas surcharger l'écran, `coachingSummary` renvoie le strict nécessaire :
+
+```js
+const s = coachingSummary({ enemies, level, fixedRoles, manualOpponent, hasFront, pick, personal });
+
+{
+  version: 1, level, pick, rival, opponent, confidence,
+  headline: "Fizz, sinon Xerath",   // ou "Égalité : Master Yi et Viego", ou null sans pick
+  tied: [],                         // champions à égalité, vide sinon
+  explanation: { id, title, text, source, basis, limits },  // facultative, à ouvrir
+  risk:        { ... },             // risque prioritaire, ou null
+  lesson:      { ... }              // conseil adapté au niveau, ou null
+}
+```
+
+`source` donne la provenance à afficher. L'explication et le risque ne répètent jamais le même conseil.
+
+## Afficher une égalité
+
+`analyze` renvoie maintenant `ties`, et `tiedWith` sur chaque pick. **Quand `tied` n'est pas vide, l'interface doit présenter tous les champions du groupe au même niveau**, sans en mettre un en avant. Sinon, l'ordre alphabétique avantage certains noms : Cho'Gath apparaît en tête dans 71,5 % des drafts du pool audité, mais n'obtient que 43,4 % en partageant les égalités.
+
+`holdPick` reste valable pour éviter qu'un nom change sans raison pendant la draft. Il ne remplace pas l'affichage de l'égalité : il faut lire `tiedWith` à côté.
+
 ## Règles de gestion
 
 - **Niveau :** il change les textes et les éléments affichés, jamais les scores.
@@ -77,9 +106,40 @@ Une entrée dans `COACH_RULES` : `id`, `category`, `priority`, `basis`, `when(ct
 
 ## Tests
 
-`.\tools\run-coaching-tests.ps1 -Samples` : 100 contrôles sur les 15 cas demandés, puis sur 6 000 conseils calculés à travers 5 profils et 3 niveaux. Ils vérifient : pas de texte cassé, pas de contradiction avec le moteur, pas de phrase creuse, résultat identique à chaque appel, classement inchangé, aucun appel réseau.
+`.\tools\run-coaching-tests.ps1 -Samples` : 133 contrôles de conseils, 18 sur les égalités et 177 sur le moteur. Ils vérifient : pas de texte cassé, pas de contradiction avec le moteur, pas de phrase creuse, résultat identique à chaque appel, classement inchangé, aucun appel réseau.
 
 **Ils ne prouvent pas que les conseils sont bons.** Une relecture par un joueur reste indispensable.
+
+## Relecture
+
+`.\tools\run-coaching-review.ps1` génère `docs/COACHING-EXEMPLES.md` : 36 situations, soit 12 par niveau, avec le contexte exact et le déclencheur de chaque conseil.
+
+Défauts trouvés à la relecture, tous corrigés et couverts par un test :
+
+| Type | Défaut | Correction |
+|---|---|---|
+| Phrase cassée | « Xerath passe devant : . » quand le moteur ne donne pas de raison | Nom du critère à la place |
+| Champion mal désigné | Katarina, Leona et Camille appelées « il » | Tournures sans pronom |
+| Trompeur | « Tu peux le toucher sans qu'il te réponde » contre Yasuo ou Katarina | Plus d'avantage de portée annoncé contre un plongeur ou un champion très mobile ; ailleurs, rappel que ses sorts comptent |
+| Trompeur | « Frappe le plus proche » pour Master Yi et Viego, qui cherchent souvent les cibles fragiles | Consigne retirée |
+| Inadapté au rôle | « Pousse ta vague » pour un support, comparaison de portée pour un jungler | Texte propre au rôle, ou conseil retiré |
+| Classification | « Corps à corps » et « touche de très loin » pour Jayce | Champions à forme variable traités à part |
+| Chiffre trompeur | « 4 cibles fragiles : Lux, Jinx, Syndra » | « ... et 1 autre » |
+| Trop catégorique | « Le combat est perdu d'avance », « Le farm passe avant tout » | Reformulés |
+| Répétition | Même danger dit deux fois, jusqu'à 11 conseils en Débutant | Doublon retiré, plafond |
+| Trop vague | Choix net sans sa raison principale | Conseil « Pourquoi ce champion » |
+| Incertitude | Matchup présenté sans dire que l'adversaire est supposé | « (supposé) » dans le titre |
+
+**Restent à juger par un joueur :** 121 conseils sur 213 dans les exemples (`À relire`). Je ne peux pas garantir leur justesse stratégique. Les points les plus discutables :
+
+- les conseils de placement généraux ;
+- « Un tank en face tue rarement vite » ;
+- les tables de dégâts écrites à la main ;
+- les fiches listées dans `docs/AUDIT-MOTEUR.md`.
+
+Les bases « Se placer » et « Contrôles » reviennent aussi souvent, ce qui peut lasser.
+
+En cas d'égalité, les conseils décrivent le premier champion du groupe, choisi par ordre alphabétique. L'interface devrait laisser choisir lequel expliquer avec `pick`.
 
 ## Ce qui reste à faire
 
