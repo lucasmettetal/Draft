@@ -79,6 +79,9 @@ if (-not $Only -or $Only -contains 'v215') {
   Shot 'v215-historique-panneaux' 1456 720 ('sheet.html?x=1&enemies=' + [uri]::EscapeDataString($full)) $mine $null
   Shot 'v215-conseils-grand' 1280 720 ('frame.html?w=1280&h=720&tab=coach&enemies=' + [uri]::EscapeDataString($full)) $mine $null
   Shot 'v215-conseils-long' 1280 1500 ('frame.html?w=1280&h=1500&tab=coach&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-analyse' 1280 720 ('frame.html?w=1280&h=720&tab=analyse&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-comparer' 1280 720 ('frame.html?w=1280&h=720&tab=compare&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-regles' 1280 720 ('frame.html?w=1280&h=720&tab=rules&enemies=' + [uri]::EscapeDataString($full)) $mine $null
   Shot 'v215-reglages' 1280 720 'frame.html?w=1280&h=720&tab=settings&host=1' $mine $null
   Remove-Item (Join-Path $work 'draft-history.js')
 }

@@ -485,7 +485,6 @@
   .tie-group .note { margin:0; font-size:12px; }
   .stage-tie { display:flex; align-items:flex-end; }
   .stage-tie .stage-body { position:relative; left:auto; bottom:auto; width:100%; }
-  .col-right .tabs { flex-wrap:wrap; overflow-x:visible; }
   .coach-line { flex:none; padding:6px 8px; border-left:2px solid var(--line); font-size:13px; }
   .coach-line b { display:block; overflow-wrap:anywhere; }
   .coach-line p { margin:2px 0 0; color:var(--muted); font-size:12.5px; overflow-wrap:anywhere; }
@@ -1608,7 +1607,7 @@ function PlanTab() {
 const IMPACT_MARK = v => v > 0 ? (v >= 2 ? "++" : "+") : v < 0 ? (v <= -2 ? "−−" : "−") : "=";
 const impactText = v => v > 0 ? "avantage" : v < 0 ? "désavantage" : "neutre";
 
-function AnalyseTab() {
+function CriteriaView() {
   const entries = V.res.ranking;
   const rows = CRITERIA.filter(def => entries.some(p => p.criteria.some(c => c.key === def.key)));
   const uncertain = [];
@@ -1865,16 +1864,29 @@ const RulesTab = () => html`<div>
 </div>`;
 
 const PartiesTab = () => html`<div><${JournalTab} /><${StatsTab} /></div>`;
-const TABS = [["plan", "Plan", PlanTab], ["analyse", "Analyse", AnalyseTab], ["coach", "Conseils", CoachTab], ["compare", "Comparer", CompareTab], ["matchups", "Matchups", MatchupsTab], ["parties", "Parties", PartiesTab], ["rules", "Règles", RulesTab]];
+// Comparer et Règles restent des vues d'Analyse : leurs anciens liens (?tab=compare, ?tab=rules) y mènent toujours.
+const ANALYSE_VIEWS = [["criteria", "Critères", CriteriaView], ["compare", "Comparer", CompareTab], ["rules", "Règles", RulesTab]];
+const urlTab = () => new URLSearchParams(location.search).get("tab");
+function AnalyseTab() {
+  const [view, setView] = useState(() => ANALYSE_VIEWS.some(v => v[0] === urlTab()) ? urlTab() : "criteria");
+  const Current = ANALYSE_VIEWS.find(v => v[0] === view)[2];
+  return html`<div>
+    <div className="seg-tabs" role="group" aria-label="Vue de l'analyse">
+      ${ANALYSE_VIEWS.map(([key, text]) => html`<button key=${key} type="button" data-view=${key} aria-pressed=${view === key} className=${`seg-tab${view === key ? " on" : ""}`} onClick=${() => setView(key)}>${text}</button>`)}
+    </div>
+    <${Current} />
+  </div>`;
+}
+const TABS = [["plan", "Plan", PlanTab], ["analyse", "Analyse", AnalyseTab], ["coach", "Conseils", CoachTab], ["matchups", "Duel", MatchupsTab], ["parties", "Parties", PartiesTab]];
 
 function SidePanel() {
-  const [tab, setTab] = useState(() => { const t = new URLSearchParams(location.search).get("tab"); return TABS.some(x => x[0] === t) ? t : "plan"; });
+  const [tab, setTab] = useState(() => { const t = urlTab(); return TABS.some(x => x[0] === t) ? t : ANALYSE_VIEWS.some(v => v[0] === t) ? "analyse" : "plan"; });
   const Current = TABS.find(t => t[0] === tab)[2];
   return html`<aside className="col col-right">
     <${PlanBlock} />
     <div className="tabs" role="tablist" aria-label="Détails et statistiques">
       ${TABS.map(([key, text]) => html`<button key=${key} type="button" role="tab" aria-selected=${tab === key} data-tab=${key} className=${`tab${tab === key ? " on" : ""}`} onClick=${() => setTab(key)}>
-        ${key === "matchups" ? (myRole() === "mid" ? "Mid" : "Duel") : text}
+        ${text}
         ${tab === key ? html`<${motion.span} className="tab-line" layoutId="tab-line" transition=${SNAP} />` : null}
       </button>`)}
     </div>

@@ -375,6 +375,7 @@ public static class Autostart
         public string ShownMode { get { return shownMode; } }
         public ClientWindowTracker Tracker { get { return tracker; } }
         public bool HotkeyRegistered { get { return hotkey != null && hotkey.Registered; } }
+        public bool HotkeyCreated { get { return hotkey != null; } }
         public UserPreferences Prefs { get { return settings; } }
 
         public PanelForm PanelFor(string id) { PanelForm f; return panels.TryGetValue(id, out f) ? f : null; }
@@ -386,6 +387,7 @@ public static class Autostart
             bool hadSettings = File.Exists(settingsPath);
             firstRun = !hadSettings && !o.Silent;
             settings = UserPreferences.Load(settingsPath);
+            if (o.NoAutoPanels) settings.AutoDraft = false;
             legacyProfile = (hadSettings && !settings.ProfileKnown) || o.SelfTest || o.EndToEnd;
             if (!hadSettings) { settings.ProfileKnown = true; try { settings.Save(settingsPath); } catch { } }
             detector = new DraftPhaseDetector(settings);
@@ -422,8 +424,12 @@ public static class Autostart
             tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DraftMid", Visible = true, ContextMenuStrip = menu };
             tray.DoubleClick += (s, e) => ToggleManual();
 
-            hotkey = new HotkeyWindow();
-            hotkey.Pressed += ToggleManual;
+            // Essai à côté d'une autre version : le raccourci reste à celle-ci, sans même tenter de l'enregistrer.
+            if (!o.NoHotkey)
+            {
+                hotkey = new HotkeyWindow();
+                hotkey.Pressed += ToggleManual;
+            }
 
             tracker = new ClientWindowTracker(clientMatcher, false);
             // Réaction immédiate au premier événement, puis au plus une mise à jour toutes les 16 ms.
@@ -1547,7 +1553,7 @@ public static class Autostart
             Persist();
             tracker.Dispose();
             grabber.Dispose();
-            hotkey.Dispose();
+            if (hotkey != null) hotkey.Dispose();
             tray.Visible = false;
             tray.Dispose();
             foreach (PanelForm f in panels.Values.ToList()) { try { f.Close(); f.Dispose(); } catch { } }
@@ -1830,7 +1836,7 @@ public static class Autostart
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
                 t(l.Top == c.Top && l.H == c.H, "4. Hauteur et alignement sur le client");
                 t(!PanelHasFocus(app), "Aucun vol de focus à l'apparition");
-                t(app.HotkeyRegistered, "Raccourci Ctrl+Alt+D enregistré");
+                if (o.NoHotkey) t(!app.HotkeyCreated, "Raccourci laissé à l'autre version : aucune tentative"); else t(app.HotkeyRegistered, "Raccourci Ctrl+Alt+D enregistré");
 
                 feed(Evidence.NotDraft, 1); feed(Evidence.Draft, 1); feed(Evidence.Unknown, 2); feed(Evidence.NotDraft, 2); feed(Evidence.Draft, 1);
                 t(app.PanelsShown, "Lectures fugitives : pas de clignotement");
@@ -2090,6 +2096,7 @@ public static class Autostart
     public class Options
     {
         public string Script, CaptureDir, Out, DataDir, InstallDir;
+        public bool NoHotkey, NoAutoPanels;
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
@@ -2123,6 +2130,8 @@ public static class Autostart
                     case "--install-dir": o.InstallDir = next(); break;
                     case "--test-install": o.TestInstall = true; o.Silent = true; break;
                     case "--run-key": o.RunKey = next(); break;
+                    case "--no-hotkey": o.NoHotkey = true; break;
+                    case "--no-auto-panels": o.NoAutoPanels = true; break;
                 }
             }
             return o;

@@ -14,7 +14,10 @@ $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
 foreach ($s in 'empty', 'one', 'full', 'midunknown', 'close', 'excluded', 'none', 'picked', 'history', 'extreme') { $Runs += , @($s, "state=$s&frozen=1", $false) }
-foreach ($t in 'analyse', 'coach', 'compare', 'matchups', 'parties', 'rules') { $Runs += , @("onglet $t", "state=history&set=full&tabclick=$t&frozen=1", $false) }
+$Runs += , @('analyse, vue comparer', 'state=history&set=full&tabclick=analyse&view=compare&frozen=1', $false)
+$Runs += , @('analyse, vue regles', 'state=history&set=full&tabclick=analyse&view=rules&frozen=1', $false)
+$Runs += , @('analyse, comparer sur egalite', 'state=tie&profile=jungle&set=full&tabclick=analyse&view=compare&frozen=1', $false)
+foreach ($t in 'analyse', 'coach', 'matchups', 'parties') { $Runs += , @("onglet $t", "state=history&set=full&tabclick=$t&frozen=1", $false) }
 $Runs += , @('reglages', 'state=full&set=full&tab=settings', $false)
 $Runs += , @('reglages application', 'state=full&set=full&tab=settings&host=on', $false)
 $Runs += , @('profil support, noms longs', 'state=full&set=full&profile=support&frozen=1', $false)

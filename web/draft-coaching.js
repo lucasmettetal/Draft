@@ -125,7 +125,7 @@ const COACH_RULES = [
     build: (c, d) => { const names = coachList([c.pick].concat(d.others)); return { title:`Égalité : ${names}`,
       text:[`Le classement ne les départage pas. Choisis celui que tu connais le mieux.`,
         d.sameSheet ? `Leurs fiches sont identiques : l'outil ne peut pas les distinguer dans cette draft. Ta maîtrise et ton envie comptent davantage que le classement.`
-          : `Même score pour des raisons différentes. Regarde ce que chacun apporte dans « Comparer », et choisis selon ta maîtrise.`,
+          : `Même score pour des raisons différentes. Regarde ce que chacun apporte dans Analyse, vue Comparer, et choisis selon ta maîtrise.`,
         `Score identique (${coachNum(c.entry.score)}). Le nom affiché en premier ne vient que de l'ordre alphabétique, ou de ton favori : ce n'est pas un avantage.${d.sameSheet ? " Fiches identiques : aucune règle ne peut les séparer." : ""}`],
       limits:"Les règles ne les distinguent pas ici : ce n'est pas une preuve qu'ils se valent en jeu.", evidence:[{ kind:"tie", picks:[c.pick].concat(d.others), score:+c.entry.score.toFixed(2) }] }; } },
   { id:"draft.why", category:"decision", priority:82, basis:"heuristic",

@@ -5,6 +5,7 @@
 | Fonctionnalité | V2.14 stable (`main`) | Moteur (`feature/strategic-engine-coaching`) | Candidate (`integration/v2.15-coaching`) |
 |---|---|---|---|
 | Panneaux, profils, lecture du client | Oui | Base V2.13 | Oui |
+| Navigation en 5 onglets | Non (6 onglets) | Non | Oui |
 | Finition de l'interface, correctifs des réglages | Oui | Non | Oui |
 | Égalités sans effet de l'ordre du pool | Non | Dans le moteur | Moteur et écran |
 | Moteur de conseils | Non | Non branché | Onglet Conseils |

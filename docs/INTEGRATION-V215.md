@@ -2,7 +2,31 @@
 
 Branche `integration/v2.15-coaching`, partie de `7690f79` (V2.14). Rien n'est fusionné dans la version stable, installé ni publié.
 
-**Intégré sur cette branche :** égalités à l'écran, import dans les réglages, le plus joué, conseils sur 3 niveaux, onglet Conseils. Le classement reste le modèle A, et le modèle T reste désactivé.
+**Intégré sur cette branche :** égalités à l'écran, import dans les réglages, le plus joué, conseils sur 3 niveaux, navigation en 5 onglets. Le classement reste le modèle A, le modèle T reste désactivé, et les poids n'ont pas changé. Les données Meraki sont retirées des sources.
+
+**Pas encore validé :** l'import avec une vraie clé, le comportement sur de vraies drafts, et la justesse des conseils pour un joueur.
+
+## Navigation
+
+Cinq onglets : Plan, Analyse, Conseils, Duel, Parties. Analyse contient trois vues : Critères, Comparer et Règles. Rien n'est supprimé, et les anciens liens `?tab=compare` et `?tab=rules` mènent à la bonne vue.
+
+## Essai réel sans remplacer la V2.14
+
+```powershell
+cd C:\Users\lucas\Downloads\DraftMid-v215
+.\tools\try-v215.ps1
+```
+
+| Point | Comportement |
+|---|---|
+| Données | `%LOCALAPPDATA%\DraftMid-essai-v215`, séparées de la V2.14 |
+| Démarrage automatique | Clé séparée |
+| Raccourci | Jamais enregistré (`--no-hotkey`) : Ctrl+Alt+D reste à la V2.14 |
+| Panneaux automatiques | Coupés si une autre version tourne (`--no-auto-panels`), avec un avertissement |
+| Partie en cours | Essai refusé |
+| Import | Jamais lancé sans ton action et ta clé |
+
+`-Reset` efface uniquement le dossier d'essai, et `-Simulation` montre ce qui serait lancé.
 
 ## Contenu de la branche
 
