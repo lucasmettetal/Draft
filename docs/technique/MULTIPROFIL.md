@@ -25,7 +25,7 @@
 | Préférences | `draftPrefs`, `settings.json` | Ce PC |
 | Journal | `draftJournal` | Ce PC |
 | Statistiques personnelles | `draft-stats.js` | Ce PC, jamais publiées |
-| Données des champions | `draft-champions.js`, `draft-role-sheet.js`, `draft-role-rates.js` | Livrées |
+| Données des champions | `draft-champions.js`, `draft-role-sheet.js` | Livrées |
 | Calculs locaux | `draft-*-live.js`, `draft-*-state*.json` | Ce PC |
 | Moteur | `draft-engine.js`, `draft-data.js` | Livré, sans donnée personnelle |
 

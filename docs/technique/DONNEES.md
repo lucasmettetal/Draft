@@ -9,7 +9,7 @@ Mesures faites le 4 novembre 2026 sur les fichiers réels.
 | Source | Type | Provenance | Patch et date | Observations | Limites | Réutilisation | Impact |
 |---|---|---|---|---|---|---|---|
 | Noms, portraits, patch | Officiel | Riot, Data Dragon | Dernier patch connu | Sans objet | Hors ligne, le patch peut être en retard | Données publiques de Riot | Affichage, âge des données |
-| Rôles livrés | Estimation externe | Meraki Analytics | Patch 16.3, soit 19 patchs d'écart avec le 16.22 | Inconnues : ce sont des taux, sans nombre de parties | Beaucoup de champions n'ont qu'un rôle : Teemo y est 100 % top, 65 % dans les parties observées | **Licence non confirmée** | Référence pour les rôles |
+| Rôles livrés | Retirés du dépôt | Meraki Analytics | Patch 16.3 | Inconnues : ce sont des taux, sans nombre de parties | Droits de redistribution non confirmés | Plus livrés. Restent dans l'historique et les anciennes releases | Les rôles écrits à la main prennent le relais |
 | Rôles calculés | Observé | API Riot, clé personnelle | Calcul du 4 novembre, patch et région non enregistrés par l'ancien format | 1 000 parties, 9 999 lignes. Médiane de 50 par champion, 13 champions sous 20, 86 sous 50 | Un seul calcul, Silver à Émeraude, classé solo/duo | Sur le PC du joueur, sans nom de joueur | Rôles adverses |
 | Bilans de matchups | Observé | API Riot, clé personnelle | Jamais calculés avec une vraie clé | 0 | Écart à la moyenne des joueurs suivis, pas un winrate général | Sur le PC du joueur, sans nom de joueur | Critère le plus lourd du classement |
 | Tableau de matchups | Écrit à la main | Projet | Aucun | Aucune | Mid et 4 champions seulement | Propre au projet | Critère le plus lourd pour ce profil |
@@ -57,7 +57,7 @@ Aucune collecte automatique depuis OP.GG ou une autre plateforme.
 
 ## Retirer Meraki
 
-`build.ps1 -SansMeraki` compile sans ce fichier. Les rôles habituels écrits à la main (`web/draft-role-sheet.js`) prennent alors le relais, et le moteur fonctionne sans autre changement. Retirer le fichier du dépôt ne l'efface pas de l'historique Git.
+`web/draft-role-rates.js` n'est plus suivi : ses droits de redistribution ne sont pas confirmés. Le dépôt de Meraki est sous licence MIT pour son code, sans mention du fichier `championrates.json`, et demande seulement de citer la source. Les rôles habituels écrits à la main (`web/draft-role-sheet.js`) prennent le relais, et le moteur fonctionne sans autre changement. `build.ps1 -SansMeraki` reste accepté. Ce retrait n'efface rien de l'historique Git ni des anciennes releases : voir [Branches et publication](BRANCHES.md). `tools/update-role-rates.ps1` régénère ce fichier pour un usage local, et `.gitignore` l'exclut.
 
 ## Ajouter une source
 
@@ -93,7 +93,7 @@ Point négatif : quand le vrai adversaire n'est pas encore révélé, le nouveau
 - Le calcul complet n'a jamais tourné sur l'API Riot : seulement sur des réponses simulées.
 - Aucune évaluation sur de vraies drafts, ni sur la qualité finale des conseils.
 - Les seuils (poids de la référence, 30 parties, z ≥ 3) sont des choix prudents, non calibrés sur plusieurs patchs réels.
-- La licence Meraki n'est pas confirmée, alors que le fichier est livré dans le dépôt public.
+- La licence Meraki n'est pas confirmée : le fichier reste dans l'historique public et les anciennes releases.
 - 1 000 parties laissent la moitié des champions sous 50 observations.
 - Fiches et tableau restent des avis écrits à la main.
 
