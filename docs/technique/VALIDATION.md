@@ -13,7 +13,7 @@ dist-test\DraftMid-Portable.exe --soak 15 --data <dossier> --out soak.txt
 .\tools\run-accuracy-tests.ps1
 ```
 
-Le test `web/draft-tests.html` s'ouvre dans un navigateur. Dans `--e2e`, « Raccourci Ctrl+Alt+D enregistré » échoue si un autre DraftMid tourne : il occupe le raccourci.
+Résultats, branches et statut de publication : voir [Branches et publication](BRANCHES.md). Le test `web/draft-tests.html` s'ouvre dans un navigateur. Dans `--e2e`, « Raccourci Ctrl+Alt+D enregistré » échoue si un autre DraftMid tourne : il occupe le raccourci.
 
 ## Ce que chaque test prouve, et ce qu'il ne prouve pas
 

@@ -19,7 +19,7 @@ Politiques consultées le 3 novembre 2026, et relues le 4 novembre pour ces troi
 | Position de la fenêtre via l'API Windows | Lecture du titre, du processus et du rectangle, sans lien avec le contenu du jeu | Active, désactivable |
 | Data Dragon | Service officiel de données statiques | Active |
 | API officielle Riot | Clé personnelle, pour un usage privé | Scripts manuels pour les bilans et les rôles récents, aucune clé dans l'exécutable |
-| Statistiques de rôles Meraki Analytics | Fichier public, licence non confirmée | Livrées en secours, point ouvert ci-dessous |
+| Statistiques de rôles Meraki Analytics | Fichier public, droits non confirmés | Retirées du dépôt : voir [DONNEES.md](DONNEES.md) |
 | API du client (lockfile) | Non prise en charge, statut à clarifier | Lecture seule, option à cocher |
 | Lecture mémoire, injection, contournement de Vanguard | Hors de question | Jamais |
 | Reconnaissance visuelle locale du client | Sans contact avec le client, non validée par Riot | Active, comme estimation : voir [DETECTION.md](DETECTION.md) |
@@ -40,7 +40,7 @@ Depuis le 4 novembre 2026, le code et l'exécutable sont publics sur GitHub, par
 
 - **Audit :** le produit et chacune de ses évolutions passent par le portail développeur.
 - **Illustrations :** l'application affiche des portraits de Riot, et la page des applications tierces vise celles qui « allow the use of our assets for free ». Le cadre applicable reste à vérifier.
-- **Données de rôles :** vérifier la licence du fichier Meraki, ou le retirer. Publier des rôles calculés demanderait une clé de production, et Riot doit l'autoriser.
+- **Données de rôles :** le fichier Meraki est retiré, faute de droits confirmés. Publier des rôles calculés demanderait une clé de production, et Riot doit l'autoriser.
 - **Identifiants :** aucune clé Riot dans l'exécutable. Les scripts restent séparés.
 - **Conseil de pick :** garder plusieurs options et les raisons affichées, car la politique permet de mettre une décision en évidence mais pas de la retirer au joueur.
 

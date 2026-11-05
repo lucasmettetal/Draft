@@ -60,8 +60,8 @@ L'API de Riot ne permet pas de chercher les parties d'un champion, et Kog'Maw mi
 |---|---|
 | Officiel (Data Dragon) | Noms, portraits, illustrations, patch, classes de Locke et Zaahen |
 | Rôles récents (API Riot) | Calculés par « Mettre à jour les rôles » (`src/RoleRatesUpdater.cs`) sur 1 000 parties des 14 derniers jours, Silver à Emeraude. Stockés dans `%LOCALAPPDATA%\DraftMid\draft-role-rates-live.js`, sans nom de joueur. Résultat local, jamais livré avec l'exécutable. Clé personnelle : usage privé seulement |
-| Rôles de secours (Meraki Analytics) | Taux de jeu du patch 16.3, utilisés sous 20 parties récentes et livrés avec l'exécutable. Licence non confirmée : point ouvert, voir [INTEGRATION-RIOT.md](INTEGRATION-RIOT.md) |
-| Bilans de matchups (API Riot) | Calculés par « Mettre à jour les matchups » (`src/RoleRatesUpdater.cs`). Stockés dans `%LOCALAPPDATA%DraftMiddraft-matchups-live.js`, sans nom de joueur. Clé personnelle : usage privé seulement |
+| Rôles de secours (Meraki Analytics) | Retirés en V2.14 de référence, faute de droits confirmés. Les rôles écrits à la main prennent le relais : voir [DONNEES.md](DONNEES.md) |
+| Bilans de matchups (API Riot) | Calculés par « Mettre à jour les matchups » (`src/RoleRatesUpdater.cs`). Stockés dans `%LOCALAPPDATA%\DraftMid\draft-matchups-live.js`, sans nom de joueur. Clé personnelle : usage privé seulement |
 | Heuristique | Matchups sans assez de parties, profils, règles, plans de jeu |
 | Personnel | Journal et import Riot, affichés sans effet sur le classement |
 
