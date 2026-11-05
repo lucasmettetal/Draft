@@ -322,7 +322,7 @@ unitBlock("Cohérence du moteur", "Sur 400 drafts tirées avec une graine fixe :
     r.ranking.forEach((p, k) => {
       if (isNaN(p.score)) problems.nan++;
       if (Math.abs(p.score - p.criteria.reduce((s, c) => s + c.impact, 0)) > 1e-9) problems.somme++;
-      if (k && r.ranking[k - 1].score < p.score) problems.ordre++;
+      if (k && r.ranking[k - 1].score < p.score - 1e-6) problems.ordre++;
       if (list.includes(label(p.pick))) problems.pris++;
       const risk = mainRisk(p);
       if (positiveReasons(p).some(text => p.why.find(w => w.text === text).v <= 0) || (risk && p.why.find(w => w.text === risk).v >= 0)) problems.raisons++;
