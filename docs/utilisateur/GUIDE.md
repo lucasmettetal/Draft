@@ -7,7 +7,7 @@ Il faut Windows 10 ou 11, avec Microsoft Edge WebView2. S'il manque, DraftMid l'
 - **Portable :** lance `DraftMid-Portable.exe`, sans installation.
 - **Installée :** lance `DraftMid-Setup.exe`, sans droits administrateur, avec un raccourci dans le menu Démarrer.
 
-L'exécutable n'est pas signé : Windows peut afficher un avertissement. Pour obtenir la V2.14, [compile-la](../../README.md#installation) : la dernière release publique est plus ancienne.
+L'exécutable n'est pas signé : Windows peut afficher un avertissement. Pour obtenir la V2.14, [compile-la](../../README.md#installation). Les releases publiques sont plus anciennes et ne sont pas recommandées : voir [leur statut](../technique/ANCIENNES-RELEASES.md).
 
 ## Configuration
 

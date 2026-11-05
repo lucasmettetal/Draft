@@ -32,6 +32,7 @@
 | [Validation](technique/VALIDATION.md) | Tests automatiques et manuels |
 | [Validation réelle](technique/VALIDATION-REELLE.md) | Protocole sur de vraies drafts, pas encore réalisé |
 | [Branches et publication](technique/BRANCHES.md) | Stratégie, worktrees, workflow, contrôles avant push |
+| [Anciennes releases](technique/ANCIENNES-RELEASES.md) | Statut, limite du retrait de Meraki, recommandation |
 
 ## Travaux non livrés
 

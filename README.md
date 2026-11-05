@@ -11,10 +11,12 @@ Application Windows qui aide à choisir son champion pendant la sélection de Le
 | Version | Où | État |
 |---|---|---|
 | **V2.14** | Branche `main`, à compiler | **Stable de référence.** Pas encore publiée en release |
-| V2.10 | [Dernière release publique](https://github.com/lucasmettetal/Draft/releases/latest) | Ancienne. Contient une référence Meraki et des bilans personnels retirés depuis |
+| V2.6 à V2.10 | Anciennes releases publiques | **Pas recommandées.** Voir ci-dessous |
 | V2.15 | Branche `integration/v2.15-coaching` | **Candidate, non stable** |
 
 Ce document décrit la V2.14. Le détail est dans [l'index de la documentation](docs/README.md).
+
+**Anciennes releases :** GitHub affiche encore la V2.10 comme dernière release, mais aucune V2.11 ou plus récente n'a été publiée. Ces versions anciennes peuvent contenir des données Meraki, dont les droits de redistribution restent à clarifier, et des bilans personnels retirés depuis. La référence Meraki est retirée des fichiers courants, mais reste dans l'historique Git et ces releases : voir [leur statut](docs/technique/ANCIENNES-RELEASES.md).
 
 ## Fonctionnalités de la V2.14
 

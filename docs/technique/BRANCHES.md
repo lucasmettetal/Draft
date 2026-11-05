@@ -50,4 +50,4 @@ Une suppression dans un nouveau commit n'efface rien du passé. Sans réécritur
 - **Référence Meraki** (`web/draft-role-rates.js`) : dans l'historique depuis la V2.5, et dans l'exécutable des releases publiques. Vérifié sur la V2.10.
 - **Bilans personnels :** retirés du code en V2.13, présents dans l'historique et les releases plus anciennes.
 
-Réécrire l'historique ou retirer d'anciennes releases reste une décision à prendre par le propriétaire du dépôt.
+Réécrire l'historique ou retirer d'anciennes releases reste une décision à prendre par le propriétaire du dépôt : voir [Anciennes releases](ANCIENNES-RELEASES.md).
