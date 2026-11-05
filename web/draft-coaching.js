@@ -351,8 +351,9 @@ const COACH_RULES = [
     } },
   { id:"champ.difficulty", category:"champion", priority:44, basis:"official", maxLevel:1,
     when: c => { const o = c.pick ? coachOfficial(c.pick) : null; const known = c.personal && c.personal.byChampion[c.pick]; return o && o.difficulty >= 8 && !(known && known.games >= PERSONAL_MIN_EXPERIENCE) ? { value:o.difficulty } : null; },
-    build: (c, d) => ({ title:`${c.pick} demande de l'entraînement`,
-      text:[`Riot note sa difficulté ${d.value}/10. Si tu n'as jamais joué ce champion, ce n'est pas le moment idéal pour le découvrir en partie classée.`],
+    build: (c, d) => ({ title:`${c.pick} peut demander de la pratique`,
+      text:[`Riot note sa difficulté ${d.value}/10. Si tu découvres ce champion, prévois un temps de prise en main. Le choix reste le tien.`],
+      limits:"Note de Riot non documentée et parfois contredite par celle du client : une indication, pas une mesure.",
       evidence:[{ kind:"official", difficulty:d.value }] }) },
   { id:"champ.alternative", category:"champion", priority:48, basis:"heuristic", minLevel:2,
     when: c => {
@@ -511,7 +512,7 @@ function coachingSummary(input) {
   const lessonOrder = (COACH_LEVELS[input.level] || 1) === 1 ? ["fundamentals", "matchup", "composition"] : ["matchup", "composition", "champion"];
   let lesson = null;
   lessonOrder.some(cat => { lesson = a.items.find(i => i.category === cat && i !== main && i !== risk) || null; return !!lesson; });
-  const shorten = i => i ? { id:i.id, title:i.title, text:i.text, source:i.basisLabel, basis:i.basis, limits:i.limits } : null;
+  const shorten = i => i ? { id:i.id, title:i.title, text:i.text, source:i.basisLabel, basis:i.basis, limits:i.limits, verification:i.verification } : null;
   return {
     version:1, level:a.level, pick:a.pick, rival:a.rival, opponent:a.opponent, confidence:a.confidence,
     headline: !a.pick ? null : tie ? tie.title : a.rival ? `${a.pick}, sinon ${a.rival}` : a.pick,

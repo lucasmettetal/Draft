@@ -1,9 +1,8 @@
-// Importe l'historique classé du joueur depuis l'application, via l'API officielle de Riot.
+// Importe l'historique classé du joueur à sa demande, via l'API officielle de Riot : aucun appel sans action de sa part.
 // La clé reste dans le RiotWebFetcher, en mémoire, le temps de l'import : l'importeur ne la voit jamais.
 // Écrit un seul fichier, à part : draft-stats.js et les autres données personnelles ne sont ni lus, ni modifiés.
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -17,8 +16,8 @@ namespace DraftMid
 {
     public class HistoryImportResult
     {
-        public int Added, Total;
-        public bool Saved, Cancelled, LimitReached;
+        public int Added, Total, Read;
+        public bool Saved, Cancelled, HasMore;
         public string Error = "";
         public readonly List<string> NotFound = new List<string>();
     }
@@ -26,6 +25,7 @@ namespace DraftMid
     public class HistoryImporter
     {
         public const string FileName = "draft-history.js";
+        public const string BackupFolder = "sauvegardes-historique";
         const string Prefix = "window.DRAFT_HISTORY = ";
         const int QueueSoloDuo = 420, MinDurationSec = 300, PageSize = 100, MaxFailures = 5;
 
@@ -36,15 +36,19 @@ namespace DraftMid
         readonly DateTime sinceUtc;
         readonly List<Dictionary<string, object>> rows = new List<Dictionary<string, object>>();
         readonly HashSet<string> known = new HashSet<string>();
+        // Parties lues mais écartées (remakes) : à ne pas redemander.
+        readonly List<string> skipped = new List<string>();
+        bool backedUp, dirty;
         readonly List<string> allAccounts = new List<string>();
         int failures;
 
         // Limite d'une clé personnelle : 100 requêtes par 2 minutes.
         public int DelayMs = 1300;
         public int CheckpointEvery = 25;
-        // Un import reprend là où il s'est arrêté : pas besoin de tout faire d'un coup.
-        public int MaxGamesPerRun = 3000;
+        // Un import commence par les parties récentes, et le suivant va plus loin dans le passé.
+        public int MaxGamesPerRun = 100;
         public Action<int, int, string> Progress;
+        public Action<string> Status;
         public Func<int, CancellationToken, Task> Wait = (ms, ct) => Task.Delay(ms, ct);
         public int Requests { get; private set; }
 
@@ -101,12 +105,15 @@ namespace DraftMid
                     if (known.Add(row["acct"] + "|" + row["id"])) rows.Add(row);
                 }
                 foreach (object a in (object[])saved["accounts"]) if (!allAccounts.Contains(Convert.ToString(a))) allAccounts.Add(Convert.ToString(a));
+                object old;
+                if (saved.TryGetValue("skipped", out old)) foreach (object o in (object[])old) { skipped.Add(Convert.ToString(o)); known.Add(Convert.ToString(o)); }
             }
             catch (Exception e)
             {
                 if (e is OutOfMemoryException) throw;
                 rows.Clear();
                 known.Clear();
+                skipped.Clear();
                 allAccounts.Clear();
                 string aside = outPath + ".abime";
                 if (File.Exists(aside)) File.Delete(aside);
@@ -114,14 +121,27 @@ namespace DraftMid
             }
         }
 
+        // Une copie datée avant le premier changement de chaque import. Les 5 dernières sont gardées.
+        void BackupOnce()
+        {
+            if (backedUp || !File.Exists(outPath)) return;
+            backedUp = true;
+            string dir = Path.Combine(Path.GetDirectoryName(outPath), BackupFolder);
+            Directory.CreateDirectory(dir);
+            File.Copy(outPath, Path.Combine(dir, "draft-history-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".js"), true);
+            foreach (string old in Directory.GetFiles(dir, "draft-history-*.js").OrderByDescending(f => f).Skip(5)) File.Delete(old);
+        }
+
         void Save()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(outPath));
+            BackupOnce();
             string temp = outPath + ".tmp";
             Dictionary<string, object> payload = new Dictionary<string, object>
             {
                 { "generated", DateTime.UtcNow.ToString("o") },
                 { "accounts", allAccounts },
+                { "skipped", skipped },
                 { "rows", rows.OrderByDescending(r => Convert.ToInt64(r["time"])).ToList() }
             };
             File.WriteAllText(temp, Prefix + Json().Serialize(payload) + ";\n", new UTF8Encoding(false));
@@ -141,7 +161,13 @@ namespace DraftMid
                 if (reply.Status == 200) { failures = 0; return reply.Body; }
                 if (reply.Status == 404) return null;
                 if (reply.Status == 401 || reply.Status == 403) throw new StopImport("Clé Riot refusée ou expirée. Crée une nouvelle clé, puis relance : les parties déjà lues sont conservées.");
-                if (reply.Status == 429) { await Wait((reply.RetryAfterSeconds > 0 ? reply.RetryAfterSeconds : 120) * 1000, ct); continue; }
+                if (reply.Status == 429)
+                {
+                    int seconds = reply.RetryAfterSeconds > 0 ? reply.RetryAfterSeconds : 120;
+                    if (Status != null) Status("Limite de requêtes de Riot atteinte : reprise dans " + seconds + " secondes. Rien n'est perdu.");
+                    await Wait(seconds * 1000, ct);
+                    continue;
+                }
                 if (++failures >= MaxFailures) throw new StopImport("Riot ne répond pas pour le moment. Relance plus tard : les parties déjà lues sont conservées.");
                 await Wait(2000, ct);
             }
@@ -185,31 +211,38 @@ namespace DraftMid
             string body = await Get(routing + "/riot/account/v1/accounts/by-riot-id/" + Uri.EscapeDataString(parts[0].Trim()) + "/" + Uri.EscapeDataString(parts[1].Trim()), ct);
             if (body == null) { result.NotFound.Add(account); return; }
             string puuid = Convert.ToString(((Dictionary<string, object>)Json().DeserializeObject(body))["puuid"]);
-            if (!allAccounts.Contains(account)) allAccounts.Add(account);
+            if (!allAccounts.Contains(account)) { allAccounts.Add(account); dirty = true; }
             long since = (long)(sinceUtc - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
-            List<string> ids = new List<string>();
+            int room = MaxGamesPerRun - result.Read;
+            if (room <= 0) { result.HasMore = true; return; }
+            // Du plus récent au plus ancien, sans lister plus que ce que cet import peut lire.
+            List<string> missing = new List<string>();
+            bool exhausted = false;
             for (int start = 0; ; start += PageSize)
             {
                 string page = await Get(routing + "/lol/match/v5/matches/by-puuid/" + puuid + "/ids?queue=" + QueueSoloDuo + "&startTime=" + since + "&start=" + start + "&count=" + PageSize, ct);
                 object[] found = page == null ? new object[0] : (object[])Json().DeserializeObject(page);
-                ids.AddRange(found.Select(Convert.ToString));
-                if (found.Length < PageSize) break;
+                missing.AddRange(found.Select(Convert.ToString).Where(id => !known.Contains(account + "|" + id)));
+                if (found.Length < PageSize) { exhausted = true; break; }
+                if (missing.Count >= room) break;
             }
-            List<string> missing = ids.Where(id => !known.Contains(account + "|" + id)).ToList();
-            int done = 0;
-            foreach (string id in missing)
+            if (!exhausted || missing.Count > room) result.HasMore = true;
+            int goal = Math.Min(room, missing.Count), done = 0;
+            foreach (string id in missing.Take(goal))
             {
-                if (result.Added >= MaxGamesPerRun) { result.LimitReached = true; return; }
                 string text = await Get(routing + "/lol/match/v5/matches/" + id, ct);
-                known.Add(account + "|" + id);
                 done++;
+                result.Read++;
                 if (text != null)
                 {
                     Dictionary<string, object> row = ConvertMatch((Dictionary<string, object>)Json().DeserializeObject(text), puuid, account);
+                    known.Add(account + "|" + id);
                     if (row != null) { rows.Add(row); result.Added++; }
+                    else skipped.Add(account + "|" + id);
+                    dirty = true;
                 }
-                if (Progress != null) Progress(done, missing.Count, account);
-                if (done % CheckpointEvery == 0 && result.Added > 0) Save();
+                if (Progress != null) Progress(done, goal, account);
+                if (done % CheckpointEvery == 0 && dirty) Save();
             }
         }
 
@@ -220,34 +253,39 @@ namespace DraftMid
             try
             {
                 LoadPrevious();
-                foreach (string account in accounts) { await ImportAccount(account, result, ct); if (result.LimitReached) break; }
+                foreach (string account in accounts) await ImportAccount(account, result, ct);
             }
             catch (OperationCanceledException) { result.Cancelled = true; }
             catch (StopImport e) { result.Error = e.Message; }
             catch (Exception e) { if (e is OutOfMemoryException) throw; result.Error = "Réponse de Riot illisible : les parties déjà lues sont conservées."; }
-            // Aucune partie lue et rien avant : pas de fichier vide.
-            if (result.Added > 0 || (allAccounts.Count > 0 && File.Exists(outPath))) { Save(); result.Saved = true; }
+            // Rien de nouveau : le fichier existant ne bouge pas. Rien du tout : pas de fichier vide.
+            if (dirty && (rows.Count > 0 || File.Exists(outPath))) { Save(); result.Saved = true; }
             result.Total = rows.Count;
             return result;
         }
     }
 
-    // Fenêtre autonome, ouverte par --import-history : l'interface V2.15 pourra l'appeler telle quelle.
+    // Fenêtre dédiée : consentement, comptes, clé masquée et nombre de parties. La clé n'en sort que le temps de l'import.
     public class HistoryImportDialog : Form
     {
-        readonly TextBox accountsBox = new TextBox { Width = 340 };
-        readonly TextBox keyBox = new TextBox { UseSystemPasswordChar = true, Width = 340 };
-        readonly ComboBox regionBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 340 };
-        readonly DateTimePicker sinceBox = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 340 };
+        public static readonly DateTime OldestSupported = new DateTime(2021, 6, 16, 0, 0, 0, DateTimeKind.Utc);
+        readonly TextBox accountsBox = new TextBox { Width = 360 };
+        readonly TextBox keyBox = new TextBox { UseSystemPasswordChar = true, Width = 360 };
+        readonly ComboBox regionBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
+        readonly ComboBox countBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
+        readonly CheckBox consent = new CheckBox { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 14), Text = "J'accepte que DraftMid lise mes parties classées solo/duo avec ma clé et les garde sur ce PC." };
+        static readonly int[] Counts = { 100, 200, 500 };
 
         public string Key { get { return keyBox.Text.Trim(); } }
         public RiotRegion SelectedRegion { get { return (RiotRegion)regionBox.SelectedItem; } }
-        public DateTime SinceUtc { get { return DateTime.SpecifyKind(sinceBox.Value.Date, DateTimeKind.Utc); } }
+        public int GamesToRead { get { return Counts[countBox.SelectedIndex]; } }
+        public bool Consent { get { return consent.Checked; } }
         public List<string> Accounts { get { return accountsBox.Text.Split(',').Select(a => a.Trim()).Where(a => a != "").ToList(); } }
 
-        public HistoryImportDialog(IEnumerable<string> savedAccounts)
+        public HistoryImportDialog(Icon icon, Action<string> openLink, IEnumerable<string> savedAccounts)
         {
             Text = "DraftMid : importer mon historique Riot";
+            if (icon != null) Icon = icon;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -257,71 +295,38 @@ namespace DraftMid
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             regionBox.Items.AddRange(RiotRegion.All);
             regionBox.SelectedIndex = 0;
-            sinceBox.Value = new DateTime(2026, 1, 1);
-            sinceBox.MinDate = new DateTime(2021, 6, 16);
-            sinceBox.MaxDate = DateTime.Today;
+            foreach (int n in Counts) countBox.Items.Add(n + " parties, environ " + Math.Max(1, (int)Math.Ceiling(n * 1.3 / 60)) + " minutes");
+            countBox.SelectedIndex = 0;
             accountsBox.Text = string.Join(", ", savedAccounts);
 
             FlowLayoutPanel root = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Padding = new Padding(14) };
             Func<string, Label> title = t => new Label { AutoSize = true, Margin = new Padding(0, 0, 0, 3), Text = t };
-            Label intro = new Label { AutoSize = true, MaximumSize = new Size(340, 0), Margin = new Padding(0, 0, 0, 10), Text = "Lit tes parties classées solo/duo et les garde sur ce PC, dans un fichier séparé. Compte environ 1 minute 20 pour 60 parties. Tes données existantes ne sont pas modifiées." };
+            Label intro = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 10), Text = "Lit tes parties, des plus récentes aux plus anciennes. Un import suivant ira plus loin, sans doublon. Seuls tes champions, résultats et les champions adverses sont gardés, sur ce PC. Tes autres données ne sont pas modifiées, et le classement ne change pas. DraftMid n'est pas approuvé par Riot Games." };
             LinkLabel link = new LinkLabel { AutoSize = true, Margin = new Padding(0, 0, 0, 10), Text = "Obtenir une clé sur developer.riotgames.com" };
-            link.LinkClicked += (s, e) => Process.Start("https://developer.riotgames.com/");
-            accountsBox.Margin = keyBox.Margin = sinceBox.Margin = new Padding(0, 0, 0, 10);
-            regionBox.Margin = new Padding(0, 0, 0, 14);
-            FlowLayoutPanel buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Width = 340, Anchor = AnchorStyles.Right, Margin = new Padding(0) };
+            link.LinkClicked += (s, e) => openLink("https://developer.riotgames.com/");
+            accountsBox.Margin = keyBox.Margin = regionBox.Margin = countBox.Margin = new Padding(0, 0, 0, 10);
+            FlowLayoutPanel buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Width = 360, Anchor = AnchorStyles.Right, Margin = new Padding(0) };
             Button start = new Button { Text = "Importer", DialogResult = DialogResult.OK, AutoSize = true, Enabled = false };
             Button cancel = new Button { Text = "Annuler", DialogResult = DialogResult.Cancel, AutoSize = true };
             buttons.Controls.Add(start);
             buttons.Controls.Add(cancel);
-            EventHandler check = (s, e) => start.Enabled = Key != "" && Accounts.Count > 0 && Accounts.All(HistoryImporter.ValidAccount);
+            EventHandler check = (s, e) => start.Enabled = Consent && Key != "" && Accounts.Count > 0 && Accounts.All(HistoryImporter.ValidAccount);
             keyBox.TextChanged += check;
             accountsBox.TextChanged += check;
-            root.Controls.AddRange(new Control[] { intro, link, title("Comptes (Nom#TAG, séparés par une virgule) :"), accountsBox, title("Clé Riot (masquée, jamais enregistrée) :"), keyBox, title("Région :"), regionBox, title("Depuis le :"), sinceBox, buttons });
+            consent.CheckedChanged += check;
+            root.Controls.AddRange(new Control[] { intro, link, title("Comptes (Nom#TAG, séparés par une virgule) :"), accountsBox, title("Clé Riot (masquée, jamais enregistrée) :"), keyBox, title("Région :"), regionBox, title("Parties à lire :"), countBox, consent, buttons });
             Controls.Add(root);
             AcceptButton = start;
             CancelButton = cancel;
         }
 
-        // Ne touche à rien d'autre et ne demande pas de fermer DraftMid.
-        public static int RunWindow(string dataDir)
+        // Pour les tests natifs : le bouton reste bloqué tant que le consentement manque.
+        public bool TestCanStart(string account, string key, bool agree)
         {
-            string path = Path.Combine(dataDir, HistoryImporter.FileName);
-            string key;
-            RiotRegion region;
-            DateTime since;
-            List<string> accounts;
-            using (HistoryImportDialog dialog = new HistoryImportDialog(HistoryImporter.SavedAccounts(path)))
-            {
-                if (dialog.ShowDialog() != DialogResult.OK) return 0;
-                key = dialog.Key;
-                region = dialog.SelectedRegion;
-                since = dialog.SinceUtc;
-                accounts = dialog.Accounts;
-            }
-            using (Form progress = new Form { Text = "DraftMid : import de l'historique", FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, StartPosition = FormStartPosition.CenterScreen, ClientSize = new Size(380, 110) })
-            using (CancellationTokenSource cts = new CancellationTokenSource())
-            {
-                Label status = new Label { Left = 14, Top = 14, Width = 352, Height = 50, Text = "Démarrage..." };
-                Button stop = new Button { Text = "Arrêter", Left = 280, Top = 70, Width = 86 };
-                stop.Click += (s, e) => { stop.Enabled = false; status.Text = "Arrêt, les parties déjà lues sont conservées..."; cts.Cancel(); };
-                progress.Controls.Add(status);
-                progress.Controls.Add(stop);
-                progress.Shown += async (s, e) =>
-                {
-                    HistoryImporter importer = new HistoryImporter(new RiotWebFetcher(key), region, path, accounts, since);
-                    key = null;
-                    importer.Progress = (done, total, account) => progress.BeginInvoke((Action)(() => status.Text = account + " : " + done + " sur " + total + " nouvelles parties"));
-                    HistoryImportResult r = await Task.Run(() => importer.Run(cts.Token));
-                    string text = r.Error != "" ? r.Error : r.Cancelled ? "Import arrêté." : r.LimitReached ? "Limite de cet import atteinte : relance pour continuer." : "Import terminé.";
-                    text += "\n\n" + r.Added + " parties ajoutées, " + r.Total + " au total.";
-                    if (r.NotFound.Count > 0) text += "\nCompte introuvable : " + string.Join(", ", r.NotFound) + ".";
-                    MessageBox.Show(progress, text, "DraftMid");
-                    progress.Close();
-                };
-                Application.Run(progress);
-            }
-            return 0;
+            accountsBox.Text = account;
+            keyBox.Text = key;
+            consent.Checked = agree;
+            return AcceptButton is Button && ((Button)AcceptButton).Enabled;
         }
     }
 
@@ -389,9 +394,20 @@ namespace DraftMid
             Sim again = new Sim { Answer = Riot("A", "B", "NEW") };
             HistoryImportResult r2 = make(again).Run(CancellationToken.None).Result;
             t(r2.Added == 1 && r2.Total == 3 && !again.Urls.Any(u => u.EndsWith("/A")), "historique : reprise sans redemander ni doubler");
+            t(!again.Urls.Any(u => u.EndsWith("/REMAKE") || u.EndsWith("/FLEX")), "historique : une partie écartée n'est pas redemandée");
+            t(Directory.GetFiles(Path.Combine(home, HistoryImporter.BackupFolder), "draft-history-*.js").Length == 1, "historique : copie datée avant de modifier");
             t(HistoryImporter.SavedAccounts(path).SequenceEqual(new[] { "Test#EUW" }), "historique : comptes préremplis");
 
             string saved = File.ReadAllText(path);
+            Sim same = new Sim { Answer = Riot("A", "B", "NEW") };
+            HistoryImportResult r3 = make(same).Run(CancellationToken.None).Result;
+            t(r3.Added == 0 && !r3.Saved && File.ReadAllText(path) == saved, "historique : rien de nouveau, fichier inchangé");
+            string progressive = Path.Combine(home, "progressif.js");
+            Func<int, string[], HistoryImporter> step = (limit, ids) => new HistoryImporter(new Sim { Answer = Riot(ids) }, RiotRegion.All[0], progressive, new[] { "Test#EUW" }, HistoryImportDialog.OldestSupported) { DelayMs = 0, MaxGamesPerRun = limit, Wait = (ms, ct) => Task.FromResult(0) };
+            HistoryImportResult first = step(2, new[] { "P1", "P2", "P3" }).Run(CancellationToken.None).Result;
+            t(first.Added == 2 && first.HasMore && File.ReadAllText(progressive).Contains("\"P1\"") && !File.ReadAllText(progressive).Contains("\"P3\""), "historique : premier import limité aux parties récentes");
+            HistoryImportResult second = step(2, new[] { "P1", "P2", "P3" }).Run(CancellationToken.None).Result;
+            t(second.Added == 1 && second.Total == 3 && !second.HasMore, "historique : enrichissement progressif, puis plus rien à lire");
             HistoryImportResult refused = make(new Sim { Answer = u => new RiotReply { Status = 403, Body = "RGAPI-fausse-cle" } }).Run(CancellationToken.None).Result;
             t(refused.Error.Contains("refusée") && !refused.Error.Contains("RGAPI") && File.ReadAllText(path).Contains("\"NEW\"") && refused.Total == 3, "historique : clé refusée, rien de perdu, rien de divulgué");
             int waits = 0;
@@ -400,7 +416,10 @@ namespace DraftMid
             wait.Answer = u => { if (!limited && u.EndsWith("/C")) { limited = true; return new RiotReply { Status = 429, RetryAfterSeconds = 7 }; } return Riot("C")(u); };
             HistoryImporter patient = make(wait);
             patient.Wait = (ms, ct) => { if (ms == 7000) waits++; return Task.FromResult(0); };
+            string quota = "";
+            patient.Status = text0 => quota = text0;
             t(patient.Run(CancellationToken.None).Result.Added == 1 && waits == 1, "historique : limite de Riot respectée");
+            t(quota.Contains("7 secondes"), "historique : attente due au quota expliquée");
             Sim gone = new Sim { Answer = u => u.Contains("/by-riot-id/") ? new RiotReply { Status = 404 } : new RiotReply { Status = 200, Body = "[]" } };
             HistoryImportResult missing = make(gone).Run(CancellationToken.None).Result;
             t(missing.NotFound.Count == 1 && missing.Total == 4, "historique : compte introuvable signalé");
@@ -427,10 +446,13 @@ namespace DraftMid
 
             t(personal.All(p => Sum(Path.Combine(home, p)) == before[p]), "historique : données personnelles existantes inchangées");
             t(!Directory.GetFiles(home).Any(f => File.ReadAllText(f).Contains("RGAPI")), "historique : aucune clé sur le disque");
-            using (HistoryImportDialog dialog = new HistoryImportDialog(new[] { "Test#EUW", "Autre#EUW" }))
+            using (HistoryImportDialog dialog = new HistoryImportDialog(null, _ => { }, new[] { "Test#EUW", "Autre#EUW" }))
             {
                 dialog.CreateControl();
-                t(dialog.Accounts.Count == 2 && dialog.Key == "" && dialog.SelectedRegion != null, "historique : fenêtre préremplie, clé vide");
+                t(dialog.Accounts.Count == 2 && dialog.Key == "" && dialog.SelectedRegion != null && dialog.GamesToRead == 100, "historique : fenêtre préremplie, clé vide, 100 parties par défaut");
+                t(!dialog.TestCanStart("Test#EUW", "fausse", false), "historique : aucun import sans consentement");
+                t(!dialog.TestCanStart("SansTag", "fausse", true), "historique : compte invalide refusé");
+                t(dialog.TestCanStart("Test#EUW", "fausse", true), "historique : consentement, compte et clé suffisent");
             }
             Directory.Delete(home, true);
         }

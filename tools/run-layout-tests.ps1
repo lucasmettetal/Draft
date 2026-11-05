@@ -14,10 +14,14 @@ $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
 foreach ($s in 'empty', 'one', 'full', 'midunknown', 'close', 'excluded', 'none', 'picked', 'history', 'extreme') { $Runs += , @($s, "state=$s", $false) }
-foreach ($t in 'analyse', 'compare', 'matchups', 'parties', 'rules') { $Runs += , @("onglet $t", "state=history&set=full&tabclick=$t", $false) }
+foreach ($t in 'analyse', 'coach', 'compare', 'matchups', 'parties', 'rules') { $Runs += , @("onglet $t", "state=history&set=full&tabclick=$t", $false) }
 $Runs += , @('reglages', 'state=full&set=full&tab=settings', $false)
 $Runs += , @('reglages application', 'state=full&set=full&tab=settings&host=on', $false)
 $Runs += , @('profil support, noms longs', 'state=full&set=full&profile=support&frozen=1', $false)
+$Runs += , @('egalite jungle', 'state=tie&profile=jungle&frozen=1', $false)
+$Runs += , @('egalite sans adversaire', 'state=tieempty&profile=jungle&frozen=1', $false)
+$Runs += , @('le plus joue affiche', 'state=played&frozen=1', $false)
+$Runs += , @('onglet conseils avec historique', 'state=played&set=full&tabclick=coach', $false)
 $Runs += , @('uncertain', 'state=uncertain&frozen=1', $false)
 $Runs += , @('partial', 'state=partial&frozen=1', $false)
 $Runs += , @('sans profil', 'state=full&set=full&profile=none&frozen=1', $false)

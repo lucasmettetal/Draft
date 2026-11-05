@@ -313,7 +313,8 @@ function playerChoices(input) {
   const result = personalizedRanking(Object.assign({}, input, { model:"T", experimental:false }));
   const rows = result.strategicRanking, profile = input.profile || null;
   const chosen = input.pick ? rows.find(r => r.name === input.pick) || null : null;
-  const best = rows[0] || null, top = chosen || best;
+  // displayed : le nom que le verdict affiche, stabilisé pendant la draft. Une seule histoire à l'écran.
+  const best = (input.displayed && rows.find(r => r.pick === input.displayed)) || rows[0] || null, top = chosen || best;
   const names = best ? [best.name].concat(best.tiedWith) : [];
   const familiar = mostFamiliar(rows);
   const x = { input, level, top, best, names, chosen, familiar, profile, result, role:result.role, opponent:result.opponent, enemiesCount:(input.enemies || []).length };
@@ -326,6 +327,7 @@ function playerChoices(input) {
     familiar:familiar ? { champion:familiar.row.name, games:familiar.row.familiarity.count, recentGames:familiar.row.familiarity.recentGames, daysSince:familiar.row.familiarity.daysSince, rusty:familiar.row.familiarity.rusty, usefulExperience:+familiar.row.experience.toFixed(1), strategicRank:familiar.row.strategicRank + 1, close:familiar.close, label:"Le plus joué", source:MASTERY_BASIS.measured, isPerformance:false } : null,
     explained:top.name, compromise:compromiseOf(x), tieBreak:result.tieBreak,
     theory:theorySection(x), experience:experienceSection(x), uncertainty:uncertaintySection(x),
+    experienceTable:rows.map(r => ({ champion:r.name, games:r.familiarity ? r.familiarity.count : 0, recentGames:r.familiarity ? r.familiarity.recentGames : 0, daysSince:r.familiarity ? r.familiarity.daysSince : null, usefulExperience:+r.experience.toFixed(1) })),
     ranking:rows.map(r => ({ champion:r.name, score:+r.score.toFixed(2), tiedWith:r.tiedWith })), offline:true
   };
 }

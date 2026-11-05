@@ -22,8 +22,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.14.0.0")]
-[assembly: AssemblyFileVersion("2.14.0.0")]
+[assembly: AssemblyVersion("2.15.0.0")]
+[assembly: AssemblyFileVersion("2.15.0.0")]
 
 namespace DraftMid
 {
@@ -672,8 +672,80 @@ public static class Autostart
         string rolesStatus = "";
         bool rolesReloadPending;
 
+        // ---------- Import de l'historique, seulement à la demande du joueur ----------
+        CancellationTokenSource historyCts;
+        string historyStatus = "";
+        bool historyHasMore;
+
+        async void ToggleHistoryImport()
+        {
+            if (historyCts != null)
+            {
+                historyCts.Cancel();
+                historyStatus = "Arrêt de l'import : les parties déjà lues sont conservées...";
+                RefreshUi();
+                return;
+            }
+            if (machine.Current == Phase.Draft) { historyStatus = "Une draft est en cours : lance l'import après."; RefreshUi(); return; }
+            if (rolesCts != null) { historyStatus = "Un calcul Riot est déjà en cours : attends sa fin pour ne pas dépasser les limites de ta clé."; RefreshUi(); return; }
+            string path = Path.Combine(dataDir, HistoryImporter.FileName);
+            string key;
+            RiotRegion region;
+            int limit;
+            List<string> accounts;
+            using (HistoryImportDialog dialog = new HistoryImportDialog(AppIcon, OpenExternal, HistoryImporter.SavedAccounts(path)))
+            {
+                if (dialog.ShowDialog() != DialogResult.OK || !dialog.Consent) return;
+                key = dialog.Key;
+                region = dialog.SelectedRegion;
+                limit = dialog.GamesToRead;
+                accounts = dialog.Accounts;
+            }
+            await RunHistoryImport(new RiotWebFetcher(key), region, accounts, limit, 1300);
+        }
+
+        // La clé reste dans le fetcher : ni l'importeur, ni les journaux, ni la page ne la voient.
+        public async Task<HistoryImportResult> RunHistoryImport(IRiotFetcher fetcher, RiotRegion region, List<string> accounts, int limit, int delayMs)
+        {
+            string path = Path.Combine(dataDir, HistoryImporter.FileName);
+            CancellationTokenSource cts = new CancellationTokenSource();
+            historyCts = cts;
+            historyStatus = "Import de l'historique : démarrage...";
+            RefreshUi();
+            SynchronizationContext ui = SynchronizationContext.Current;
+            HistoryImporter importer = new HistoryImporter(fetcher, region, path, accounts, HistoryImportDialog.OldestSupported) { MaxGamesPerRun = limit, DelayMs = delayMs };
+            importer.Status = text => ui.Post(_ => { if (historyCts != null && !historyCts.IsCancellationRequested) { historyStatus = text; RefreshUi(); } }, null);
+            importer.Progress = (done, total, account) =>
+            {
+                if (done % 5 != 0 && done != total) return;
+                ui.Post(_ => { if (historyCts != null && !historyCts.IsCancellationRequested) { historyStatus = "Import de l'historique : " + done + " sur " + total + " parties"; RefreshUi(); } }, null);
+            };
+            HistoryImportResult r = await Task.Run(() => importer.Run(cts.Token));
+            historyCts = null;
+            cts.Dispose();
+            if (Quitting) return r;
+            if (r.Saved)
+            {
+                try
+                {
+                    File.Copy(path, Path.Combine(webDir, HistoryImporter.FileName), true);
+                    rolesReloadPending = true;
+                    ReloadRolesIfIdle();
+                }
+                catch (IOException) { r.Error = "Historique enregistré, mais pas encore visible : relance DraftMid."; }
+            }
+            historyHasMore = r.HasMore;
+            string summary = r.Added + (r.Added > 1 ? " parties ajoutées, " : " partie ajoutée, ") + r.Total + " au total.";
+            historyStatus = r.Error != "" ? r.Error + " " + summary : (r.Cancelled ? "Import arrêté : " : "Import terminé : ") + summary;
+            if (r.NotFound.Count > 0) historyStatus += " Compte introuvable : " + string.Join(", ", r.NotFound) + ".";
+            if (tray != null) tray.ShowBalloonTip(5000, "DraftMid", historyStatus, r.Error == "" ? ToolTipIcon.Info : ToolTipIcon.Warning);
+            RefreshUi();
+            return r;
+        }
+
         async void ToggleRiotUpdate(bool matchups)
         {
+            if (historyCts != null && rolesCts == null) { rolesStatus = "Un import de l'historique est en cours : attends sa fin."; RefreshUi(); return; }
             if (rolesCts != null)
             {
                 rolesCts.Cancel();
@@ -1078,7 +1150,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1086,6 +1158,45 @@ public static class Autostart
         void SendAll(string json)
         {
             foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.PostWebMessageAsJson(json);
+        }
+
+        class SimRiot : IRiotFetcher
+        {
+            public Func<string, RiotReply> Answer;
+            public Task<RiotReply> GetAsync(string url) { return Task.FromResult(Answer(url)); }
+        }
+
+        // Le vrai parcours après la fenêtre de saisie : import simulé, copie, rechargement, lecture par la page, absence de trace.
+        public async Task<string> TestHistoryImport()
+        {
+            const string fakeKey = "RGAPI-fausse-cle-de-test";
+            string match = "{\"metadata\":{\"matchId\":\"%ID%\"},\"info\":{\"queueId\":420,\"gameCreation\":1790000000000,\"gameDuration\":1800,\"gameVersion\":\"16.22.1\",\"participants\":[{\"puuid\":\"secret-moi\",\"riotIdGameName\":\"NomPrive\",\"teamId\":100,\"championName\":\"Fizz\",\"teamPosition\":\"MIDDLE\",\"win\":true,\"kills\":3,\"deaths\":2,\"assists\":5},{\"puuid\":\"secret-autre\",\"riotIdGameName\":\"NomAdverse\",\"teamId\":200,\"championName\":\"Ahri\",\"teamPosition\":\"MIDDLE\",\"win\":false,\"kills\":1,\"deaths\":1,\"assists\":1}]}}";
+            SimRiot sim = new SimRiot { Answer = url =>
+            {
+                if (url.Contains("/by-riot-id/")) return new RiotReply { Status = 200, Body = "{\"puuid\":\"secret-moi\"}" };
+                if (url.Contains("/ids?")) return new RiotReply { Status = 200, Body = url.Contains("start=0&") ? "[\"E1\",\"E2\",\"E3\"]" : "[]" };
+                return new RiotReply { Status = 200, Body = match.Replace("%ID%", url.Substring(url.LastIndexOf('/') + 1)) };
+            } };
+            string statsPath = Path.Combine(dataDir, "draft-stats.js");
+            bool hadStats = File.Exists(statsPath);
+            if (!hadStats) File.WriteAllText(statsPath, "window.DRAFT_STATS = {\"rows\":[]};");
+            string statsBefore = File.ReadAllText(statsPath);
+            HistoryImportResult first = await RunHistoryImport(sim, RiotRegion.All[0], new List<string> { "Test#EUW" }, 2, 0);
+            if (first.Added != 2 || !first.HasMore) return "(premier import : " + first.Added + ")";
+            if (!historyHasMore || !historyStatus.Contains("2 parties ajoutées")) return "(état : " + historyStatus + ")";
+            HistoryImportResult second = await RunHistoryImport(sim, RiotRegion.All[0], new List<string> { "Test#EUW" }, 2, 0);
+            if (second.Added != 1 || second.Total != 3 || second.HasMore) return "(suite : " + second.Added + "/" + second.Total + ")";
+            if (!File.Exists(Path.Combine(webDir, HistoryImporter.FileName))) return "(fichier absent de la page)";
+            if (File.ReadAllText(statsPath) != statsBefore) return "(draft-stats.js modifié)";
+            if (!hadStats) File.Delete(statsPath);
+            foreach (string file in Directory.GetFiles(dataDir, "*", SearchOption.TopDirectoryOnly))
+            {
+                string text;
+                try { using (FileStream fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) using (StreamReader r = new StreamReader(fs)) text = r.ReadToEnd(); }
+                catch (IOException) { continue; }
+                if (text.Contains(fakeKey) || text.Contains("secret-moi") || text.Contains("NomPrive")) return "(trace dans " + Path.GetFileName(file) + ")";
+            }
+            return "";
         }
 
         // Ouvre les réglages comme le bouton du panneau, puis vérifie qu'ils se ferment des deux façons.
@@ -1309,6 +1420,7 @@ public static class Autostart
                 case "hideAll": ToggleManual(); break;
                 case "updateRoles": ToggleRiotUpdate(false); break;
                 case "updateMatchups": ToggleRiotUpdate(true); break;
+                case "importHistory": ToggleHistoryImport(); break;
                 case "setProfile":
                 {
                     object roleO, poolO;
@@ -1383,6 +1495,7 @@ public static class Autostart
         {
             Quitting = true;
             if (rolesCts != null) rolesCts.Cancel();
+            if (historyCts != null) historyCts.Cancel();
             slowPoll.Stop(); sampler.Stop();
             SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
             Persist();
@@ -1617,6 +1730,8 @@ public static class Autostart
             string fullProblem = await app.TestFullWindow();
             s_keyReport = app.KeyStressReport;
             t(fullProblem == "", "Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture " + fullProblem);
+            string historyProblem = await app.TestHistoryImport();
+            t(historyProblem == "", "Import Riot simulé depuis l'application, sans appel réel, sans trace de clé " + historyProblem);
         }
 
         static string s_keyReport = "";
@@ -1929,7 +2044,6 @@ public static class Autostart
     public class Options
     {
         public string Script, CaptureDir, Out, DataDir, InstallDir;
-        public bool ImportHistory;
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
@@ -1963,7 +2077,6 @@ public static class Autostart
                     case "--install-dir": o.InstallDir = next(); break;
                     case "--test-install": o.TestInstall = true; o.Silent = true; break;
                     case "--run-key": o.RunKey = next(); break;
-                    case "--import-history": o.ImportHistory = true; break;
                 }
             }
             return o;
@@ -1993,7 +2106,7 @@ public static class Autostart
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.14.0");
+                k.SetValue("DisplayVersion", "2.15.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -2291,6 +2404,8 @@ public static class Autostart
             }
             string stats = Path.Combine(dataDir, "draft-stats.js");
             if (File.Exists(stats)) File.Copy(stats, Path.Combine(dir, "draft-stats.js"), true);
+            string history = Path.Combine(dataDir, HistoryImporter.FileName);
+            if (File.Exists(history)) File.Copy(history, Path.Combine(dir, HistoryImporter.FileName), true);
             string liveRoles = Path.Combine(dataDir, "draft-role-rates-live.js");
             if (File.Exists(liveRoles)) File.Copy(liveRoles, Path.Combine(dir, "draft-role-rates-live.js"), true);
             string liveMatchups = Path.Combine(dataDir, "draft-matchups-live.js");
@@ -2347,7 +2462,6 @@ public static class Autostart
             }
 #endif
             if (o.SelfTest) return SelfTest.Run(o, dataDir, self);
-            if (o.ImportHistory) return HistoryImportDialog.RunWindow(dataDir);
             if (o.Uninstall) { Installer.Uninstall(o, self); return 0; }
             if (o.Install || (!o.TestInstall && Path.GetFileName(self).IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0)) { Installer.Install(o, self); return 0; }
             if (o.TestInstall) { Installer.Install(o, self); return 0; }

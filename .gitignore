@@ -2,6 +2,7 @@ dist/
 draft-stats.js
 draft-stats-cache.json
 draft-history.js*
+sauvegardes-historique/
 *.log
 dist-*/
 draft-accounts.txt
