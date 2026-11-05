@@ -1189,6 +1189,10 @@ public static class Autostart
             if (!File.Exists(Path.Combine(webDir, HistoryImporter.FileName))) return "(fichier absent de la page)";
             if (File.ReadAllText(statsPath) != statsBefore) return "(draft-stats.js modifié)";
             if (!hadStats) File.Delete(statsPath);
+
+            // La vraie fenêtre, ouverte par le vrai bouton des réglages. Une fausse clé est saisie pour la capture, puis on annule : aucun appel.
+            string windowProblem = await TestHistoryWindow(fakeKey);
+            if (windowProblem != "") return windowProblem;
             foreach (string file in Directory.GetFiles(dataDir, "*", SearchOption.TopDirectoryOnly))
             {
                 string text;
@@ -1196,6 +1200,48 @@ public static class Autostart
                 catch (IOException) { continue; }
                 if (text.Contains(fakeKey) || text.Contains("secret-moi") || text.Contains("NomPrive")) return "(trace dans " + Path.GetFileName(file) + ")";
             }
+            return "";
+        }
+
+        async Task<string> TestHistoryWindow(string fakeKey)
+        {
+            string path = Path.Combine(dataDir, HistoryImporter.FileName), before = File.ReadAllText(path), status = historyStatus, layout = "";
+            bool seen = false, blocked = false, allowed = false;
+            OpenFull("settings");
+            PanelForm f = null;
+            for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50);
+            if (f == null || f.View.CoreWebView2 == null) return "(réglages absents)";
+            const string Find = "[...document.querySelectorAll('.settings button')].find(b => /historique Riot|plus de parties/.test(b.textContent))";
+            bool found = false;
+            for (int i = 0; i < 120 && !found; i++) { found = await f.View.CoreWebView2.ExecuteScriptAsync("!!(" + Find + ")") == "true"; if (!found) await Task.Delay(50); }
+            if (!found) return "(bouton absent des réglages)";
+            string file = await f.View.CoreWebView2.ExecuteScriptAsync("(window.DRAFT_HISTORY && window.DRAFT_HISTORY.rows.length) || 0");
+            if (file != "3") return "(la page lit " + file + " parties)";
+            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 300 };
+            timer.Tick += (s, e) =>
+            {
+                HistoryImportDialog d = Application.OpenForms.OfType<HistoryImportDialog>().FirstOrDefault();
+                if (d == null || !d.Visible) return;
+                timer.Stop();
+                seen = true;
+                layout = d.LayoutProblem();
+                if (opts.CaptureDir != null) d.SaveCapture(Path.Combine(opts.CaptureDir, "import-vide.png"));
+                blocked = !d.TestCanStart("Test#EUW", fakeKey, false);
+                allowed = d.TestCanStart("Test#EUW", fakeKey, true);
+                if (layout == "") layout = d.LayoutProblem();
+                if (opts.CaptureDir != null) d.SaveCapture(Path.Combine(opts.CaptureDir, "import-rempli.png"));
+                d.Close();
+            };
+            timer.Start();
+            await f.View.CoreWebView2.ExecuteScriptAsync(Find + ".click(); 1");
+            for (int i = 0; i < 200 && !seen; i++) await Task.Delay(50);
+            timer.Stop();
+            timer.Dispose();
+            await Task.Delay(200);
+            if (!seen) return "(fenêtre d'import jamais ouverte)";
+            if (layout != "") return "(fenêtre d'import : " + layout + ")";
+            if (!blocked || !allowed) return "(consentement mal appliqué)";
+            if (historyCts != null || historyStatus != status || File.ReadAllText(path) != before) return "(annuler a lancé quelque chose)";
             return "";
         }
 

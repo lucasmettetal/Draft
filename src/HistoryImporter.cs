@@ -273,7 +273,7 @@ namespace DraftMid
         readonly TextBox keyBox = new TextBox { UseSystemPasswordChar = true, Width = 360 };
         readonly ComboBox regionBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
         readonly ComboBox countBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
-        readonly CheckBox consent = new CheckBox { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 14), Text = "J'accepte que DraftMid lise mes parties classées solo/duo avec ma clé et les garde sur ce PC." };
+        readonly CheckBox consent = new CheckBox { AutoSize = true, Margin = new Padding(0, 0, 0, 14), Text = "J'accepte cette lecture" };
         static readonly int[] Counts = { 100, 200, 500 };
 
         public string Key { get { return keyBox.Text.Trim(); } }
@@ -301,6 +301,7 @@ namespace DraftMid
 
             FlowLayoutPanel root = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Padding = new Padding(14) };
             Func<string, Label> title = t => new Label { AutoSize = true, Margin = new Padding(0, 0, 0, 3), Text = t };
+            Label terms = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 4), Text = "DraftMid lira tes parties classées solo/duo avec ta clé et les gardera sur ce PC." };
             Label intro = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 10), Text = "Lit tes parties, des plus récentes aux plus anciennes. Un import suivant ira plus loin, sans doublon. Seuls tes champions, résultats et les champions adverses sont gardés, sur ce PC. Tes autres données ne sont pas modifiées, et le classement ne change pas. DraftMid n'est pas approuvé par Riot Games." };
             LinkLabel link = new LinkLabel { AutoSize = true, Margin = new Padding(0, 0, 0, 10), Text = "Obtenir une clé sur developer.riotgames.com" };
             link.LinkClicked += (s, e) => openLink("https://developer.riotgames.com/");
@@ -314,10 +315,43 @@ namespace DraftMid
             keyBox.TextChanged += check;
             accountsBox.TextChanged += check;
             consent.CheckedChanged += check;
-            root.Controls.AddRange(new Control[] { intro, link, title("Comptes (Nom#TAG, séparés par une virgule) :"), accountsBox, title("Clé Riot (masquée, jamais enregistrée) :"), keyBox, title("Région :"), regionBox, title("Parties à lire :"), countBox, consent, buttons });
+            // La case ne doit jamais dépasser de la colonne : son texte serait coupé sans avertissement.
+            root.Controls.AddRange(new Control[] { intro, link, title("Comptes (Nom#TAG, séparés par une virgule) :"), accountsBox, title("Clé Riot (masquée, jamais enregistrée) :"), keyBox, title("Région :"), regionBox, title("Parties à lire :"), countBox, terms, consent, buttons });
             Controls.Add(root);
             AcceptButton = start;
             CancelButton = cancel;
+        }
+
+        // Pour les tests : aucun contrôle coupé, et une fenêtre qui tient à l'écran.
+        public string LayoutProblem()
+        {
+            List<string> problems = new List<string>();
+            Rectangle screen = Screen.FromControl(this).WorkingArea;
+            if (Width > screen.Width || Height > screen.Height) problems.Add("fenêtre plus grande que l'écran");
+            Action<Control> walk = null;
+            walk = c =>
+            {
+                foreach (Control k in c.Controls)
+                {
+                    if (!k.Visible) continue;
+                    if (k.Left < 0 || k.Top < 0 || k.Right > c.ClientSize.Width || k.Bottom > c.ClientSize.Height) problems.Add("coupé : " + k.GetType().Name + " " + k.Text);
+                    if ((k is Label || k is CheckBox) && (k.Height + 1 < (k is Label ? k.GetPreferredSize(new Size(k.Width, 0)).Height : k.PreferredSize.Height) || (k is CheckBox && k.PreferredSize.Width > k.Width + 1))) problems.Add("texte coupé : " + k.Text);
+                    walk(k);
+                }
+            };
+            walk(this);
+            return string.Join(" ; ", problems);
+        }
+
+        public bool ConsentFits() { return consent.PreferredSize.Width <= 360; }
+
+        public void SaveCapture(string path)
+        {
+            using (Bitmap image = new Bitmap(Width, Height))
+            {
+                DrawToBitmap(image, new Rectangle(0, 0, Width, Height));
+                image.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+            }
         }
 
         // Pour les tests natifs : le bouton reste bloqué tant que le consentement manque.
@@ -449,6 +483,8 @@ namespace DraftMid
             using (HistoryImportDialog dialog = new HistoryImportDialog(null, _ => { }, new[] { "Test#EUW", "Autre#EUW" }))
             {
                 dialog.CreateControl();
+                dialog.CreateControl();
+                t(dialog.ConsentFits(), "historique : texte du consentement entier");
                 t(dialog.Accounts.Count == 2 && dialog.Key == "" && dialog.SelectedRegion != null && dialog.GamesToRead == 100, "historique : fenêtre préremplie, clé vide, 100 parties par défaut");
                 t(!dialog.TestCanStart("Test#EUW", "fausse", false), "historique : aucun import sans consentement");
                 t(!dialog.TestCanStart("SansTag", "fausse", true), "historique : compte invalide refusé");
