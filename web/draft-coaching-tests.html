@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests du moteur de conseils</title></head><body><pre id="out"></pre>
+<script src="draft-role-sheet.js"></script><script src="draft-champions.js"></script><script src="draft-champion-official.js"></script>
+<script>localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");</script>
+<script src="draft-engine.js"></script><script src="draft-data.js"></script><script src="draft-coaching.js"></script>
+<script>
+const res={ok:0,ko:[],samples:[],stats:{}};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let x=Math.imul(a^a>>>15,1|a);x=x+Math.imul(x^x>>>7,61|x)^x;return((x^x>>>14)>>>0)/4294967296;};}
+const MINE={role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]};
+applyProfile(MINE);
+const has=(a,id)=>a.items.some(i=>i.id===id);
+const get=(a,id)=>a.items.find(i=>i.id===id);
+const advice=(enemies,o={})=>coachingAdvice(Object.assign({enemies,maxItems:99},o));
+const FIVE=["Ornn","Lee Sin","Ahri","Jinx","Thresh"];
+const fakeRows=(c,n,w)=>Array.from({length:n},(_,i)=>({champ:c,pos:"MIDDLE",win:i<w,time:1e12+i,acct:"Test#TEST"}));
+
+// 1. Débutant sans historique
+{const a=advice(FIVE);t(a.items.length>=3,"1. un débutant reçoit des conseils");t(!a.items.some(i=>i.category==="personal"),"1. aucun conseil personnel sans historique");t(a.items.some(i=>i.category==="fundamentals"),"1. des bases du jeu pour débuter");t(a.offline===true&&a.short.length>0,"1. vue courte disponible");}
+// 2. Joueur expérimenté avec historique
+{const rows=fakeRows("Fizz",150,110).concat(fakeRows("Twisted Fate",5,3),fakeRows("Xerath",40,14),fakeRows("Kog'Maw",30,10));const personal=personalTrends(rows);
+ applyProfile({role:"mid",pool:["Fizz","Twisted Fate"]});
+ const a=advice(["Ahri","Lux","Vi"],{personal,level:"intermediate"});t(has(a,"personal.experience")&&/Fizz/.test(get(a,"personal.experience").title),"2. l'expérience est comparée entre les deux champions");
+ t(/peut|argument|Cela ne change pas/.test(get(a,"personal.experience").text),"2. un argument, pas une consigne");
+ applyProfile(MINE);
+ const plain=JSON.stringify(analyze(FIVE,"Ahri",true).ranking);coachingAdvice({enemies:FIVE,personal,level:"advanced"});t(plain===JSON.stringify(analyze(FIVE,"Ahri",true).ranking),"2. l'historique ne change pas le classement");
+ t(JSON.stringify(coachingContext({enemies:FIVE,personal}).ranking)===JSON.stringify(coachingContext({enemies:FIVE}).ranking),"2. le classement du conseil ne dépend pas de l'historique");
+ t(personal.byChampion["Fizz"].clearGap===1&&personal.byChampion["Xerath"].clearGap===-1,"2. seul un écart net est retenu, dans les deux sens");
+ const b=advice(FIVE,{personal,pick:"Fizz",level:"advanced"});const r=get(b,"personal.results");t(r&&/95/.test(r.text)&&r.limits,"2. un écart cite son intervalle et sa limite");
+ t(!/mauvais|nul|faible/.test(get(advice(FIVE,{personal,pick:"Xerath"}),"personal.results").text),"2. aucun jugement sur le joueur");
+ t(personalTrends(rows.map(x=>Object.assign({},x,{k:5,d:2,a:7}))).byChampion["Fizz"].kdaGames===150&&personal.byChampion["Fizz"].kdaGames===0,"2. KDA compté seulement si l'import le fournit");
+ t(personalTrends([])===null,"2. sans ligne : aucune tendance");}
+// 3. Champion inconnu
+{const a=advice(["ChampionInconnu","Ahri","Vi"]);t(has(a,"limits.unknown-champion"),"3. champion inconnu signalé");t(!a.items.some(i=>i.id!=="limits.unknown-champion"&&/ChampionInconnu/.test(i.text+i.title)),"3. aucun conseil inventé sur lui");t(a.unknown[0]==="ChampionInconnu","3. reste listé à part");}
+// 4. Draft incomplète et 5. complète
+{const a=advice(["Ahri","Vi"]);t(has(a,"draft.incomplete")&&!a.complete,"4. draft incomplète dite comme telle");t(get(a,"draft.incomplete").title.includes("3"),"4. compte les adversaires manquants");const b=advice(FIVE);t(!has(b,"draft.incomplete")&&b.complete,"5. draft complète");const e=advice([]);t(e.pick&&!has(e,"draft.close"),"4. draft vide : pas de comparaison inventée");}
+// 6. Adversaire incertain
+{const a=advice(["Yasuo","Yone","Lee Sin","Jinx","Thresh"]);const u=get(a,"matchup.unknown");t(a.opponent===null&&u&&/Yasuo/.test(u.text)&&/Yone/.test(u.text),"6. les deux hypothèses sont citées");t(!has(a,"matchup.range")&&!has(a,"matchup.tank"),"6. aucun matchup précis sans adversaire identifié");t(u.limits&&/D[ée]duction/.test(u.limits),"6. la limite est dite");t(u.basis==="estimate","6. présenté comme une estimation");
+ const m=advice(["Yasuo","Yone","Lee Sin","Jinx","Thresh"],{manualOpponent:"Yone"});t(m.opponent==="Yone"&&m.confidence==="manuel"&&!has(m,"matchup.unknown"),"6. une correction lève le doute");}
+// 7. Scores proches
+{let close=null,tie=null;const r=mulberry(5);for(let i=0;i<400&&!(close&&tie);i++){const l=[];while(l.length<5){const n=NAMES[Math.floor(r()*NAMES.length)];if(!l.includes(n))l.push(n);}const a=advice(l);if(has(a,"draft.close"))close=a;if(has(a,"draft.tie"))tie=a;}
+ t(close&&/serré/.test(get(close,"draft.close").title),"7. un choix serré est expliqué");
+ applyProfile({role:"jungle",pool:["Viego","Master Yi"]});const a=advice(FIVE);const tieItem=get(a,"draft.tie");t(tieItem&&/Égalité/.test(tieItem.title)&&/Master Yi/.test(tieItem.title)&&/Viego/.test(tieItem.title),"7. une égalité cite tous les champions concernés");t(!has(a,"draft.close"),"7. égalité et choix serré ne se cumulent pas");const adv=advice(FIVE,{level:"advanced"});t(/alphab/.test(get(adv,"draft.tie").text)&&/identiques/.test(get(adv,"draft.tie").text),"7. l'origine de l'ordre affiché et les fiches identiques sont expliquées");const inter=advice(FIVE,{level:"intermediate"});t(/fiches sont identiques/.test(get(inter,"draft.tie").text),"7. fiches identiques : dit clairement");
+ applyProfile({role:"jungle",pool:["Viego","Master Yi"]});const x1=JSON.stringify(coachingAdvice({enemies:FIVE,level:"advanced"}));applyProfile({role:"jungle",pool:["Master Yi","Viego"]});t(JSON.stringify(coachingAdvice({enemies:FIVE,level:"advanced"}))===x1,"7. conseils identiques quel que soit l'ordre du pool");applyProfile(MINE);}
+// Résumé pour l'interface
+{const s=coachingSummary({enemies:["Zed","Rengar","Katarina","Jinx","Thresh"],pick:"Xerath"});t(s.headline&&s.headline.includes("Xerath"),"résumé : ligne courte");t(s.explanation&&s.explanation.source,"résumé : explication et provenance");t(s.risk&&/Zed|plongeurs|immobile|risque/i.test(s.risk.title+s.risk.text),"résumé : risque prioritaire");t(s.lesson&&s.lesson.text,"résumé : conseil pour apprendre");t(s.headline.length<=60,"résumé : ligne vraiment courte");
+ const adv=coachingSummary({enemies:FIVE,level:"advanced"});t(adv.lesson===null||adv.lesson.basis!=="general","résumé avancé : pas de bases pour débutant");applyProfile({role:"jungle",pool:["Viego","Master Yi"]});const ti=coachingSummary({enemies:FIVE});t(ti.tied.length===2&&/Égalité/.test(ti.headline),"résumé : égalité explicite");applyProfile(MINE);const emp=coachingSummary({enemies:[]});t(emp.headline&&!emp.tied.length,"résumé : draft vide");applyProfile({role:"mid",pool:["Fizz"]});t(coachingSummary({enemies:["Fizz"]}).headline===null,"résumé : aucun pick disponible");applyProfile(MINE);}
+// Défauts trouvés à la relecture
+{applyProfile({role:"mid",pool:["Xerath","Kog'Maw"]});const a=advice(["Zed","Rengar","Katarina","Jinx","Thresh"]);const close=get(a,"draft.close");t(close&&!/ : \./.test(close.text),"raison absente : la phrase reste complète");t(!has(a,"matchup.assassin")&&has(a,"comp.assassins"),"le même danger n'est pas dit deux fois");t(!has(a,"matchup.range"),"plus de portée qu'un plongeur : pas présenté comme un avantage");t(!/Katarina[^.]*\bil\b/.test(a.items.map(i=>i.text).join(" ")),"Katarina n'est pas désignée par il");
+ applyProfile({role:"mid",pool:["Xerath"]});const yasuo=advice(["Yasuo"],{manualOpponent:"Yasuo"});t(!has(yasuo,"matchup.range"),"Yasuo : pas d'avantage de portée annoncé");const poke=advice(["Sion"],{manualOpponent:"Sion"});t(has(poke,"matchup.range")&&/sorts/.test(get(poke,"matchup.range").text)&&!/sans qu/.test(get(poke,"matchup.range").text),"portée : jamais de promesse sans réponse");
+ applyProfile({role:"support",pool:["Soraka"]});const s=advice(["Ornn","Lee Sin","Ahri","Jinx","Alistar"],{manualOpponent:"Alistar"});t(get(s,"matchup.tank")&&!/vague/.test(get(s,"matchup.tank").text),"support : pas de vague à pousser");t(!has(s,"matchup.range"),"support : pas de duel de portée");
+ applyProfile({role:"jungle",pool:["Viego"]});const j=advice(["Ornn","Sion","Maokai","Jinx","Thresh"]);t(!/plus proche/.test(get(j,"comp.frontline").text),"plongeur : pas de consigne de frapper le plus proche");t(!has(j,"matchup.range"),"jungle : pas de duel de portée");
+ applyProfile({role:"top",pool:["Jayce"]});const f=advice(["Sion"],{manualOpponent:"Sion"});t(!has(f,"matchup.range")&&!/corps à corps/.test(get(f,"champ.profile").text),"changement de forme : pas une seule portée");
+ applyProfile({role:"mid",pool:["Fizz","Kog'Maw"]});const lst=advice(["Lux","Jinx","Syndra","Caitlyn","Soraka"]);const txt=lst.items.map(i=>i.text).join(" ");t(!/4 cibles fragiles : [^.]*Syndra\./.test(txt),"liste coupée : le nombre reste juste");
+ applyProfile({role:"adc",pool:["Jinx","Ezreal"]});const w=advice(["Ornn","Lee Sin","Ahri","Caitlyn","Thresh"]);t(has(w,"draft.why")&&get(w,"draft.why").stance.sign===1,"choix net : la raison du moteur est donnée");
+ applyProfile(MINE);{const r3=mulberry(55);let nb=0,bad=0;for(let i=0;i<1500;i++){const l=[];while(l.length<5){const n=NAMES[Math.floor(r3()*NAMES.length)];if(!l.includes(n))l.push(n);}const x=advice(l),it=get(x,"matchup.written");if(!it)continue;const sure=x.confidence==="élevée";if(!sure)nb++;if(/supposé/.test(it.title)===sure)bad++;}t(nb>0&&!bad,"adversaire incertain : le titre le dit, et seulement dans ce cas ("+nb+")");}
+ applyProfile(MINE);const wide=coachingAdvice({enemies:["Yasuo","Yone","Lee Sin","Jinx","Thresh"],personal:null});t(wide.items.length<=7,"pas plus de 7 conseils");const n=advice(["Yasuo","Yone","Lee Sin","Jinx","Thresh"]);t(n.items.length>=wide.items.length,"la limite est réglable");t(!coachingAdvice({enemies:["Yasuo"]}).items.length||coachingAdvice({enemies:["Yasuo"]}).items.some(i=>i.category==="limits"),"une limite n'est jamais retirée par le plafond");}
+// Vérification déclarée
+{const a=advice(FIVE);t(a.items.every(i=>i.verification==="rule"||i.verification==="human"),"chaque conseil dit s'il dépend d'un jugement humain");t(a.items.filter(i=>i.category==="fundamentals").every(i=>i.verification==="human"),"les bases du jeu restent à relire");}
+// 8. Caractéristiques manquantes
+{const saved=CHAMPION_TRAITS["Fizz"],o=CHAMPION_OFFICIAL.champions["Fizz"];delete CHAMPION_TRAITS["Fizz"];let a=advice(FIVE,{pick:"Fizz"});t(!has(a,"champ.profile"),"8. pas de portrait sans fiche");t(a.items.every(i=>!/undefined/.test(i.text)),"8. aucun texte cassé");CHAMPION_TRAITS["Fizz"]=saved;delete CHAMPION_OFFICIAL.champions["Fizz"];a=advice(["Ahri"],{pick:"Fizz"});t(!has(a,"matchup.range")&&!has(a,"champ.profile"),"8. sans donnée officielle, aucune portée inventée");CHAMPION_OFFICIAL.champions["Fizz"]=o;}
+// 9. Méta ancienne
+{const k=knownPatch;window.ROLE_RATES_LIVE={updated:"2026-01-01",games:900,patches:{"16.1":{games:900,collected:"2026-01-01",champions:{ahri:[0,0,300,0,0],ornn:[300,0,0,0,0],leesin:[0,300,0,0,0],jinx:[0,0,0,300,0],thresh:[0,0,0,0,300]}}}};
+ const a=advice(FIVE,{level:"advanced"});t(a.confidence!=="élevée","9. données anciennes : confiance plafonnée");t(has(a,"limits.opponent-assumed"),"9. l'adversaire reste présenté comme supposé");delete window.ROLE_RATES_LIVE;knownPatch=k;}
+// 10. Données personnelles insuffisantes
+{const p=personalTrends(fakeRows("Fizz",5,5).concat(fakeRows("Xerath",4,0)));const a=advice(FIVE,{personal:p,pick:"Fizz",level:"intermediate"});t(!has(a,"personal.results"),"10. 5 victoires sur 5 ne font pas une tendance");t(p.byChampion["Fizz"].clearGap===0,"10. aucun écart retenu");t(has(a,"personal.too-few"),"10. le manque de parties est dit");t(!has(a,"personal.experience"),"10. pas de comparaison d'expérience");}
+// 11. Sans frontline et 12. plusieurs assassins
+{const a=advice(["Lux","Jinx","Syndra","Caitlyn","Soraka"]);t(has(a,"comp.no-frontline"),"11. composition sans frontline");t(!has(a,"comp.frontline"),"11. pas l'inverse");
+ const b=advice(["Zed","Rengar","Katarina","Jinx","Thresh"],{pick:"Xerath"});const c=get(b,"comp.assassins");t(c&&/Zed/.test(c.title+c.text),"12. plusieurs assassins nommés");t(c.stance&&c.stance.sign<0,"12. risque pour un champion immobile");
+ const d=advice(["Zed","Rengar","Katarina","Jinx","Thresh"],{pick:"Twisted Fate"});t(get(d,"comp.assassins").stance.sign===0,"12. pas le même discours pour un autre profil");}
+// 13. Longue portée et 14. tank
+{const a=advice(["Xerath"],{pick:"Fizz",manualOpponent:"Xerath"});const r=get(a,"matchup.range");t(r&&r.basis==="official"&&/525/.test(r.text)&&/175/.test(r.text),"13. portée officielle citée");t(/te touche de plus loin/.test(r.title),"13. dans le bon sens");t(/Portée d'attaque de base/.test(r.limits),"13. limite précisée");
+ applyProfile({role:"mid",pool:["Fizz","Kog'Maw"]});const b=advice(["Ornn"],{pick:"Fizz",manualOpponent:"Ornn"});const m=get(b,"matchup.tank");t(m&&/Ornn/.test(m.title)&&/général/.test(m.limits),"14. tank : avis général assumé");const k=advice(["Ornn"],{pick:"Kog'Maw",manualOpponent:"Ornn"});t(get(k,"matchup.tank").text!==m.text,"14. le conseil dépend du champion joué");applyProfile(MINE);}
+// 15. Recommandation contradictoire
+{applyProfile({role:"mid",pool:["Kog'Maw","Xerath"]});const a=advice(["Ornn","Sion","Rengar","Zed","Thresh"]);const c=get(a,"draft.conflict");t(!c||c.stance.sign===-1,"15. un risque reste présenté comme un risque");applyProfile(MINE);
+ let found=null;const r=mulberry(9);for(let i=0;i<800&&!found;i++){const l=[];while(l.length<5){const n=NAMES[Math.floor(r()*NAMES.length)];if(!l.includes(n))l.push(n);}const x=advice(l);if(has(x,"draft.conflict"))found=x;}t(found&&/malgré/.test(get(found,"draft.conflict").title),"15. conseillé malgré un risque : c'est dit");}
+// Solidité : un bruiser mobile n'est pas présenté comme solide.
+{const a=advice(["Yasuo","Yone","Lee Sin","Jinx","Thresh"],{pick:"Kog'Maw"});t(!/solides.*Yasuo|Yasuo.*solides/.test((get(a,"comp.frontline")||{title:""}).title),"Yasuo n'est pas présenté comme un joueur solide");t(coachIsSolid("Ornn")&&coachIsSolid("Malphite")&&!coachIsSolid("Yasuo")&&!coachIsSolid("Irelia")&&!coachIsSolid("Lee Sin"),"solidité : tanks oui, bruisers mobiles non");const b=advice(["Ornn","Sion","Lee Sin","Jinx","Thresh"]);t(has(b,"comp.frontline")&&/Ornn/.test(get(b,"comp.frontline").title),"de vrais tanks sont nommés");}
+// Tableau écrit à la main : présenté comme tel, et dans le même sens que le moteur.
+{const a=advice(["Malzahar"],{pick:"Kog'Maw",manualOpponent:"Malzahar"});const w=get(a,"matchup.written");t(w&&w.basis==="heuristic"&&/écrit à la main/.test(w.limits),"tableau : présenté comme un avis");t(w.stance.sign>0,"tableau : bon sens");const b=advice(["Malzahar"],{pick:"Fizz",manualOpponent:"Malzahar"});t(get(b,"matchup.written").stance.sign<0&&/difficile/.test(get(b,"matchup.written").title),"tableau : matchup déconseillé dit comme tel");applyProfile({role:"top",pool:["Darius"]});t(!has(advice(["Malzahar"],{manualOpponent:"Malzahar"}),"matchup.written"),"tableau : jamais hors du mid");applyProfile(MINE);}
+// Bilans mesurés
+{window.MATCHUPS_LIVE={role:"mid",pool:{fizz:{wins:620,games:1000,vs:{ahri:[20,100],lux:[12,40]}}}};const a=advice(["Ahri"],{pick:"Fizz",manualOpponent:"Ahri"});const m=get(a,"matchup.measured");t(m&&m.basis==="measured"||m.basis==="smallSample","mesuré : source correcte");t(m.stance.sign<0,"mesuré : sens du bilan");const c=coachingContext({enemies:["Ahri"],pick:"Fizz",manualOpponent:"Ahri"}).entry.criteria.find(x=>x.key==="matchup");t(Math.sign(c.impact)===m.stance.sign,"mesuré : même sens que le moteur");const s=advice(["Lux"],{pick:"Fizz",manualOpponent:"Lux"});t(get(s,"matchup.measured").basis==="smallSample","peu de parties : marqué comme tel");delete window.MATCHUPS_LIVE;}
+// Dégâts
+{const k={Ahri:"magic",Zed:"physical",Fizz:"magic",Gwen:"magic",Seraphine:"magic",Vex:"magic",Akshan:"physical",Thresh:"low",Jinx:"physical",Syndra:"magic"};Object.keys(k).forEach(n=>t(coachDamage(n)===k[n],"dégâts : "+n));t(coachDamage("ChampionInconnu")===null,"dégâts : inconnu reste inconnu");const a=advice(["Syndra","Ahri","Lux","Veigar","Thresh"]);t(has(a,"comp.damage")&&get(a,"comp.damage").basis==="estimate","composition magique : estimation assumée");t(!has(advice(FIVE),"comp.damage"),"composition équilibrée : rien à dire");}
+// Données
+{t(NAMES.every(n=>CHAMPION_OFFICIAL.champions[n]),"chaque champion a sa donnée officielle");Object.values(COACH_TERMS).forEach(v=>t(v.length>15,"définition non vide"));t(coachingTerm("poke")&&coachingTerm("xyz")===null,"terme : définition ou rien");const ids=COACH_RULES.map(r=>r.id).concat(COACH_FUNDAMENTALS.map(f=>f.id));t(new Set(ids).size===ids.length,"identifiants uniques");t(COACH_RULES.every(r=>COACH_BASIS[r.basis]),"chaque règle déclare sa source");t(COACH_RULES.every(r=>/^[a-z]+\.[a-z-]+$/.test(r.id)),"identifiants stables");}
+
+// Contrôles sur beaucoup de drafts, à tous les rôles et niveaux.
+const BANNED=[/ : \./,/\.\./,/ \./,/\b[Ii]l (touche|fait|peut|encaisse|protège|se déplace|a besoin|doit|a peu|vient|n'a|passerait|devient)\b/,/le toucher/,/qu'il te/,/est conseillé/,/fais attention/i,/sois prudent/i,/joue bien/i,/fais de ton mieux/i,/gagne la partie/i,/verrouille automatiquement/i];
+const PROFILES=[MINE,{role:"top",pool:["Darius","Malphite","Gangplank"]},{role:"jungle",pool:["Cho'Gath","Viego","Master Yi","Briar","Lee Sin"]},{role:"adc",pool:["Jinx","Ezreal","Kog'Maw"]},{role:"support",pool:["Thresh","Soraka","Lux"]}];
+const rng=mulberry(1234),seen={};let broken=[],contradictions=[],banned=[],long=0,total=0,drafts=0,items=0,specific=0,noShort=0,longest=0,notes={beginner:0,intermediate:0,advanced:0},levelChange=0,wrongName=0,undet=0;
+PROFILES.forEach(profile=>{applyProfile(profile);for(let i=0;i<400;i++){const size=1+i%5,l=[];while(l.length<size){const n=NAMES[Math.floor(rng()*NAMES.length)];if(!l.includes(n))l.push(n);}
+ const before=JSON.stringify(analyze(l,guessMid(l),true).ranking);
+ ["beginner","intermediate","advanced"].forEach(level=>{const a=coachingAdvice({enemies:l,level});const b=coachingAdvice({enemies:l,level});if(JSON.stringify(a)!==JSON.stringify(b))undet++;drafts++;notes[level]+=a.items.length;if(!a.short.length)noShort++;
+  const ctx=coachingContext({enemies:l});
+  a.items.forEach(it=>{items++;total++;seen[it.id]=(seen[it.id]||0)+1;const all=it.title+" "+it.text+" "+(it.limits||"");if(/undefined|NaN|null|\[object/.test(all))broken.push(it.id+": "+all.slice(0,90));BANNED.forEach(b=>{if(b.test(all))banned.push(it.id);});longest=Math.max(longest,it.text.length);if(it.text.length>300)long++;if(it.category!=="fundamentals"&&!COACH_BASIS[it.basis])broken.push(it.id+" source");
+   if(it.stance&&!it.stance.relative){const c=ctx.entry.criteria.find(x=>x.key===it.stance.key);if(c&&Math.sign(c.impact)!==it.stance.sign&&it.id!=="matchup.measured")contradictions.push(it.id+" "+it.stance.key+" "+c.impact);if(!c&&it.stance.sign!==0)contradictions.push(it.id+" sans critère");}
+   if(it.id==="draft.conflict"&&!/risque/i.test(it.title))contradictions.push("conflit");
+  });
+  if(a.items.some(it=>it.category!=="fundamentals"&&it.category!=="limits"))specific++;
+ });
+ if(JSON.stringify(analyze(l,guessMid(l),true).ranking)!==before)levelChange++;
+ }});applyProfile(MINE);
+t(!broken.length,"aucun texte cassé "+broken.slice(0,3).join(" | "));t(!banned.length,"aucune phrase creuse "+banned.slice(0,3));t(!contradictions.length,"aucune contradiction avec le moteur "+contradictions.slice(0,4).join(" | "));t(!long,"textes courts");t(!levelChange,"le niveau ne change jamais le classement");t(!undet,"résultat identique à chaque appel");t(!noShort,"toujours une vue courte");
+{const r2=mulberry(4321);let same=0,over=0;for(let i=0;i<400;i++){const l=[];while(l.length<5){const n=NAMES[Math.floor(r2()*NAMES.length)];if(!l.includes(n))l.push(n);}["beginner","advanced"].forEach(level=>{const x=coachingSummary({enemies:l,level});if(x.explanation&&x.risk&&x.explanation.id===x.risk.id)same++;if(coachingAdvice({enemies:l,level}).items.length>8)over++;});}t(!same,"résumé : explication et risque ne répètent pas le même conseil");t(!over,"détail : jamais noyé de conseils");}
+// Bases : réservées aux débutants, et aucune qui ne dépende pas du rôle quand elle est propre à un rôle.
+applyProfile({role:"support",pool:["Thresh"]});const f=advice(FIVE);t(!f.items.some(i=>/fund\.(farm|trades|role-mid)/.test(i.id)),"bases adaptées au rôle");t(!advice(FIVE,{level:"advanced"}).items.some(i=>i.category==="fundamentals"),"pas de bases pour un joueur avancé");applyProfile(MINE);
+// Aucune dépendance au réseau.
+{const of=window.fetch;let calls=0;window.fetch=()=>{calls++;return Promise.reject()};advice(FIVE);window.fetch=of;t(!calls,"aucun appel réseau");}
+res.stats={drafts,moyenneParDraft:{debutant:+(notes.beginner/(drafts/3)).toFixed(1),intermediaire:+(notes.intermediate/(drafts/3)).toFixed(1),avance:+(notes.advanced/(drafts/3)).toFixed(1)},avecConseilPropre:Math.round(100*specific/drafts),texteLePlusLong:longest,frequence:Object.fromEntries(Object.entries(seen).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,Math.round(100*v/drafts)]))};
+const show=(enemies,o)=>{const a=coachingAdvice(Object.assign({enemies},o));return {draft:enemies.join(", "),pick:a.pick,rival:a.rival,opp:a.opponent,conf:a.confidence,niveau:o.level,court:a.short,items:a.items.map(i=>[i.id,i.basis,i.title,i.text,i.limits])}};
+res.samples=[show(["Malzahar","Ornn","Rengar","Samira","Pyke"],{level:"beginner"}),show(["Yasuo","Yone","Lee Sin","Jinx","Thresh"],{level:"intermediate"}),show(["Syndra","Ornn","Lee Sin"],{level:"advanced"})];
+document.getElementById("out").textContent=JSON.stringify(res);
+</script></body></html>

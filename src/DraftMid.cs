@@ -1929,6 +1929,7 @@ public static class Autostart
     public class Options
     {
         public string Script, CaptureDir, Out, DataDir, InstallDir;
+        public bool ImportHistory;
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
@@ -1962,6 +1963,7 @@ public static class Autostart
                     case "--install-dir": o.InstallDir = next(); break;
                     case "--test-install": o.TestInstall = true; o.Silent = true; break;
                     case "--run-key": o.RunKey = next(); break;
+                    case "--import-history": o.ImportHistory = true; break;
                 }
             }
             return o;
@@ -2232,6 +2234,7 @@ public static class Autostart
             LcuTests.Run(t);
             RoleRatesTests.Run(t, dataDir);
             MatchupStatsTests.Run(t, dataDir);
+            HistoryImporterTests.Run(t, dataDir);
 
             ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();
@@ -2344,6 +2347,7 @@ public static class Autostart
             }
 #endif
             if (o.SelfTest) return SelfTest.Run(o, dataDir, self);
+            if (o.ImportHistory) return HistoryImportDialog.RunWindow(dataDir);
             if (o.Uninstall) { Installer.Uninstall(o, self); return 0; }
             if (o.Install || (!o.TestInstall && Path.GetFileName(self).IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0)) { Installer.Install(o, self); return 0; }
             if (o.TestInstall) { Installer.Install(o, self); return 0; }
