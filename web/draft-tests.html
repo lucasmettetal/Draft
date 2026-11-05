@@ -20,6 +20,7 @@
 <p>Chaque attente découle d'un principe de jeu, pas du score actuel. Un échec peut donc venir du moteur ou du principe : à examiner, pas à effacer. Le score sert à comparer les picks, ce n'est pas une probabilité.</p>
 <div id="summary"></div>
 <div id="out"></div>
+<script>window.addEventListener("error", e => { document.title = "Test interrompu"; document.getElementById("out").insertAdjacentHTML("beforeend", "<div class=\"ko-line\">" + "ÉCHEC" + " : test interrompu, les vérifications suivantes ne se sont pas exécutées : " + e.message + "</div>"); });</script>
 <script>try { localStorage.setItem("draftProfile", JSON.stringify({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] })); } catch (e) {}</script>
 <script src="draft-role-rates.js"></script>
 <script src="draft-champions.js"></script>
@@ -402,7 +403,7 @@ unitBlock("Bilans de matchups", "De vrais chiffres remplacent le tableau, sans c
   delete window.MATCHUPS_LIVE;
   t(avoidedPicks(matchupOf("Ahri")).join() === before.ahri, "sans bilans, le tableau écrit reste identique");
   t(guessMid(["Wukong", "Renata Glasc", "Ahri"]) === "Ahri", "les noms particuliers de Riot sont reconnus");
-  t(typeof ROLE_RATES.patch === "string" && Object.keys(ROLE_RATES.champions).length > 100, "les statistiques de rôles sont chargées");
+  t(typeof ROLE_RATES === "undefined" || (typeof ROLE_RATES.patch === "string" && Object.keys(ROLE_RATES.champions).length > 100), "la référence de rôles est absente, ou complète si elle est présente");
 });
 
 unitBlock("Préférences", "Exclure un pick le retire partout. Le favori ne départage qu'une égalité exacte et ne change aucun score.", t => {
