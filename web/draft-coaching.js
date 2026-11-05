@@ -350,7 +350,7 @@ const COACH_RULES = [
         limits:"Portée et classes viennent de Riot. Forces et risques sont un avis écrit à la main.", evidence:[{ kind:"official", tags:o.tags, range:o.range, difficulty:o.difficulty }] };
     } },
   { id:"champ.difficulty", category:"champion", priority:44, basis:"official", maxLevel:1,
-    when: c => { const o = c.pick ? coachOfficial(c.pick) : null; return o && o.difficulty >= 8 ? { value:o.difficulty } : null; },
+    when: c => { const o = c.pick ? coachOfficial(c.pick) : null; const known = c.personal && c.personal.byChampion[c.pick]; return o && o.difficulty >= 8 && !(known && known.games >= PERSONAL_MIN_EXPERIENCE) ? { value:o.difficulty } : null; },
     build: (c, d) => ({ title:`${c.pick} demande de l'entraînement`,
       text:[`Riot note sa difficulté ${d.value}/10. Si tu n'as jamais joué ce champion, ce n'est pas le moment idéal pour le découvrir en partie classée.`],
       evidence:[{ kind:"official", difficulty:d.value }] }) },
@@ -449,7 +449,9 @@ function personalTrends(rows, options = {}) {
   if (options.position) list = list.filter(r => r.pos === options.position);
   if (!list.length) return null;
   const wins = list.filter(r => r.win).length, overall = wins / list.length, byChampion = {};
-  list.forEach(r => { const s = byChampion[r.champ] || (byChampion[r.champ] = { games:0, wins:0, last:0, kills:0, deaths:0, assists:0, kdaGames:0 }); s.games++; if (r.win) s.wins++; s.last = Math.max(s.last, r.time || 0); if (typeof r.k === "number") { s.kills += r.k; s.deaths += r.d; s.assists += r.a; s.kdaGames++; } });
+  // L'import écrit les noms de l'API Riot (KogMaw, Chogath...) : le conseil lit les noms de DraftMid.
+  const riotNames = {}; NAMES.forEach(n => { riotNames[riotKey(n)] = n; riotNames[norm(n)] = label(n); });
+  list.forEach(r => { const shown = riotNames[norm(String(r.champ))] ? label(riotNames[norm(String(r.champ))]) : r.champ; const s = byChampion[shown] || (byChampion[shown] = { games:0, wins:0, last:0, kills:0, deaths:0, assists:0, kdaGames:0 }); s.games++; if (r.win) s.wins++; s.last = Math.max(s.last, r.time || 0); if (typeof r.k === "number") { s.kills += r.k; s.deaths += r.d; s.assists += r.a; s.kdaGames++; } });
   Object.keys(byChampion).forEach(n => {
     const s = byChampion[n];
     s.clearGap = 0;
