@@ -22,8 +22,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DraftMid")]
 [assembly: AssemblyProduct("DraftMid")]
 [assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.13.0.0")]
-[assembly: AssemblyFileVersion("2.13.0.0")]
+[assembly: AssemblyVersion("2.14.0.0")]
+[assembly: AssemblyFileVersion("2.14.0.0")]
 
 namespace DraftMid
 {
@@ -1089,33 +1089,180 @@ public static class Autostart
         }
 
         // Ouvre les réglages comme le bouton du panneau, puis vérifie qu'ils se ferment des deux façons.
+        public string KeyStressReport = "non mesuré";
+
+        // Fenêtre principale et réglages, avec de vraies frappes envoyées à la page.
         public async Task<string> TestFullWindow()
         {
-            Func<Task<PanelForm>> open = async () =>
+            string problem = "";
+            PanelForm f = null;
+            int keyPause = 40;
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> waitFor = async code =>
             {
-                OpenFull("settings");
-                PanelForm w = null;
-                for (int i = 0; i < 200 && !(panels.TryGetValue("full", out w) && w.Visible && w.Ready.IsCompleted); i++) await Task.Delay(50);
-                for (int i = 0; i < 100 && await w.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.settings .ghost-btn')") != "true"; i++) await Task.Delay(50);
-                return w;
+                for (int i = 0; i < 120; i++)
+                {
+                    if (f != null && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await run("!!(" + code + ")") == "true") return true;
+                    await Task.Delay(50);
+                }
+                return false;
             };
-            PanelForm f = await open();
-            string problem = f.FormBorderStyle == FormBorderStyle.Sizable && f.ControlBox ? "" : "pas de barre de titre ; ";
-            await f.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('.settings .ghost-btn').click()");
+            Func<Task> findWindow = async () => { for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50); };
+            Func<string, string, int, string, Task> press = async (key, code, vk, text) =>
+            {
+                string common = "\"key\":\"" + key + "\",\"code\":\"" + code + "\",\"windowsVirtualKeyCode\":" + vk;
+                await f.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent", "{\"type\":\"" + (text == "" ? "rawKeyDown" : "keyDown") + "\"," + common + (text == "" ? "" : ",\"text\":\"" + text + "\"") + "}");
+                await f.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent", "{\"type\":\"keyUp\"," + common + "}");
+                await Task.Delay(keyPause);
+            };
+            Func<string, Task> type = async word => { foreach (char c in word) await press(c.ToString(), "Key" + char.ToUpperInvariant(c), char.ToUpperInvariant(c), c.ToString()); };
+            const string Search = "document.querySelector('.pool-search')", Close = "document.querySelector('.settings .sec-title .ghost-btn')";
+
+            // 1. Fenêtre principale ouverte, puis Réglages : elle n'est ni rechargée, ni masquée.
+            OpenFull("");
+            await findWindow();
+            if (!await waitFor("document.querySelector('.app')")) return "fenêtre principale absente ; ";
+            string profileBefore = await run("localStorage.getItem('draftProfile')");
+            await run("window.keepMark = 1; state.enemies.length || addEnemy('Sett'); 1");
+            await waitFor("state.enemies.length > 0");
+            OpenFull("settings");
+            if (!await waitFor(Close)) return "réglages absents ; ";
+            if (await run("window.keepMark === 1") != "true") problem += "la page principale est rechargée à l'ouverture ; ";
+
+            // 2. Les frappes vont au champ actif, et nulle part ailleurs.
+            await waitFor("state.enemies.length > 0 || addEnemy('Sett') || true");
+            string enemiesBefore = await run("state.enemies.join()");
+            await run(Search + ".focus(); 1");
+            // Frappes perdues : des séries complètes, à deux vitesses, dans la vraie page.
+            int sent = 0, lost = 0, roundsWrong = 0;
+            string firstWrong = "";
+            foreach (int[] speed in new[] { new[] { 40, 25 }, new[] { 15, 15 } })
+            {
+                keyPause = speed[0];
+                for (int round = 0; round < speed[1]; round++)
+                {
+                    const string Word = "malzahar";
+                    await type(Word);
+                    sent += Word.Length;
+                    string got = (await run(Search + ".value")).Trim('"');
+                    if (got != Word) { lost += Word.Length - got.Length; roundsWrong++; if (firstWrong == "") firstWrong = "tour " + round + " à " + speed[0] + " ms : " + got; }
+                    for (int k = got.Length; k > 0; k--) await press("Backspace", "Backspace", 8, "");
+                    if (await run(Search + ".value") != "\"\"") { problem += "la recherche ne se vide pas au clavier ; "; break; }
+                }
+            }
+            keyPause = 40;
+            KeyStressReport = sent + " frappes, " + lost + " perdues, " + roundsWrong + " séries incorrectes" + (firstWrong == "" ? "" : " (" + firstWrong + ")");
+            if (lost != 0 || roundsWrong != 0) problem += "frappes perdues : " + KeyStressReport + " ; ";
+            await type("ahr");
+            if (await run(Search + ".value") != "\"ahr\"") problem += "le texte n'arrive pas dans la recherche (" + await run(Search + ".value") + ") ; ";
+            if (await run("(document.getElementById('add') || {}).value || ''") != "\"\"") problem += "le texte part dans la recherche derrière ; ";
+            if (await run("document.activeElement === " + Search) != "true") problem += "la recherche perd le focus ; ";
+            await press("Backspace", "Backspace", 8, "");
+            if (await run(Search + ".value") != "\"ah\"") problem += "Retour arrière n'efface pas la recherche ; ";
+            if (await run("state.enemies.join()") != enemiesBefore) problem += "Retour arrière supprime un adversaire de la draft ; ";
+
+            // 3. Recherche, sélection et enregistrement du champion.
+            await run("(() => { const v = " + Search + "; v.focus(); return 1; })()");
+            await type("ri");
+            await press("Enter", "Enter", 13, "\\r");
+            if (!await waitFor("[...document.querySelectorAll('.pool-chip.on')].some(b => b.textContent.includes('Ahri'))")) problem += "Entrée ne sélectionne pas le champion ; ";
+            if (!(await run("localStorage.getItem('draftProfile')")).Contains("Ahri")) problem += "le champion n'est pas enregistré ; ";
+            if (await run(Search + ".value") != "\"\"") problem += "la recherche ne se vide pas ; ";
+            if (await run("document.activeElement === " + Search) != "true") problem += "le focus quitte la recherche après la sélection ; ";
+            await run("document.querySelector('.pool-chip.on[aria-label=\"Retirer Ahri\"]').click(); 1");
+            await Task.Delay(150);
+            if (await run("localStorage.getItem('draftProfile')") != profileBefore) problem += "le profil n'est pas rétabli après retrait ; ";
+
+            // 4. Échap et Fermer ne ferment que les réglages, et le focus revient à la fenêtre principale.
+            await run("document.querySelector('.settings .sec-title .ghost-btn').focus(); 1");
+            await press("Escape", "Escape", 27, "");
+            if (!await waitFor("!document.querySelector('.settings')")) problem += "Échap ne ferme pas les réglages ; ";
+            if (await run("state.enemies.join()") != enemiesBefore) problem += "Échap efface la draft ; ";
+            OpenFull("settings");
+            await waitFor(Close);
+            await run(Close + ".click(); 1");
+            if (!await waitFor("!document.querySelector('.settings')")) problem += "Fermer ne ferme pas les réglages ; ";
+            await Task.Delay(200);
+            if (!f.Visible) problem += "Fermer masque la fenêtre principale ; ";
+            if (await run("!!document.querySelector('.app') && window.keepMark === 1") != "true") problem += "la page principale est perdue ; ";
+            await press("a", "KeyA", 65, "a");
+            if (await run("(document.getElementById('add') || {}).value") != "\"a\"") problem += "la fenêtre principale ne reçoit plus le clavier ; ";
+
+            // 5. Ouverts depuis le menu, fenêtre masquée : la fenêtre principale reste ouverte derrière les réglages.
+            f.Hide();
+            OpenFull("settings");
+            await findWindow();
+            await waitFor(Close);
+            await run(Close + ".click(); 1");
+            await waitFor("!document.querySelector('.settings')");
+            await Task.Delay(300);
+            if (!f.Visible) problem += "depuis le menu, Fermer masque toute la fenêtre ; ";
+
+            // 6. Pendant une draft, depuis un panneau : rien ne doit rester devant le client.
+            f.Hide();
+            bool shown = panelsShown;
+            panelsShown = true;
+            OpenFull("settings");
+            await findWindow();
+            await waitFor(Close);
+            await run(Close + ".click(); 1");
             for (int i = 0; i < 60 && f.Visible; i++) await Task.Delay(50);
-            if (f.Visible) problem += "le bouton Fermer ne ferme pas ; ";
-            f = await open();
-            if (!f.Visible) problem += "réouverture impossible ; ";
+            panelsShown = shown;
+            if (f.Visible) problem += "pendant une draft, Fermer laisse la grande fenêtre ouverte ; ";
+
+            // Simulation : le bouton de la page de draft donne une draft complète, différente à chaque clic.
+            OpenFull("");
+            await findWindow();
+            await waitFor("document.querySelector('[data-random-draft]')");
+            await run("document.querySelector('[data-random-draft]').click(); 1");
+            if (!await waitFor("state.enemies.length === 5 && V.shown")) problem += "Draft aléatoire ne remplit pas la draft ; ";
+            string firstDraft = await run("state.enemies.join()");
+            bool changed = false;
+            for (int i = 0; i < 5 && !changed; i++)
+            {
+                await run("document.querySelector('[data-random-draft]').click(); 1");
+                await Task.Delay(100);
+                changed = await run("state.enemies.join()") != firstDraft && await run("state.enemies.length") == "5";
+            }
+            if (!changed) problem += "Draft aléatoire redonne toujours la même draft ; ";
+            await run("resetDraft(); 1");
+
+            // Les mots disent ce que fait l'application, et suivent le rôle du joueur.
+            await run("resetDraft(); ['Yasuo','Yone','Lee Sin','Jinx','Thresh'].forEach(addEnemy); 1");
+            await waitFor("state.enemies.length === 5 && document.querySelector('.stage-body .cta')");
+            if (await run("document.querySelector('.stage-body .cta').textContent.includes('Je joue')") != "true") problem += "le bouton de choix ne dit pas « Je joue » ; ";
+            if (await run("![...document.querySelectorAll('.badge')].some(b => b.textContent.includes('Provisoire'))") != "true") problem += "un badge mélange encore les incertitudes ; ";
+            if (await run("!document.querySelector('.res') || !!state.current") != "true") problem += "les boutons de résultat s'affichent sans choix ; ";
+            string support = await run("(() => { const before = PROFILE; applyProfile({ role:'support', pool:['Lux', 'Soraka'] }); computeVerdict(); const text = hypothesisText(); applyProfile(before); computeVerdict(); return text; })()");
+            if (!support.Contains("Support") || support.Contains("Mid")) problem += "le texte d'adversaire ignore le rôle (" + support + ") ; ";
+            await run("resetDraft(); 1");
+
+            // 7. La croix masque la fenêtre sans quitter l'application.
+            OpenFull("");
+            await findWindow();
             f.Close();
             await Task.Delay(200);
             if (f.Visible || f.IsDisposed || Quitting) problem += "la croix ne masque pas proprement ; ";
+            OpenFull("");
+            await findWindow();
+            if (!f.Visible || !await waitFor("document.querySelector('.app')")) problem += "réouverture impossible ; ";
+            f.Hide();
             return problem;
         }
 
         async void OpenFull(string tab)
         {
             bool exists = panels.ContainsKey("full");
-            string q = "panel=full" + (tab == "" ? "" : "&tab=" + tab);
+            PanelForm open;
+            // Fenêtre principale déjà à l'écran : les réglages s'ouvrent par-dessus, sans la recharger.
+            if (tab == "settings" && exists && panels.TryGetValue("full", out open) && open.Visible && open.Ready.IsCompleted && open.View.CoreWebView2 != null)
+            {
+                open.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"openSettings\"}");
+                if (opts.Script == null) open.Activate();
+                return;
+            }
+            // Pendant une draft, la fenêtre ne doit pas rester devant le client une fois les réglages fermés.
+            string q = "panel=full" + (tab == "" ? "" : "&tab=" + tab) + (tab == "settings" && panelsShown ? "&solo=1" : "");
             await EnsureEnv();
             if (env == null) return;
             PanelForm f = await Ensure("full", q);
@@ -1468,8 +1615,11 @@ public static class Autostart
             t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les deux endpoints documentés sont appelés");
             t(await app.TestReleaseAndReopen(), "Client fermé puis rouvert : l'application reste ouverte et recrée ses panneaux");
             string fullProblem = await app.TestFullWindow();
-            t(fullProblem == "", "Réglages : barre de titre, bouton Fermer et croix fonctionnent " + fullProblem);
+            s_keyReport = app.KeyStressReport;
+            t(fullProblem == "", "Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture " + fullProblem);
         }
+
+        static string s_keyReport = "";
 
         public static async void Run(CompanionApp app, Options o)
         {
@@ -1736,6 +1886,7 @@ public static class Autostart
             }
             catch (Exception e) { fails++; s.AppendLine("EXC " + e); }
             if (fake != null && !fake.IsDisposed) { fake.Close(); fake.Dispose(); }
+            s.AppendLine("MESURE : recherche de champions : " + s_keyReport);
             s.AppendLine(fails == 0 ? "TOUT EST BON" : fails + " ECHEC(S)");
             if (o.Out != null) File.WriteAllText(o.Out, s.ToString());
             app.Quit();
@@ -1780,7 +1931,7 @@ public static class Autostart
         public string Script, CaptureDir, Out, DataDir, InstallDir;
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500, Soak;
-        public bool CheckRuntime;
+        public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
         public string RunKey;
 
         public static Options Parse(string[] a)
@@ -1798,6 +1949,11 @@ public static class Autostart
                     case "--auto-exit": o.AutoExit = int.Parse(next()); o.Silent = true; break;
                     case "--settle": o.SettleMs = int.Parse(next()); break;
                     case "--selftest": o.SelfTest = true; o.Silent = true; break;
+#if DRAFTMID_PROTOTYPES
+                    case "--opgg-prototype": o.OpggPrototype = true; break;
+                    case "--opgg-test": o.OpggTest = true; o.Silent = true; break;
+                    case "--opgg-live": o.OpggLive = true; break;
+#endif
                     case "--check-runtime": o.CheckRuntime = true; o.Silent = true; break;
                     case "--soak": o.Soak = int.Parse(next()); o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
                     case "--e2e": o.EndToEnd = true; o.SimulatedPhase = true; o.Silent = true; break;
@@ -1835,7 +1991,7 @@ public static class Autostart
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.13.0");
+                k.SetValue("DisplayVersion", "2.14.0");
                 k.SetValue("Publisher", "DraftMid");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -2176,6 +2332,17 @@ public static class Autostart
             logDir = dataDir;
             if (o.RunKey != null) Autostart.Key = o.RunKey;
 
+#if DRAFTMID_PROTOTYPES
+            if (o.OpggPrototype || o.OpggTest)
+            {
+                // Prototype isolé : jamais sur les données de l'application, car l'extraction y remplacerait la version installée.
+                if (o.DataDir == null) { if (!o.Silent) MessageBox.Show("Prototype OP.GG : indique un dossier de test avec --data.", "DraftMid"); return 2; }
+                RuntimeHelp.EnsureLoader(Extract(dataDir));
+                if (o.OpggTest) { OpggTests.Run(o, dataDir); Application.Run(); return 0; }
+                Application.Run(new OpggBrowserForm(OpggLinks.Home, Path.Combine(dataDir, "wv"), Path.Combine(dataDir, "opgg-profile.json")));
+                return 0;
+            }
+#endif
             if (o.SelfTest) return SelfTest.Run(o, dataDir, self);
             if (o.Uninstall) { Installer.Uninstall(o, self); return 0; }
             if (o.Install || (!o.TestInstall && Path.GetFileName(self).IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0)) { Installer.Install(o, self); return 0; }

@@ -330,3 +330,26 @@ function beliefHypothesis(belief, mid) {
   if (belief.unrevealed >= .2) others.push("pas encore choisi");
   return { main:mid, others };
 }
+
+// ---------- Simulation ----------
+// Une équipe adverse au hasard : un champion réellement joué à chaque rôle, hors du pool du joueur pour pouvoir comparer tous ses picks.
+// Renvoie les noms dans un ordre de révélation mélangé, ou null si les données ne le permettent pas.
+const RANDOM_ROLE_MIN_SHARE = .25;
+function randomDraft(random = Math.random) {
+  const own = PICKS.map(label);
+  const byRole = ROLE_ORDER.map((_, role) => NAMES.filter(n => {
+    if (own.includes(n) || PROVISIONAL.includes(n) || !roleEvidence(n).known) return false;
+    return roleEvidence(n).shares[role] >= RANDOM_ROLE_MIN_SHARE;
+  }));
+  if (byRole.some(list => !list.length)) return null;
+  const team = [];
+  // Les rôles les moins fournis d'abord : un champion flex ne doit pas leur prendre leur seul candidat.
+  byRole.map((list, role) => ({ list, role })).sort((a, b) => a.list.length - b.list.length).forEach(({ list, role }) => {
+    const free = list.filter(n => !team.some(t => t.name === n));
+    if (free.length) team.push({ name:free[Math.floor(random() * free.length)], role });
+  });
+  if (team.length < ROLE_ORDER.length) return null;
+  const names = team.map(t => t.name);
+  for (let i = names.length - 1; i > 0; i--) { const k = Math.floor(random() * (i + 1)); [names[i], names[k]] = [names[k], names[i]]; }
+  return names;
+}

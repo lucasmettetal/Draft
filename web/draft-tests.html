@@ -310,6 +310,32 @@ unitBlock("Données personnelles", "Aucun bilan personnel ne doit rester dans le
   t(!/\d+V \d+D/.test(JSON.stringify(MATCHUPS)), "aucune trace de victoires ou défaites écrites en dur");
 });
 
+unitBlock("Draft aléatoire", "Cinq adversaires différents, chacun réellement joué à un rôle distinct, et jamais les champions du joueur.", t => {
+  const original = PROFILE;
+  const profiles = [null, { role:"support", pool:["Leona", "Soraka"] }, { role:"top", pool:["Darius", "Garen", "Malphite"] }];
+  profiles.forEach(profile => {
+    if (profile) applyProfile(profile);
+    let distinct = 0, invalid = 0, pool = 0;
+    const seen = new Set();
+    for (let i = 0; i < 300; i++) {
+      const names = randomDraft();
+      if (!names || new Set(names).size !== 5) { distinct++; continue; }
+      seen.add(names.slice().sort().join());
+      if (names.some(n => PICKS.map(label).includes(n))) pool++;
+      // Il doit exister une façon de donner un rôle différent à chacun, avec un rôle qu'il joue vraiment.
+      const assign = (i, used) => i === 5 || ROLE_ORDER.some((_, r) => !(used & (1 << r)) && roleEvidence(names[i]).shares[r] >= RANDOM_ROLE_MIN_SHARE && assign(i + 1, used | (1 << r)));
+      if (!assign(0, 0)) invalid++;
+    }
+    const who = profile ? profile.role : "profil d'origine";
+    t(!distinct, `${who} : toujours 5 adversaires différents`);
+    t(!invalid, `${who} : chacun peut jouer un rôle distinct cohérent`);
+    t(!pool, `${who} : jamais un champion du joueur`);
+    t(seen.size > 250, `${who} : les drafts varient vraiment (${seen.size} différentes sur 300)`);
+  });
+  applyProfile(original);
+  t(!randomDraft(() => 0).some(n => PROVISIONAL.includes(n)), "jamais un champion sans données de rôle");
+});
+
 unitBlock("Cohérence du moteur", "Sur 400 drafts tirées avec une graine fixe : score, raisons et classement doivent toujours se répondre.", t => {
   let a = 987654321;
   const rnd = () => { a = a + 0x6D2B79F5 | 0; let x = Math.imul(a ^ a >>> 15, 1 | a); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; };

@@ -1,7 +1,8 @@
 # Compile DraftMid-Portable.exe et DraftMid-Setup.exe avec le compilateur C# fourni par Windows.
 # Ni Node, ni Rust, ni Visual Studio nécessaires.
 # -SansMeraki : n'embarque pas la référence Meraki, dont la licence de redistribution n'est pas confirmée.
-param([string]$Out = "$PSScriptRoot\dist", [switch]$SansMeraki)
+# -Prototypes : ajoute les prototypes isolés (OP.GG). La compilation normale ne les contient jamais.
+param([string]$Out = "$PSScriptRoot\dist", [switch]$SansMeraki, [switch]$Prototypes)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -40,7 +41,7 @@ $lines = @(
   '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
   '/reference:System.Windows.Forms.dll', '/reference:System.Web.Extensions.dll', '/reference:Microsoft.CSharp.dll',
   "/reference:`"$root\lib\Microsoft.Web.WebView2.Core.dll`"", "/reference:`"$root\lib\Microsoft.Web.WebView2.WinForms.dll`""
-) + $res + (Get-ChildItem "$root\src\*.cs" | ForEach-Object { "`"$($_.FullName)`"" })
+) + $res + (Get-ChildItem "$root\src\*.cs" | Where-Object { $Prototypes -or $_.Name -notlike 'Opgg*' } | ForEach-Object { "`"$($_.FullName)`"" }) + $(if ($Prototypes) { @('/define:DRAFTMID_PROTOTYPES') } else { @() })
 [IO.File]::WriteAllLines($rsp, $lines)
 & $csc "@$rsp"
 if ($LASTEXITCODE -ne 0) { throw "La compilation a échoué." }

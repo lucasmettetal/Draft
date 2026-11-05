@@ -333,7 +333,7 @@
   .panel-left .role-who { flex:1; width:auto; min-width:0; }
   .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:16px; }
   .panel-left .role-traits { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:11.5px; white-space:normal; line-height:1.2; }
-  .panel-left .role-icon { width:36px; font-size:10px; }
+  .panel-left .role-icon { width:36px; font-size:10.5px; }
   .panel-left .role-icon svg { width:18px; height:18px; }
   .panel-left .role-empty { font-size:13px; }
   .panel-left .role-empty .em { display:inline; }
@@ -355,7 +355,7 @@
   .compact-roles .role-who { width:100%; flex:none; }
   .compact-roles .role-name, .compact-roles .role.is-mid .role-name { font-size:12px; }
   .compact-roles .role-traits, .compact-roles .to-mid, .compact-roles .role-empty .em { display:none; }
-  .compact-roles .role-icon { width:100%; font-size:10px; }
+  .compact-roles .role-icon { width:100%; font-size:10.5px; }
   .compact-roles .role-icon svg { display:none; }
   .compact-roles .role-tools { top:14px; right:0; transform:none; }
   .compact-roles .mini.x { background:rgba(10,15,22,.8); border-radius:3px; color:var(--text); }
@@ -471,6 +471,48 @@
   .compact-roles .role-tools { top:12px; right:-2px; }
   .panel-compact .p-actions { bottom:0; }
 
+  /* V2.14 : échelle de texte. Rien sous 12,5 sauf les libellés de rôle, très courts. */
+  :root { --fs-xs:12.5px; --fs-sm:13.5px; --fs-md:15px; --info:#8fbbe8; }
+  .hint, .rank-word, .rank-rec, .role-traits, .p-chip, .p-alt small, .p-threat-who, .p-ban .note, .result-note, .note { font-size:var(--fs-xs); }
+  .panel-left .role-traits { font-size:var(--fs-xs); }
+  .note { font-size:13px; }
+  .stage-body { text-shadow:0 1px 3px rgba(4,8,12,.75); }
+  .stage-body .cta, .stage-body .badge { text-shadow:none; }
+  .scrim { background:linear-gradient(90deg,rgba(10,15,22,.95) 0%,rgba(10,15,22,.8) 46%,rgba(10,15,22,.08) 82%), linear-gradient(0deg,rgba(10,15,22,.75),transparent 58%); }
+  .stage-notes { min-height:0; display:flex; flex-direction:column; gap:4px; margin-top:2px; }
+  /* Danger et adversaire : deux lignes qui se lisent d'un coup d'œil, de couleurs différentes du badge du conseil. */
+  .alert-line { color:var(--text); font-size:var(--fs-sm); line-height:1.3; overflow-wrap:anywhere; }
+  .alert-line b { margin-right:4px; color:var(--threat); font-weight:600; }
+  .opp-line { color:var(--muted); font-size:var(--fs-sm); line-height:1.3; overflow-wrap:anywhere; }
+  .opp-line.unsure { color:var(--info); }
+  .opp-line span { color:var(--muted); }
+  .opp-line b { color:var(--text); font-weight:600; }
+  .hint.warn { color:var(--info); }
+  .assumed { display:block; color:var(--info); }
+  .role.is-mid .role-traits { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-height:1.2; }
+  .panel-left .role.is-mid .role-traits { -webkit-line-clamp:3; }
+  /* Panneau unique : la colonne en surbrillance et la ligne d'adversaire suffisent. */
+  .compact-roles .role.is-mid .role-traits { display:none; }
+  /* Noms dans les colonnes étroites : police condensée, sans couper un mot au milieu. */
+  .compact-roles .role-name, .compact-roles .role.is-mid .role-name { font:13px/1.1 var(--condensed); white-space:normal; overflow-wrap:normal; word-break:normal; }
+  /* Détails : présents, mais repliés. */
+  .more-line summary, .p-more summary { display:list-item; min-height:24px; color:var(--muted); font-size:var(--fs-sm); cursor:pointer; }
+  .more-line summary:hover, .p-more summary:hover { color:var(--text); }
+  .more-line[open] .note { margin-top:2px; }
+  .p-more { flex:none; }
+  .p-more > section { margin-top:7px; }
+  .p-more[open] { padding-bottom:4px; }
+  /* Panneaux : le conseil reste net, sans repousser les raisons sous le pli. */
+  .p-reco { height:clamp(84px,14vh,126px); border-width:1px; }
+  .p-reasons li:last-child { margin-bottom:0; }
+  .p-threat { align-items:flex-start; background:rgba(242,119,122,.07); border:0; border-left:3px solid var(--threat); border-radius:0 6px 6px 0; padding:6px 8px; }
+  .p-threat b { font-size:var(--fs-md); overflow-wrap:anywhere; }
+  .p-threat p { font-size:13px; }
+  .p-body { gap:8px; }
+  .cta:active { filter:brightness(.92); }
+  .cta:focus-visible, .p-alt:focus-visible, .rank:focus-visible { outline-offset:1px; }
+  .p-more summary:focus-visible, .more-line summary:focus-visible { outline-offset:1px; border-radius:3px; }
+
   /* Panneaux étroits : 125 % d'affichage Windows réduit 320 pixels physiques à 256 pixels d'interface. */
   @media (max-width:300px) {
     .panel .brand { font-size:18px; }
@@ -478,7 +520,7 @@
     .panel .p-actions { margin-left:-9px; margin-right:-9px; padding-left:9px; padding-right:9px; }
     .p-compact-enemies { padding-left:9px; padding-right:9px; }
     .panel-left .roles > .role { gap:6px; padding:5px 4px; }
-    .panel-left .role-icon { width:30px; font-size:9.5px; }
+    .panel-left .role-icon { width:34px; font-size:10.5px; }
     .panel-left .role .portrait, .panel-left .slot-ghost { width:38px !important; height:38px !important; }
     .panel-left .who-wrap { gap:6px; padding-right:32px; }
     .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:15px; }
@@ -491,7 +533,7 @@
 
   /* Hauteur réduite : le verdict et l'alternative restent visibles sans défiler. */
   @media (max-height:600px) {
-    .panel .p-reco { height:96px; }
+    .panel .p-reco { height:72px; }
     .compact-roles .role { min-height:70px; padding-top:2px; padding-bottom:2px; }
     .compact-roles .portrait, .compact-roles .slot-ghost { width:30px !important; height:30px !important; }
     .panel .p-body { gap:7px; padding-top:7px; }
@@ -853,6 +895,14 @@ const riotProvider = new RiotDraftProvider(dispatchDraft);
 function applyDetected(ids) {
   riotProvider.update(ids.map(id => toName(CHAMPION_IDS[id])).filter(n => ROSTER[n] !== undefined));
 }
+// Simulation à la main : aucune lecture du client, et rien n'entre dans le relevé de validation.
+function startRandomDraft() {
+  const names = randomDraft();
+  if (!names) return;
+  resetDraft();
+  names.forEach(addEnemy);
+}
+
 let demoProvider = null;
 function runDemo(stepMs) {
   if (demoProvider) demoProvider.stop();
@@ -1092,14 +1142,30 @@ function sendValidationRow() {
   ] });
 }
 
+const CTA_HELP = "Note ce choix dans ton journal. Rien n'est envoyé au client LoL : tu verrouilles toi-même ton champion.";
+const CLOSE_HELP = "Deux de tes champions ont des scores proches : les deux se défendent.";
+const OPPONENT_HELP = "Le client ne donne pas les rôles adverses : cet adversaire est déduit, et se corrige dans la composition.";
+
 const CONFIDENCE_WORD = { "élevée":"très probable", moyenne:"probable", faible:"non identifié" };
 
 // Les hypothèses restent courtes, sans pourcentage : la qualité des données ne permet pas mieux.
 function hypothesisText() {
   const h = V.hypothesis;
   if (!h) return "";
-  if (!h.main) return `${oppName()} non identifié${h.others.length ? ` : ${h.others.join(" ou ")}` : ""}.`;
-  return `${oppName()} supposé : ${h.main}${h.others.length ? `, sinon ${h.others.join(" ou ")}` : ""}.`;
+  const notYet = h.others.includes("pas encore choisi");
+  const named = h.others.filter(o => o !== "pas encore choisi");
+  if (!h.main && !named.length) return `${oppName()} pas encore visible.`;
+  if (!h.main) return `${oppName()} non identifié : ${named.join(" ou ")}${notYet ? ", ou pas encore choisi" : ""}.`;
+  return `${oppName()} supposé : ${h.main}${named.length ? `, sinon ${named.join(" ou ")}` : notYet ? ", ou pas encore choisi" : ""}.`;
+}
+
+// Incertitude sur l'adversaire direct : une ligne à part, d'une autre couleur que « Choix serré », qui porte sur le conseil.
+function OpponentLine({ className }) {
+  if (!V.hypothesis || !V.n) return null;
+  const unsure = !!V.provisional;
+  return html`<p className=${`opp-line${unsure ? " unsure" : ""}${className ? ` ${className}` : ""}`} title=${OPPONENT_HELP}>
+    ${hypothesisText()}${V.midAlt ? html` <span>Si c'est ${V.midAlt.mid} : <b>${label(V.midAlt.pick)}</b>.</span>` : null}
+  </p>`;
 }
 
 function RoleRow({ role, name, assumed }) {
@@ -1167,7 +1233,7 @@ function EnemyPanel() {
   return html`<aside className="col col-left" aria-label="Composition adverse">
     <h2 className="sec-title">Composition adverse <small>${V.n} sur 5</small></h2>
     <${SearchBox} />
-    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? (V.hypothesis && V.hypothesis.others.length ? `${hypothesisText()} Corrige si tu sais.` : `${oppName()} inconnu : place le bon champion ${oppAt()}.`) : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
+    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
     <${LayoutGroup}>
       <div className="roles">
         ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} />`)}
@@ -1230,11 +1296,11 @@ function Stage() {
     ${V.change ? html`<${motion.p} key=${V.change.id} className="change" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
       <b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}${V.change.reason ? html`<span>${V.change.reason}</span>` : null}
     <//>` : null}
-    <p className="sr" aria-live="polite">Prends ${name}${V.rival ? `, ${V.clear ? "sinon" : "ou"} ${label(V.rival.pick)}` : ""}</p>
+    <p className="sr" aria-live="polite">Conseil : ${name}${V.rival ? `, ${V.clear ? "sinon" : "ou"} ${label(V.rival.pick)}` : ""}</p>
     <${motion.div} key=${name} className="stage-body" variants=${stagger} initial="hidden" animate="show">
       <${motion.div} className="badges" variants=${item}>
-        ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
-        ${V.n < 5 ? html`<span className="badge">Provisoire ${V.n}/5</span>` : null}
+        ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
+        ${V.n < 5 ? html`<span className="badge">${V.n}/5 adversaires</span>` : null}
       <//>
       <${motion.div} className=${`champ-name${name.length > 18 ? " long" : ""}`} variants=${item}>${name}<//>
       ${V.rival ? html`<${motion.div} className="alt-line" variants=${item}>
@@ -1244,15 +1310,17 @@ function Stage() {
         ${(V.reasons.length ? V.reasons : ["Aucun argument particulier dans cette draft"]).map(t => html`<${motion.li} key=${t} initial=${{ x:-6, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
       <//>
       <${motion.div} className="stage-notes" variants=${item}>
-        ${V.risk ? html`<p className="note risk">Risque : ${V.risk}</p>` : null}
-        ${V.avoided.length ? html`<p className="note">À éviter : <span className="avoid">${V.avoided.map(label).join(", ")}</span></p>` : null}
-        ${V.personal ? html`<p className="note">Tes parties : ${V.personal}</p>` : null}
-        ${V.without ? html`<p className="note">Sans frontline : <b>${label(V.without)}</b></p>` : null}
-        ${V.provisional ? html`<p className="note warn">Provisoire. ${hypothesisText()}</p>` : null}
-        ${V.midAlt ? html`<p className="note warn">Si ton adversaire ${oppAt()} est ${V.midAlt.mid} : <b>${label(V.midAlt.pick)}</b></p>` : null}
+        ${V.risk ? html`<p className="alert-line"><b>Danger</b> ${V.risk}</p>` : null}
+        <${OpponentLine} />
+        ${V.avoided.length || V.personal || V.without ? html`<details className="more-line">
+          <summary>Plus de détails</summary>
+          ${V.avoided.length ? html`<p className="note">À éviter : <span className="avoid">${V.avoided.map(label).join(", ")}</span></p>` : null}
+          ${V.personal ? html`<p className="note">Tes parties : ${V.personal}</p>` : null}
+          ${V.without ? html`<p className="note">Sans frontline : <b>${label(V.without)}</b></p>` : null}
+        </details>` : null}
       <//>
-      <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
-        <${motion.span} key=${picked ? "done" : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${picked ? `${name} enregistré` : `Je prends ${name}`}<//>
+      <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
+        <${motion.span} key=${picked ? "done" : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${picked ? `${name} noté` : `Je joue ${name}`}<//>
       <//>
     <//>
   </section>`;
@@ -1260,8 +1328,8 @@ function Stage() {
 
 function rankWord(p, i) {
   if (V.avoided.includes(p.pick)) return ["À éviter", "bad"];
-  if (i === 0) return [V.clear ? "Recommandé" : "Au coude à coude", "best"];
-  if (i === 1) return [V.clear ? "Alternative" : "Au coude à coude", V.clear ? "alt" : "best"];
+  if (i === 0) return [V.clear ? "Recommandé" : "Très proche", "best"];
+  if (i === 1) return [V.clear ? "Alternative" : "Très proche", V.clear ? "alt" : "best"];
   return [p.score < 0 ? "Peu adapté" : "Possible", p.score < 0 ? "bad" : "other"];
 }
 
@@ -1333,8 +1401,7 @@ function PlanBlock() {
     <div className="plan-row target"><span>Cibles</span><${Faces} names=${targets} empty="Le carry le plus exposé" /></div>
     <div className="plan-row ban-row"><span>Bans</span><${Faces} names=${V.bans} empty="Aucun" /></div>
     ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b>${pending.mid ? ` contre ${pending.mid}` : ""}</p>` : null}
-    <${ResultButtons} id=${entry ? entry.id : pending ? pending.id : 0} result=${entry ? entry.result : null} disabled=${!entry && !pending} />
-    ${!entry && !pending ? html`<p className="result-note">Enregistre d'abord ton pick pour noter le résultat.</p>` : null}
+    ${entry || pending ? html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />` : null}
   </section>`;
 }
 
@@ -1560,7 +1627,7 @@ function StatsTab() {
 
 function JournalTab() {
   const list = loadJournal();
-  if (!list.length) return html`<p className="small">Ton journal est vide : clique sur « Je prends » pendant une draft pour commencer.</p>`;
+  if (!list.length) return html`<p className="small">Ton journal est vide : clique sur « Je joue » pendant une draft pour commencer.</p>`;
   const played = list.filter(x => x.result === "win" || x.result === "loss");
   const tally = rows => { const w = rows.filter(x => x.result === "win").length; return { wins:w, losses:rows.length - w, games:rows.length }; };
   const followed = tally(played.filter(x => x.picked === x.suggested));
@@ -1640,7 +1707,7 @@ function MobileBar() {
   const picked = entry && entry.picked === V.shown;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${label(V.shown)} size=${32} />${label(V.shown)}</span>
-    <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je prends"}<//>
+    <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je prends"}<//>
   </div>`;
 }
 
@@ -1674,10 +1741,10 @@ function VerdictPanel() {
   const unknown = 5 - V.n;
   const picked = entry && entry.picked === V.shown;
   return html`<div className="p-body">
-    <p className="sr" aria-live="polite">Prends ${name}${V.rival ? `, ${V.clear ? "sinon" : "ou"} ${label(V.rival.pick)}` : ""}</p>
+    <p className="sr" aria-live="polite">Conseil : ${name}${V.rival ? `, ${V.clear ? "sinon" : "ou"} ${label(V.rival.pick)}` : ""}</p>
     <div className="p-status">
-      ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
-      ${unknown ? html`<span className="badge">Provisoire : ${unknown} inconnu${unknown > 1 ? "s" : ""}</span>` : null}
+      ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
+      ${unknown ? html`<span className="badge">${V.n}/5 adversaires</span>` : null}
     </div>
     <section className="p-reco" aria-label="Champion conseillé">
       <${SplashStack} name=${name} />
@@ -1693,23 +1760,25 @@ function VerdictPanel() {
       <span className="p-alt-text"><small>${V.clear ? "Alternative" : "Presque à égalité"}</small>${label(V.rival.pick)}</span>
       <span aria-hidden="true">›</span>
     </button>` : null}
-    <h2 className="p-h">Pourquoi ce choix ?</h2>
+    <h2 className="sr">Pourquoi ce choix ?</h2>
     <ul className="p-reasons">
       ${(V.reasons.length ? V.reasons : ["Aucun argument marqué pour l'instant : ajoute des adversaires."]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
     </ul>
-    ${V.hypothesis ? html`<p className=${`note p-opponent${V.provisional ? " warn" : ""}`}>${V.provisional ? "Provisoire. " : ""}${hypothesisText()}</p>` : null}
-    ${threat ? html`<section className="p-threat" aria-label="Menace principale">
-      <div><b>Menace principale</b><p>${threatText(V.shown, threat, c)}</p></div>
-      <span className="p-threat-who"><${Portrait} name=${threat} size=${36} />${threat}</span>
+    ${threat ? html`<section className="p-threat" aria-label="Danger principal">
+      <${Portrait} name=${threat} size=${30} />
+      <div><b>Danger : ${threat}</b><p>${threatText(V.shown, threat, c)}</p></div>
     </section>` : null}
-    <section className="p-win"><b>Gagne si</b><p>${winCondition(V.shown, c)}</p></section>
-    ${V.bans[0] ? html`<section className="p-ban" aria-label="Ban conseillé">
-      <h2 className="p-h">Ban conseillé</h2>
-      <div className="p-ban-row"><${Portrait} name=${V.bans[0]} size=${34} /><b>${V.bans[0]}</b>${V.bans.length > 1 ? html`<span>ou ${V.bans.slice(1).join(", ")}</span>` : null}</div>
-      <p className="note">${V.bans[0]} ${banReason(V.bans[0])}.</p>
-    </section>` : null}
+    <${OpponentLine} />
+    <details key=${V.n ? "draft" : "bans"} className="p-more" open=${!V.n}>
+      <summary>${V.n ? "Plan de jeu et ban" : "Ban conseillé"}</summary>
+      ${V.bans[0] ? html`<section className="p-ban" aria-label="Ban conseillé">
+        <div className="p-ban-row"><${Portrait} name=${V.bans[0]} size=${34} /><b>${V.bans[0]}</b>${V.bans.length > 1 ? html`<span>ou ${V.bans.slice(1).join(", ")}</span>` : null}</div>
+        <p className="note">${V.bans[0]} ${banReason(V.bans[0])}.</p>
+      </section>` : null}
+      <section className="p-win"><b>Gagne si</b><p>${winCondition(V.shown, c)}</p></section>
+    </details>
     <div className="p-actions">
-      <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} enregistré` : `Je prends ${name}`}<//>
+      <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} noté` : `Je joue ${name}`}<//>
       <button type="button" className="ghost-btn" onClick=${() => openDetail("analyse")}>Analyse<span className="opt-word"> détaillée</span></button>
     </div>
     ${entry || pending ? html`<div>
@@ -1745,6 +1814,8 @@ function ProfileCard() {
   const [role, setRole] = useState(PROFILE ? PROFILE.role : null);
   const [pool, setPool] = useState(PROFILE ? PICKS.map(label) : []);
   const [query, setQuery] = useState("");
+  const searchRef = useRef(null);
+  const backToSearch = () => { if (searchRef.current) searchRef.current.focus(); };
   const apply = (r, list) => { setRole(r); setPool(list); if (r && list.length) saveMyProfile(r, list); };
   const key = norm(query);
   const choices = (key ? NAMES.filter(n => champKeys(n).some(k => k.includes(key))) : role ? championsForRole(role) : []).filter(n => !pool.includes(n)).slice(0, 12);
@@ -1756,13 +1827,13 @@ function ProfileCard() {
         ${ROLE_ORDER.map(r => html`<button key=${r} type="button" className=${`ghost-btn${role === r ? " on" : ""}`} aria-pressed=${role === r} onClick=${() => apply(r, pool)}>${ROLE_NAMES[r]}</button>`)}
       </div>
       <div className="pool-list" aria-label="Mes champions">
-        ${pool.map(n => html`<button key=${n} type="button" className="pool-chip on" title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => apply(role, pool.filter(x => x !== n))}><${Portrait} name=${n} size=${24} /><span>${n}</span><b aria-hidden="true">×</b></button>`)}
+        ${pool.map(n => html`<button key=${n} type="button" className="pool-chip on" title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { apply(role, pool.filter(x => x !== n)); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span><b aria-hidden="true">×</b></button>`)}
         ${pool.length ? null : html`<span className="set-hint flush">Aucun champion pour l'instant.</span>`}
       </div>
-      <input className="pool-search" type="search" value=${query} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder="Ajouter un champion : ahri, tf, kata..."
-        onChange=${e => setQuery(e.target.value)} onKeyDown=${e => { if (e.key === "Enter" && choices[0]) { apply(role, pool.concat(choices[0])); setQuery(""); } }} />
+      <input ref=${searchRef} className="pool-search" type="search" value=${query} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder="Ajouter un champion : ahri, tf, kata..."
+        onChange=${e => setQuery(e.target.value)} onKeyDown=${e => { if (e.key === "Enter") { e.preventDefault(); if (choices[0]) { apply(role, pool.concat(choices[0])); setQuery(""); } } }} />
       ${role || key ? html`<div className="pool-list">
-        ${choices.map(n => html`<button key=${n} type="button" className="pool-chip" onClick=${() => { apply(role, pool.concat(n)); setQuery(""); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`)}
+        ${choices.map(n => html`<button key=${n} type="button" className="pool-chip" onClick=${() => { apply(role, pool.concat(n)); setQuery(""); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`)}
         ${key && !choices.length ? html`<span className="set-hint flush">Aucun champion trouvé.</span>` : null}
       </div>` : null}
       ${PROFILE && (!role || !pool.length) ? html`<p className="set-hint flush">Garde au moins un champion : ton profil précédent reste actif.</p>` : null}
@@ -1864,7 +1935,6 @@ function Settings({ onClose }) {
       <${DataSources} />
       <details className="set-more">
         <summary>Avancé</summary>
-        <p><button type="button" className="ghost-btn" onClick=${() => { onClose(); runDemo(); }}>Lancer une draft de démonstration</button></p>
         ${hostState.available ? html`<div>
           <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
           <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
@@ -1893,14 +1963,19 @@ function PanelApp() {
   </div>`;
 }
 
+const isTextEntry = el => !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+
 function App() {
   const [, force] = useReducer(x => x + 1, 0);
   const [showSettings, setShowSettings] = useState(() => new URLSearchParams(location.search).get("tab") === "settings");
-  // Ouverts depuis un panneau, les réglages ont leur propre fenêtre : les fermer la referme aussi.
-  const settingsWindow = useRef(IS_HOST && new URLSearchParams(location.search).get("tab") === "settings");
+  // Ouverts pendant une draft, les réglages sont seuls à l'écran : les fermer referme la fenêtre, pour ne rien laisser devant le client.
+  const settingsWindow = useRef(IS_HOST && new URLSearchParams(location.search).get("solo") === "1");
   const closeSettings = useCallback(() => {
     setShowSettings(false);
+    // Une relance de la page ne doit pas rouvrir les réglages.
+    if (new URLSearchParams(location.search).get("tab") === "settings") history.replaceState(null, "", "?panel=full");
     if (settingsWindow.current) { settingsWindow.current = false; hostSend({ cmd:"closeFull" }); }
+    else setTimeout(focusAdd, 0);
   }, []);
   useEffect(() => {
     rerender = force;
@@ -1928,9 +2003,11 @@ function App() {
       hostSend({ cmd:"getHost" });
     }
     const onKey = e => {
+      // Les raccourcis de la page ne valent que pour elle : pas derrière les réglages, ni pendant une saisie.
+      if (document.querySelector(".settings")) return;
       const active = document.activeElement;
       const add = document.getElementById("add");
-      const inField = active && (active.id === "add" || active.id === "q");
+      const inField = isTextEntry(active);
       if (e.key === "Escape") {
         if (!inField || active.id === "add") resetDraft();
       } else if (!inField) {
@@ -1953,6 +2030,7 @@ function App() {
         <span className="patch">Patch ${ddVersion.split(".").slice(0, 2).join(".")}</span>
         <span className="grow"></span>
         <button type="button" className="ghost-btn" onClick=${() => setShowSettings(true)}>Réglages</button>
+        <button type="button" className="ghost-btn" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
         <button type="button" className="ghost-btn" disabled=${!state.enemies.length} onClick=${resetDraft}>Nouvelle draft</button>
       </header>
       <div className="desk">
