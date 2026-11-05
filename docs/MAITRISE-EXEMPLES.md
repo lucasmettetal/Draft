@@ -1,362 +1,264 @@
-# Exemples du classement personnalisé
+# Exemples de recommandations personnalisées
 
-Généré par `tools/run-mastery-compare.ps1`. **Tous les historiques sont fictifs.** Ces chiffres décrivent le comportement du prototype sur des drafts simulées : ils ne mesurent aucune victoire.
+Généré par `tools/run-mastery-compare.ps1`. **Tous les historiques sont fictifs**, et les conseils restent à relire par un joueur.
 
-- **A :** moteur actuel, sans personnalisation.
-- **B :** A + expérience + résultats.
-- **C :** B + complexité, seulement là où l'expérience manque.
-- **D :** C + statistiques de matchups. **Aucune source autorisée n'est branchée, donc D donne le même résultat que C.**
+Le classement présenté reste toujours celui du moteur. Le champion le plus joué est affiché à côté, sans décider à ta place.
 
-## Comportement sur 2 000 drafts
+## Débutant sans historique
 
-Part en tête, égalités partagées. « Changé » compte les drafts où le premier diffère de A sans être déjà à égalité avec lui.
+**Contexte :** mid, pool TF, Fizz, Kog'Maw, Xerath. Adversaires visibles : Malzahar, Ornn, Rengar, Samira, Pyke.
 
-### Mid, débutant sans historique
+- **Meilleur choix pour la draft :** Twisted Fate
+- **Le plus joué :** aucun, données insuffisantes
+- **Compromis :** Sans historique, seule la lecture de la draft est disponible.
 
-| Modèle | Répartition | Égalité en tête | Changé |
+**Théorie :**
+
+- **Pourquoi Twisted Fate en théorie.** La raison principale : 2e choix contre Malzahar. *Limite : Règle écrite à la main, pas une statistique.*
+- **Twisted Fate peut demander de la pratique.** Riot note sa difficulté 9/10 : il faut parfois plusieurs parties pour en tirer le meilleur. Si tu as envie de l'apprendre, c'est un choix valable. *Limite : Note de Riot non documentée et parfois contredite par celle du client : une indication, pas une mesure.*
+
+**Expérience :**
+
+- Rien à signaler.
+
+**Incertitude :**
+
+- **Aucun historique importé.** DraftMid ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft.
+
+## Le plus joué est aussi le meilleur choix sur la draft
+
+**Contexte :** mid, pool TF, Fizz, Kog'Maw, Xerath. Adversaires visibles : Malzahar, Ornn, Rengar, Samira, Pyke.
+
+- **Meilleur choix pour la draft :** Twisted Fate
+- **Le plus joué :** Twisted Fate, 150 parties
+- **Compromis :** Twisted Fate ressort sur la draft, et c'est aussi ton champion le plus joué.
+
+**Théorie :**
+
+- **Pourquoi Twisted Fate en théorie.** La raison principale : 2e choix contre Malzahar. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Twisted Fate.** 150 parties sur Twisted Fate dans ce rôle, dont 36 ces 30 derniers jours. *Limite : Le nombre de parties ne dit pas si tu joues bien ce champion.*
+- **Résultats de Twisted Fate : pas d'écart net.** 80 victoires sur 150, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : pas une preuve de cause à effet.*
+
+**Incertitude :**
+
+- Rien à signaler.
+
+## Le plus joué n'est pas le choix de la draft (petit écart)
+
+**Contexte :** top, pool Darius, Garen, Malphite, Ornn, Camille. Adversaires visibles : Sett, Vi.
+
+- **Meilleur choix pour la draft :** Camille
+- **Le plus joué :** Darius, 100 parties
+- **Compromis :** La draft penche légèrement vers Camille. Darius est le champion que tu as le plus joué : les deux lectures se défendent.
+
+**Théorie :**
+
+- **Pourquoi Camille en théorie.** La raison principale : 2 tanks ou bruisers : ses dégâts contre les tanks sont utiles. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Camille.** Aucune partie importée sur Camille dans ce rôle. *Limite : Tes parties plus anciennes ou dans d'autres modes ne sont pas visibles ici.*
+- **Le plus joué : Darius.** 100 parties sur Darius dans ce rôle, dont 23 ces 30 derniers jours. *Limite : Le plus joué n'est pas forcément celui qui te réussit le mieux.*
+
+**Incertitude :**
+
+- **Il reste 3 adversaires à voir.** Ce conseil peut encore changer.
+- **Camille contre Sett : aucune donnée.** Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.
+
+## Le plus joué n'est pas le choix de la draft (grand écart)
+
+**Contexte :** mid, pool TF, Fizz, Kog'Maw, Xerath. Adversaires visibles : Ornn, Sion, Maokai, Jinx, Thresh.
+
+- **Meilleur choix pour la draft :** Kog'Maw
+- **Le plus joué :** Fizz, 150 parties
+- **Compromis :** La draft penche nettement vers Kog'Maw. Fizz est simplement le champion que tu as le plus joué : à toi de peser.
+
+**Théorie :**
+
+- **Pourquoi Kog'Maw en théorie.** La raison principale : 3 tanks ou bruisers : ses dégâts en % des PV font la différence. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Kog'Maw.** 5 parties sur Kog'Maw dans ce rôle, dont 5 ces 30 derniers jours. *Limite : Le nombre de parties ne dit pas si tu joues bien ce champion.*
+- **Le plus joué : Fizz.** 150 parties sur Fizz dans ce rôle, dont 36 ces 30 derniers jours. *Limite : Le plus joué n'est pas forcément celui qui te réussit le mieux.*
+
+**Incertitude :**
+
+- **5 parties sur Kog'Maw : trop peu pour conclure.** 4 victoires sur 5 : trop peu pour savoir si ce champion te réussit.
+
+## Vraie égalité, départagée par l'expérience
+
+**Contexte :** jungle, pool Viego, Master Yi. Adversaires visibles : Ornn, Sion, Maokai, Jinx, Thresh.
+
+- **Égalité sur la draft :** Master Yi, Viego
+- **Le plus joué :** Viego, 80 parties
+- **Compromis :** Égalité sur la draft entre Master Yi et Viego. Viego est ton champion le plus joué : c'est un argument, à toi de voir.
+
+**Théorie :**
+
+- **Égalité : Master Yi et Viego.** Les règles de DraftMid ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
+- **Pourquoi Master Yi en théorie.** La raison principale : 3 tanks ou bruisers : ses dégâts contre les tanks font la différence. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Master Yi.** Aucune partie importée sur Master Yi dans ce rôle. *Limite : Tes parties plus anciennes ou dans d'autres modes ne sont pas visibles ici.*
+- **Le plus joué : Viego.** 80 parties sur Viego dans ce rôle, dont 18 ces 30 derniers jours. *Limite : Le plus joué n'est pas forcément celui qui te réussit le mieux.*
+
+**Incertitude :**
+
+- **Adversaire supposé : Maokai.** DraftMid le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le. *Limite : Ce n'est pas une information du client.*
+- **Master Yi contre Maokai : aucune donnée.** Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.
+
+## Égalité sans écart d'expérience
+
+**Contexte :** jungle, pool Viego, Master Yi. Adversaires visibles : Ornn, Sion, Maokai, Jinx, Thresh.
+
+- **Égalité sur la draft :** Master Yi, Viego
+- **Le plus joué :** Viego, 22 parties
+- **Compromis :** Égalité sur la draft entre Master Yi et Viego, et ton expérience sur Viego et Master Yi est proche. Rien ne les sépare : à toi de voir.
+
+**Théorie :**
+
+- **Égalité : Master Yi et Viego.** Les règles de DraftMid ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
+- **Pourquoi Master Yi en théorie.** La raison principale : 3 tanks ou bruisers : ses dégâts contre les tanks font la différence. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Master Yi.** 20 parties sur Master Yi dans ce rôle, dont 14 ces 30 derniers jours. *Limite : Le nombre de parties ne dit pas si tu joues bien ce champion.*
+- **Le plus joué : Viego.** 22 parties sur Viego dans ce rôle, dont 14 ces 30 derniers jours. *Limite : Le plus joué n'est pas forcément celui qui te réussit le mieux.*
+
+**Incertitude :**
+
+- **Adversaire supposé : Maokai.** DraftMid le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le. *Limite : Ce n'est pas une information du client.*
+- **Master Yi contre Maokai : aucune donnée.** Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.
+- **20 parties sur Master Yi : trop peu pour conclure.** 10 victoires sur 20 : trop peu pour savoir si ce champion te réussit.
+
+## Beaucoup de parties, mais résultats bas
+
+**Contexte :** mid, pool TF, Fizz, Kog'Maw, Xerath. Adversaires visibles : Syndra, Ornn, Lee Sin, Jinx, Thresh.
+
+- **Meilleur choix pour la draft :** Fizz
+- **Le plus joué :** Xerath, 150 parties
+- **Compromis :** La draft penche nettement vers Fizz. Xerath est simplement le champion que tu as le plus joué : à toi de peser.
+
+**Théorie :**
+
+- **Pourquoi Fizz en théorie.** La raison principale : 1er choix contre Syndra. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Fizz.** Aucune partie importée sur Fizz dans ce rôle. *Limite : Tes parties plus anciennes ou dans d'autres modes ne sont pas visibles ici.*
+- **Le plus joué : Xerath.** 150 parties sur Xerath dans ce rôle, dont 34 ces 30 derniers jours. *Limite : Le plus joué n'est pas forcément celui qui te réussit le mieux.*
+
+**Incertitude :**
+
+- **Syndra peut surprendre.** Ce matchup peut être difficile si tu ne connais pas ses compétences. Regarde ses sorts avant de lancer la partie. *Limite : Tu as pu jouer ou rencontrer ce champion ailleurs.*
+
+## Champion exigeant en apprentissage
+
+**Contexte :** mid, pool TF, Fizz, Kog'Maw, Xerath. Adversaires visibles : Sett, Vi.
+
+- **Meilleur choix pour la draft :** Twisted Fate
+- **Le plus joué :** Fizz, 40 parties
+- **Compromis :** Tu regardes Xerath. La draft met plutôt en avant Twisted Fate : ton choix reste possible, voici ce qu'il implique.
+
+**Théorie :**
+
+- **Xerath sur cette draft.** Aucune règle ne le met particulièrement en avant ici. *Limite : Les fiches sont écrites à la main et parfois incomplètes.*
+
+**Expérience :**
+
+- **Ton expérience sur Xerath.** 3 parties sur Xerath dans ce rôle, dont 3 ces 30 derniers jours. *Limite : Le nombre de parties ne dit pas si tu joues bien ce champion.*
+- **Le plus joué : Fizz.** 40 parties sur Fizz dans ce rôle, dont 13 ces 30 derniers jours. *Limite : Le plus joué n'est pas forcément celui qui te réussit le mieux.*
+- **Tu apprends Xerath.** Tu l'as marqué en apprentissage : quelques parties plus difficiles sont normales.
+
+**Incertitude :**
+
+- **Il reste 3 adversaires à voir.** Ce conseil peut encore changer.
+- **Adversaire direct inconnu.** Le conseil ne peut pas encore porter sur un duel précis.
+- **3 parties sur Xerath : trop peu pour conclure.** 1 victoire sur 3 : trop peu pour savoir si ce champion te réussit.
+
+## Expérience ancienne
+
+**Contexte :** jungle, pool Cho'Gath, Viego, Master Yi, Briar, Lee Sin. Adversaires visibles : Darius, Syndra, Jinx, Thresh, Vi.
+
+- **Égalité sur la draft :** Cho'Gath, Master Yi, Viego
+- **Le plus joué :** Lee Sin, 200 parties
+- **Compromis :** La draft penche nettement vers Cho'Gath, Master Yi et Viego. Lee Sin est simplement le champion que tu as le plus joué : à toi de peser.
+
+**Théorie :**
+
+- **Égalité : Cho'Gath, Master Yi et Viego.** Les règles de DraftMid ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
+- **Pourquoi Cho'Gath en théorie.** La raison principale : 2 tanks ou bruisers : ses dégâts contre les tanks sont utiles. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Cho'Gath.** Aucune partie importée sur Cho'Gath dans ce rôle. *Limite : Tes parties plus anciennes ou dans d'autres modes ne sont pas visibles ici.*
+- **Le plus joué : Lee Sin.** 200 parties sur Lee Sin dans ce rôle. *Limite : Le plus joué n'est pas forcément celui qui te réussit le mieux.*
+
+**Incertitude :**
+
+- **Cho'Gath contre Vi : aucune donnée.** Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.
+- **Pas de partie récente sur Lee Sin.** Ta dernière partie importée dans ce rôle date de 500 jours. Le jeu a pu changer entre-temps.
+
+## Draft incomplète et adversaire supposé
+
+**Contexte :** adc, pool Jinx, Caitlyn, Kog'Maw, Ezreal, Vayne. Adversaires visibles : Ornn, Lee Sin.
+
+- **Meilleur choix pour la draft :** Vayne
+- **Le plus joué :** Vayne, 180 parties
+- **Compromis :** Vayne ressort sur la draft, et c'est aussi ton champion le plus joué.
+
+**Théorie :**
+
+- **Pourquoi Vayne en théorie.** La raison principale : 2 tanks ou bruisers : ses dégâts contre les tanks sont utiles. *Limite : Règle écrite à la main, pas une statistique.*
+
+**Expérience :**
+
+- **Ton expérience sur Vayne.** 180 parties sur Vayne dans ce rôle, dont 43 ces 30 derniers jours. *Limite : Le nombre de parties ne dit pas si tu joues bien ce champion.*
+- **Résultats de Vayne : pas d'écart net.** 95 victoires sur 180, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : pas une preuve de cause à effet.*
+
+**Incertitude :**
+
+- **Il reste 3 adversaires à voir.** Ce conseil peut encore changer.
+- **Adversaire direct inconnu.** Le conseil ne peut pas encore porter sur un duel précis.
+
+## Effet sur le classement
+
+Sur 2 000 drafts complètes simulées. « Hors égalité » compte les drafts où le premier change sans être à égalité avec celui du moteur. Le modèle B n'existe plus que pour cette comparaison.
+
+### Top, 100 parties de Darius à 52 %
+
+| Modèle | Part en tête | Nom en tête changé | Hors égalité |
 |---|---|---|---|
-| A | Fizz 52.5, Twisted Fate 25.2, Kog'Maw 15.5, Xerath 6.9 | 2 % | 0 % |
-| B | Fizz 52.5, Twisted Fate 25.2, Kog'Maw 15.5, Xerath 6.9 | 2 % | 0 % |
-| C | Fizz 54.5, Twisted Fate 22.1, Kog'Maw 17.5, Xerath 6 | 0.3 % | 3.2 % |
-| D | Fizz 54.5, Twisted Fate 22.1, Kog'Maw 17.5, Xerath 6 | 0.3 % | 3.2 % |
+| A | Ornn 55.8, Malphite 31.4, Camille 8.8, Garen 4, Darius 0.1 | 0 % | 0 % |
+| T | Ornn 55.8, Malphite 31.4, Camille 8.8, Garen 4, Darius 0.1 | 0 % | 0 % |
+| B | Darius 50.3, Ornn 30.4, Malphite 14.8, Garen 4, Camille 0.6 | 50.3 % | 50.3 % |
 
-### Mid, joueur TF expérimenté
+### Mid, 150 parties de Twisted Fate
 
-| Modèle | Répartition | Égalité en tête | Changé |
+| Modèle | Part en tête | Nom en tête changé | Hors égalité |
 |---|---|---|---|
-| A | Fizz 52.5, Twisted Fate 25.2, Kog'Maw 15.5, Xerath 6.9 | 2 % | 0 % |
-| B | Fizz 50.7, Twisted Fate 34.4, Kog'Maw 10.3, Xerath 4.6 | 0 % | 9.7 % |
-| C | Fizz 51.5, Twisted Fate 34.5, Kog'Maw 10.3, Xerath 3.8 | 0 % | 10.6 % |
-| D | Fizz 51.5, Twisted Fate 34.5, Kog'Maw 10.3, Xerath 3.8 | 0 % | 10.6 % |
+| A | Fizz 52.2, Twisted Fate 25.3, Kog'Maw 15.6, Xerath 7 | 0 % | 0 % |
+| T | Fizz 52.2, Twisted Fate 25.3, Kog'Maw 15.5, Xerath 7.1 | 0.1 % | 0 % |
+| B | Fizz 50.7, Twisted Fate 34.4, Kog'Maw 10.3, Xerath 4.6 | 10.4 % | 9.7 % |
 
-### Mid, 5 parties Kog'Maw à 80 %, 150 Fizz à 55 %
+### Jungle, 120 parties de Master Yi
 
-| Modèle | Répartition | Égalité en tête | Changé |
+| Modèle | Part en tête | Nom en tête changé | Hors égalité |
 |---|---|---|---|
-| A | Fizz 52.5, Twisted Fate 25.2, Kog'Maw 15.5, Xerath 6.9 | 2 % | 0 % |
-| B | Fizz 63.6, Twisted Fate 17.3, Kog'Maw 15.7, Xerath 3.4 | 0.1 % | 11.6 % |
-| C | Fizz 64.5, Kog'Maw 18, Twisted Fate 14.2, Xerath 3.4 | 0 % | 14.9 % |
-| D | Fizz 64.5, Kog'Maw 18, Twisted Fate 14.2, Xerath 3.4 | 0 % | 14.9 % |
+| A | Cho'Gath 65.9, Lee Sin 30.6, Master Yi 2, Briar 1.6, Viego 0 | 0 % | 0 % |
+| T | Master Yi 37.2, Cho'Gath 33.1, Lee Sin 29.4, Viego 0.4, Briar 0 | 35.6 % | 0 % |
+| B | Master Yi 37.4, Cho'Gath 33.1, Lee Sin 29.2, Viego 0.4, Briar 0 | 35.9 % | 0.3 % |
 
-### Mid, Xerath en apprentissage
+### ADC, 180 parties de Vayne
 
-| Modèle | Répartition | Égalité en tête | Changé |
+| Modèle | Part en tête | Nom en tête changé | Hors égalité |
 |---|---|---|---|
-| A | Fizz 52.5, Twisted Fate 25.2, Kog'Maw 15.5, Xerath 6.9 | 2 % | 0 % |
-| B | Fizz 56.6, Twisted Fate 29.7, Kog'Maw 11, Xerath 2.8 | 0 % | 8.7 % |
-| C | Fizz 57.5, Twisted Fate 28.6, Kog'Maw 11.1, Xerath 2.9 | 0 % | 9.5 % |
-| D | Fizz 57.5, Twisted Fate 28.6, Kog'Maw 11.1, Xerath 2.9 | 0 % | 9.5 % |
-
-### Jungle, sans historique
-
-| Modèle | Répartition | Égalité en tête | Changé |
-|---|---|---|---|
-| A | Cho'Gath 43.1, Lee Sin 34.1, Master Yi 11.3, Viego 11.2, Briar 0.3 | 37.5 % | 0 % |
-| B | Cho'Gath 43.1, Lee Sin 34.1, Master Yi 11.3, Viego 11.2, Briar 0.3 | 37.5 % | 0 % |
-| C | Cho'Gath 43.1, Lee Sin 34.1, Master Yi 11.3, Viego 11.2, Briar 0.3 | 37.5 % | 0 % |
-| D | Cho'Gath 43.1, Lee Sin 34.1, Master Yi 11.3, Viego 11.2, Briar 0.3 | 37.5 % | 0 % |
-
-### Jungle, joueur Lee Sin ancien
-
-| Modèle | Répartition | Égalité en tête | Changé |
-|---|---|---|---|
-| A | Cho'Gath 43.1, Lee Sin 34.1, Master Yi 11.3, Viego 11.2, Briar 0.3 | 37.5 % | 0 % |
-| B | Lee Sin 52, Cho'Gath 29.1, Viego 18.8, Master Yi 0.2, Briar 0 | 0.3 % | 4.2 % |
-| C | Lee Sin 52, Cho'Gath 29.1, Viego 18.8, Master Yi 0.2, Briar 0 | 0.3 % | 4.2 % |
-| D | Lee Sin 52, Cho'Gath 29.1, Viego 18.8, Master Yi 0.2, Briar 0 | 0.3 % | 4.2 % |
-
-### Jungle, joueur Master Yi régulier
-
-| Modèle | Répartition | Égalité en tête | Changé |
-|---|---|---|---|
-| A | Cho'Gath 43.1, Lee Sin 34.1, Master Yi 11.3, Viego 11.2, Briar 0.3 | 37.5 % | 0 % |
-| B | Master Yi 37.4, Cho'Gath 33.1, Lee Sin 29.2, Viego 0.4, Briar 0 | 0 % | 0.3 % |
-| C | Master Yi 37.4, Cho'Gath 33.1, Lee Sin 29.2, Viego 0.4, Briar 0 | 0 % | 0.3 % |
-| D | Master Yi 37.4, Cho'Gath 33.1, Lee Sin 29.2, Viego 0.4, Briar 0 | 0 % | 0.3 % |
-
-### Top, joueur simple (Darius, Garen)
-
-| Modèle | Répartition | Égalité en tête | Changé |
-|---|---|---|---|
-| A | Ornn 72.3, Malphite 17.6, Camille 8.6, Garen 1.4, Darius 0 | 34.8 % | 0 % |
-| B | Darius 50.3, Ornn 37.7, Malphite 7.5, Garen 4, Camille 0.6 | 14.5 % | 50.3 % |
-| C | Darius 50.3, Ornn 37.7, Malphite 7.5, Garen 4, Camille 0.6 | 14.5 % | 50.3 % |
-| D | Darius 50.3, Ornn 37.7, Malphite 7.5, Garen 4, Camille 0.6 | 14.5 % | 50.3 % |
-
-### ADC, joueur Vayne, note Riot élevée
-
-| Modèle | Répartition | Égalité en tête | Changé |
-|---|---|---|---|
-| A | Vayne 62.1, Ezreal 30, Caitlyn 7.1, Kog'Maw 0.9, Jinx 0 | 15.3 % | 0 % |
-| B | Vayne 84.5, Ezreal 14.2, Caitlyn 0.7, Kog'Maw 0.7, Jinx 0 | 0 % | 21 % |
-| C | Vayne 84.5, Ezreal 14.2, Caitlyn 0.7, Kog'Maw 0.7, Jinx 0 | 0 % | 21 % |
-| D | Vayne 84.5, Ezreal 14.2, Caitlyn 0.7, Kog'Maw 0.7, Jinx 0 | 0 % | 21 % |
-
-### ADC, débutant déclaré sans historique
-
-| Modèle | Répartition | Égalité en tête | Changé |
-|---|---|---|---|
-| A | Vayne 62.1, Ezreal 30, Caitlyn 7.1, Kog'Maw 0.9, Jinx 0 | 15.3 % | 0 % |
-| B | Vayne 62.1, Ezreal 30, Caitlyn 7.1, Kog'Maw 0.9, Jinx 0 | 15.3 % | 0 % |
-| C | Vayne 48.2, Ezreal 31.6, Kog'Maw 13.2, Caitlyn 7.1, Jinx 0 | 36.7 % | 0 % |
-| D | Vayne 48.2, Ezreal 31.6, Kog'Maw 13.2, Caitlyn 7.1, Jinx 0 | 36.7 % | 0 % |
-
-### Support, historique égal partout
-
-| Modèle | Répartition | Égalité en tête | Changé |
-|---|---|---|---|
-| A | Leona 32.5, Thresh 31.7, Soraka 26.4, Lux 9.3, Lulu 0.3 | 58.6 % | 0 % |
-| B | Leona 32.5, Thresh 31.7, Soraka 26.4, Lux 9.3, Lulu 0.3 | 58.6 % | 0 % |
-| C | Leona 32.5, Thresh 31.7, Soraka 26.4, Lux 9.3, Lulu 0.3 | 58.6 % | 0 % |
-| D | Leona 32.5, Thresh 31.7, Soraka 26.4, Lux 9.3, Lulu 0.3 | 58.6 % | 0 % |
-
-## Exemples détaillés
-
-### Mid, débutant sans historique
-
-- **Adversaires visibles :** Malzahar, Ornn, Rengar, Samira, Pyke
-- **En tête :** A Twisted Fate, B Twisted Fate, C Twisted Fate, D Twisted Fate
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Twisted Fate | 9/10 | 0 | 0 | 3.5 | 0 | 0 | -0.5 | **3** |
-| Fizz | 6/10 | 0 | 0 | -0.75 | 0 | 0 | 0 | **-0.75** |
-| Kog'Maw | 6/10 | 0 | 0 | -1.25 | 0 | 0 | 0 | **-1.25** |
-| Xerath | 8/10 | 0 | 0 | -3.25 | 0 | 0 | -0.25 | **-3.5** |
-
-**Explications, niveau Débutant :**
-
-1. **Twisted Fate demande souvent de la pratique** Riot note sa difficulté 9/10 : il faut parfois plusieurs parties pour en tirer le meilleur. Si tu as envie de l'apprendre, c'est un choix valable. *Limite : Note parfois contredite par celle du client, et aucune courbe de maîtrise mesurée : une indication, pas une prédiction.*
-1. **Aucun historique importé** Sans historique, DraftMid ne sait pas ce que tu connais déjà. Le conseil ne porte que sur la draft.
-
-**Niveau Avancé, les trois premières :**
-
-1. **Aucun historique importé** Pas de données personnelles : l'absence d'historique n'est jamais lue comme un manque d'expérience, sauf si tu te déclares débutant.
-
-### Mid, joueur TF expérimenté
-
-- **Adversaires visibles :** Malzahar, Ornn, Rengar, Samira, Pyke
-- **En tête :** A Twisted Fate, B Twisted Fate, C Twisted Fate, D Twisted Fate
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Twisted Fate | 9/10 | 150 | 107.2 | 3.5 | 1.48 | 0.19 | 0 | **5.17** |
-| Fizz | 6/10 | 20 | 15.1 | -0.75 | 0.68 | 0 | 0 | **-0.07** |
-| Kog'Maw | 6/10 | 0 | 0 | -1.25 | 0 | 0 | 0 | **-1.25** |
-| Xerath | 8/10 | 8 | 6.1 | -3.25 | 0.32 | 0 | -0.21 | **-3.14** |
-
-**Explications, niveau Débutant :**
-
-1. **Twisted Fate : ton expérience compte plus que sa difficulté** 150 parties dans ce rôle : la difficulté du champion ne pèse pas dans ce conseil.
-1. **Twisted Fate : pas d'écart net avec tes autres champions** 80 victoires sur 150, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : ce n'est pas une preuve de cause à effet.*
-
-**Niveau Avancé, les trois premières :**
-
-1. **Twisted Fate : ton expérience compte plus que sa difficulté** Terme de complexité nul au-delà de 40 parties utiles. Aucun bonus n'est donné parce que le champion est difficile.
-1. **Twisted Fate : pas d'écart net avec tes autres champions** Écart ramené vers ta moyenne : +2,5 points de pourcentage. Il ne contrôle ni la date, ni le matchup, ni le niveau des parties.
-
-### Mid, 5 parties Kog'Maw à 80 %, 150 Fizz à 55 %
-
-- **Adversaires visibles :** Ornn, Sion, Maokai, Jinx, Thresh
-- **En tête :** A Kog'Maw, B Kog'Maw, C Kog'Maw, D Kog'Maw
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Kog'Maw | 6/10 | 5 | 4.8 | 5.35 | 0.26 | 0 | 0 | **5.61** |
-| Xerath | 8/10 | 0 | 0 | 1.8 | 0 | 0 | -0.25 | **1.55** |
-| Twisted Fate | 9/10 | 0 | 0 | 1.5 | 0 | 0 | -0.5 | **1** |
-| Fizz | 6/10 | 150 | 107.2 | -3.47 | 1.48 | 0.23 | 0 | **-1.75** |
-
-**Explications, niveau Débutant :**
-
-1. **5 parties sur Kog'Maw : trop peu pour conclure** 4 victoires sur 5 : trop peu pour savoir si ce champion te réussit.
-
-**Niveau Avancé, les trois premières :**
-
-1. **5 parties sur Kog'Maw : trop peu pour conclure** Intervalle à 95 % : 38 à 96 %. Seul le volume compte ici ; le résultat ne compte qu'à partir de 30 parties.
-
-### Mid, Xerath en apprentissage
-
-- **Adversaires visibles :** Sett, Vi
-- **En tête :** A Twisted Fate, B Twisted Fate, C Twisted Fate, D Twisted Fate
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Twisted Fate | 9/10 | 40 | 31.1 | 2.85 | 1.07 | 0.01 | -0.11 | **3.81** |
-| Kog'Maw | 6/10 | 0 | 0 | 2.21 | 0 | 0 | 0 | **2.21** |
-| Fizz | 6/10 | 60 | 42.5 | -0.75 | 1.23 | 0.01 | 0 | **0.49** |
-| Xerath | 8/10 | 3 | 2.9 | -0.69 | 0.17 | 0 | 0 | **-0.53** |
-
-**Explications, niveau Débutant :**
-
-1. **Twisted Fate : pas d'écart net avec tes autres champions** 20 victoires sur 40, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : ce n'est pas une preuve de cause à effet.*
-
-**Niveau Avancé, les trois premières :**
-
-1. **Twisted Fate : pas d'écart net avec tes autres champions** Écart ramené vers ta moyenne : +0,1 points de pourcentage. Il ne contrôle ni la date, ni le matchup, ni le niveau des parties.
-
-### Jungle, sans historique
-
-- **Adversaires visibles :** Malzahar, Ornn, Rengar, Samira, Pyke
-- **En tête :** A Lee Sin, B Lee Sin, C Lee Sin, D Lee Sin
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Lee Sin | 6/10 | 0 | 0 | 3 | 0 | 0 | 0 | **3** |
-| Cho'Gath | 5/10 | 0 | 0 | 2 | 0 | 0 | 0 | **2** |
-| Briar | 3/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-| Master Yi | 4/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-| Viego | 5/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-
-**Explications, niveau Débutant :**
-
-1. **Aucun historique importé** Sans historique, DraftMid ne sait pas ce que tu connais déjà. Le conseil ne porte que sur la draft.
-
-**Niveau Avancé, les trois premières :**
-
-1. **Aucun historique importé** Pas de données personnelles : l'absence d'historique n'est jamais lue comme un manque d'expérience, sauf si tu te déclares débutant.
-1. **Lee Sin contre Rengar : aucune donnée fiable** Critère de matchup absent : aucune valeur n'est estimée à sa place.
-
-### Jungle, joueur Lee Sin ancien
-
-- **Adversaires visibles :** Darius, Syndra, Jinx, Thresh, Vi
-- **En tête :** A Cho'Gath, B Viego, C Viego, D Viego
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Viego | 5/10 | 15 | 13.1 | 3 | 0.61 | 0 | 0 | **3.61** |
-| Cho'Gath | 5/10 | 0 | 0 | 3 | 0 | 0 | 0 | **3** |
-| Master Yi | 4/10 | 0 | 0 | 3 | 0 | 0 | 0 | **3** |
-| Lee Sin | 6/10 | 200 | 50 | 0 | 1.3 | 0.22 | 0 | **1.51** |
-| Briar | 3/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-
-**Explications, niveau Débutant :**
-
-1. **Cho'Gath pour la draft, Viego pour ton historique** Le choix t'appartient : Cho'Gath répond mieux à la draft, et ton historique penche vers Viego. *Limite : Le poids donné à l'expérience est un choix, pas une mesure.*
-1. **Égalité stratégique : ton expérience peut trancher** Le classement ne sépare pas Viego et Cho'Gath. Tu as davantage d'expérience sur Viego : c'est un argument, si ce champion te convient. *Limite : L'expérience ne dit pas à elle seule si tu joues bien ce champion.*
-1. **15 parties sur Viego : trop peu pour conclure** 8 victoires sur 15 : trop peu pour savoir si ce champion te réussit.
-
-**Niveau Avancé, les trois premières :**
-
-1. **Cho'Gath pour la draft, Viego pour ton historique** Viego passe devant avec les réglages de personnalisation, qui ne sont pas validés sur de vraies parties. Cho'Gath reste premier du moteur.
-1. **Égalité stratégique : ton expérience peut trancher** Scores du moteur identiques pour Viego et Cho'Gath : l'écart ne vient que de l'expérience récente, qui penche vers Viego.
-1. **15 parties sur Viego : trop peu pour conclure** Intervalle à 95 % : 30 à 75 %. Seul le volume compte ici ; le résultat ne compte qu'à partir de 30 parties.
-
-### Jungle, joueur Master Yi régulier
-
-- **Adversaires visibles :** Ornn, Sion, Maokai, Jinx, Thresh
-- **En tête :** A Cho'Gath, B Master Yi, C Master Yi, D Master Yi
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Master Yi | 4/10 | 120 | 85.3 | 4 | 1.45 | 0.09 | 0 | **5.54** |
-| Viego | 5/10 | 30 | 24.3 | 4 | 0.93 | -0.02 | 0 | **4.91** |
-| Cho'Gath | 5/10 | 6 | 5.2 | 4 | 0.28 | 0 | 0 | **4.28** |
-| Briar | 3/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-| Lee Sin | 6/10 | 0 | 0 | -0.25 | 0 | 0 | 0 | **-0.25** |
-
-**Explications, niveau Débutant :**
-
-1. **Cho'Gath pour la draft, Master Yi pour ton historique** Le choix t'appartient : Cho'Gath répond mieux à la draft, et ton historique penche vers Master Yi. *Limite : Le poids donné à l'expérience est un choix, pas une mesure.*
-1. **Égalité stratégique : ton expérience peut trancher** Le classement ne sépare pas Master Yi et Viego. Tu as davantage d'expérience sur Master Yi : c'est un argument, si ce champion te convient. *Limite : L'expérience ne dit pas à elle seule si tu joues bien ce champion.*
-1. **Master Yi : pas d'écart net avec tes autres champions** 62 victoires sur 120, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : ce n'est pas une preuve de cause à effet.*
-
-**Niveau Avancé, les trois premières :**
-
-1. **Cho'Gath pour la draft, Master Yi pour ton historique** Master Yi passe devant avec les réglages de personnalisation, qui ne sont pas validés sur de vraies parties. Cho'Gath reste premier du moteur.
-1. **Égalité stratégique : ton expérience peut trancher** Scores du moteur identiques pour Master Yi et Viego : l'écart ne vient que de l'expérience récente, qui penche vers Master Yi.
-1. **Master Yi : pas d'écart net avec tes autres champions** Écart ramené vers ta moyenne : +1,2 points de pourcentage. Il ne contrôle ni la date, ni le matchup, ni le niveau des parties.
-
-### Top, joueur simple (Darius, Garen)
-
-- **Adversaires visibles :** Sett, Vi
-- **En tête :** A Camille, B Darius, C Darius, D Darius
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Darius | 2/10 | 100 | 71.1 | 3 | 1.41 | 0.1 | 0 | **4.51** |
-| Camille | 4/10 | 0 | 0 | 3.5 | 0 | 0 | 0 | **3.5** |
-| Ornn | 5/10 | 0 | 0 | 3 | 0 | 0 | 0 | **3** |
-| Garen | 5/10 | 50 | 36.3 | 0 | 1.15 | -0.03 | 0 | **1.11** |
-| Malphite | 2/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-
-**Explications, niveau Débutant :**
-
-1. **Camille pour la draft, Darius pour ton historique** Le choix t'appartient : Camille répond mieux à la draft, et ton historique penche vers Darius. *Limite : Le poids donné à l'expérience est un choix, pas une mesure.*
-1. **Égalité stratégique : ton expérience peut trancher** Le classement ne sépare pas Darius et Ornn. Tu as davantage d'expérience sur Darius : c'est un argument, si ce champion te convient. *Limite : L'expérience ne dit pas à elle seule si tu joues bien ce champion.*
-1. **Darius : pas d'écart net avec tes autres champions** 52 victoires sur 100, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : ce n'est pas une preuve de cause à effet.*
-
-**Niveau Avancé, les trois premières :**
-
-1. **Camille pour la draft, Darius pour ton historique** Darius passe devant avec les réglages de personnalisation, qui ne sont pas validés sur de vraies parties. Camille reste premier du moteur.
-1. **Égalité stratégique : ton expérience peut trancher** Scores du moteur identiques pour Darius et Ornn : l'écart ne vient que de l'expérience récente, qui penche vers Darius.
-1. **Darius : pas d'écart net avec tes autres champions** Écart ramené vers ta moyenne : +1,3 points de pourcentage. Il ne contrôle ni la date, ni le matchup, ni le niveau des parties.
-
-### ADC, joueur Vayne, note Riot élevée
-
-- **Adversaires visibles :** Ornn, Lee Sin, Ahri, Caitlyn, Thresh
-- **En tête :** A Vayne, B Vayne, C Vayne, D Vayne
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Vayne | 8/10 | 180 | 128.6 | 3 | 1.49 | 0.18 | 0 | **4.68** |
-| Ezreal | 7/10 | 15 | 12.8 | 2.25 | 0.6 | 0 | 0 | **2.85** |
-| Kog'Maw | 6/10 | 0 | 0 | 2.75 | 0 | 0 | 0 | **2.75** |
-| Jinx | 6/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-
-**Explications, niveau Débutant :**
-
-1. **Vayne : ton expérience compte plus que sa difficulté** 180 parties dans ce rôle : la difficulté du champion ne pèse pas dans ce conseil.
-1. **Vayne : pas d'écart net avec tes autres champions** 95 victoires sur 180, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : ce n'est pas une preuve de cause à effet.*
-
-**Niveau Avancé, les trois premières :**
-
-1. **Vayne : ton expérience compte plus que sa difficulté** Terme de complexité nul au-delà de 40 parties utiles. Aucun bonus n'est donné parce que le champion est difficile.
-1. **Vayne : pas d'écart net avec tes autres champions** Écart ramené vers ta moyenne : +2,5 points de pourcentage. Il ne contrôle ni la date, ni le matchup, ni le niveau des parties.
-1. **Vayne contre Caitlyn : aucune donnée fiable** Critère de matchup absent : aucune valeur n'est estimée à sa place.
-
-### ADC, débutant déclaré sans historique
-
-- **Adversaires visibles :** Yasuo, Yone, Lee Sin, Jinx, Thresh
-- **En tête :** A Vayne, B Vayne, C Vayne, D Vayne
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Vayne | 8/10 | 0 | 0 | 4 | 0 | 0 | -0.25 | **3.75** |
-| Ezreal | 7/10 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
-| Kog'Maw | 6/10 | 0 | 0 | -0.25 | 0 | 0 | 0 | **-0.25** |
-| Caitlyn | 6/10 | 0 | 0 | -4 | 0 | 0 | 0 | **-4** |
-
-**Explications, niveau Débutant :**
-
-1. **Vayne demande souvent de la pratique** Riot note sa difficulté 8/10 : il faut parfois plusieurs parties pour en tirer le meilleur. Si tu as envie de l'apprendre, c'est un choix valable. *Limite : Note parfois contredite par celle du client, et aucune courbe de maîtrise mesurée : une indication, pas une prédiction.*
-1. **Aucun historique importé** Sans historique, DraftMid ne sait pas ce que tu connais déjà. Le conseil ne porte que sur la draft.
-
-**Niveau Avancé, les trois premières :**
-
-1. **Aucun historique importé** Pas de données personnelles : l'absence d'historique n'est jamais lue comme un manque d'expérience, sauf si tu te déclares débutant.
-1. **Vayne contre Jinx : aucune donnée fiable** Critère de matchup absent : aucune valeur n'est estimée à sa place.
-
-### Support, historique égal partout
-
-- **Adversaires visibles :** Ornn, Sion, Maokai, Jinx, Thresh
-- **En tête :** A Soraka, B Soraka, C Soraka, D Soraka
-
-| Champion | Note Riot | Parties | Expérience utile | Moteur | Expérience | Résultats | Complexité | Total C |
-|---|---|---|---|---|---|---|---|---|
-| Soraka | 3/10 | 40 | 31.5 | 0.5 | 1.07 | 0 | 0 | **1.57** |
-| Leona | 4/10 | 40 | 31.5 | 0 | 1.07 | 0 | 0 | **1.07** |
-| Lulu | 5/10 | 40 | 31.5 | 0 | 1.07 | 0 | 0 | **1.07** |
-| Lux | 5/10 | 40 | 31.5 | -1 | 1.07 | 0 | 0 | **0.07** |
-
-**Explications, niveau Débutant :**
-
-1. **Soraka : pas d'écart net avec tes autres champions** 20 victoires sur 40, contre 50 % sur tes autres champions de ce rôle. L'écart peut venir du hasard. *Limite : Corrélation sur tes parties : ce n'est pas une preuve de cause à effet.*
-1. **Thresh peut surprendre** Ce matchup peut être difficile si tu ne connais pas les compétences de Thresh. Aucune rencontre avec Soraka dans ton historique. *Limite : Ta connaissance réelle n'est pas mesurée : tu as pu le jouer ou le rencontrer ailleurs.*
-
-**Niveau Avancé, les trois premières :**
-
-1. **Soraka : pas d'écart net avec tes autres champions** Écart ramené vers ta moyenne : +0,0 points de pourcentage. Il ne contrôle ni la date, ni le matchup, ni le niveau des parties.
-1. **Thresh peut surprendre** Aucune rencontre sur ce couple : aucune tendance personnelle n'est tirée.
-1. **Soraka contre Thresh : aucune donnée fiable** Critère de matchup absent : aucune valeur n'est estimée à sa place.
+| A | Vayne 60.5, Ezreal 25.6, Caitlyn 13.2, Kog'Maw 0.9, Jinx 0 | 0 % | 0 % |
+| T | Vayne 63.8, Ezreal 34.4, Caitlyn 1.1, Kog'Maw 0.9, Jinx 0 | 15.3 % | 0 % |
+| B | Vayne 84.5, Ezreal 14.2, Caitlyn 0.7, Kog'Maw 0.7, Jinx 0 | 27.7 % | 21 % |
 

@@ -1,13 +1,22 @@
-# Complexité, maîtrise et classement personnalisé
+# Familiarité, difficulté et compromis
 
-**Statut : prototype, désactivé.** `web/draft-mastery.js` n'est chargé par aucune page. Le classement par défaut reste celui du moteur (modèle A), et rien ne montre encore que la personnalisation améliore les conseils.
+**Statut : prototype.** `web/draft-mastery.js` n'est chargé par aucune page. Le classement par défaut reste celui du moteur (modèle A).
 
-- Exemples et comportement chiffré : `docs/MAITRISE-EXEMPLES.md`
+- Exemples pour débutant et effet sur le classement : `docs/MAITRISE-EXEMPLES.md`
+- Préparation de la V2.15 : `docs/INTEGRATION-V215.md`
 - Sources de matchups : `docs/SOURCES-MATCHUPS.md`
 - Tests : `.\tools\run-coaching-tests.ps1`
 - Comparaison : `.\tools\run-mastery-compare.ps1`
 
-## Données de complexité réellement disponibles
+## Principes retenus
+
+1. **Le moteur décide du classement.** Aucune personnalisation ne modifie un score.
+2. **Deux lectures séparées :** le meilleur choix pour la draft, et le champion le plus joué.
+3. **La familiarité n'est pas la performance.** Le plus joué est désigné au volume de parties, jamais aux victoires.
+4. **Pas de conversion** entre parties jouées et points de draft : 100 parties ne « valent » pas un meilleur matchup.
+5. **La difficulté de Riot n'alimente que des conseils,** avec ses limites. Elle n'entre dans aucun score.
+
+## Données de complexité disponibles
 
 | Notion | Donnée | État |
 |---|---|---|
@@ -40,8 +49,6 @@ Le client affiche une autre note, de 1 à 3 (`tacticalInfo.difficulty`, lue via 
 | Briar | 3/10 | 2/3 |
 | Darius | 2/10 | 2/3 |
 
-**Conséquence : la note de Data Dragon est un indice faible.** Le terme de complexité du modèle C baisse Twisted Fate et Xerath sur cette seule base, alors que le client les considère bien plus simples. Le modèle C ne devrait donc pas passer en production sans une meilleure mesure.
-
 ## Modèle de familiarité
 
 `familiarityProfile(rows, { now, account, changes, officialMastery })` travaille **par champion et par rôle**. Une partie sans rôle n'est pas comptée, et un champion inconnu est signalé.
@@ -52,102 +59,71 @@ Le client affiche une autre note, de 1 à 3 (`tacticalInfo.difficulty`, lue via 
 | Ancienneté | Demi-vie de 120 jours, avec un plancher de 25 % : l'expérience baisse sans disparaître |
 | Fréquence récente | Parties des 30 derniers jours |
 | Inactivité | Signalée à partir de 20 parties et 180 jours |
-| Résultats | Intervalle à 95 %, comparé à ses autres champions du même rôle, jamais à 50 %. Pris en compte dès 30 parties, et ramené vers sa moyenne |
-| KDA | Comparé seulement à soi, sur ce champion et ce rôle, dès 20 parties. **Hors du classement** |
-| Évolution | Deux moitiés comparées, dès 40 parties. Signalée seulement si elle ressemble peu au hasard (z ≥ 2). **Hors du classement** |
+| Résultats | Affichés à part dès 30 parties, avec un intervalle à 95 %, comparés à ses autres champions du même rôle, jamais à 50 % |
+| KDA | Comparé seulement à soi, sur ce champion et ce rôle, dès 20 parties. Pas encore affiché |
+| Évolution | Deux moitiés comparées, dès 40 parties. Signalée seulement si elle ressemble peu au hasard (z ≥ 2) |
 | Champion modifié | Expérience limitée aux parties récentes, plus 25 % du passé. Liste fournie à la main : Data Dragon n'a pas cette information |
 | Maîtrise officielle | Sans effet : 1 000 000 de points ne changent rien, test à l'appui |
-| Champions en apprentissage | Choix manuel respecté, sans baisse liée à la complexité |
+| Champions en apprentissage | Choix manuel respecté et expliqué |
 
-Aucun niveau global n'est calculé, et le joueur n'est comparé à personne. Le pool reste celui choisi manuellement : aucun champion n'en sort.
+Aucun niveau global n'est calculé, et le joueur n'est comparé à personne. Le pool reste celui choisi manuellement.
 
-**Limite de l'import :** il commence par défaut au 1er janvier 2026 et ne lit que le solo/duo. Une expérience plus ancienne, ou en Flex, reste invisible. Une absence de partie dans l'import ne prouve donc pas une absence d'expérience.
+**Limite de l'import :** il ne lit que le solo/duo, depuis la date choisie. Une absence de partie ne prouve donc pas une absence d'expérience, et l'interface le dit.
 
-## Modèles
+## Classement
 
-| Modèle | Formule |
-|---|---|
-| **A** | Score du moteur, identique au champion près |
-| **B** | A + expérience + résultats |
-| **C** | B + complexité |
-| **D** | C, avec le matchup remplacé par une statistique autorisée. **Sans source, identique à C** |
-
-| Terme | Calcul | Plafond |
+| Modèle | Rôle | Statut |
 |---|---|---|
-| Expérience | `1,5 × (1 - exp(-expérience utile / 25))` | +1,5 |
-| Résultats | Écart ramené vers sa moyenne, `× 0,75 / 10 points` | ±0,75 |
-| Complexité | Note au-dessus de 7, et seulement si moins de 40 parties utiles | -0,75 |
+| **A** | Le moteur, inchangé | **Par défaut** |
+| **T** | A, et l'expérience seulement entre champions vraiment à égalité | Prototype, à activer sur décision |
+| **B** | A + poids d'expérience et de résultats | **Audit seulement.** Sans `experimental:true`, donne A |
+| **C** | B + malus de difficulté | **Supprimé** |
+| **D** | Statistiques de matchups dans le score | **Non retenu.** Le fournisseur ne sert qu'à afficher |
 
-**Ces réglages sont des choix écrits à la main, sans validation.** Pour comparaison, le moteur parle de choix net à partir de 2 points d'écart.
+### Règles du modèle T
 
-### Ce qui n'est pas compté deux fois
+Une égalité n'est départagée que si :
 
-Chaque point est vérifié par un test :
+- le score est identique, **et** le risque aussi (même pire pénalité) ;
+- le joueur n'a pas désigné de favori dans ce groupe ;
+- le meneur a au moins 5 parties utiles d'avance. Sinon, l'égalité reste une égalité.
 
-- **Expérience et résultats :** l'expérience ne dépend jamais des victoires, et les résultats ne comptent pas sous 30 parties.
-- **Difficile ou simple :** le même historique donne le même effet. Au-delà de 40 parties utiles, le terme de complexité vaut 0 sur tous les champions.
-- **Pas de bonus de difficulté :** ce terme ne peut être que négatif ou nul. Sous 8/10, il vaut 0, donc les champions simples ne reçoivent aucune faveur directe. Ils peuvent passer devant quand un autre baisse : c'est un effet à surveiller.
-- **Absence d'historique :** ce n'est pas un manque d'expérience. Sans import, la complexité ne joue que si le joueur se déclare débutant.
-- **Matchups :** une statistique remplace le critère du moteur, sans s'y ajouter.
+Les victoires n'interviennent pas. Le score ne change pas, et `strategicTies` reste exposé.
 
-### Égalités
+### Effet mesuré (historiques fictifs, 2 000 drafts simulées)
 
-Le modèle A garde l'égalité stratégique. Les autres peuvent la départager par l'expérience, mais `strategicTies` reste exposé et le score du moteur ne change pas. Sans historique, l'égalité reste une égalité.
+| Profil | Nom en tête changé par B | Dont hors égalité | Nom en tête changé par T | Dont hors égalité |
+|---|---|---|---|---|
+| Top, 100 parties de Darius à 52 % | **50,3 %** | **50,3 %** | **0 %** | **0 %** |
+| Mid, 150 parties de Twisted Fate | 10,4 % | 9,7 % | 0,1 % | 0 % |
+| ADC, 180 parties de Vayne | 27,7 % | 21 % | 15,3 % | 0 % |
+| Jungle, 120 parties de Master Yi | 35,9 % | 0,3 % | 35,6 % | 0 % |
 
-## Ce que montre la comparaison
+**T ne dépasse jamais un meilleur score**, test à l'appui avec 1 000 parties sur Darius. Il peut pourtant changer souvent le nom affiché quand le pool contient beaucoup d'égalités : c'est le cas de Master Yi, à égalité avec Cho'Gath et Viego dans 35,6 % de ces drafts. Ce chiffre vient des fiches pauvres relevées dans `docs/AUDIT-MOTEUR.md`.
 
-**Sur des historiques fictifs : cela décrit un comportement, pas une qualité.**
+Cela décrit un comportement. **Rien ne mesure si les conseils sont meilleurs.**
 
-- **Mid (tes 4 champions), sans historique ni niveau déclaré :** classement identique à A sur les 2 000 drafts.
-- **Mid, débutant déclaré, modèle C :** premier changé dans 3,2 % des drafts, hors égalités.
-- **Mid, joueur Twisted Fate à 150 parties :** 10,6 % avec le modèle C. Twisted Fate passe de 25,2 % à 34,5 % en tête, sans écraser Fizz (51,5 %).
-- **Mid, 5 parties de Kog'Maw à 80 % et 150 de Fizz à 55 % :** Fizz monte de 52,5 % à 64,5 %, et Kog'Maw reste à 18 %. Les 5 parties n'apportent qu'un petit effet d'expérience.
-- **Top, joueur Darius à 100 parties :** premier changé dans **50,3 %** des drafts.
+## Présentation pour le joueur
 
-**Le cas Top est le signal d'alerte.** Darius passe de 0 % à 50,3 % en tête alors que le joueur n'obtient que 52 % de victoires, simplement grâce au volume de parties. C'est peut-être souhaitable pour un joueur qui connaît son champion, mais le poids de 1,5 point n'est pas démontré. Il peut aussi enfermer un joueur sur ce qu'il joue déjà.
+`playerChoices(input)` renvoie les deux lectures et trois sections séparées :
 
-## Mode débutant
+- **Théorie :** ce que les règles disent de la draft, et la difficulté avec ses limites.
+- **Expérience :** les parties jouées, puis les résultats à part.
+- **Incertitude :** ce qui manque ou peut changer.
 
-`masteryAdvice` explique chaque compromis sans rien interdire. `pick` permet de faire expliquer n'importe quel champion, et aucun n'est retiré. Chaque conseil suit le schéma de `docs/COACHING.md`, avec sa source et sa limite.
-
-Les 16 règles couvrent : compromis draft et joueur, égalité, champion accessible ou exigeant, expérience sur un champion difficile, apprentissage, alternative plus jouée, petit échantillon, résultats, inactivité, champion modifié, évolution, adversaire méconnu, matchup favorable à exploiter, absence d'historique, absence de données.
-
-Tous les textes restent à relire par un joueur.
+Le joueur peut faire expliquer n'importe quel champion avec `pick` : il n'est jamais présenté comme le meilleur choix, et rien n'est interdit.
 
 ## Cas où les données sont insuffisantes
 
 | Situation | Comportement |
 |---|---|
-| Pas d'import | Personnalisation sans effet, et dit clairement |
-| Moins de 30 parties sur un champion dans ce rôle | Résultats ignorés |
-| Moins de 30 parties sur ses autres champions du rôle | Pas de référence, résultats ignorés |
+| Pas d'import | Lecture de la draft seule, et dit clairement |
+| Moins de 5 parties sur tous les champions du pool | Personne n'est présenté comme le plus joué |
+| Moins de 30 parties sur un champion | Aucun résultat interprété |
+| Moins de 30 parties sur ses autres champions du rôle | Pas de référence, aucun résultat interprété |
 | Moins de 20 parties avec KDA | Aucune lecture du KDA |
 | Moins de 40 parties | Aucune évolution annoncée |
-| Note de Riot à 0 | Difficulté inconnue, aucune baisse |
+| Note de Riot à 0 | Difficulté dite inconnue |
 | Pas de liste des changements | Rien n'est affirmé sur une modification |
-| Couple sans bilan, tableau ni source | Le matchup n'entre pas dans le conseil |
+| Couple sans bilan, tableau ni source | Le matchup n'entre pas dans le conseil, et c'est dit |
 | Courbe de maîtrise, complexité mécanique | Inconnues |
-| Efficacité réelle de B, C ou D | **Inconnue** : aucune vraie partie évaluée |
-
-## Recommandations pour la V2.15
-
-1. **Importer d'abord.** Rien ne peut être jugé sans un historique réel. Ajouter ensuite le rôle dans le suivi des drafts réelles, si ce n'est pas déjà fait.
-2. **Afficher avant de classer.** Montrer les informations de `masteryAdvice` à côté du classement A, sans le modifier : expérience, petit échantillon, compromis. C'est le gain le plus sûr.
-3. **Modèle B, en option seulement,** désactivé par défaut. Comparer plusieurs poids d'expérience sur le relevé réel avant d'en retenir un.
-4. **Modèle C, pas pour l'instant.** Il repose sur une note contestée. Il faut d'abord décider si la note du client peut être livrée, puis mesurer.
-5. **Lancer le calcul des matchups** par rôle avec une clé personnelle : c'est la voie D la plus claire.
-6. **Décider avant de regarder les résultats :** règles de comparaison écrites à l'avance, et aucune annonce sur le taux de victoire sans échantillon suffisant et indépendant.
-7. **Réglages à prévoir :** activation de la personnalisation, niveau déclaré, champions en apprentissage.
-
-Intégration technique, après `draft-coaching.js` :
-
-```html
-<script src="draft-mastery.js"></script>
-```
-
-```js
-const profile = familiarityProfile(window.DRAFT_STATS.rows, { account });
-const result = personalizedRanking({ enemies, model:"A", profile, learning, level });
-const advice = masteryAdvice({ enemies, model:"B", profile, learning, level, pick });
-// result.draftBest et result.playerBest donnent les deux lectures à présenter.
-```

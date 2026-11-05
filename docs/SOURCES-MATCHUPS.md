@@ -57,7 +57,7 @@ registerMatchupProvider({
 
 - **Ligne ignorée :** mauvais rôle, moins de 30 parties, ou référence absente. Aucune valeur n'est estimée à sa place.
 - **Calcul :** écart à la référence, ramené vers zéro selon l'échantillon, comme les bilans actuels.
-- **Pas de double compte :** la valeur remplace le critère de matchup du moteur, sans s'y ajouter. Si le joueur a déjà un bilan calculé pour ce couple, il reste seul utilisé.
+- **Aucun effet sur le classement :** la valeur n'est qu'affichée, avec sa source. Le jour où une source sera validée, elle devra remplacer le critère de matchup du moteur, sans s'y ajouter.
 
 ## Sources consultées
 

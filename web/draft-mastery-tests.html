@@ -5,95 +5,101 @@
 <script>
 const res={ok:0,ko:[]};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
 const NOW=Date.UTC(2026,10,5),DAY=86400000;
-// Historiques entièrement fictifs. Parties réparties sur la période, plus récentes en dernier.
-function games(champ,pos,n,w,{ago=1,span=60,k=5,d=4,a=6,enemies=[]}={}){const out=[];for(let i=0;i<n;i++){out.push({champ,pos,win:i<w,time:NOW-(ago+span*(n>1?(n-1-i)/(n-1):0))*DAY,k,d,a,enemies,acct:"Test#TEST"});}return out;}
-function shuffleWins(l){return l.map((g,i)=>Object.assign({},g,{win:(i*7)%l.length<l.filter(x=>x.win).length}));}
+// Historiques entièrement fictifs.
+function games(champ,pos,n,w,{ago=1,span=60,k=5,d=4,a=6,enemies=[]}={}){const out=[];for(let i=0;i<n;i++){out.push({champ,pos,win:(i*7)%n<w,time:NOW-(ago+span*(n>1?(n-1-i)/(n-1):0))*DAY,k,d,a,enemies,acct:"Test#TEST"});}return out;}
 const prof=(rows,o={})=>familiarityProfile(rows,Object.assign({now:NOW},o));
-const FIVE=["Malzahar","Ornn","Rengar","Samira","Pyke"],MID={role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]},JG={role:"jungle",pool:["Viego","Master Yi","Lee Sin"]};
-const filler=(pos,n=120)=>shuffleWins(games("Annie",pos,n,Math.round(n/2),{span:200}));
-const rank=(p,o)=>personalizedRanking(Object.assign({enemies:FIVE},o)).ranking.map(r=>r.name);
+const FIVE=["Malzahar","Ornn","Rengar","Samira","Pyke"],MID={role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]};
+const filler=(pos,n=120)=>games("Annie",pos,n,Math.round(n/2),{span:200});
+const mul=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let x=Math.imul(a^a>>>15,1|a);x=x+Math.imul(x^x>>>7,61|x)^x;return((x^x>>>14)>>>0)/4294967296;};
+const draw=(rng,size)=>{const l=[];while(l.length<size){const n=NAMES[Math.floor(rng()*NAMES.length)];if(!l.includes(n))l.push(n);}return l;};
+const engine=l=>analyze(l,identifiedOpponent(l),true,l.length?beliefScenarios(opponentBelief(l)):null);
 applyProfile(MID);
 
-// PHASE 1 : complexité
-{const c=championComplexity("Yasuo");t(c.official.value===10&&c.official.status==="known","difficulté officielle lue");t(c.mechanical.value===null&&c.mechanical.status==="unknown","mécanique : inconnue, pas inventée");t(c.curve.value===null&&c.curve.status==="unmeasured","courbe : non mesurée");t(c.pickup.status==="proxy","prise en main : déclarée comme déduite");
- ["Akshan","Rell","Seraphine","Vex"].forEach(n=>{const x=championComplexity(n);t(x.official.value===null&&x.pickup.tier===null,n+" : 0 de Riot lu comme inconnu, pas comme facile");});
- t(championComplexity("Darius").pickup.tier==="accessible","note basse : accessible");t(championComplexity("Inconnu").official.value===null,"champion absent : inconnu");}
+// Complexité : données distinctes
+{const c=championComplexity("Yasuo");t(c.official.value===10&&c.official.status==="known","difficulté officielle lue");t(c.mechanical.value===null&&c.mechanical.status==="unknown","mécanique : inconnue, pas inventée");t(c.curve.value===null&&c.curve.status==="unmeasured","courbe : non mesurée");t(c.pickup.status==="proxy","prise en main : déclarée comme déduite");t(/contredite/.test(c.official.limit),"limite de la note Riot indiquée");
+ ["Akshan","Rell","Seraphine","Vex"].forEach(n=>{const x=championComplexity(n);t(x.official.value===null&&x.pickup.tier===null,n+" : 0 de Riot lu comme inconnu, pas comme facile");});t(championComplexity("Inconnu").official.value===null,"champion absent : inconnu");}
 
-// Noms Riot
-{t(masteryName("KogMaw")==="Kog'Maw"&&masteryName("Chogath")==="Cho'Gath"&&masteryName("MonkeyKing")==="Wukong"&&masteryName("TwistedFate")==="TF"||masteryName("TwistedFate")==="Twisted Fate","noms Riot reconnus");
- const p=prof(games("KogMaw","MIDDLE",25,13));t(familiarityOf(p,"Kog'Maw","mid").count===25,"KogMaw compté sur Kog'Maw");const u=prof(games("ChampionFutur","MIDDLE",3,1));t(u.unknown.ChampionFutur===3,"champion inconnu : signalé, sans plantage");
- const tr=personalTrends(games("KogMaw","MIDDLE",25,13).concat(games("Chogath","JUNGLE",4,2)));t(tr.byChampion["Kog'Maw"]&&tr.byChampion["Kog'Maw"].games===25,"personalTrends : noms Riot rattachés au conseil");}
+// Noms Riot et historique
+{t(masteryName("KogMaw")==="Kog'Maw"&&masteryName("Chogath")==="Cho'Gath"&&masteryName("MonkeyKing")==="Wukong","noms Riot reconnus");const p=prof(games("KogMaw","MIDDLE",25,13));t(familiarityOf(p,"Kog'Maw","mid").count===25,"KogMaw compté sur Kog'Maw");t(prof(games("ChampionFutur","MIDDLE",3,1)).unknown.ChampionFutur===3,"champion inconnu : signalé");
+ const tr=personalTrends(games("KogMaw","MIDDLE",25,13));t(tr.byChampion["Kog'Maw"]&&tr.byChampion["Kog'Maw"].games===25,"personalTrends : noms Riot rattachés");
+ t(importedHistory()===null,"sans import : aucun historique");window.DRAFT_STATS={rows:[{champ:"Fizz"}]};t(importedHistory().source==="script","ancien import lu");window.DRAFT_HISTORY={rows:[{champ:"Ahri"}]};t(importedHistory().source==="application","l'import de l'application passe devant");t(window.DRAFT_STATS.rows.length===1,"ancien import inchangé");delete window.DRAFT_STATS;delete window.DRAFT_HISTORY;}
 
-// PHASE 2 : par champion ET par rôle
-{const p=prof(games("Viego","JUNGLE",50,25).concat(games("Viego","TOP",3,1)));t(familiarityOf(p,"Viego","jungle").count===50&&familiarityOf(p,"Viego","top").count===3,"familiarité séparée par rôle");
- const nopos=prof([{champ:"Viego",pos:"",win:true,time:NOW}]);t(!Object.keys(nopos.entries).length,"rôle absent : pas de rôle inventé");
- const r=prof(games("Fizz","MIDDLE",40,20,{ago:300,span:60}));const e=familiarityOf(r,"Fizz","mid");t(e.rusty&&e.effective>=40*FAMILIARITY_OLD_FLOOR&&e.effective<40,"ancienneté : réduite sans disparaître");
- const rec=prof(games("Fizz","MIDDLE",40,20,{ago:1,span:20}));t(familiarityOf(rec,"Fizz","mid").recentGames===40,"fréquence récente");
- const f=familiarityOf(prof(games("Fizz","MIDDLE",25,12,{k:8,d:4,a:4})),"Fizz","mid");t(f.kda.status==="known"&&Math.abs(f.kda.overall-3)<.001,"KDA : calculé sur toutes les morts, sur ce couple");t(familiarityOf(prof(games("Fizz","MIDDLE",5,3)),"Fizz","mid").kda.status==="insufficient","KDA : pas de lecture sur 5 parties");
- const noK=prof([{champ:"Fizz",pos:"MIDDLE",win:true,time:NOW}]);t(familiarityOf(noK,"Fizz","mid").kda.games===0,"anciennes lignes sans KDA : lisibles");
- const up=games("Fizz","MIDDLE",80,0).map((g,i)=>Object.assign(g,{win:i>=40?i%10!==0:i%10===0}));t(familiarityOf(prof(up),"Fizz","mid").trend.status==="up","évolution nette détectée");
- const flat=games("Fizz","MIDDLE",80,0).map((g,i)=>Object.assign(g,{win:i%2===0}));t(familiarityOf(prof(flat),"Fizz","mid").trend.status==="flat","pas d'évolution inventée");t(familiarityOf(prof(games("Fizz","MIDDLE",30,29)),"Fizz","mid").trend.status==="insufficient","évolution : échantillon insuffisant");
- const m1=prof(games("Fizz","MIDDLE",25,12)),m2=prof(games("Fizz","MIDDLE",25,12),{officialMastery:{Fizz:1000000}});const e1=masteryEffects("Fizz","mid",m1),e2=masteryEffects("Fizz","mid",m2);t(JSON.stringify(e1)===JSON.stringify(e2),"1 000 000 de points de maîtrise Riot : aucun effet");}
+// Familiarité
+{const p=prof(games("Viego","JUNGLE",50,25).concat(games("Viego","TOP",3,1)));t(familiarityOf(p,"Viego","jungle").count===50&&familiarityOf(p,"Viego","top").count===3,"séparée par rôle");t(!Object.keys(prof([{champ:"Viego",pos:"",win:true,time:NOW}]).entries).length,"rôle absent : pas inventé");
+ const e=familiarityOf(prof(games("Fizz","MIDDLE",40,20,{ago:300})),"Fizz","mid");t(e.rusty&&e.effective>=10&&e.effective<40,"ancienne : réduite sans disparaître");t(familiarityOf(prof(games("Fizz","MIDDLE",40,20,{span:20})),"Fizz","mid").recentGames===40,"fréquence récente");
+ const f=familiarityOf(prof(games("Fizz","MIDDLE",25,12,{k:8,d:4,a:4})),"Fizz","mid");t(f.kda.status==="known"&&Math.abs(f.kda.overall-3)<.001,"KDA sur ce couple");t(familiarityOf(prof(games("Fizz","MIDDLE",5,3)),"Fizz","mid").kda.status==="insufficient","KDA ignoré sur 5 parties");
+ const up=games("Fizz","MIDDLE",80,0).map((g,i)=>Object.assign(g,{win:i>=40?i%10!==0:i%10===0}));t(familiarityOf(prof(up),"Fizz","mid").trend.status==="up","évolution nette détectée");const flat=games("Fizz","MIDDLE",80,0).map((g,i)=>Object.assign(g,{win:i%2===0}));t(familiarityOf(prof(flat),"Fizz","mid").trend.status==="flat","pas d'évolution inventée");
+ const a=prof(games("Fizz","MIDDLE",100,50)),b=prof(games("Fizz","MIDDLE",100,90));t(usefulExperience(familiarityOf(a,"Fizz","mid"))===usefulExperience(familiarityOf(b,"Fizz","mid")),"l'expérience ne dépend jamais des victoires");
+ const m=prof(games("Fizz","MIDDLE",25,12),{officialMastery:{Fizz:1000000}});t(usefulExperience(familiarityOf(m,"Fizz","mid"))===usefulExperience(familiarityOf(prof(games("Fizz","MIDDLE",25,12)),"Fizz","mid")),"1 000 000 de points Riot : aucun effet");
+ const ch={Fizz:{time:NOW-5*DAY,label:"Refonte fictive"}},rows=games("Fizz","MIDDLE",100,50,{ago:20});t(usefulExperience(familiarityOf(prof(rows,{changes:ch}),"Fizz","mid"))<usefulExperience(familiarityOf(prof(rows),"Fizz","mid")),"champion modifié : expérience réduite");}
 
-// CAS DEMANDÉS
-// 1. Débutant sans historique
-{const a=rank(0,{model:"A"}),b=rank(0,{model:"B"}),c0=rank(0,{model:"C"}),cb=personalizedRanking({enemies:["Sett","Vi"],model:"C",level:"beginner"}),ca=personalizedRanking({enemies:["Sett","Vi"],model:"A"});
- t(JSON.stringify(a)===JSON.stringify(b)&&JSON.stringify(a)===JSON.stringify(c0),"1. sans historique ni niveau déclaré : classement inchangé");
- const tf=cb.ranking.find(r=>r.name===label("TF"));t(tf.parts.complexity<0&&tf.parts.complexity>=-COMPLEXITY_MAX,"1. débutant déclaré : baisse plafonnée sur un champion exigeant");t(cb.ranking.length===ca.ranking.length,"1. aucun champion retiré");
- const ad=masteryAdvice({enemies:["Sett","Vi"],level:"beginner"});t(ad.items.some(i=>i.id==="mastery.no-history"),"1. l'absence d'historique est dite");t(ad.items.some(i=>i.id==="mastery.demanding"&&/choix valable/.test(i.text))||!ad.items.some(i=>i.id==="mastery.demanding"),"1. un champion exigeant reste un choix valable");}
-// 2 et 3. Expérience sur champion difficile, puis simple : même traitement
-{const rows=n=>filler("MIDDLE").concat(shuffleWins(games(n,"MIDDLE",150,80,{span:100})));
- const hard=masteryEffects("Twisted Fate"===label("TF")?"Twisted Fate":"TF","mid",prof(rows("TwistedFate"))),easy=masteryEffects("Darius","mid",prof(rows("Darius")));
- t(hard.complexity===0,"2. joueur expérimenté sur un champion difficile : aucune baisse");t(Math.abs(hard.experience-easy.experience)<1e-9&&Math.abs(hard.result-easy.result)<1e-9,"2-3. même historique : même effet, difficile ou simple");t(easy.complexity===0,"3. simple : aucun bonus de complexité");t(hard.experience>0,"2. l'expérience compte");
- const ad=masteryAdvice({enemies:FIVE,pick:label("TF"),profile:prof(rows("TwistedFate"))});t(ad.items.some(i=>i.id==="mastery.complex-known")&&!ad.items.some(i=>i.id==="mastery.demanding"),"2. le texte reconnaît l'expérience");}
-// 4. 5 parties, 80 %
-{const p=prof(filler("MIDDLE").concat(games("Fizz","MIDDLE",5,4)));const e=familiarityOf(p,"Fizz","mid"),x=masteryEffects("Fizz","mid",p);t(e.resultGap===null&&x.result===0,"4. 5 parties à 80 % : aucun effet de résultat");t(x.experience<.4,"4. expérience faible");const ad=masteryAdvice({enemies:FIVE,pick:"Fizz",profile:p});t(ad.items.some(i=>i.id==="mastery.small-sample"),"4. petit échantillon dit");t(!ad.items.some(i=>i.id==="mastery.results"),"4. pas de conclusion sur les résultats");}
-// 5. 150 parties, 55 %
-{const p=prof(filler("MIDDLE",300).concat(shuffleWins(games("Fizz","MIDDLE",150,83,{span:100}))));const e=familiarityOf(p,"Fizz","mid"),x=masteryEffects("Fizz","mid",p);t(e.resultGap>0&&e.resultGap<.05,"5. 150 parties à 55 % : écart ramené vers la moyenne");t(x.experience>1.2,"5. expérience forte");
- const q=prof(filler("MIDDLE",300).concat(games("Xerath","MIDDLE",5,4)));t(masteryEffects("Fizz","mid",p).experience+masteryEffects("Fizz","mid",p).result>masteryEffects("Xerath","mid",q).experience+masteryEffects("Xerath","mid",q).result,"4-5. 150 à 55 % pèse plus que 5 à 80 %");}
-// 6. Appris il y a plusieurs saisons
-{const old=prof(games("Fizz","MIDDLE",150,80,{ago:900,span:100})),fresh=prof(games("Fizz","MIDDLE",150,80,{ago:1,span:100}));const xo=masteryEffects("Fizz","mid",old),xf=masteryEffects("Fizz","mid",fresh);t(xo.experience<xf.experience&&xo.experience>0,"6. vieille expérience : réduite sans disparaître");const ad=masteryAdvice({enemies:FIVE,pick:"Fizz",profile:old});t(ad.items.some(i=>i.id==="mastery.rusty"),"6. dit clairement");}
-// 7. Champion récemment modifié
-{const change={Fizz:{time:NOW-5*DAY,label:"Refonte fictive"}},rows=games("Fizz","MIDDLE",100,50,{ago:20,span:60});const a=masteryEffects("Fizz","mid",prof(rows)),b=masteryEffects("Fizz","mid",prof(rows,{changes:change}));t(b.experience<a.experience,"7. modifié : expérience passée réduite");t(b.experience>0,"7. sans repartir de zéro");const ad=masteryAdvice({enemies:FIVE,pick:"Fizz",profile:prof(rows,{changes:change})});t(ad.items.some(i=>i.id==="mastery.changed"&&i.limits),"7. expliqué, avec sa limite");const nch=masteryAdvice({enemies:FIVE,pick:"Fizz",profile:prof(rows)});t(!nch.items.some(i=>i.id==="mastery.changed"),"7. sans liste de changements : rien d'affirmé");}
-// 8. Ex æquo stratégiques
-{applyProfile({role:"jungle",pool:["Viego","Master Yi"]});const team=["Ornn","Sion","Maokai","Jinx","Thresh"],p=prof(filler("JUNGLE").concat(shuffleWins(games("Viego","JUNGLE",80,42))));
- const a=personalizedRanking({enemies:team,model:"A"}),b=personalizedRanking({enemies:team,model:"B",profile:p});t(a.strategicTies.length===1&&a.ranking[0].name==="Master Yi","8. A : égalité conservée");t(b.ranking[0].name==="Viego"&&b.strategicTies.length===1,"8. B : l'expérience sépare, l'égalité reste exposée");t(b.ranking[0].strategicScore===b.ranking[1].strategicScore,"8. score stratégique inchangé");
- const ad=masteryAdvice({enemies:team,profile:p,model:"B"});const tieText=ad.items.find(i=>i.id==="mastery.tie");t(tieText&&/Viego/.test(tieText.text)&&/Master Yi/.test(tieText.text),"8. expliqué, en nommant les deux champions");
- const none=personalizedRanking({enemies:team,model:"C"});t(none.ranking[0].tiedInModel.length===1,"8. sans historique : l'égalité reste une égalité");applyProfile(MID);}
-// 9. Sans données fiables
-{applyProfile({role:"jungle",pool:["Viego","Lee Sin"]});const r=personalizedRanking({enemies:["Sion","Vi","Ahri","Jinx","Thresh"],model:"D"});const c=personalizedRanking({enemies:["Sion","Vi","Ahri","Jinx","Thresh"],model:"C"});t(JSON.stringify(r.ranking.map(x=>x.total))===JSON.stringify(c.ranking.map(x=>x.total)),"9. D sans fournisseur : identique à C");t(r.dataStatus.matchupProviders.length===0,"9. aucun fournisseur livré");const ad=masteryAdvice({enemies:["Sion","Vi","Ahri","Jinx","Thresh"],manualOpponent:"Vi",level:"intermediate",model:"D"});t(ad.items.some(i=>i.id==="mastery.no-matchup-data"),"9. dit qu'il n'y a pas de données");applyProfile(MID);}
-// 10. Favorable mais difficile à exploiter. Fournisseur de test, valeurs fictives, jamais livré.
-{const count=MATCHUP_STAT_PROVIDERS.length;let threw=false;try{registerMatchupProvider({id:"x",lookup(){}});}catch(e){threw=true;}t(threw,"10. fournisseur sans licence refusé");
- applyProfile({role:"jungle",pool:["Lee Sin","Viego"]});CHAMPION_OFFICIAL.champions["Lee Sin"].difficulty=9;
- registerMatchupProvider({id:"test",license:"fictive",terms:"fictives",lookup:(p,o,c)=>p==="Lee Sin"&&o==="Vi"?{games:2000,wins:1100,baseline:.5,role:"jungle",patch:"16.22",rank:"test",region:"test"}:p==="Viego"&&o==="Vi"?{games:10,wins:10,baseline:.5,role:"jungle"}:p==="Viego"?{games:2000,wins:1000,baseline:.5,role:"top"}:null});
- const opts={enemies:["Sion","Vi","Ahri","Jinx","Thresh"],manualOpponent:"Vi",profile:prof(filler("JUNGLE")),model:"D"};const r=personalizedRanking(opts),lee=r.ranking.find(x=>x.name==="Lee Sin"),vie=r.ranking.find(x=>x.name==="Viego");
- t(lee.matchup&&lee.parts.matchup>0,"10. statistique utilisée en D");t(!vie.matchup,"10. 10 parties à 100 % ou mauvais rôle : ignorés");const c=personalizedRanking(Object.assign({},opts,{model:"C"}));t(c.ranking.find(x=>x.name==="Lee Sin").parts.matchup===0,"10. C n'utilise pas ces statistiques");
- const ad=masteryAdvice(Object.assign({},opts,{pick:"Lee Sin"}));t(ad.items.some(i=>i.id==="mastery.matchup-hard-to-use"),"10. favorable mais à exploiter : dit");
- const entry=analyze(opts.enemies,"Vi",true).ranking.find(x=>x.pick==="Lee Sin"),old=entry.criteria.find(x=>x.key==="matchup");t(Math.abs(lee.parts.strategic+lee.parts.matchup-(entry.score-(old?old.impact:0)+Math.min(4/3,((1100+25)/(2050)-.5)/MATCHUP_FULL_GAP)*3))<1e-6,"10. remplace le matchup du moteur, sans s'y ajouter");
- MATCHUP_STAT_PROVIDERS.length=count;CHAMPION_OFFICIAL.champions["Lee Sin"].difficulty=6;applyProfile(MID);}
+// DÉCISIONS 1 et 2 : A par défaut, B/C/D ne changent rien sans expérience explicite
+{const p=prof(filler("MIDDLE").concat(games("Xerath","MIDDLE",200,120)));const a=personalizedRanking({enemies:FIVE,profile:p,learning:["Xerath"]}),e=engine(FIVE);t(a.model==="A"&&a.ranking.every((r,i)=>r.pick===e.ranking[i].pick&&r.total===e.ranking[i].score),"par défaut : A, identique au moteur, même avec un historique");
+ ["B","C","D","Z"].forEach(m=>{const x=personalizedRanking({enemies:FIVE,profile:p,model:m});t(x.model==="A"&&x.ranking[0].pick===e.ranking[0].pick,`modèle ${m} demandé sans expérience explicite : A`);});
+ const before=JSON.stringify(e.ranking.map(r=>[r.pick,r.score]));personalizedRanking({enemies:FIVE,profile:p,model:"T"});playerChoices({enemies:FIVE,profile:p});t(JSON.stringify(engine(FIVE).ranking.map(r=>[r.pick,r.score]))===before,"le prototype ne modifie pas le moteur");}
 
-// Rien n'est compté deux fois
-{const rng=()=>0;const a=shuffleWins(games("Fizz","MIDDLE",100,50)),b=shuffleWins(games("Fizz","MIDDLE",100,90));const xa=masteryEffects("Fizz","mid",prof(filler("MIDDLE").concat(a))),xb=masteryEffects("Fizz","mid",prof(filler("MIDDLE").concat(b)));t(Math.abs(xa.experience-xb.experience)<1e-9,"l'expérience ne dépend pas des victoires");t(xb.result>xa.result,"les résultats, eux, en dépendent");
- let bad=0;NAMES.forEach(n=>{const r=filler("MIDDLE").concat(shuffleWins(games(riotKey(n),"MIDDLE",100,60)));const x=masteryEffects(n,"mid",prof(r));if(x.complexity!==0||x.experience<0)bad++;});t(!bad,"100 parties récentes : aucun terme de complexité, sur tous les champions");
- let bonus=0;NAMES.forEach(n=>{const x=masteryEffects(n,"mid",prof(filler("MIDDLE")),{level:"beginner"});if(x.complexity>0)bonus++;});t(!bonus,"jamais de bonus de complexité");
- const sim=NAMES.filter(n=>{const v=championComplexity(n).official.value;return v!==null&&v<=COMPLEXITY_FROM;});t(sim.every(n=>masteryEffects(n,"mid",prof(filler("MIDDLE"))).complexity===0),"note modérée ou basse : aucun effet, donc aucune faveur directe");
- const lx=masteryEffects("Yasuo","mid",prof(filler("MIDDLE")),{learning:["Yasuo"]});t(lx.complexity===0,"champion en apprentissage : aucune baisse");const ad=masteryAdvice({enemies:FIVE,pick:"Xerath",learning:["Xerath"],profile:prof(filler("MIDDLE"))});t(ad.items.some(i=>i.id==="mastery.learning"),"apprentissage : dit");}
+// DÉCISION 4 : l'expérience ne dépasse jamais un meilleur score
+{applyProfile({role:"top",pool:["Darius","Garen","Malphite","Ornn","Camille"]});const heavy=prof(filler("TOP").concat(games("Darius","TOP",1000,520)));const rng=mul(11);let moved=0,total=0,tiedOnly=0,headDarius=0;
+ for(let i=0;i<1000;i++){const l=draw(rng,1+i%5);const a=personalizedRanking({enemies:l,profile:heavy}),b=personalizedRanking({enemies:l,profile:heavy,model:"T"});total++;a.ranking.forEach(r=>{if(b.ranking.find(x=>x.name===r.name).score!==r.score)moved++;});if(masteryKey(b.ranking[0].score)!==masteryKey(a.ranking[0].score))moved++;if(b.ranking[0].name==="Darius"&&a.ranking[0].name!=="Darius"){headDarius++;if(!a.ranking[0].tiedWith.includes("Darius"))tiedOnly++;}}
+ t(!moved,"1 000 parties sur Darius : aucun score ni meilleur score déplacé");t(!tiedOnly,"Darius ne passe en tête qu'en cas de vraie égalité");res.dariusTete=headDarius;res.dariusEssais=total;
+ const l=["Sett","Vi"];const r=personalizedRanking({enemies:l,profile:heavy,model:"T"}),ca=r.strategicRanking;t(ca[0].name==="Camille"&&r.ranking[0].name==="Camille"&&ca[0].score>ca.find(x=>x.name==="Darius").score,"meilleur matchup théorique : 1 000 parties ne le dépassent pas");
+ const c=playerChoices({enemies:l,profile:heavy});t(c.strategic.champions[0]==="Camille"&&c.familiar.champion==="Darius"&&c.compromise.kind.startsWith("gap"),"les deux lectures sont présentées séparément");applyProfile(MID);}
 
-// Expérience moyenne sur un champion exigeant : plus de message pour novice
-{const p=prof(filler("MIDDLE").concat(games("TwistedFate","MIDDLE",40,20)));const a=masteryAdvice({enemies:FIVE,pick:label("TF"),profile:p,level:"beginner"});t(!a.items.some(i=>i.id==="mastery.demanding"),"40 parties : pas de discours pour novice");}
-// Classement par défaut
-{const p=prof(filler("MIDDLE").concat(games("Xerath","MIDDLE",200,120)));const a=personalizedRanking({enemies:FIVE,profile:p,learning:["Xerath"]}),eng=analyze(FIVE,identifiedOpponent(FIVE),true,beliefScenarios(opponentBelief(FIVE)));t(a.model==="A"&&a.ranking.every((r,i)=>r.pick===eng.ranking[i].pick&&r.total===eng.ranking[i].score),"par défaut : modèle A, identique au moteur, même avec un historique");
- const before=JSON.stringify(eng.ranking.map(r=>[r.pick,r.score]));personalizedRanking({enemies:FIVE,profile:p,model:"C"});t(JSON.stringify(analyze(FIVE,identifiedOpponent(FIVE),true,beliefScenarios(opponentBelief(FIVE))).ranking.map(r=>[r.pick,r.score]))===before,"le prototype ne modifie pas le moteur");
- t(personalizedRanking({enemies:FIVE,profile:p,model:"C"}).ranking.length===4,"pool conservé");const mx=EXPERIENCE_MAX+RESULT_MAX;let over=0;personalizedRanking({enemies:FIVE,profile:p,model:"B"}).ranking.forEach(r=>{if(Math.abs(r.total-r.strategicScore)>mx)over++;});t(!over,"effet plafonné");}
+// Vraies égalités
+{applyProfile({role:"jungle",pool:["Viego","Master Yi"]});const team=["Ornn","Sion","Maokai","Jinx","Thresh"];const p=prof(filler("JUNGLE").concat(games("Viego","JUNGLE",80,42)));
+ const a=personalizedRanking({enemies:team}),b=personalizedRanking({enemies:team,model:"T",profile:p});t(a.ranking[0].name==="Master Yi"&&a.strategicTies.length===1,"A : égalité conservée");t(b.ranking[0].name==="Viego"&&b.tieBreak.applied&&b.strategicTies.length===1,"T : l'expérience départage, l'égalité reste exposée");t(b.ranking[0].score===b.ranking[1].score,"score inchangé");
+ const near=prof(filler("JUNGLE").concat(games("Viego","JUNGLE",22,11),games("MasterYi","JUNGLE",20,10)));const n=personalizedRanking({enemies:team,model:"T",profile:near});t(n.ranking[0].name==="Master Yi"&&!n.tieBreak,"écart d'expérience trop faible : l'égalité reste une égalité");
+ t(!personalizedRanking({enemies:team,model:"T"}).tieBreak,"sans historique : aucun départage");
+ ENGINE_PREFS.favorite="Master Yi";const fav=personalizedRanking({enemies:team,model:"T",profile:p});ENGINE_PREFS.favorite=null;t(fav.ranking[0].name==="Master Yi"&&!fav.tieBreak,"le favori choisi par le joueur reste prioritaire");
+ const losing=prof(filler("JUNGLE").concat(games("Viego","JUNGLE",80,10)));t(personalizedRanking({enemies:team,model:"T",profile:losing}).ranking[0].name==="Viego","départage par l'expérience, sans lire les résultats comme un mérite");
+ const c=playerChoices({enemies:team,profile:p});t(c.strategic.tied&&c.strategic.champions.length===2&&c.compromise.kind==="tie","présentation de l'égalité");applyProfile(MID);}
 
-// Explications : invariants
-{const BAD=[/undefined|NaN|null|\[object/,/interdit/i,/ne (le )?(prends|choisis|joue) pas/i,/tu ne peux pas/i,/à éviter/i,/garanti(e|t)? de/i,/tu vas (gagner|perdre)/i,/tu (es|joues) (mauvais|nul|faible)/i,/\b[Ii]l (fait|touche|peut|encaisse)\b/];
- const seed=(a=>()=>{a|=0;a=a+0x6D2B79F5|0;let x=Math.imul(a^a>>>15,1|a);x=x+Math.imul(x^x>>>7,61|x)^x;return((x^x>>>14)>>>0)/4294967296;})(99);
- const profiles=[null,prof(filler("MIDDLE")),prof(filler("MIDDLE").concat(games("Xerath","MIDDLE",25,20,{ago:300}),games("TwistedFate","MIDDLE",80,44),games("Fizz","MIDDLE",3,3)))];let broken=[],empty=0,undet=0,seen={},n=0;
- for(let i=0;i<900;i++){const l=[];const size=i%6;while(l.length<size){const x=NAMES[Math.floor(seed()*NAMES.length)];if(!l.includes(x))l.push(x);}const profile=profiles[i%3],level=["beginner","intermediate","advanced"][i%3===0?0:(i>>1)%3];const a=masteryAdvice({enemies:l,profile,level});const b=masteryAdvice({enemies:l,profile,level});if(JSON.stringify(a)!==JSON.stringify(b))undet++;a.items.forEach(it=>{n++;seen[it.id]=1;const all=it.title+" "+it.text+" "+(it.limits||"");BAD.forEach(r=>{if(r.test(all))broken.push(it.id+": "+all.slice(0,100));});if(!it.text||!it.basisLabel)empty++;});}
- t(!broken.length,"textes : aucun interdit, aucune certitude, aucun jugement "+broken.slice(0,3).join(" | "));t(!empty,"chaque conseil a un texte et une source");t(!undet,"résultat identique à chaque appel");res.conseils=n;res.regles=Object.keys(seen).length;
- const realFetch=window.fetch;let net=0;window.fetch=()=>{net++;return Promise.reject();};masteryAdvice({enemies:FIVE,profile:profiles[2]});window.fetch=realFetch;t(!net,"aucun appel réseau");
- ["mastery.accessible"].forEach(id=>{applyProfile({role:"top",pool:["Darius"]});const d=masteryAdvice({enemies:["Sion"],level:"beginner"});t(d.items.some(i=>i.id===id&&/découvrir le rôle/.test(i.text)),"débutant : champion accessible expliqué");applyProfile(MID);});
- const free=masteryAdvice({enemies:FIVE,pick:"Xerath",level:"beginner",profile:prof(filler("MIDDLE"))});t(free.pick==="Xerath","le joueur peut faire expliquer n'importe quel champion");}
+// Même score mais risque différent : pas une vraie égalité
+{const rng=mul(21);applyProfile({role:"mid",pool:["Fizz","Xerath","Kog'Maw","TF","Ahri","Zed","Lux","Syndra"]});let changes=0;const p=prof(filler("MIDDLE").concat(games("Xerath","MIDDLE",80,40),games("Lux","MIDDLE",80,40)));for(let i=0;i<500;i++){const l=draw(rng,1+i%5);const a=personalizedRanking({enemies:l}),b=personalizedRanking({enemies:l,profile:p,model:"T"});if(b.tieBreak&&!(masteryKey(b.ranking[0].score)===masteryKey(a.ranking[0].score)&&b.ranking[0].risk===a.ranking[0].risk))changes++;}t(!changes,"T ne franchit jamais une différence de score ou de risque");applyProfile(MID);}
+
+// DÉCISION 3 : familiarité différente de performance
+{const low=prof(filler("MIDDLE").concat(games("Xerath","MIDDLE",150,45)));const c=playerChoices({enemies:FIVE,profile:low});t(c.familiar.champion==="Xerath"&&c.familiar.isPerformance===false,"150 parties à 30 % : reste le plus joué, sans mention de performance");t(c.familiar.label==="Le plus joué","libellé neutre");
+ const BADF=/meilleur|maîtrise|réussi|efficace|fort|performan/i;const it=c.experience.find(i=>i.id==="experience.familiar");t(it&&!BADF.test(it.title+" "+it.text),"le bloc familiarité ne parle pas de performance");t(it&&/pas forcément/.test(it.limits),"la limite est dite");t(!/mieux pour toi|te correspond/i.test(c.compromise.text),"le compromis ne conclut pas pour le joueur");
+ const few=prof(filler("MIDDLE").concat(games("Fizz","MIDDLE",4,4)));t(playerChoices({enemies:FIVE,profile:few}).familiar===null,"moins de 5 parties : personne n'est présenté comme familier");}
+
+// DÉCISION 5 : difficulté hors score
+{const p=prof(filler("MIDDLE"));const baseScores=JSON.stringify(playerChoices({enemies:FIVE,profile:p}).ranking);const baseT=JSON.stringify(personalizedRanking({enemies:FIVE,profile:p,model:"T"}).ranking.map(r=>[r.name,r.total]));const save={};NAMES.forEach(n=>{if(CHAMPION_OFFICIAL.champions[n]){save[n]=CHAMPION_OFFICIAL.champions[n].difficulty;CHAMPION_OFFICIAL.champions[n].difficulty=10;}});const hard=JSON.stringify(playerChoices({enemies:FIVE,profile:p}).ranking);const hardT=JSON.stringify(personalizedRanking({enemies:FIVE,profile:p,model:"T"}).ranking.map(r=>[r.name,r.total]));NAMES.forEach(n=>{if(save[n]!==undefined)CHAMPION_OFFICIAL.champions[n].difficulty=save[n];});t(hard===baseScores,"difficulté à 10 partout : classement et scores identiques");t(hardT===baseT,"modèle T : difficulté sans effet");
+ const c=playerChoices({enemies:["Sett","Vi"],level:"beginner"});const d=c.theory.find(i=>i.id==="theory.demanding");t(d&&/choix valable/.test(d.text)&&/contredite/.test(d.limits),"conseil pédagogique, limite indiquée");
+ applyProfile({role:"top",pool:["Darius"]});const acc=playerChoices({enemies:["Sion"],level:"beginner"}).theory.find(i=>i.id==="theory.accessible");t(acc&&/découvrir le rôle/.test(acc.text)&&acc.limits,"champion accessible : avec sa limite");applyProfile(MID);
+ const exp=playerChoices({enemies:["Sett","Vi"],profile:prof(filler("MIDDLE").concat(games("TwistedFate","MIDDLE",40,20)))});t(!exp.theory.some(i=>i.id==="theory.demanding"),"40 parties : pas de discours pour novice");
+ applyProfile({role:"adc",pool:["Akshan","Jinx"]});const un=playerChoices({enemies:[],pick:"Akshan"});t(un.theory.some(i=>i.id==="theory.difficulty-unknown"),"note absente : dite inconnue");applyProfile(MID);
+ const free=playerChoices({enemies:FIVE,pick:"Xerath",level:"beginner"});t(free.explained==="Xerath"&&free.compromise.kind==="chosen"&&/reste possible/.test(free.compromise.text),"n'importe quel champion peut être expliqué, sans interdiction");t(free.strategic.champions[0]===playerChoices({enemies:FIVE}).strategic.champions[0],"un champion demandé n'est jamais présenté comme le meilleur");t(free.ranking.length===4,"aucun champion retiré");}
+
+// Défauts trouvés à la relecture des exemples
+{applyProfile({role:"top",pool:["Camille","Darius"]});const r=playerChoices({enemies:["Sett","Vi"]}).theory.map(i=>i.text).join(" ");t(!/utiles et \d autre/.test(r),"une phrase du moteur n'est pas prise pour une liste de noms");t(coachReason("3 cibles fragiles : Lux, Jinx")==="3 cibles fragiles : Lux, Jinx et 1 autre","une vraie liste coupée reste signalée");
+ applyProfile({role:"jungle",pool:["Viego","Master Yi","Cho'Gath","Lee Sin"]});const c=playerChoices({enemies:["Darius","Syndra","Jinx","Thresh","Vi"],profile:prof(filler("JUNGLE").concat(games("LeeSin","JUNGLE",200,108)))});
+ applyProfile({role:"jungle",pool:["Viego","Master Yi"]});const near=playerChoices({enemies:["Ornn","Sion","Maokai","Jinx","Thresh"],profile:prof(filler("JUNGLE").concat(games("Viego","JUNGLE",22,11),games("MasterYi","JUNGLE",20,10)))});t(/proche/.test(near.compromise.text)&&!/plus joué/.test(near.compromise.text),"expérience proche : pas d'argument inventé");
+ const blank=playerChoices({enemies:["Ornn","Sion","Maokai","Jinx","Thresh"],profile:prof(filler("JUNGLE"))});t(blank.experience[0].limits.includes("pas visibles"),"aucune partie importée : la limite le dit");applyProfile(MID);
+ const all=playerChoices({enemies:["Sett","Vi"],profile:prof(filler("MIDDLE"))});t(all.uncertainty.every(i=>!/est supposé/.test(i.title)),"titre sans accord sur le champion");}
+
+// DÉCISION 6 : fournisseur sans effet sur le classement
+{let threw=false;try{registerMatchupProvider({id:"x",lookup(){}});}catch(e){threw=true;}t(threw,"fournisseur sans licence refusé");t(MATCHUP_STAT_PROVIDERS.length===0,"aucun fournisseur livré");
+ applyProfile({role:"jungle",pool:["Lee Sin","Viego"]});const opts={enemies:["Sion","Vi","Ahri","Jinx","Thresh"],manualOpponent:"Vi",profile:prof(filler("JUNGLE"))};const before=JSON.stringify(playerChoices(opts).ranking);const none=playerChoices(opts);t(none.uncertainty.some(i=>i.id==="uncertainty.no-matchup"),"sans données : dit, rien n'est estimé");
+ registerMatchupProvider({id:"test",license:"fictive",terms:"fictives",lookup:(p,o)=>p==="Lee Sin"&&o==="Vi"?{games:2000,wins:1100,baseline:.5,role:"jungle",patch:"16.22"}:p==="Viego"&&o==="Vi"?{games:10,wins:10,baseline:.5,role:"jungle"}:null});
+ t(providedMatchup("Lee Sin","Vi","jungle").gap>0,"ligne valide lue");t(providedMatchup("Viego","Vi","jungle")===null,"10 parties : ignorées");t(providedMatchup("Lee Sin","Vi","top")===null,"mauvais rôle : ignoré");
+ const withData=playerChoices(Object.assign({},opts,{pick:"Lee Sin"}));t(JSON.stringify(withData.ranking)===before,"statistique : aucun effet sur le classement");t(withData.theory.some(i=>i.id==="theory.matchup-stat"),"statistique affichée avec sa source");t(withData.theory.some(i=>i.id==="theory.matchup-to-exploit"),"favorable mais à exploiter : dit");
+ MATCHUP_STAT_PROVIDERS.length=0;applyProfile(MID);}
+
+// CAS DEMANDÉS : présentation
+{const c=playerChoices({enemies:FIVE,level:"beginner"});t(c.familiar===null&&c.compromise.kind==="no-history"&&c.uncertainty.some(i=>i.id==="uncertainty.no-history"),"débutant sans historique");
+ const small=playerChoices({enemies:FIVE,pick:"Fizz",profile:prof(filler("MIDDLE").concat(games("Fizz","MIDDLE",5,4)))});t(small.uncertainty.some(i=>i.id==="uncertainty.small-sample")&&!small.experience.some(i=>i.id==="experience.results"),"5 parties à 80 % : aucune conclusion");
+ const big=playerChoices({enemies:FIVE,pick:"Fizz",profile:prof(filler("MIDDLE",300).concat(games("Fizz","MIDDLE",150,83)))});t(big.experience.some(i=>i.id==="experience.results"&&i.limits),"150 parties à 55 % : résultat avec sa limite");
+ const old=playerChoices({enemies:FIVE,pick:"Fizz",profile:prof(games("Fizz","MIDDLE",150,80,{ago:900}))});t(old.uncertainty.some(i=>/^uncertainty.rusty/.test(i.id)),"apprise il y a plusieurs saisons : dit");
+ const changed=playerChoices({enemies:FIVE,pick:"Fizz",profile:prof(games("Fizz","MIDDLE",100,50,{ago:20}),{changes:{Fizz:{time:NOW-5*DAY,label:"Refonte fictive"}}})});t(changed.uncertainty.some(i=>/^uncertainty.changed/.test(i.id)&&i.limits),"champion modifié : dit, avec sa limite");
+ const yes=playerChoices({enemies:["Sett","Vi"],pick:"Xerath",learning:["Xerath"],profile:prof(filler("MIDDLE").concat(games("Xerath","MIDDLE",3,1)))});t(yes.experience.some(i=>i.id==="experience.learning")&&!yes.theory.some(i=>i.id==="theory.demanding"),"apprentissage : respecté");
+ const empty=playerChoices({enemies:[]});t(empty.strategic&&empty.theory.length>=0,"draft vide");applyProfile({role:"mid",pool:["Fizz"]});const nop=playerChoices({enemies:["Fizz"]});t(nop.strategic===null&&nop.compromise.kind==="none","aucun champion disponible");applyProfile(MID);}
+
+// Invariants de texte, sur beaucoup de drafts
+{const BAD=[/undefined|NaN|\bnull\b|\[object/,/interdit/i,/ne (le )?(prends|choisis|joue) pas/i,/tu ne peux pas/i,/à éviter/i,/garanti(e|t)?\b/i,/tu vas (gagner|perdre)/i,/tu (es|joues) (mauvais|nul|faible)/i,/\b[Ii]l (fait|touche|peut|encaisse)\b/,/ : \./,/\.\./,/victoire assurée/i];
+ const rng=mul(99),profiles=[null,prof(filler("MIDDLE")),prof(filler("MIDDLE").concat(games("Xerath","MIDDLE",25,20,{ago:300}),games("TwistedFate","MIDDLE",80,44),games("Fizz","MIDDLE",3,3),games("KogMaw","MIDDLE",300,150)))];let broken=[],mis=0,undet=0,seen={},n=0,sect=0,sameAll=0;
+ for(let i=0;i<1200;i++){const l=draw(rng,i%6),profile=profiles[i%3],level=["beginner","intermediate","advanced"][(i>>1)%3];const a=playerChoices({enemies:l,profile,level}),b=playerChoices({enemies:l,profile,level});if(JSON.stringify(a)!==JSON.stringify(b))undet++;const e=engine(l);if(a.strategic&&(label(e.ranking[0].pick)!==a.strategic.champions[0]||JSON.stringify(a.ranking.map(r=>r.score))!==JSON.stringify(e.ranking.map(r=>+r.score.toFixed(2)))))sameAll++;
+  ["theory","experience","uncertainty"].forEach(s=>a[s].forEach(it=>{n++;seen[it.id.split(".").slice(0,2).join(".")]=1;if(it.section!==s)sect++;const all=(it.title+" "+it.text+" "+(it.limits||"")).replace(/À éviter contre/g,"");BAD.forEach(r=>{if(r.test(all))broken.push(it.id+": "+all.slice(0,100));});if(!it.text||!it.basisLabel)mis++;}));BAD.forEach(r=>{if(r.test(a.compromise.text))broken.push("compromis: "+a.compromise.text.slice(0,100));});}
+ t(!broken.length,"textes : ni interdit, ni certitude, ni jugement "+broken.slice(0,3).join(" | "));t(!mis,"chaque conseil a un texte et une source");t(!undet,"résultat identique à chaque appel");t(!sect,"chaque conseil reste dans sa section");t(!sameAll,"le classement présenté est toujours celui du moteur");res.conseils=n;res.regles=Object.keys(seen).length;
+ const real=window.fetch;let net=0;window.fetch=()=>{net++;return Promise.reject();};playerChoices({enemies:FIVE,profile:profiles[2]});window.fetch=real;t(!net,"aucun appel réseau");}
 document.getElementById("out").textContent=JSON.stringify(res);
 </script></body></html>

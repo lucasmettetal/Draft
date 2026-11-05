@@ -66,7 +66,7 @@ function coachReason(text, fallback) {
   if (!text) return fallback;
   const m = text.match(/^(\d+) ([^:]+) : ([^:]+)$/);
   let out = text;
-  if (m) { const shown = m[3].split(", ").length, total = +m[1]; if (shown < total) out = `${text} et ${total - shown} autre${total - shown > 1 ? "s" : ""}`; }
+  if (m && m[3].split(", ").every(n => ROSTER[n] !== undefined)) { const shown = m[3].split(", ").length, total = +m[1]; if (shown < total) out = `${text} et ${total - shown} autre${total - shown > 1 ? "s" : ""}`; }
   return NAMES.some(n => out.startsWith(n)) ? out : out.charAt(0).toLowerCase() + out.slice(1);
 }
 const coachRangeWords = names => { const w = names.map(n => coachRangeWord(coachRange(n)) || "portée inconnue"); return names.length === 2 && w[0] === w[1] ? `Les deux : ${w[0]}` : names.map((n, i) => `${n} : ${w[i]}`).join(", "); };
