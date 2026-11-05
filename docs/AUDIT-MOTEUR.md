@@ -1,6 +1,8 @@
 # Audit du moteur stratégique
 
-Audit du 5 novembre 2026, sur le code de la V2.13.0 (`95164df`). **Le moteur n'a pas été modifié.** Les variantes citées n'existent que dans la page d'audit.
+Audit du 5 novembre 2026, sur le code de la V2.13.0 (`95164df`). Depuis, **seul le traitement des égalités a changé** (voir plus bas). La frontline n'a pas été modifiée : ses variantes n'existent que dans les pages d'audit.
+
+Le tableau « Cho'Gath » et les sections suivantes décrivent le moteur **avant** cette correction.
 
 Reproduire : `.\tools\run-engine-audit.ps1`. Graines fixes, résultat identique d'un passage à l'autre.
 
@@ -105,12 +107,142 @@ Mages et tireurs à longue portée sont donc pénalisés en moyenne.
 
 **Manquent le plus :** de vrais bilans par rôle, des fiches révisées (ou mesurées), l'historique réel du joueur, et une évaluation sur de vraies drafts (protocole déjà prêt).
 
-## Recommandations, à décider
+## Correction des égalités (appliquée)
 
-Rien n'est appliqué. Chacune change les conseils.
+**Règle de tri :** score, puis risque le plus faible (inchangé), puis favori choisi par le joueur (inchangé), puis nom. Le nom sert seulement à rendre l'ordre indépendant du pool. Aucun score ne change, et aucun bonus n'est ajouté.
 
-1. **Égalités.** Les signaler au lieu de les trancher par l'ordre, sans toucher aux scores. Risque faible : c'est mon premier conseil.
-2. **Frontline.** Réserver le bonus aux tanks, ou séparer tanks et bruisers. Change les scores du profil d'origine, donc à comparer sur le relevé réel.
-3. **Fiches à 0.** Compléter Briar, Udyr, Aatrox et Illaoi.
-4. **Champion inconnu.** Le signaler dans l'interface.
-5. **Bilans mesurés.** Lancer le calcul des matchups par rôle : c'est ce qui remplacerait réellement ces suppositions.
+**Nouveautés dans le résultat de `analyze` :**
+
+- `ties` : les groupes ex æquo ;
+- `tiedWith` sur chaque pick : les champions à égalité avec lui.
+
+`holdPick` reste distinct : il stabilise le nom affiché pendant la draft, sans rien dire sur l'égalité stratégique. Deux scores qui diffèrent de moins d'un millionième sont à égalité : ce sont des arrondis de calcul.
+
+Tests : 4 000 pools mélangés sur 1 000 drafts, dont 777 avec égalité, sans aucun écart de score, d'ordre ou de groupe.
+
+### Différences de classement
+
+1 500 drafts de 1 à 5 adversaires, comparées à `95164df` (`.\tools\run-ties-compare.ps1`). **Aucun score ne diffère sur aucune draft.**
+
+| Pool | Classement identique | Seul l'ordre des ex æquo change | Dont nom en tête différent |
+|---|---|---|---|
+| Mid (tes 4) | **1 500** | 0 | 0 |
+| Jungle (Cho'Gath, Viego, Master Yi, Briar, Lee Sin) | 14 | 1 486 | 268 |
+| Jungle (Vi, Amumu, Graves, Kha'Zix, Hecarim) | 287 | 1 213 | 261 |
+| Top (Darius, Garen, Malphite, Ornn, Camille) | 1 465 | 35 | 0 |
+| ADC (Jinx, Caitlyn, Kog'Maw, Ezreal, Vayne) | 577 | 923 | 577 |
+| Support (Thresh, Leona, Soraka, Lulu, Lux) | 63 | 1 437 | 431 |
+
+Ces écarts ne concernent que des champions à score identique : ils ne disent pas qu'un conseil est meilleur.
+
+| Pool Jungle, drafts observées | Cho'Gath en tête | Lee Sin en tête | Égalité en tête |
+|---|---|---|---|
+| Avant, ordre de saisie | 72,1 % | 27,9 % | 41 % |
+| Avant, ordre inversé | 31,3 % | 48,8 % | 41 % |
+| **Après, ordre de saisie** | **71,5 %** | **27,8 %** | 41 % |
+| **Après, ordre inversé** | **71,5 %** | **27,8 %** | 41 % |
+
+**Limite importante.** L'ordre alphabétique est neutre vis-à-vis du pool, mais pas vis-à-vis des noms : Cho'Gath passe avant Master Yi et Viego. C'est pourquoi il reste à 71,5 % en tête. En partageant chaque égalité à parts égales, sa part tombe à 43,4 %, sur un autre tirage de 2 500 drafts. **Tant que l'écran n'affiche pas les égalités, le biais change de forme sans disparaître.** Cet affichage appartient à l'intégration de la V2.14.
+
+## Audit de la frontline (non appliqué)
+
+Mesuré par `.\tools\run-engine-audit.ps1 -Page frontline-audit.html`, sur 2 500 drafts observées. Rien de ce qui suit n'est dans le moteur.
+
+**Catégories, déduites des fiches existantes :**
+
+| Catégorie | Champions | Défense moyenne notée par Riot |
+|---|---|---|
+| Tank principal | 23 | 8,00 |
+| Frontline situationnelle (bruiser ni plongeur ni très mobile) | 28 | 5,57 |
+| Bruiser plongeur ou très mobile | 18 | 4,56 |
+| Toutes les autres fiches sans frontline fiable (bruisers exclus compris) | 122 | 3,76 |
+
+Les notes de Riot n'ont pas servi à bâtir ces catégories, mais ce sont des appréciations, pas des mesures. L'écart reste nuancé : 4,56 contre 5,57.
+
+**Variantes :**
+
+- **Ancien :** tous les tanks et bruisers comptent.
+- **Sans mobiles :** on retire seulement les bruisers plongeurs ou très mobiles.
+- **Tanks seuls :** seuls les tanks principaux comptent.
+- **Catégories :** un tank compte pour 1, un situationnel pour 1/2. Ce poids est un choix, pas une mesure.
+
+| Seuil de 2 atteint | Ancien | Sans mobiles | Tanks seuls | Catégories |
+|---|---|---|---|---|
+| Part des drafts | 63,9 % | 35,8 % | 8,8 % | 11,5 % |
+
+Part en tête, avec les égalités partagées :
+
+| Pool | Variante | Répartition | Égalité en tête | Nom en tête changé |
+|---|---|---|---|---|
+| **Mid (tes 4)** | Ancien | Fizz 52,5, TF 25,2, Kog'Maw 15,8, Xerath 6,5 | 1,9 % | - |
+| | Sans mobiles | Fizz 54,1, TF 29, Kog'Maw 9,7, Xerath 7,3 | 1,6 % | 6,8 % |
+| | Tanks seuls | Fizz 55,5, TF 31,8, Kog'Maw 3,4, Xerath 9,2 | 1,8 % | 13,5 % |
+| | Catégories | Fizz 55,5, TF 31,4, Kog'Maw 4,3, Xerath 8,8 | 1,5 % | 12,6 % |
+| **Jungle Cho'Gath** | Ancien | Cho'Gath 43,4, Lee Sin 34, Viego 11,1, Yi 11,1, Briar 0,3 | 37,1 % | - |
+| | Sans mobiles | Lee Sin 48,3, Cho'Gath 32,9, Viego 9,1, Yi 9,1, Briar 0,7 | 31 % | 16,2 % |
+| | Tanks seuls | Lee Sin 65,3, Cho'Gath 26,4, Yi 3,5, Viego 3,4, Briar 1,4 | 13 % | 38,2 % |
+| | Catégories | Lee Sin 63,5, Cho'Gath 27,1, Viego 4,1, Yi 4,1, Briar 1,2 | 15 % | 35,7 % |
+| **Top** | Ancien | Ornn 72,5, Malphite 17,4, Camille 8,7, Garen 1,4 | 34,2 % | - |
+| | Sans mobiles | Ornn 57,6, Malphite 29,4, Camille 8,5, Garen 4,6 | 61,2 % | 27,3 % |
+| | Tanks seuls | Ornn 46,8, Malphite 39,1, Camille 8,2, Garen 5,8 | 81,4 % | 47,8 % |
+| **ADC** | Ancien | Vayne 62,3, Ezreal 29,6, Caitlyn 7, Kog'Maw 1,1 | 14,9 % | - |
+| | Sans mobiles | Ezreal 50,4, Vayne 39,4, Caitlyn 9,3, Kog'Maw 0,9 | 24,7 % | 26,2 % |
+| | Tanks seuls | Ezreal 68,4, Vayne 15,9, Caitlyn 14,7, Jinx 0,8 | 36,9 % | 52,2 % |
+| **Jungle classique** | Ancien | Amumu 46, Kha'Zix 41,5, Hecarim 11,8, Graves 0,7 | 0,1 % | - |
+| | Sans mobiles | Amumu 45,9, Kha'Zix 43,8, Hecarim 9,6, Graves 0,7 | 0 % | 2,3 % |
+| **Support** | Toutes | Leona 32,4, Thresh 31,2, Soraka 26,7, Lux 9,5, Lulu 0,3 | 58,2 % | 0 % |
+
+**Une répartition plus équilibrée ne prouve rien.** Ces chiffres montrent ce qui bouge, pas ce qui gagne.
+
+**Effets observés :**
+
+- **Moins de décisions.** Réduire la frontline crée beaucoup d'égalités au Top (34 % à 81 % avec les tanks seuls) et à l'ADC. Le critère départageait ces pools.
+- **Kog'Maw.** Le bonus lui a été donné pour ses dégâts en % des PV, qui valent aussi contre un bruiser à grosse barre de vie. Avec les tanks seuls, il tombe à 3,4 % : ce choix retire un cas pour lequel la règle a été écrite.
+
+**Cas écrits à la main, à titre de contrôle :**
+
+| Adversaires | Attendu | Ancien | Sans mobiles | Tanks seuls | Catégories |
+|---|---|---|---|---|---|
+| Ornn, Sion, Maokai | bonus | oui | oui | oui | oui |
+| Ornn, Malphite | bonus | oui | oui | oui | oui |
+| Yasuo, Irelia, Fiora | pas de bonus | **oui** | non | non | non |
+| Darius, Garen | bonus | oui | oui | **non** | **non** |
+| Darius, Garen, Sett, Olaf | bonus | oui | oui | **non** | oui |
+| Zed, Talon, Akali | pas de bonus | non | non | non | non |
+
+**Ces attentes sont mon avis, pas des données.** J'ai notamment changé celle de « Darius, Garen » après une première lecture des résultats, en passant de « pas de bonus » à « bonus », pour la raison Kog'Maw ci-dessus. Ce tableau ne peut donc pas départager les variantes à lui seul.
+
+### Proposition
+
+**Correction candidate : « Sans mobiles ».** C'est la seule qui retire le défaut évident (Yasuo, Irelia et Fiora comptés comme de la frontline) sans supprimer les bruisers lents, et c'est la plus petite modification.
+
+**Elle n'est pas appliquée**, faute de preuve qu'elle améliore les conseils. Elle changerait le nom en tête dans 6,8 % de tes drafts Mid. Pour décider :
+
+1. rejouer les vraies drafts du relevé avec les deux versions ;
+2. relire chaque draft où le conseil change, sans savoir quelle version l'a produit ;
+3. ne regarder les victoires que sur un échantillon suffisant et indépendant.
+
+Le bonus sans contrepartie hors Kog'Maw reste un second sujet, à mesurer séparément.
+
+## Fiches à vérifier
+
+Contrôle croisé avec les classes de Riot. Ce sont des questions, pas des erreurs établies.
+
+| Constat | Champions |
+|---|---|
+| « Tueur de tanks » sur un champion lui-même tank | Cho'Gath, Dr. Mundo, K'Sante, Ornn |
+| Classe Tank chez Riot, mais pas tank dans la fiche | Blitzcrank, Singed |
+| « Longue portée » avec une portée de base de 125 | Jayce (change de forme) |
+| Fiche très pauvre, un trait ou moins | Aatrox, Briar, Corki, Illaoi, Jayce, Lulu, Milio, Morgana, Nami, Neeko, Renata Glasc, Sona, Swain, Udyr, Yuumi |
+
+Le trait « tueur de tanks » de Cho'Gath pèse directement sur sa fréquence : c'est la première fiche à faire relire.
+
+## Recommandations restantes, à décider
+
+Chacune change les conseils.
+
+1. **Afficher les égalités** dans la draft : nécessaire pour que la correction atteigne le joueur.
+2. **Frontline** : comparer « Sans mobiles » sur le relevé réel.
+3. **Fiches** : relire celles du tableau ci-dessus.
+4. **Champion inconnu** : le signaler dans l'interface.
+5. **Bilans mesurés** : lancer le calcul des matchups par rôle, ce qui remplacerait réellement ces suppositions.
