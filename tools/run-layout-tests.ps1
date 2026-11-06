@@ -21,6 +21,8 @@ foreach ($t in 'analyse', 'coach', 'matchups', 'parties') { $Runs += , @("onglet
 $Runs += , @('reglages', 'state=full&set=full&tab=settings', $false)
 $Runs += , @('reglages application', 'state=full&set=full&tab=settings&host=on', $false)
 $Runs += , @('profil support, noms longs', 'state=full&set=full&profile=support&frozen=1', $false)
+$Runs += , @('role sans champion', 'state=jungleempty&frozen=1', $false)
+$Runs += , @('role attribue different', 'state=assigned&frozen=1', $false)
 $Runs += , @('egalite jungle', 'state=tie&profile=jungle&frozen=1', $false)
 $Runs += , @('egalite sans adversaire', 'state=tieempty&profile=jungle&frozen=1', $false)
 $Runs += , @('le plus joue affiche', 'state=played&frozen=1', $false)

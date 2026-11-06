@@ -6,7 +6,7 @@ Règle appliquée : sans conditions lisibles qui autorisent la réutilisation, u
 
 ## Conclusion
 
-**Aucune source tierce de statistiques de matchups n'est utilisable aujourd'hui.** La seule voie claire est le calcul déjà présent dans DraftMid, à partir de l'API Riot. Il n'a encore jamais tourné avec une vraie clé.
+**Aucune source tierce de statistiques de matchups n'est utilisable aujourd'hui.** La seule voie claire est le calcul déjà présent dans DRAFT, à partir de l'API Riot. Il n'a encore jamais tourné avec une vraie clé.
 
 ## Sources
 

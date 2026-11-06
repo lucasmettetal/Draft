@@ -1,4 +1,4 @@
-# Compile DraftMid-Portable.exe et DraftMid-Setup.exe avec le compilateur C# fourni par Windows.
+# Compile DRAFT-Portable.exe et DRAFT-Setup.exe avec le compilateur C# fourni par Windows.
 # Ni Node, ni Rust, ni Visual Studio nécessaires.
 # -SansMeraki : n'embarque pas la référence Meraki, dont la licence de redistribution n'est pas confirmée.
 # -Prototypes : ajoute les prototypes isolés (OP.GG). La compilation normale ne les contient jamais.
@@ -33,7 +33,7 @@ Get-ChildItem $webRoot -Recurse -File | Where-Object { $_.Name -notlike '*-tests
 }
 foreach ($n in 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'WebView2Loader.dll') { $res.Add("/resource:`"$root\lib\$n`",lib/$n") }
 
-$exe = Join-Path $Out 'DraftMid-Portable.exe'
+$exe = Join-Path $Out 'DRAFT-Portable.exe'
 $rsp = Join-Path $Out 'build.rsp'
 $lines = @(
   '/nologo', '/target:winexe', '/platform:x64', '/optimize+', '/utf8output', '/codepage:65001',
@@ -47,6 +47,6 @@ $lines = @(
 if ($LASTEXITCODE -ne 0) { throw "La compilation a échoué." }
 
 # L'installateur est le même programme : il s'installe seul quand son nom contient « Setup ».
-Copy-Item $exe (Join-Path $Out 'DraftMid-Setup.exe') -Force
+Copy-Item $exe (Join-Path $Out 'DRAFT-Setup.exe') -Force
 Remove-Item $rsp, $icoPath -ErrorAction SilentlyContinue
 Get-ChildItem $Out -Filter '*.exe' | Select-Object Name, @{n='Mo';e={[math]::Round($_.Length / 1MB, 1)}}

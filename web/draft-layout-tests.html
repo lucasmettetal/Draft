@@ -1,8 +1,10 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests de rendu DraftMid</title><!-- Lance par tools/run-layout-tests.ps1 : mesure le rendu reel de chaque panneau, taille et etat. --><style>body{margin:0;background:#333;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}iframe{border:0;background:#000}</style></head><body><pre id="out" style="display:none"></pre><script>
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests de rendu DRAFT</title><!-- Lance par tools/run-layout-tests.ps1 : mesure le rendu reel de chaque panneau, taille et etat. --><style>body{margin:0;background:#333;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}iframe{border:0;background:#000}</style></head><body><pre id="out" style="display:none"></pre><script>
 const q=new URLSearchParams(location.search);const STATE=q.get('state')||'empty';const SET=q.get('set')||'all';const SHOT=q.get('shot')==='1';
 const SIZES={left:[[230,576],[256,576],[280,720],[320,720],[360,720],[400,720],[320,540],[320,420]],right:[[230,576],[256,576],[280,720],[320,720],[360,720],[400,720],[320,540],[320,420]],compact:[[252,576],[282,576],[280,720],[320,720],[360,720],[400,720],[360,1030],[320,420]],full:[[1280,720],[1366,768],[1920,1080],[1024,640],[800,600]]};
 const LONG='Nom De Champion Vraiment Extrêmement Long';
 const STATES={
+jungleempty:w=>{w.eval("switchRole('jungle','manual')")},
+assigned:w=>{['Ahri','Ornn'].forEach(w.addEnemy);w.eval("handleAssignedRole('jungle')")},
 tie:w=>{['Ornn','Sion','Maokai','Jinx','Thresh'].forEach(w.addEnemy)},
 tieempty:w=>{},
 played:w=>{const rows=[];for(let i=0;i<120;i++)rows.push({id:'T'+i,acct:'Test#TEST',time:Date.now()-i*864e5,patch:'16.22',sec:1800,champ:'TwistedFate',pos:'MIDDLE',win:i%2===0,k:5,d:4,a:6,mid:'',enemies:[]});w.DRAFT_HISTORY={generated:new Date().toISOString(),accounts:['Test#TEST'],rows};w.eval("historyProfile.done=false;");['Syndra','Ornn','Lee Sin','Jinx','Thresh'].forEach(w.addEnemy)},

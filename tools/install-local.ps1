@@ -1,4 +1,4 @@
-# Installation locale d'une version compilée, sans publication. Ne fait rien si DraftMid ou le client LoL sont ouverts,
+# Installation locale d'une version compilée, sans publication. Ne fait rien si DRAFT, DraftMid ou le client LoL sont ouverts,
 # sauf -FermerDraftMid, qui ne s'applique jamais pendant que le client est ouvert.
 # Sauvegarde d'abord l'exécutable et les données ; tools/restore-local.ps1 revient en arrière.
 param(
@@ -13,8 +13,8 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path $Source)) { throw "Version introuvable : $Source" }
 if (-not $IgnorerClient -and (Get-Process LeagueClient, LeagueClientUx, 'League of Legends' -ErrorAction SilentlyContinue)) { throw 'Le client LoL est ouvert : rien n''est modifié. Relance quand il est fermé.' }
-$running = @(Get-Process DraftMid -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Destination })
-if ($running.Count -and -not $FermerDraftMid) { throw 'DraftMid est ouvert : rien n''est modifié. Ferme-le, ou utilise -FermerDraftMid.' }
+$running = @(Get-Process DraftMid, DRAFT -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Destination })
+if ($running.Count -and -not $FermerDraftMid) { throw 'DRAFT (ou DraftMid) est ouvert : rien n''est modifié. Ferme-le, ou utilise -FermerDraftMid.' }
 
 $running | ForEach-Object { [void]$_.CloseMainWindow(); $_ | Stop-Process -Force -ErrorAction SilentlyContinue }
 if ($running.Count) { Start-Sleep -Seconds 2 }

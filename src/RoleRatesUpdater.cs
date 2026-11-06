@@ -44,7 +44,7 @@ namespace DraftMid
         {
             HttpWebRequest r = (HttpWebRequest)WebRequest.Create(url);
             r.Method = "GET";
-            r.UserAgent = "DraftMid";
+            r.UserAgent = "DRAFT";
             r.Headers["X-Riot-Token"] = key;
             using (new System.Threading.Timer(_ => r.Abort(), null, TimeoutMs, Timeout.Infinite))
             {

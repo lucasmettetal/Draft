@@ -1,4 +1,4 @@
-// DraftMid : application compagnon Windows. Fenêtres natives autour de l'interface web existante.
+// DRAFT : application compagnon Windows. Fenêtres natives autour de l'interface web existante.
 // Suit la fenêtre du client via l'API Windows. Si l'option est cochée, lit la phase et les champions adverses
 // via l'API locale du client, en lecture seule. Aucune injection ni lecture de mémoire.
 using System;
@@ -19,11 +19,11 @@ using Microsoft.Win32;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
-[assembly: AssemblyTitle("DraftMid")]
-[assembly: AssemblyProduct("DraftMid")]
-[assembly: AssemblyDescription("Compagnon de draft League of Legends. Non approuvé par Riot Games.")]
-[assembly: AssemblyVersion("2.15.0.0")]
-[assembly: AssemblyFileVersion("2.15.0.0")]
+[assembly: AssemblyTitle("DRAFT")]
+[assembly: AssemblyDescription("DRAFT : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.")]
+[assembly: AssemblyProduct("DRAFT")]
+[assembly: AssemblyVersion("2.16.0.0")]
+[assembly: AssemblyFileVersion("2.16.0.0")]
 
 namespace DraftMid
 {
@@ -222,6 +222,13 @@ public static class Autostart
         public static string Key = DefaultKey;
         const string Value = "DraftMid";
         public static bool IsOn() { using (RegistryKey k = Registry.CurrentUser.OpenSubKey(Key)) return k != null && k.GetValue(Value) != null; }
+        public static string Target() { using (RegistryKey k = Registry.CurrentUser.OpenSubKey(Key)) { object v = k == null ? null : k.GetValue(Value); return v == null ? null : v.ToString().Trim('"'); } }
+        // Un seul démarrage automatique : s'il visait l'ancien fichier, il vise désormais le nouveau.
+        public static void Repoint(string oldExe, string newExe)
+        {
+            string current = Target();
+            if (current != null && string.Equals(Path.GetFullPath(current), Path.GetFullPath(oldExe), StringComparison.OrdinalIgnoreCase)) Set(true, newExe);
+        }
         public static void Set(bool on, string exe)
         {
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(Key))
@@ -270,7 +277,7 @@ public static class Autostart
             BackColor = Color.FromArgb(10, 15, 22);
             // La marge sert à redimensionner : aucune du côté collé au client, pour ne pas laisser de cadre visible.
             Padding = id == "full" ? Padding.Empty : id == "left" ? new Padding(Border, Border, 0, Border) : id == "right" ? new Padding(0, Border, Border, Border) : new Padding(Border);
-            Text = id == "full" ? "DraftMid" : "DraftMid : " + id;
+            Text = id == "full" ? "DRAFT" : "DRAFT : " + id;
             if (app.AppIcon != null) Icon = app.AppIcon;
             View = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.FromArgb(10, 15, 22) };
             Controls.Add(View);
@@ -421,7 +428,7 @@ public static class Autostart
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(miAutostart);
             menu.Items.Add("Quitter", null, (s, e) => Quit());
-            tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DraftMid", Visible = true, ContextMenuStrip = menu };
+            tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DRAFT", Visible = true, ContextMenuStrip = menu };
             tray.DoubleClick += (s, e) => ToggleManual();
 
             // Essai à côté d'une autre version : le raccourci reste à celle-ci, sans même tenter de l'enregistrer.
@@ -566,17 +573,31 @@ public static class Autostart
             try
             {
                 LcuSnapshot s = await lcu.PollAsync();
-                if (!s.Available) return false;
+                if (!s.Available) { UpdateAssignedRole(null); return false; }
                 lcuInfo = s.PhaseName + "/" + (s.EnemyChampionIds == null ? "illisible" : s.EnemyChampionIds.Count.ToString());
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
                 AfterPhase(before, machine.Current);
                 ApplyVisibility();
                 PostEnemies(s);
+                // Session illisible : on garde la dernière valeur connue. Hors draft : plus de rôle attribué.
+                if (s.Phase != Phase.Draft) UpdateAssignedRole(null);
+                else if (s.EnemyChampionIds != null) UpdateAssignedRole(s.AssignedRole);
                 return true;
             }
             finally { lcuBusy = false; }
         }
+
+        // Rôle attribué au joueur pendant la sélection, si le client l'indique. Null sinon : rien n'est deviné.
+        string assignedRole;
+        void UpdateAssignedRole(string role)
+        {
+            if (role == assignedRole) return;
+            assignedRole = role;
+            BroadcastHost();
+        }
+        public void TestSetAssignedRole(string role) { UpdateAssignedRole(role); }
+        public string AssignedRole { get { return assignedRole; } }
 
         void PostEnemies(LcuSnapshot s)
         {
@@ -678,6 +699,31 @@ public static class Autostart
         string rolesStatus = "";
         bool rolesReloadPending;
 
+        // ---------- Copie de secours des profils, dans le dossier de données ----------
+        // Profils et préférences de pool seulement : la page n'y met ni historique ni clé.
+        public const string ProfilesFile = "draft-profiles.json";
+        string profilesCopy;
+        bool profilesCopyRead;
+        string ProfilesCopy()
+        {
+            if (!profilesCopyRead) { profilesCopyRead = true; try { string path = Path.Combine(dataDir, ProfilesFile); if (File.Exists(path)) profilesCopy = File.ReadAllText(path, Encoding.UTF8); } catch (IOException) { } }
+            return profilesCopy;
+        }
+        public bool SaveProfilesCopy(string json)
+        {
+            if (json == null || json.Length > 256 * 1024) return false;
+            try { if (!(new JavaScriptSerializer().DeserializeObject(json) is Dictionary<string, object>)) return false; } catch { return false; }
+            try
+            {
+                string path = Path.Combine(dataDir, ProfilesFile), temp = path + ".tmp";
+                File.WriteAllText(temp, json, new UTF8Encoding(false));
+                if (File.Exists(path)) File.Replace(temp, path, path + ".precedent"); else File.Move(temp, path);
+                profilesCopy = json; profilesCopyRead = true;
+                return true;
+            }
+            catch (IOException) { return false; }
+        }
+
         // ---------- Import de l'historique, seulement à la demande du joueur ----------
         CancellationTokenSource historyCts;
         string historyStatus = "";
@@ -738,13 +784,13 @@ public static class Autostart
                     rolesReloadPending = true;
                     ReloadRolesIfIdle();
                 }
-                catch (IOException) { r.Error = "Historique enregistré, mais pas encore visible : relance DraftMid."; }
+                catch (IOException) { r.Error = "Historique enregistré, mais pas encore visible : relance DRAFT."; }
             }
             historyHasMore = r.HasMore;
             string summary = r.Added + (r.Added > 1 ? " parties ajoutées, " : " partie ajoutée, ") + r.Total + " au total.";
             historyStatus = r.Error != "" ? r.Error + " " + summary : (r.Cancelled ? "Import arrêté : " : "Import terminé : ") + summary;
             if (r.NotFound.Count > 0) historyStatus += " Compte introuvable : " + string.Join(", ", r.NotFound) + ".";
-            if (tray != null) tray.ShowBalloonTip(5000, "DraftMid", historyStatus, r.Error == "" ? ToolTipIcon.Info : ToolTipIcon.Warning);
+            if (tray != null) tray.ShowBalloonTip(5000, "DRAFT", historyStatus, r.Error == "" ? ToolTipIcon.Info : ToolTipIcon.Warning);
             RefreshUi();
             return r;
         }
@@ -773,7 +819,7 @@ public static class Autostart
             string intro = matchups
                 ? "Calcule les bilans de ton pool contre chaque adversaire direct, à ton rôle, sur des parties des 30 derniers jours. Plus ton pool est grand, moins chaque champion aura de parties. Le calcul prend environ 65 minutes et tourne en arrière-plan."
                 : "Compte les rôles joués sur 1 000 parties récentes, pour mieux deviner le mid adverse. Le calcul prend environ 40 minutes et tourne en arrière-plan.";
-            using (RiotKeyDialog dialog = new RiotKeyDialog(AppIcon, OpenExternal, "DraftMid : mettre à jour les " + what, intro))
+            using (RiotKeyDialog dialog = new RiotKeyDialog(AppIcon, OpenExternal, "DRAFT : mettre à jour les " + what, intro))
             {
                 if (dialog.ShowDialog() != DialogResult.OK) return;
                 key = dialog.Key;
@@ -809,7 +855,7 @@ public static class Autostart
                 : r.Error != "" ? r.Error
                 : "Calcul arrêté : " + r.Games + " parties, trop peu pour remplacer les données actuelles.";
             if (r.Saved && r.Error != "") rolesStatus += " " + r.Error;
-            tray.ShowBalloonTip(5000, "DraftMid", rolesStatus, r.Saved || r.UpToDate ? ToolTipIcon.Info : ToolTipIcon.Warning);
+            tray.ShowBalloonTip(5000, "DRAFT", rolesStatus, r.Saved || r.UpToDate ? ToolTipIcon.Info : ToolTipIcon.Warning);
             RefreshUi();
         }
 
@@ -860,7 +906,7 @@ public static class Autostart
                 if (!opts.Silent)
                 {
                     if (ex is WebView2RuntimeNotFoundException) RuntimeHelp.Explain();
-                    else MessageBox.Show("DraftMid n'a pas pu démarrer. Détail dans " + Path.Combine(dataDir, "draftmid.log"), "DraftMid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    else MessageBox.Show("DRAFT n'a pas pu démarrer. Détail dans " + Path.Combine(dataDir, "draftmid.log"), "DRAFT", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
                 Quit();
             }
@@ -1110,8 +1156,8 @@ public static class Autostart
 
         void Teach(bool isDraft)
         {
-            if (!frameValid) { tray.ShowBalloonTip(3000, "DraftMid", "Le client doit être visible à l'écran pour retenir cette vue.", ToolTipIcon.Info); return; }
-            if (!detector.Teach(frame, isDraft)) { tray.ShowBalloonTip(3000, "DraftMid", "Aucun portrait au centre : cet écran n'a pas été retenu comme une draft.", ToolTipIcon.Info); return; }
+            if (!frameValid) { tray.ShowBalloonTip(3000, "DRAFT", "Le client doit être visible à l'écran pour retenir cette vue.", ToolTipIcon.Info); return; }
+            if (!detector.Teach(frame, isDraft)) { tray.ShowBalloonTip(3000, "DRAFT", "Aucun portrait au centre : cet écran n'a pas été retenu comme une draft.", ToolTipIcon.Info); return; }
             Persist();
         }
 
@@ -1146,7 +1192,7 @@ public static class Autostart
             miFollow.Checked = settings.Follow;
             miAutoDraft.Checked = settings.AutoDraft;
             miAutostart.Checked = Autostart.IsOn();
-            string tip = "DraftMid : " + phase;
+            string tip = "DRAFT : " + phase;
             tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
             BroadcastHost();
         }
@@ -1156,7 +1202,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1209,6 +1255,46 @@ public static class Autostart
             return "";
         }
 
+        public async Task<string> TestProfilesAndRole()
+        {
+            OpenFull("");
+            PanelForm f = null;
+            for (int i = 0; i < 300 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null); i++) await Task.Delay(50);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = async code => { for (int i = 0; i < 100; i++) { if (await run("!!(" + code + ")") == "true") return true; await Task.Delay(50); } return false; };
+            if (!await wait("typeof PROFILES !== 'undefined' && hostState.available")) return "(page non prête)";
+            await run("saveMyProfile('mid', ['Fizz','Xerath']); saveMyProfile('jungle', ['Viego','Lee Sin']); switchRole('mid','manual'); 1");
+            if (!await wait("myRole()==='mid' && PICKS.join()==='Fizz,Xerath'")) return "(changement de rôle)";
+            await Task.Delay(400);
+            string copy = ProfilesCopy() ?? "";
+            if (!copy.Contains("Viego") || !copy.Contains("Xerath")) return "(copie de secours absente)";
+            await run("location.reload(); 1");
+            await Task.Delay(600);
+            if (!await wait("typeof PROFILES !== 'undefined' && myRole()==='mid' && PICKS.join()==='Fizz,Xerath' && PROFILES.roles.jungle.pool.join()==='Viego,Lee Sin'")) return "(profils perdus au rechargement)";
+            // Stockage du navigateur effacé : la copie du dossier de données les rend.
+            await run("localStorage.removeItem('draftProfiles'); localStorage.removeItem('draftProfile'); location.reload(); 1");
+            await Task.Delay(600);
+            if (!await wait("typeof PROFILES !== 'undefined' && hostState.available && PROFILES.roles.jungle.pool.join()==='Viego,Lee Sin'")) return "(copie de secours non relue)";
+            await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
+            TestSetAssignedRole("jungle");
+            if (!await wait("state.assignedRole==='jungle' && myRole()==='mid' && document.querySelector('.role-hint')")) return "(proposition absente)";
+            await run("savePrefs({autoRole:'auto'}); 1");
+            TestSetAssignedRole(null);
+            TestSetAssignedRole("jungle");
+            if (!await wait("myRole()==='jungle'")) return "(changement automatique absent)";
+            await run("switchRole('mid','manual'); 1");
+            TestSetAssignedRole("support"); TestSetAssignedRole("jungle");
+            if (!await wait("myRole()==='mid'")) return "(la correction manuelle n'est pas respectée)";
+            TestSetAssignedRole(null);
+            await run("savePrefs({autoRole:'suggest'}); resetRoleSession(); 1");
+            // Après un rechargement, les réglages doivent toujours s'ouvrir par le bouton du panneau.
+            OpenFull("settings");
+            if (!await wait("document.querySelector('.settings')")) return "(réglages impossibles à ouvrir après rechargement : " + await run("location.search + ' ' + document.readyState") + ")";
+            await run("document.querySelector('.settings .sec-title .ghost-btn').click(); 1");
+            return "";
+        }
+
         async Task<string> TestHistoryWindow(string fakeKey)
         {
             string path = Path.Combine(dataDir, HistoryImporter.FileName), before = File.ReadAllText(path), status = historyStatus, layout = "";
@@ -1220,7 +1306,11 @@ public static class Autostart
             const string Find = "[...document.querySelectorAll('.settings button')].find(b => /historique Riot|plus de parties/.test(b.textContent))";
             bool found = false;
             for (int i = 0; i < 120 && !found; i++) { found = await f.View.CoreWebView2.ExecuteScriptAsync("!!(" + Find + ")") == "true"; if (!found) await Task.Delay(50); }
-            if (!found) return "(bouton absent des réglages)";
+            if (!found)
+            {
+                string pageText = await f.View.CoreWebView2.ExecuteScriptAsync("(document.querySelector('.settings') ? 'réglages ouverts : ' : 'réglages fermés : ') + location.search + ' | ' + document.body.innerText.slice(0, 160)");
+                return "(bouton absent des réglages : " + pageText + ")";
+            }
             string file = await f.View.CoreWebView2.ExecuteScriptAsync("(window.DRAFT_HISTORY && window.DRAFT_HISTORY.rows.length) || 0");
             if (file != "3") return "(la page lit " + file + " parties)";
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 300 };
@@ -1249,6 +1339,28 @@ public static class Autostart
             if (!blocked || !allowed) return "(consentement mal appliqué)";
             if (historyCts != null || historyStatus != status || File.ReadAllText(path) != before) return "(annuler a lancé quelque chose)";
             return "";
+        }
+
+        // Compte ce que la page retrouve dans ce dossier de données, sans aucun nom de champion ni de joueur. Pour tester une migration.
+        public async void ReportStateAndQuit(string path)
+        {
+            string result = "{\"erreur\":\"page absente\"}";
+            try
+            {
+                await Task.Delay(1500);
+                OpenFull("");
+                PanelForm f = null;
+                for (int i = 0; i < 300 && !(panels.TryGetValue("full", out f) && f.Ready.IsCompleted && f.View.CoreWebView2 != null); i++) await Task.Delay(50);
+                for (int i = 0; i < 100 && f != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof PROFILES !== 'undefined' && hostState.available") != "true"; i++) await Task.Delay(100);
+                if (f != null && f.View.CoreWebView2 != null)
+                {
+                    string js = "JSON.stringify({version:typeof APP_VERSION!=='undefined'?APP_VERSION:null,actif:PROFILES.active,parRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].pool.length])),ancienProfil:!!localStorage.getItem('draftProfile'),profilsEnregistres:!!localStorage.getItem('draftProfiles'),historique:window.DRAFT_HISTORY&&Array.isArray(window.DRAFT_HISTORY.rows)?window.DRAFT_HISTORY.rows.length:0,journal:loadJournal().length,niveau:PREFS.coachLevel,role:myRole()})";
+                    result = new JavaScriptSerializer().Deserialize<string>(await f.View.CoreWebView2.ExecuteScriptAsync(js));
+                }
+            }
+            catch (Exception e) { if (e is OutOfMemoryException) throw; result = "{\"erreur\":\"" + e.GetType().Name + "\"}"; }
+            try { File.WriteAllText(path, result, new UTF8Encoding(false)); } catch { }
+            Quit();
         }
 
         // Ouvre les réglages comme le bouton du panneau, puis vérifie qu'ils se ferment des deux façons.
@@ -1422,6 +1534,14 @@ public static class Autostart
             {
                 open.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"openSettings\"}");
                 if (opts.Script == null) open.Activate();
+                // Une page en plein rechargement (après un import, par exemple) perd ce message : on vérifie, puis on recharge sur les réglages.
+                for (int i = 0; i < 30; i++)
+                {
+                    await Task.Delay(50);
+                    if (open.IsDisposed || open.View.CoreWebView2 == null) return;
+                    if (await open.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.settings')") == "true") return;
+                }
+                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings" + (panelsShown ? "&solo=1" : ""));
                 return;
             }
             // Pendant une draft, la fenêtre ne doit pas rester devant le client une fois les réglages fermés.
@@ -1448,11 +1568,11 @@ public static class Autostart
 
         void ImportStats()
         {
-            using (OpenFileDialog d = new OpenFileDialog { Title = "Choisir draft-stats.js", Filter = "Statistiques DraftMid|draft-stats.js|Tous les fichiers|*.*" })
+            using (OpenFileDialog d = new OpenFileDialog { Title = "Choisir draft-stats.js", Filter = "Statistiques DRAFT|draft-stats.js|Tous les fichiers|*.*" })
             {
                 if (d.ShowDialog() != DialogResult.OK) return;
                 string head = File.ReadAllText(d.FileName);
-                if (!head.StartsWith("window.DRAFT_STATS")) { MessageBox.Show("Ce fichier n'est pas un import DraftMid : rien n'a été modifié.", "DraftMid"); return; }
+                if (!head.StartsWith("window.DRAFT_STATS")) { MessageBox.Show("Ce fichier n'est pas un import DRAFT : rien n'a été modifié.", "DRAFT"); return; }
                 File.Copy(d.FileName, Path.Combine(dataDir, "draft-stats.js"), true);
                 File.Copy(d.FileName, Path.Combine(webDir, "draft-stats.js"), true);
                 foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.Reload();
@@ -1501,7 +1621,8 @@ public static class Autostart
                 case "setFollow": SetFollow(val); break;
                 case "setAutoDraft": SetAutoDraft(val); break;
                 case "setDiagnostics": settings.Diagnostics = val; Persist(); RefreshUi(); break;
-                case "setLcu": settings.LcuEnabled = val; if (!val) lcu = null; Persist(); RefreshUi(); break;
+                case "setLcu": settings.LcuEnabled = val; if (!val) { lcu = null; assignedRole = null; } Persist(); RefreshUi(); break;
+                case "saveProfiles": SaveProfilesCopy(m.ContainsKey("json") ? m["json"] as string : null); break;
                 case "setTopmost": settings.Topmost = val; Persist(); UpdatePlacement(true); RefreshUi(); break;
             }
         }
@@ -1586,7 +1707,7 @@ public static class Autostart
             return t.ToString() == FakeTitle;
         }
 
-        // La fenêtre active peut changer si l'utilisateur clique ailleurs : seul compte que DraftMid ne la prenne pas.
+        // La fenêtre active peut changer si l'utilisateur clique ailleurs : seul compte que DRAFT ne la prenne pas.
         // La fausse fenêtre LoL peut avoir le premier plan : seuls les panneaux ne doivent jamais le prendre.
         static bool IsAbove(IntPtr a, IntPtr b)
         {
@@ -1782,6 +1903,8 @@ public static class Autostart
             string fullProblem = await app.TestFullWindow();
             s_keyReport = app.KeyStressReport;
             t(fullProblem == "", "Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture " + fullProblem);
+            string profileProblem = await app.TestProfilesAndRole();
+            t(profileProblem == "", "Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre " + profileProblem);
             string historyProblem = await app.TestHistoryImport();
             t(historyProblem == "", "Import Riot simulé depuis l'application, sans appel réel, sans trace de clé " + historyProblem);
         }
@@ -2087,7 +2210,7 @@ public static class Autostart
 
         public static void Explain()
         {
-            DialogResult r = MessageBox.Show("DraftMid a besoin du composant gratuit Microsoft Edge WebView2, absent de ce PC.\n\nOuvrir la page de Microsoft pour l'installer ? Choisis « Evergreen Bootstrapper », puis relance DraftMid.", "DraftMid", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            DialogResult r = MessageBox.Show("DRAFT a besoin du composant gratuit Microsoft Edge WebView2, absent de ce PC.\n\nOuvrir la page de Microsoft pour l'installer ? Choisis « Evergreen Bootstrapper », puis relance DRAFT.", "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (r != DialogResult.Yes) return;
             try { Process.Start(new ProcessStartInfo(DownloadUrl) { UseShellExecute = true }); } catch { }
         }
@@ -2097,6 +2220,7 @@ public static class Autostart
     {
         public string Script, CaptureDir, Out, DataDir, InstallDir;
         public bool NoHotkey, NoAutoPanels;
+        public string ReportState;
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
@@ -2131,6 +2255,7 @@ public static class Autostart
                     case "--test-install": o.TestInstall = true; o.Silent = true; break;
                     case "--run-key": o.RunKey = next(); break;
                     case "--no-hotkey": o.NoHotkey = true; break;
+                    case "--report-state": o.ReportState = next(); o.Silent = true; break;
                     case "--no-auto-panels": o.NoAutoPanels = true; break;
                 }
             }
@@ -2144,43 +2269,52 @@ public static class Autostart
         public static string DefaultDir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "DraftMid"); } }
 
         const string TestUninstallKey = @"Software\DraftMid-SelfTest\Uninstall";
-        static string LinkPath(Options o, string dir) { return o.TestInstall ? Path.Combine(dir, "DraftMid.lnk") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "DraftMid.lnk"); }
+        public const string ExeName = "DRAFT.exe", OldExeName = "DraftMid.exe";
+        static string OldLinkPath(Options o, string dir) { return o.TestInstall ? Path.Combine(dir, "DraftMid.lnk") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "DraftMid.lnk"); }
+        static string LinkPath(Options o, string dir) { return o.TestInstall ? Path.Combine(dir, "DRAFT.lnk") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "DRAFT.lnk"); }
 
         public static void Install(Options o, string self)
         {
             string dir = o.InstallDir ?? DefaultDir;
             Directory.CreateDirectory(dir);
-            string target = Path.Combine(dir, "DraftMid.exe");
+            string target = Path.Combine(dir, ExeName), old = Path.Combine(dir, OldExeName);
             File.Copy(self, target, true);
+            // Mise à jour depuis DraftMid : un seul exécutable, un seul raccourci, et le démarrage automatique suit le nouveau fichier.
+            Autostart.Repoint(old, target);
+            try { if (File.Exists(old) && !string.Equals(Path.GetFullPath(old), Path.GetFullPath(self), StringComparison.OrdinalIgnoreCase)) File.Delete(old); } catch { }
+            try { File.Delete(OldLinkPath(o, dir)); } catch { }
             dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
             dynamic link = shell.CreateShortcut(LinkPath(o, dir));
             link.TargetPath = target;
             link.WorkingDirectory = dir;
-            link.Description = "DraftMid";
+            link.Description = "DRAFT";
             link.Save();
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
-                k.SetValue("DisplayName", "DraftMid");
-                k.SetValue("DisplayVersion", "2.15.0");
-                k.SetValue("Publisher", "DraftMid");
+                k.SetValue("DisplayName", "DRAFT");
+                k.SetValue("DisplayVersion", "2.16.0");
+                k.SetValue("Publisher", "DRAFT");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
                 k.SetValue("UninstallString", "\"" + target + "\" --uninstall");
                 k.SetValue("NoModify", 1); k.SetValue("NoRepair", 1);
             }
             if (o.TestInstall) return;
-            MessageBox.Show("DraftMid est installé. Tu le retrouves dans le menu Démarrer.", "DraftMid");
+            MessageBox.Show("DRAFT est installé. Tu le retrouves dans le menu Démarrer.", "DRAFT");
             Process.Start(new ProcessStartInfo(target) { WorkingDirectory = dir, UseShellExecute = true });
         }
 
         public static void Uninstall(Options o, string self)
         {
             string dir = o.InstallDir ?? DefaultDir;
-            if (!o.TestInstall && MessageBox.Show("Désinstaller DraftMid ? Ton journal et tes préférences sont conservés.", "DraftMid", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            if (!o.TestInstall && MessageBox.Show("Désinstaller DRAFT ? Ton journal et tes préférences sont conservés.", "DRAFT", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
             try { File.Delete(LinkPath(o, dir)); } catch { }
+            try { File.Delete(OldLinkPath(o, dir)); } catch { }
             if (o.TestInstall) Registry.CurrentUser.DeleteSubKeyTree(@"Software\DraftMid-SelfTest", false);
             else { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); Autostart.Set(false, self); }
-            string target = Path.Combine(dir, "DraftMid.exe");
+            try { string old = Path.Combine(dir, OldExeName); if (File.Exists(old) && !string.Equals(Path.GetFullPath(old), Path.GetFullPath(self), StringComparison.OrdinalIgnoreCase)) File.Delete(old); } catch { }
+            string target = Path.Combine(dir, ExeName);
+            if (!File.Exists(target) && File.Exists(Path.Combine(dir, OldExeName))) target = Path.Combine(dir, OldExeName);
             if (string.Equals(Path.GetFullPath(self), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
                 // Un exe ne peut pas se supprimer lui-même pendant qu'il tourne.
                 Process.Start(new ProcessStartInfo("cmd.exe", "/c ping 127.0.0.1 -n 3 > nul & del /q \"" + target + "\" & rmdir \"" + dir + "\"") { CreateNoWindow = true, UseShellExecute = false });
@@ -2499,7 +2633,7 @@ public static class Autostart
             catch (Exception e)
             {
                 if (e is OutOfMemoryException) throw;
-                if (!o.Silent) MessageBox.Show("DraftMid ne peut pas écrire dans ce dossier :\n" + dataDir + "\n\nVérifie ses droits, ou que le disque n'est pas plein.", "DraftMid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (!o.Silent) MessageBox.Show("DRAFT ne peut pas écrire dans ce dossier :\n" + dataDir + "\n\nVérifie ses droits, ou que le disque n'est pas plein.", "DRAFT", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 2;
             }
             logDir = dataDir;
@@ -2509,7 +2643,7 @@ public static class Autostart
             if (o.OpggPrototype || o.OpggTest)
             {
                 // Prototype isolé : jamais sur les données de l'application, car l'extraction y remplacerait la version installée.
-                if (o.DataDir == null) { if (!o.Silent) MessageBox.Show("Prototype OP.GG : indique un dossier de test avec --data.", "DraftMid"); return 2; }
+                if (o.DataDir == null) { if (!o.Silent) MessageBox.Show("Prototype OP.GG : indique un dossier de test avec --data.", "DRAFT"); return 2; }
                 RuntimeHelp.EnsureLoader(Extract(dataDir));
                 if (o.OpggTest) { OpggTests.Run(o, dataDir); Application.Run(); return 0; }
                 Application.Run(new OpggBrowserForm(OpggLinks.Home, Path.Combine(dataDir, "wv"), Path.Combine(dataDir, "opgg-profile.json")));
@@ -2526,7 +2660,7 @@ public static class Autostart
             {
                 if (!created)
                 {
-                    if (!o.Silent) MessageBox.Show("DraftMid est déjà ouvert : utilise son icône près de l'horloge.", "DraftMid");
+                    if (!o.Silent) MessageBox.Show("DRAFT est déjà ouvert : utilise son icône près de l'horloge.", "DRAFT");
                     return 0;
                 }
                 string webDir = Extract(dataDir);
@@ -2536,6 +2670,7 @@ public static class Autostart
                 CompanionApp app = new CompanionApp(o, dataDir, webDir, self, o.EndToEnd ? EndToEnd.Matcher : ClientWindowTracker.IsRealClient);
                 if (o.Soak > 0) EndToEnd.RunSoak(app, o);
                 else if (o.EndToEnd) EndToEnd.Run(app, o);
+                else if (o.ReportState != null) app.ReportStateAndQuit(o.ReportState);
                 Application.Run(app);
             }
             return 0;

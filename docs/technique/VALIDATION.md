@@ -1,4 +1,4 @@
-# Validation de DraftMid
+# Validation de DRAFT
 
 Ce qui est vérifié automatiquement, ce qui ne l'est pas, et comment le vérifier à la main.
 
@@ -6,14 +6,14 @@ Ce qui est vérifié automatiquement, ce qui ne l'est pas, et comment le vérifi
 
 ```powershell
 .\build.ps1 -Out dist-test
-dist-test\DraftMid-Portable.exe --selftest --data <dossier> --out selftest.txt
-dist-test\DraftMid-Portable.exe --e2e --data <dossier> --out e2e.txt
-dist-test\DraftMid-Portable.exe --soak 15 --data <dossier> --out soak.txt
+dist-test\DRAFT-Portable.exe --selftest --data <dossier> --out selftest.txt
+dist-test\DRAFT-Portable.exe --e2e --data <dossier> --out e2e.txt
+dist-test\DRAFT-Portable.exe --soak 15 --data <dossier> --out soak.txt
 .\tools\run-layout-tests.ps1
 .\tools\run-accuracy-tests.ps1
 ```
 
-Résultats, branches et statut de publication : voir [Branches et publication](BRANCHES.md). Le test `web/draft-tests.html` s'ouvre dans un navigateur. Dans `--e2e`, « Raccourci Ctrl+Alt+D enregistré » échoue si un autre DraftMid tourne : il occupe le raccourci.
+Résultats, branches et statut de publication : voir [Branches et publication](BRANCHES.md). Le test `web/draft-tests.html` s'ouvre dans un navigateur. Dans `--e2e`, « Raccourci Ctrl+Alt+D enregistré » échoue si un autre DRAFT tourne : il occupe le raccourci.
 
 ## Ce que chaque test prouve, et ce qu'il ne prouve pas
 
@@ -30,7 +30,7 @@ Résultats, branches et statut de publication : voir [Branches et publication](B
 Ne rien fermer pendant une partie. Noter ce qui diffère de l'attendu.
 
 **A. Parcours complet, client à 1600×900**
-1. Lancer DraftMid, puis le client : rien ne doit apparaître. Le réglage doit afficher « Connecté au client LoL ».
+1. Lancer DRAFT, puis le client : rien ne doit apparaître. Le réglage doit afficher « Connecté au client LoL ».
 2. Lobby, file, acceptation : rien ne doit apparaître.
 3. Sélection : les panneaux apparaissent, sans prendre le focus. Taper au clavier doit toujours aller dans LoL.
 4. Déplacer le client pendant la sélection : observer la traînée, sans et avec le second écran.
@@ -45,7 +45,7 @@ Ne rien fermer pendant une partie. Noter ce qui diffère de l'attendu.
 
 **D. Sans place autour du client.** Sur un seul écran 1080p, client en 1600×900 : un seul panneau étroit à droite, qui couvre une partie du bord du client. **À juger : couvre-t-il quelque chose d'utile ?**
 
-**E. Échelles.** Pour 100 %, 125 %, 150 % et 175 % : relancer DraftMid, ouvrir la sélection, vérifier textes et portraits.
+**E. Échelles.** Pour 100 %, 125 %, 150 % et 175 % : relancer DRAFT, ouvrir la sélection, vérifier textes et portraits.
 
 **F. Deux écrans à échelles différentes.** Faire passer le client d'un écran à l'autre : les panneaux suivent et prennent la bonne taille.
 

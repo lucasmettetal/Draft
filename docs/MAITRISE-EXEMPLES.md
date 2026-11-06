@@ -23,7 +23,7 @@ Le classement présenté reste toujours celui du moteur. Le champion le plus jou
 
 **Incertitude :**
 
-- **Aucun historique importé.** DraftMid ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft.
+- **Aucun historique importé.** DRAFT ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft.
 
 ## Le plus joué est aussi le meilleur choix sur la draft
 
@@ -99,7 +99,7 @@ Le classement présenté reste toujours celui du moteur. Le champion le plus jou
 
 **Théorie :**
 
-- **Égalité : Master Yi et Viego.** Les règles de DraftMid ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
+- **Égalité : Master Yi et Viego.** Les règles de DRAFT ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
 - **Pourquoi Master Yi en théorie.** La raison principale : 3 tanks ou bruisers : ses dégâts contre les tanks font la différence. *Limite : Règle écrite à la main, pas une statistique.*
 
 **Expérience :**
@@ -109,7 +109,7 @@ Le classement présenté reste toujours celui du moteur. Le champion le plus jou
 
 **Incertitude :**
 
-- **Adversaire supposé : Maokai.** DraftMid le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le. *Limite : Ce n'est pas une information du client.*
+- **Adversaire supposé : Maokai.** DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le. *Limite : Ce n'est pas une information du client.*
 - **Master Yi contre Maokai : aucune donnée.** Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.
 
 ## Égalité sans écart d'expérience
@@ -122,7 +122,7 @@ Le classement présenté reste toujours celui du moteur. Le champion le plus jou
 
 **Théorie :**
 
-- **Égalité : Master Yi et Viego.** Les règles de DraftMid ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
+- **Égalité : Master Yi et Viego.** Les règles de DRAFT ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
 - **Pourquoi Master Yi en théorie.** La raison principale : 3 tanks ou bruisers : ses dégâts contre les tanks font la différence. *Limite : Règle écrite à la main, pas une statistique.*
 
 **Expérience :**
@@ -132,7 +132,7 @@ Le classement présenté reste toujours celui du moteur. Le champion le plus jou
 
 **Incertitude :**
 
-- **Adversaire supposé : Maokai.** DraftMid le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le. *Limite : Ce n'est pas une information du client.*
+- **Adversaire supposé : Maokai.** DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le. *Limite : Ce n'est pas une information du client.*
 - **Master Yi contre Maokai : aucune donnée.** Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.
 - **20 parties sur Master Yi : trop peu pour conclure.** 10 victoires sur 20 : trop peu pour savoir si ce champion te réussit.
 
@@ -191,7 +191,7 @@ Le classement présenté reste toujours celui du moteur. Le champion le plus jou
 
 **Théorie :**
 
-- **Égalité : Cho'Gath, Master Yi et Viego.** Les règles de DraftMid ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
+- **Égalité : Cho'Gath, Master Yi et Viego.** Les règles de DRAFT ne les séparent pas dans cette draft. *Limite : Ce n'est pas une preuve qu'ils se valent en jeu.*
 - **Pourquoi Cho'Gath en théorie.** La raison principale : 2 tanks ou bruisers : ses dégâts contre les tanks sont utiles. *Limite : Règle écrite à la main, pas une statistique.*
 
 **Expérience :**

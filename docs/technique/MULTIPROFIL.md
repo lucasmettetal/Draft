@@ -15,7 +15,7 @@
 | Statistiques importées | `draft-stats.js` | Hors du dépôt (`.gitignore`). Import centré sur le mid (`MIDDLE`) |
 | Chemins | `%LOCALAPPDATA%\DraftMid` | Aucun chemin propre à un PC dans le code ou l'exécutable |
 | Lien de téléchargement | `README.md` | Dépôt du projet, sans donnée personnelle |
-| Nom « DraftMid » | Partout | Trompeur pour les autres rôles |
+| Nom « DRAFT » | Partout | Trompeur pour les autres rôles |
 
 ## Séparation actuelle
 

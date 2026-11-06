@@ -1,4 +1,4 @@
-# Revient à la version et aux données d'une sauvegarde faite par install-local.ps1. Ferme d'abord DraftMid.
+# Revient à la version et aux données d'une sauvegarde faite par install-local.ps1. Ferme d'abord DRAFT ou DraftMid.
 param(
   [Parameter(Mandatory = $true)][string]$Sauvegarde,
   [string]$Destination = (Join-Path ([Environment]::GetFolderPath('Desktop')) 'DraftMid.exe'),
@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path (Join-Path $Sauvegarde 'infos.txt'))) { throw "Ce dossier n'est pas une sauvegarde : $Sauvegarde" }
 if (-not $IgnorerClient -and (Get-Process LeagueClient, LeagueClientUx, 'League of Legends' -ErrorAction SilentlyContinue)) { throw 'Le client LoL est ouvert : rien n''est modifié.' }
-if (Get-Process DraftMid -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Destination }) { throw 'DraftMid est ouvert : ferme-le d''abord.' }
+if (Get-Process DraftMid, DRAFT -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Destination }) { throw 'DRAFT (ou DraftMid) est ouvert : ferme-le d''abord.' }
 
 $exe = Join-Path $Sauvegarde 'DraftMid.exe'
 if (Test-Path $exe) { Copy-Item $exe $Destination -Force }

@@ -17,7 +17,7 @@ jobs:
       - name: Tests natifs
         shell: powershell
         run: |
-          $p = Start-Process .\dist\DraftMid-Portable.exe -ArgumentList '--selftest','--data',"$env:RUNNER_TEMP\dm",'--out',"$env:RUNNER_TEMP\selftest.txt" -PassThru -Wait
+          $p = Start-Process .\dist\DRAFT-Portable.exe -ArgumentList '--selftest','--data',"$env:RUNNER_TEMP\dm",'--out',"$env:RUNNER_TEMP\selftest.txt" -PassThru -Wait
           Get-Content "$env:RUNNER_TEMP\selftest.txt"
           exit $p.ExitCode
       - name: Publier l'exécutable
@@ -25,4 +25,4 @@ jobs:
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME dist\DraftMid-Portable.exe dist\DraftMid-Setup.exe --title "DraftMid $env:GITHUB_REF_NAME" --notes "Outil non approuvé par Riot Games. Compilé et testé par GitHub Actions."
+        run: gh release create $env:GITHUB_REF_NAME dist\DRAFT-Portable.exe dist\DRAFT-Setup.exe --title "DRAFT $env:GITHUB_REF_NAME" --notes "Outil non approuvé par Riot Games. Compilé et testé par GitHub Actions."

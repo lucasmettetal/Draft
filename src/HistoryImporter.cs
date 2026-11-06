@@ -284,7 +284,7 @@ namespace DraftMid
 
         public HistoryImportDialog(Icon icon, Action<string> openLink, IEnumerable<string> savedAccounts)
         {
-            Text = "DraftMid : importer mon historique Riot";
+            Text = "DRAFT : importer mon historique Riot";
             if (icon != null) Icon = icon;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -301,8 +301,8 @@ namespace DraftMid
 
             FlowLayoutPanel root = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Padding = new Padding(14) };
             Func<string, Label> title = t => new Label { AutoSize = true, Margin = new Padding(0, 0, 0, 3), Text = t };
-            Label terms = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 4), Text = "DraftMid lira tes parties classées solo/duo avec ta clé et les gardera sur ce PC." };
-            Label intro = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 10), Text = "Lit tes parties, des plus récentes aux plus anciennes. Un import suivant ira plus loin, sans doublon. Seuls tes champions, résultats et les champions adverses sont gardés, sur ce PC. Tes autres données ne sont pas modifiées, et le classement ne change pas. DraftMid n'est pas approuvé par Riot Games." };
+            Label terms = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 4), Text = "DRAFT lira tes parties classées solo/duo avec ta clé et les gardera sur ce PC." };
+            Label intro = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 10), Text = "Lit tes parties, des plus récentes aux plus anciennes. Un import suivant ira plus loin, sans doublon. Seuls tes champions, résultats et les champions adverses sont gardés, sur ce PC. Tes autres données ne sont pas modifiées, et le classement ne change pas. DRAFT n'est pas approuvé par Riot Games." };
             LinkLabel link = new LinkLabel { AutoSize = true, Margin = new Padding(0, 0, 0, 10), Text = "Obtenir une clé sur developer.riotgames.com" };
             link.LinkClicked += (s, e) => openLink("https://developer.riotgames.com/");
             accountsBox.Margin = keyBox.Margin = regionBox.Margin = countBox.Margin = new Padding(0, 0, 0, 10);

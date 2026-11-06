@@ -222,7 +222,7 @@ function theorySection(x) {
   const { top, level, opponent } = x, out = [];
   const best = top.reasons.filter(c => c.impact > 0 && c.text).sort((a, b) => b.impact - a.impact)[0];
   if (x.names.length > 1) out.push(masteryItem("theory.tie", "theory", "heuristic", `Égalité : ${nameList(x.names)}`, byLevel(level, [
-    "Les règles de DraftMid ne les séparent pas dans cette draft.", "Même score sur la draft : ces règles ne permettent pas de les distinguer.", `Score identique (${masteryDecimal(top.score)}). L'ordre affiché ne porte aucune information.`]), "Ce n'est pas une preuve qu'ils se valent en jeu."));
+    "Les règles de DRAFT ne les séparent pas dans cette draft.", "Même score sur la draft : ces règles ne permettent pas de les distinguer.", `Score identique (${masteryDecimal(top.score)}). L'ordre affiché ne porte aucune information.`]), "Ce n'est pas une preuve qu'ils se valent en jeu."));
   if (best) out.push(masteryItem("theory.reason", "theory", "heuristic", `Pourquoi ${top.name} en théorie`, byLevel(level, [
     `La raison principale : ${coachReason(best.text)}.`, `« ${best.label} » pèse le plus : ${coachReason(best.text)}.`, `Critère le plus lourd : « ${best.label} » (+${masteryDecimal(best.impact)}).`]), "Règle écrite à la main, pas une statistique."));
   else if (!x.enemiesCount) out.push(masteryItem("theory.empty", "theory", "general", "Pas encore d'adversaire", "Sans adversaire visible, la théorie n'a presque rien à comparer.", null));
@@ -265,9 +265,9 @@ function experienceSection(x) {
 function uncertaintySection(x) {
   const { top, familiar, level, profile, result, opponent, enemiesCount } = x, out = [];
   if (!profile || !profile.available) out.push(masteryItem("uncertainty.no-history", "uncertainty", "general", "Aucun historique importé", byLevel(level, [
-    "DraftMid ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft.", "Sans import, aucune expérience n'est connue.", "L'absence d'historique n'est pas lue comme un manque d'expérience."]), null));
+    "DRAFT ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft.", "Sans import, aucune expérience n'est connue.", "L'absence d'historique n'est pas lue comme un manque d'expérience."]), null));
   if (enemiesCount > 0 && enemiesCount < 5) out.push(masteryItem("uncertainty.incomplete", "uncertainty", "general", `Il reste ${5 - enemiesCount} adversaire${5 - enemiesCount > 1 ? "s" : ""} à voir`, "Ce conseil peut encore changer.", null));
-  if (opponent && !result.manual && result.belief.confidence !== "élevée") out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", `Adversaire supposé : ${opponent}`, "DraftMid le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.", "Ce n'est pas une information du client."));
+  if (opponent && !result.manual && result.belief.confidence !== "élevée") out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", `Adversaire supposé : ${opponent}`, "DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.", "Ce n'est pas une information du client."));
   if (enemiesCount > 0 && !opponent) out.push(masteryItem("uncertainty.no-opponent", "uncertainty", "estimate", "Adversaire direct inconnu", "Le conseil ne peut pas encore porter sur un duel précis.", null));
   if (opponent && !liveMatchup(top.pick, opponent) && !matchupOf(opponent) && !providedMatchup(top.name, opponent, x.role)) out.push(masteryItem("uncertainty.no-matchup", "uncertainty", "general", `${top.name} contre ${opponent} : aucune donnée`, "Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.", null));
   const e = top.familiarity;

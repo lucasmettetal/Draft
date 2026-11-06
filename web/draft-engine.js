@@ -1,4 +1,4 @@
-// DraftMid : données et moteur de recommandation. Fichier chargé par la page et par draft-tests.html.
+// DRAFT : données et moteur de recommandation. Fichier chargé par la page et par draft-tests.html.
 const MATCHUPS = [
   { n:"Ahri", t:"Mage", first:"Fizz", second:"TF", avoid:"Kog'Maw" },
   { n:"Anivia", t:"Mage", first:"Fizz", second:"Xerath", avoid:"Kog'Maw" },
