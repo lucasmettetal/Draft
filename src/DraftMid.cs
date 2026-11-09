@@ -374,7 +374,7 @@ public static class Autostart
         string placementNote = "Client LoL non détecté.";
         public bool Quitting;
         public Icon AppIcon;
-        ToolStripMenuItem miRoles, miMatchups, miCompact, miFollow, miAutoDraft, miAutostart, miShow, miPhase;
+        ToolStripMenuItem miUpdate, miRoles, miMatchups, miCompact, miFollow, miAutoDraft, miAutostart, miShow, miPhase;
         public long MoveCount;
 
         public Phase CurrentPhase { get { return machine.Current; } }
@@ -427,6 +427,8 @@ public static class Autostart
             menu.Items.Add(miMatchups);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(miAutostart);
+            miUpdate = new ToolStripMenuItem("Rechercher une mise à jour...", null, (s, e) => CheckForUpdate());
+            menu.Items.Add(miUpdate);
             menu.Items.Add("Quitter", null, (s, e) => Quit());
             tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DRAFT", Visible = true, ContextMenuStrip = menu };
             tray.DoubleClick += (s, e) => ToggleManual();
@@ -1185,6 +1187,8 @@ public static class Autostart
         {
             string phase = PhaseText.Of(machine.Current);
             miPhase.Text = phase;
+            miUpdate.Enabled = updateCts == null;
+            miUpdate.Text = updateCts != null ? "Mise à jour en cours..." : "Rechercher une mise à jour...";
             miRoles.Text = rolesCts != null ? "Arrêter le calcul en cours" : "Mettre à jour les rôles...";
             miMatchups.Visible = rolesCts == null;
             miShow.Text = (panelsShown ? "Masquer" : "Afficher") + " les panneaux" + (hotkey != null && hotkey.Registered ? " (Ctrl+Alt+D)" : "");
@@ -1202,7 +1206,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", updateStatus } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1403,6 +1407,7 @@ public static class Autostart
             OpenFull("settings");
             if (!await waitFor(Close)) return "réglages absents ; ";
             if (await run("window.keepMark === 1") != "true") problem += "la page principale est rechargée à l'ouverture ; ";
+            if (await run("[...document.querySelectorAll('.settings button')].some(b => b.textContent.includes('Rechercher une mise à jour'))") != "true") problem += "bouton de mise à jour absent ; ";
 
             // 2. Les frappes vont au champ actif, et nulle part ailleurs.
             await waitFor("state.enemies.length > 0 || addEnemy('Sett') || true");
@@ -1592,6 +1597,7 @@ public static class Autostart
                 case "hideAll": ToggleManual(); break;
                 case "updateRoles": ToggleRiotUpdate(false); break;
                 case "updateMatchups": ToggleRiotUpdate(true); break;
+                case "checkUpdate": CheckForUpdate(); break;
                 case "importHistory": ToggleHistoryImport(); break;
                 case "setProfile":
                 {
@@ -1664,11 +1670,110 @@ public static class Autostart
             Quit();
         }
 
+        // ---------- Mise à jour à la demande : voir AppUpdater ----------
+        CancellationTokenSource updateCts;
+        string updateStatus = "";
+
+        void SetUpdateStatus(string text) { updateStatus = text; RefreshUi(); }
+
+        // Jamais pendant une draft, une partie, un import ou un calcul : l'application redémarre.
+        string UpdateBlocked()
+        {
+            if (machine.Current == Phase.Draft || machine.Current == Phase.InGame) return "Une draft ou une partie est en cours : relance la mise à jour après.";
+            if (rolesCts != null || historyCts != null) return "Un import ou un calcul est en cours : attends sa fin.";
+            return null;
+        }
+
+        public void CheckForUpdate()
+        {
+            RunUpdate(new GitHubUpdateSource(), info => MessageBox.Show("La version " + info.Version.ToString(3) + " est disponible (tu as la " + AppUpdater.Current.ToString(3) + ").\n\nDRAFT va la télécharger, la vérifier, puis redémarrer. Tes profils, ton historique et tes réglages sont conservés.\n\nInstaller maintenant ?", "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+        }
+
+        // Relance avec les mêmes options : un essai isolé reste sur son dossier de données.
+        static string RelaunchArguments(params string[] extra)
+        {
+            List<string> args = new List<string>();
+            string[] all = Environment.GetCommandLineArgs();
+            for (int i = 1; i < all.Length; i++)
+            {
+                if (all[i] == "--test-update" || all[i] == "--after-update") { i++; continue; }
+                if (all[i] == "--update-rolled-back") continue;
+                args.Add("\"" + all[i].Replace("\"", "\\\"") + "\"");
+            }
+            args.AddRange(extra);
+            return string.Join(" ", args);
+        }
+
+        async void RunUpdate(IUpdateSource source, Func<UpdateInfo, bool> confirm)
+        {
+            if (updateCts != null) return;
+            string blocked = UpdateBlocked();
+            if (blocked != null) { SetUpdateStatus(blocked); return; }
+            CancellationTokenSource cts = new CancellationTokenSource();
+            updateCts = cts;
+            string done = null;
+            try
+            {
+                SetUpdateStatus("Recherche d'une mise à jour...");
+                UpdateInfo info = await source.LatestAsync(cts.Token);
+                if (!AppUpdater.IsNewer(AppUpdater.Current, info.Version)) { done = "DRAFT est à jour (version " + AppUpdater.Current.ToString(3) + ")."; return; }
+                if (!confirm(info)) { done = "La version " + info.Version.ToString(3) + " est disponible."; return; }
+                int shown = -1;
+                Progress<long> progress = new Progress<long>(bytes =>
+                {
+                    int percent = (int)(bytes * 100 / Math.Max(1, info.Size));
+                    if (percent / 5 != shown && updateCts != null) { shown = percent / 5; SetUpdateStatus("Téléchargement : " + percent + " %"); }
+                });
+                IProgress<long> checking = new Progress<long>(_ => SetUpdateStatus("Vérification de la nouvelle version..."));
+                string candidate = await AppUpdater.Prepare(source, info, exePath, dataDir, progress, (c, d, ct) => { checking.Report(0); AppUpdater.SelfCheck(c, d, ct); }, cts.Token);
+                blocked = UpdateBlocked();
+                if (blocked != null) { File.Delete(candidate); done = blocked; return; }
+                AppUpdater.Swap(exePath, candidate);
+                // La nouvelle version est lancée une fois l'application fermée : voir Program.Run.
+                Program.Relaunch = new[] { exePath, RelaunchArguments("--after-update", Process.GetCurrentProcess().Id.ToString()), RelaunchArguments("--update-rolled-back") };
+                updateCts = null;
+                Quit();
+            }
+            catch (OperationCanceledException) { done = ""; }
+            catch (Exception e)
+            {
+                if (e is OutOfMemoryException) throw;
+                Program.Log(dataDir, "Mise à jour : " + e.GetType().Name);
+                done = cts.IsCancellationRequested ? "" : AppUpdater.FriendlyError(e);
+            }
+            finally
+            {
+                if (updateCts == cts) updateCts = null;
+                if (done != null && !Quitting)
+                {
+                    SetUpdateStatus(done);
+                    if (opts.TestUpdate != null) { if (opts.Out != null) File.WriteAllText(opts.Out, "RESULTAT : " + done); Quit(); }
+                }
+            }
+        }
+
+        public async void TestUpdate(string localFile) { await Task.Delay(100); RunUpdate(new LocalUpdateSource(localFile), info => true); }
+
+        public void AnnounceRolledBack()
+        {
+            updateStatus = "La nouvelle version n'a pas démarré : la précédente a été remise en place.";
+            RefreshUi();
+            if (!opts.Silent) tray.ShowBalloonTip(5000, "DRAFT", updateStatus, ToolTipIcon.Warning);
+        }
+
+        public void AnnounceUpdated()
+        {
+            updateStatus = "Mise à jour installée : version " + AppUpdater.Current.ToString(3) + ".";
+            RefreshUi();
+            if (!opts.Silent) tray.ShowBalloonTip(5000, "DRAFT", updateStatus, ToolTipIcon.Info);
+        }
+
         public void Quit()
         {
             Quitting = true;
             if (rolesCts != null) rolesCts.Cancel();
             if (historyCts != null) historyCts.Cancel();
+            if (updateCts != null) updateCts.Cancel();
             slowPoll.Stop(); sampler.Stop();
             SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
             Persist();
@@ -2224,7 +2329,10 @@ public static class Autostart
         public bool Silent, SelfTest, Install, Uninstall, TestInstall, EndToEnd, SimulatedPhase;
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
-        public string RunKey;
+        public string RunKey, TestUpdate;
+        public int AfterUpdate;
+        public bool TestUpdateLive, UpdateRolledBack;
+        public string[] TestSignature;
 
         public static Options Parse(string[] a)
         {
@@ -2257,6 +2365,11 @@ public static class Autostart
                     case "--no-hotkey": o.NoHotkey = true; break;
                     case "--report-state": o.ReportState = next(); o.Silent = true; break;
                     case "--no-auto-panels": o.NoAutoPanels = true; break;
+                    case "--after-update": o.AfterUpdate = int.Parse(next()); break;
+                    case "--test-update": o.TestUpdate = next(); o.Silent = true; break;
+                    case "--test-update-live": o.TestUpdateLive = true; o.Silent = true; break;
+                    case "--update-rolled-back": o.UpdateRolledBack = true; break;
+                    case "--test-signature": o.TestSignature = new[] { next(), next(), next() }; o.Silent = true; break;
                 }
             }
             return o;
@@ -2537,6 +2650,7 @@ public static class Autostart
             RoleRatesTests.Run(t, dataDir);
             MatchupStatsTests.Run(t, dataDir);
             HistoryImporterTests.Run(t, dataDir);
+            AppUpdaterTests.Run(t, dataDir, self);
 
             ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();
@@ -2602,6 +2716,31 @@ public static class Autostart
             return dir;
         }
 
+        // Essai réel, sans rien remplacer : lit la dernière release sur GitHub, télécharge son exécutable et le vérifie.
+        static int TestUpdateLive(Options o, string dataDir)
+        {
+            string file = Path.Combine(dataDir, "essai-maj.exe");
+            try
+            {
+                GitHubUpdateSource source = new GitHubUpdateSource();
+                UpdateInfo info = source.LatestAsync(CancellationToken.None).GetAwaiter().GetResult();
+                source.DownloadAsync(info, file, null, CancellationToken.None).GetAwaiter().GetResult();
+                AppUpdater.CheckFile(file, info);
+                File.WriteAllText(o.Out, "OK " + info.Tag + " taille=" + info.Size + " plus-recent=" + AppUpdater.IsNewer(AppUpdater.Current, info.Version) + " signee=" + (info.SignatureUrl != null));
+                return 0;
+            }
+            catch (Exception e)
+            {
+                if (e is OutOfMemoryException) throw;
+                File.WriteAllText(o.Out, "ECHEC " + AppUpdater.FriendlyError(e));
+                return 1;
+            }
+            finally { try { File.Delete(file); } catch (IOException) { } }
+        }
+
+        // Exécutable, arguments de relance, arguments en cas de retour en arrière.
+        public static string[] Relaunch;
+
         static string logDir;
 
         [STAThread]
@@ -2654,6 +2793,8 @@ public static class Autostart
             if (o.Uninstall) { Installer.Uninstall(o, self); return 0; }
             if (o.Install || (!o.TestInstall && Path.GetFileName(self).IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0)) { Installer.Install(o, self); return 0; }
             if (o.TestInstall) { Installer.Install(o, self); return 0; }
+            if (o.TestUpdateLive) return TestUpdateLive(o, dataDir);
+            if (o.TestSignature != null) return AppUpdater.ValidSignature(o.TestSignature[1], AppUpdater.Sha256Of(o.TestSignature[0]), File.ReadAllText(o.TestSignature[2]), AppUpdater.ReleaseKey) ? 0 : 1;
 
             bool created;
             using (Mutex single = new Mutex(true, o.DataDir == null ? "DraftMid.Instance" : "DraftMid.Test." + o.DataDir.GetHashCode(), out created))
@@ -2668,11 +2809,32 @@ public static class Autostart
                 if (o.CheckRuntime) { File.WriteAllText(o.Out, runtime ?? "absent"); return 0; }
                 if (runtime == null && !o.Silent) { RuntimeHelp.Explain(); return 0; }
                 CompanionApp app = new CompanionApp(o, dataDir, webDir, self, o.EndToEnd ? EndToEnd.Matcher : ClientWindowTracker.IsRealClient);
-                if (o.Soak > 0) EndToEnd.RunSoak(app, o);
+                if (o.AfterUpdate <= 0) AppUpdater.CleanUp(self);
+                if (o.UpdateRolledBack) app.AnnounceRolledBack();
+                // Après une mise à jour : quelques secondes sans plantage valent confirmation pour l'ancienne version, qui surveille.
+                bool confirmed = false;
+                Action confirm = () =>
+                {
+                    if (confirmed) return;
+                    confirmed = true;
+                    AppUpdater.SignalReady(o.AfterUpdate);
+                    AppUpdater.WaitForExit(o.AfterUpdate);
+                    AppUpdater.CleanUp(self);
+                };
+                if (o.AfterUpdate > 0)
+                {
+                    System.Windows.Forms.Timer settled = new System.Windows.Forms.Timer { Interval = 5000 };
+                    settled.Tick += (s, e) => { settled.Stop(); confirm(); app.AnnounceUpdated(); };
+                    settled.Start();
+                }
+                if (o.TestUpdate != null) { if (o.DataDir == null) return 2; app.TestUpdate(o.TestUpdate); }
+                else if (o.Soak > 0) EndToEnd.RunSoak(app, o);
                 else if (o.EndToEnd) EndToEnd.Run(app, o);
                 else if (o.ReportState != null) app.ReportStateAndQuit(o.ReportState);
                 Application.Run(app);
+                if (o.AfterUpdate > 0) confirm();
             }
+            if (Relaunch != null) AppUpdater.LaunchAndWatch(Relaunch[0], Relaunch[1], Relaunch[2], 60000);
             return 0;
         }
     }

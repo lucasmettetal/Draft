@@ -2240,6 +2240,12 @@ function Settings({ onClose }) {
       <${ProfileCard} />
       <${CoachLevel} />
       ${hostState.available ? html`<div>
+        <h3>Mise à jour</h3>
+        <p className="small">Version ${APP_VERSION}. DRAFT ne contacte GitHub que lorsque tu cliques.</p>
+        ${hostState.updateStatus ? html`<p className="small" role="status">${hostState.updateStatus}</p>` : null}
+        <p className="set-row"><button type="button" className="ghost-btn" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? "Mise à jour en cours..." : "Rechercher une mise à jour"}</button></p>
+      </div>` : null}
+      ${hostState.available ? html`<div>
         <h3>Mon historique Riot</h3>
         <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? `${window.DRAFT_HISTORY.rows.length} parties importées${window.DRAFT_HISTORY.generated ? ` le ${new Date(window.DRAFT_HISTORY.generated).toLocaleDateString("fr-FR")}` : ""}.` : "Rien d'importé pour l'instant."} Sert à afficher ton expérience, jamais à changer le classement. Tu saisis ta clé toi-même : elle n'est pas enregistrée.</p>
         ${hostState.historyStatus ? html`<p className="small" role="status">${hostState.historyStatus}</p>` : null}

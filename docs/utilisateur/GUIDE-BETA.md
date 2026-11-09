@@ -43,6 +43,12 @@ Dans la fenêtre principale (menu de l'icône) :
 - **Draft aléatoire** remplit une composition adverse au hasard.
 - Tu peux aussi ajouter des adversaires à la main avec la recherche, puis corriger le rôle supposé d'un adversaire d'un clic.
 
+## Mettre à jour DRAFT
+
+Dans **Réglages**, ou dans le menu de l'icône : **Rechercher une mise à jour**. Si une version plus récente existe, DRAFT te demande confirmation, la télécharge, la vérifie, puis redémarre. Tes profils, ton historique et tes réglages sont conservés.
+
+DRAFT ne cherche jamais de mise à jour tout seul, et refuse pendant une draft, une partie, un import ou un calcul. Si quelque chose échoue, ta version actuelle reste en place.
+
 ## Ce qui est expérimental
 
 | Fonction | État | Activée par défaut |
@@ -73,4 +79,4 @@ Envoie à la personne qui t'a donné DRAFT :
 
 ## Tes données
 
-Tout reste sur ton PC, dans `%LOCALAPPDATA%\DraftMid`. Ce nom de dossier vient de l'ancienne version et reste le même pour ne rien perdre. Aucune donnée n'est envoyée automatiquement. Seules les illustrations des champions sont chargées depuis le service officiel de Riot (Data Dragon).
+Tout reste sur ton PC, dans `%LOCALAPPDATA%\DraftMid`. Ce nom de dossier vient de l'ancienne version et reste le même pour ne rien perdre. Aucune donnée n'est envoyée automatiquement. Seules les illustrations des champions sont chargées depuis le service officiel de Riot (Data Dragon). GitHub n'est contacté que si tu cliques sur **Rechercher une mise à jour**.
