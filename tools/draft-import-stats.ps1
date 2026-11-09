@@ -66,6 +66,9 @@ function Convert-Match($Match, [string]$Puuid, [string]$Account) {
         champ   = [string]$me.championName
         pos     = [string]$me.teamPosition
         win     = [bool]$me.win
+        k       = [int]$me.kills
+        d       = [int]$me.deaths
+        a       = [int]$me.assists
         mid     = $midName
         enemies = @($enemies | ForEach-Object { [string]$_.championName })
     }

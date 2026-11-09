@@ -1,10 +1,12 @@
-# DraftMid
+# DRAFT
+
+*Ton assistant stratégique pour League of Legends.* Anciennement DraftMid : le projet couvre maintenant les cinq rôles.
 
 Application Windows qui aide à choisir son champion pendant la sélection de League of Legends. Elle compare les champions que tu as choisis pour ton rôle, affiche un conseil avec ses raisons, et **le joueur décide toujours lui-même**.
 
 **Pour qui :** les joueurs qui veulent préparer leur choix en quelques secondes, à n'importe quel rôle, sans quitter le client.
 
-**Statut :** projet personnel, non officiel. DraftMid n'est ni approuvé ni soutenu par Riot Games. Les portraits et illustrations appartiennent à Riot Games. L'exécutable n'est pas signé : Windows peut afficher un avertissement.
+**Statut :** projet personnel, non officiel. DRAFT n'est ni approuvé ni soutenu par Riot Games. Les portraits et illustrations appartiennent à Riot Games. L'exécutable n'est pas signé : Windows peut afficher un avertissement.
 
 ## Versions
 
@@ -13,6 +15,7 @@ Application Windows qui aide à choisir son champion pendant la sélection de Le
 | **V2.14** | Branche `main`, à compiler | **Stable de référence.** Pas encore publiée en release |
 | V2.6 à V2.10 | Anciennes releases publiques | **Pas recommandées.** Voir ci-dessous |
 | V2.15 | Branche `integration/v2.15-coaching` | **Candidate, non stable** |
+| V2.16 bêta (DRAFT) | Branche `feature/draft-profiles-beta` | **Bêta privée, non publiée** : profils par rôle, rôle attribué, export des profils |
 
 Ce document décrit la V2.14. Le détail est dans [l'index de la documentation](docs/README.md).
 
@@ -53,7 +56,7 @@ cd Draft
 .\build.ps1
 ```
 
-Les exécutables sont dans `dist\` : `DraftMid-Portable.exe` sans installation, `DraftMid-Setup.exe` à installer sans droits administrateur.
+Les exécutables sont dans `dist\` : `DRAFT-Portable.exe` sans installation, `DRAFT-Setup.exe` à installer sans droits administrateur.
 
 Au lancement, aucune fenêtre ne s'ouvre : une icône apparaît près de l'horloge. La suite est dans le [guide d'utilisation](docs/utilisateur/GUIDE.md).
 

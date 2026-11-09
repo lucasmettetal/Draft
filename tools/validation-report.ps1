@@ -19,4 +19,4 @@ $named = @($filled | Where-Object { $_.mid_affiche }); $ok = @($named | Where-Ob
 "Ensemble : nom donné sur $($named.Count) drafts, juste $(Wilson $ok $named.Count), aucun nom sur $($filled.Count - $named.Count)"
 "Corrections manuelles : $(@($filled | Where-Object { $_.corrections }).Count)"
 "Conseil provisoire : $(@($filled | Where-Object { $_.provisoire -eq 'oui' }).Count)"
-"Champion joué égal au conseil : $(@($filled | Where-Object { $_.joue -and $_.joue -eq $_.recommande }).Count) sur $(@($filled | Where-Object { $_.joue }).Count) renseignés"
+"Champion joué égal au conseil : $(@($filled | Where-Object { $_.joue -and (($_.recommande -split '=') -contains $_.joue) }).Count) sur $(@($filled | Where-Object { $_.joue }).Count) renseignés"

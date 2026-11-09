@@ -158,7 +158,7 @@ const DATA_PROVIDERS = [
     id:"personal-stats", label:"Tes statistiques importées", kind:"observed", provides:["history"], source:"API Riot, tes comptes",
     terms:"Privées : le fichier n'est jamais publié.",
     describe() {
-      const stats = window.DRAFT_STATS;
+      const stats = window.DRAFT_HISTORY || window.DRAFT_STATS;
       if (!stats || !Array.isArray(stats.rows)) return { available:false, note:"Pas d'import sur ce PC. Facultatif." };
       return { available:true, collected: stats.generated, games: stats.rows.length, unit:"parties", uncertainty:"élevée", note:"Affichées seulement : elles ne changent pas le classement." };
     }

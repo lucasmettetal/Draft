@@ -1,4 +1,4 @@
-# Données de DraftMid
+# Données de DRAFT
 
 D'où vient chaque chiffre, à quel point s'y fier, et ce que l'application en fait. La priorité est la fiabilité de l'interprétation, pas la quantité.
 

@@ -1,6 +1,6 @@
 # Validation sur de vraies drafts
 
-But : mesurer DraftMid en situation réelle. **Aucun de ces tests n'a encore été réalisé.** Rien n'est à noter pendant la sélection : l'application enregistre, et le reste se fait après la partie.
+But : mesurer DRAFT en situation réelle. **Aucun de ces tests n'a encore été réalisé.** Rien n'est à noter pendant la sélection : l'application enregistre, et le reste se fait après la partie.
 
 ## Avant de commencer
 

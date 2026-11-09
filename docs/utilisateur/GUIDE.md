@@ -2,10 +2,10 @@
 
 ## Installation
 
-Il faut Windows 10 ou 11, avec Microsoft Edge WebView2. S'il manque, DraftMid l'indique au lancement.
+Il faut Windows 10 ou 11, avec Microsoft Edge WebView2. S'il manque, DRAFT l'indique au lancement.
 
-- **Portable :** lance `DraftMid-Portable.exe`, sans installation.
-- **Installée :** lance `DraftMid-Setup.exe`, sans droits administrateur, avec un raccourci dans le menu Démarrer.
+- **Portable :** lance `DRAFT-Portable.exe`, sans installation.
+- **Installée :** lance `DRAFT-Setup.exe`, sans droits administrateur, avec un raccourci dans le menu Démarrer.
 
 L'exécutable n'est pas signé : Windows peut afficher un avertissement. Pour obtenir la V2.14, [compile-la](../../README.md#installation). Les releases publiques sont plus anciennes et ne sont pas recommandées : voir [leur statut](../technique/ANCIENNES-RELEASES.md).
 
@@ -26,7 +26,7 @@ Au lancement, seule une icône apparaît près de l'horloge. Ouvre **Réglages**
 
 ## Profils et pool
 
-Dans **Réglages > Mon profil**, choisis ton rôle et tes champions. Tu peux en exclure un, ou choisir un favori : à score égal, il passe devant.
+Dans **Réglages > Mes profils**, configure chaque rôle avec son propre pool, enregistré automatiquement. La V2.16 bêta ajoute un sélecteur de rôle en un clic en haut des panneaux, et l'export ou l'import des profils : voir le [guide de la bêta](GUIDE-BETA.md). Tu peux en exclure un, ou choisir un favori : à score égal, il passe devant.
 
 Le tableau de matchups écrit à la main ne couvre que le mid avec Twisted Fate, Fizz, Kog'Maw et Xerath. Ailleurs, le conseil repose sur des fiches générales, jusqu'à ce que tu calcules des bilans.
 
@@ -79,5 +79,5 @@ Ne remplace jamais une version pendant une draft ou une partie.
 | Panneaux au mauvais endroit | Active « Coller les panneaux au client » |
 | Mauvais adversaire direct | Corrige-le dans la composition |
 | Clé Riot refusée | Une clé de développement expire après 24 heures : crée-en une nouvelle |
-| Raccourci inactif | Une autre application, ou un autre DraftMid, l'occupe |
+| Raccourci inactif | Une autre application, ou un autre DRAFT, l'occupe |
 | Conseil surprenant | Ouvre l'onglet Analyse : chaque point y est expliqué |

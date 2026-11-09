@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests des profils DRAFT</title></head><body><pre id="out"></pre>
+<script src="draft-role-sheet.js"></script><script src="draft-champions.js"></script>
+<script>localStorage.clear();</script>
+<script src="draft-engine.js"></script><script src="draft-profiles.js"></script>
+<script>
+const res={ok:0,ko:[]};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+window.addEventListener("error",e=>res.ko.push("test interrompu : "+e.message));
+// Stockage en mémoire, avec une option de panne d'écriture.
+function memory(seed,failOn){const m=Object.assign({},seed||{});return{getItem:k=>k in m?m[k]:null,setItem:(k,v)=>{if(failOn&&failOn(k,v))throw new Error("plein");m[k]=String(v);},removeItem:k=>{delete m[k];},dump:()=>m};}
+const P=s=>JSON.parse(s);
+
+// Création et indépendance des cinq profils
+{const st=memory();const p=loadProfiles(st,{excluded:[],favorite:null});t(p.active===null&&PROFILE_ROLES.every(r=>p.roles[r].pool.length===0),"nouveau joueur : cinq profils vides, aucun rôle imposé");
+ p.roles.mid.pool=["Fizz","Xerath","Kog'Maw","TF"];p.roles.jungle.pool=["Viego","Master Yi","Briar","Lee Sin"];p.roles.adc.pool=["Xayah"];p.active="mid";persistProfiles(p,st);
+ const q=loadProfiles(st,{});t(q.roles.mid.pool.join()==="Fizz,Xerath,Kog'Maw,TF"&&q.roles.jungle.pool.join()==="Viego,Master Yi,Briar,Lee Sin"&&q.roles.adc.pool.join()==="Xayah"&&q.roles.top.pool.length===0,"cinq profils relus à l'identique");
+ q.roles.jungle.pool.push("Fizz");persistProfiles(q,st);const r=loadProfiles(st,{});t(r.roles.jungle.pool.includes("Fizz")&&r.roles.mid.pool.includes("Fizz")&&r.roles.mid.pool.length===4,"champion commun : présent dans deux pools, sans les lier");
+ r.roles.jungle.pool.pop();t(r.roles.mid.pool.includes("Fizz"),"retirer un champion d'un rôle ne touche pas l'autre");
+ t(P(st.getItem("draftProfile")).role==="mid"&&P(st.getItem("draftProfile")).pool.join()==="Fizz,Xerath,Kog'Maw,TF","l'ancienne clé suit le rôle actif, pour une version plus ancienne");
+ const e=loadProfiles(st,{});e.active="top";persistProfiles(e,st);t(P(st.getItem("draftProfile")).role==="mid","rôle actif vide : l'ancienne clé garde le dernier profil utilisable");t(loadProfiles(st,{}).active==="top","rôle vide : reste le rôle actif");}
+
+// Migration d'un ancien profil unique
+{const st=memory({draftProfile:JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]})});const p=loadProfiles(st,{excluded:["Fizz"],favorite:"TF"});
+ t(p.migrated&&p.active==="mid"&&p.roles.mid.pool.join()==="TF,Fizz,Kog'Maw,Xerath","ancien profil : repris tel quel");t(p.roles.mid.excluded.join()==="Fizz"&&p.roles.mid.favorite==="TF","ancien profil : exclusions et favori repris");t(PROFILE_ROLES.filter(r=>r!=="mid").every(r=>!p.roles[r].pool.length),"ancien profil : les autres rôles restent vides");
+ t(st.getItem("draftProfile")!==null,"ancien profil : la clé d'origine n'est pas effacée");t(P(st.getItem(PROFILES_KEY)).roles.mid.pool.length===4,"ancien profil : enregistré dans le nouveau format");
+ const again=loadProfiles(st,{excluded:[],favorite:null});t(!again.migrated&&again.roles.mid.excluded.join()==="Fizz","migration faite une seule fois");}
+
+// Corruption
+{const st=memory();const p=loadProfiles(st,{});p.roles.top.pool=["Darius"];p.active="top";persistProfiles(p,st);backupProfiles(st,"test","2026-11-06");st.setItem(PROFILES_KEY,"{abimé");
+ const r=loadProfiles(st,{});t(r.recovered&&r.roles.top.pool.join()==="Darius","fichier abîmé : la dernière sauvegarde reprend");t(st.getItem(PROFILES_CORRUPT_KEY)==="{abimé","fichier abîmé : mis de côté, pas effacé");
+ const st2=memory({draftProfiles:"{abimé",draftProfile:JSON.stringify({role:"adc",pool:["Xayah"]})});const r2=loadProfiles(st2,{});t(r2.roles.adc.pool.join()==="Xayah"&&r2.active==="adc","sans sauvegarde : l'ancien profil prend le relais");
+ const st3=memory({draftProfiles:JSON.stringify({version:1,active:"mid",roles:{mid:{pool:["Fizz","ChampionInconnu"]}}})});t(loadProfiles(st3,{}).roles.mid.pool.join()==="Fizz","champion inconnu dans le stockage : écarté, le reste est gardé");
+ const st4=memory({draftProfiles:JSON.stringify({version:99,active:"mid",roles:{}})});t(loadProfiles(st4,{}).active===null,"format futur : pas interprété au hasard");
+ const st5=memory({draftProfiles:"[]"});const r5=loadProfiles(st5,{});t(r5.lost&&r5.active===null,"contenu inutilisable sans relais : signalé, rien d'inventé");}
+
+// Export
+{const p=emptyProfiles();p.roles.mid={pool:["Fizz","TF"],excluded:["TF"],favorite:"Fizz"};p.active="mid";
+ const text=exportConfig(p,{assumeFront:false,coachLevel:"advanced",autoRole:"auto",riotKey:"RGAPI-secret",excluded:["Fizz"],journal:[1,2]},"2.16.0","2026-11-06T10:00:00Z");const j=P(text);
+ t(j.format==="draft-config"&&j.version===1&&j.active==="mid"&&j.roles.mid.pool.join()==="Fizz,TF","export : format, version, rôle actif et pools");
+ t(JSON.stringify(Object.keys(j.preferences).sort())==='["assumeFront","autoRole","coachLevel"]',"export : préférences utiles seulement");
+ t(!/RGAPI|riotKey|journal|acct|puuid|history|rows/i.test(text),"export : ni clé, ni journal, ni historique");t(PROFILE_ROLES.every(r=>j.roles[r]),"export : les cinq rôles, même vides");}
+
+// Import
+{const good=exportConfig((()=>{const p=emptyProfiles();p.roles.jungle.pool=["Viego"];p.roles.mid.pool=["Fizz"];p.active="jungle";return p;})(),{coachLevel:"intermediate"},"2.16.0");
+ const r=parseConfig(good);t(r.ok&&r.roles.jungle.pool.join()==="Viego"&&r.active==="jungle"&&r.preferences.coachLevel==="intermediate","import valide : relu");
+ const cases=[["","vide"],["{pas du json","JSON invalide"],["[]","tableau"],['{"format":"autre","version":1,"roles":{}}',"autre format"],['{"format":"draft-config","roles":{}}',"version absente"],['{"format":"draft-config","version":2,"roles":{}}',"version future"],['{"format":"draft-config","version":1}',"rôles absents"],['{"format":"draft-config","version":1,"roles":{"mage":{"pool":[]}}}',"rôle inconnu"],['{"format":"draft-config","version":1,"roles":{"mid":{"pool":"Fizz"}}}',"pool mal formé"],['{"format":"draft-config","version":1,"roles":{"mid":{"pool":["Fizz","Inventé"]}}}',"champion inconnu"],['{"format":"draft-config","version":1,"roles":{"mid":{"pool":[1,2]}}}',"valeurs non textuelles"],["x".repeat(CONFIG_MAX_SIZE+1),"fichier trop gros"]];
+ cases.forEach(([text,name])=>{const x=parseConfig(text);t(!x.ok&&typeof x.error==="string"&&x.error.length>5,"import refusé : "+name);});
+ const partial=parseConfig('{"format":"draft-config","version":1,"roles":{"mid":{"pool":["Fizz"],"favorite":"Xerath"}},"preferences":{"coachLevel":"expert","riotKey":"RGAPI-x"}}');
+ t(partial.ok&&partial.roles.top.pool.length===0&&partial.warnings.some(w=>/absent/.test(w))&&partial.warnings.some(w=>/Favori ignoré/.test(w))&&partial.warnings.some(w=>/coachLevel/.test(w))&&!("riotKey" in partial.preferences),"données manquantes : rôles vides, avertissements, préférence inconnue ignorée");
+ const legacy=parseConfig('{"role":"adc","pool":["Xayah"]}');t(legacy.ok&&legacy.legacy&&legacy.roles.adc.pool.join()==="Xayah","ancien format accepté");
+ const st=memory();const cur=emptyProfiles();cur.roles.mid.pool=["Fizz"];cur.roles.top.pool=["Darius"];cur.active="mid";persistProfiles(cur,st);
+ const done=applyConfig(legacy,cur,st,"2026-11-06");t(done.ok&&done.profiles.roles.adc.pool.join()==="Xayah"&&done.profiles.roles.top.pool.join()==="Darius"&&done.profiles.roles.mid.pool.join()==="Fizz","ancien format : seul son rôle est remplacé");
+ t(latestProfilesBackup(st)&&latestProfilesBackup(st).data.roles.top.pool.join()==="Darius","sauvegarde de sécurité avant remplacement");
+ const back=restoreLastBackup(st);t(back&&back.roles.adc.pool.length===0&&back.active==="mid","annuler le dernier import : état précédent rendu");
+ const before=st.getItem(PROFILES_KEY);const broken=memory(st.dump(),(k,v)=>k===PROFILES_KEY&&v.includes("Viego"));const fail=applyConfig(r,loadProfiles(broken,{}),broken,"2026-11-06");t(!fail.ok&&broken.getItem(PROFILES_KEY)===before,"écriture impossible : rien n'est perdu, l'état précédent reste");
+ t(!applyConfig(parseConfig("{abimé"),cur,st).ok,"import invalide : refusé avant toute écriture");}
+
+// Rôle attribué par le client
+{const s=(o={})=>Object.assign({manual:false,dismissed:null,handled:null},o);
+ t(decideRoleAction("suggest",s(),"mid","jungle")==="suggest","Mid vers Jungle : proposition");t(decideRoleAction("auto",s(),"mid","jungle")==="switch","Mid vers Jungle : changement si le joueur l'a choisi");t(decideRoleAction("auto",s(),"jungle","mid")==="switch","Jungle vers Mid : changement");
+ t(decideRoleAction("auto",s(),"mid",null)==="none"&&decideRoleAction("suggest",s(),"mid",undefined)==="none","rôle absent : rien");t(decideRoleAction("auto",s(),"mid","fill")==="none"&&decideRoleAction("auto",s(),"mid","")==="none","rôle inconnu ou incertain : rien");
+ t(decideRoleAction("auto",s({manual:true}),"mid","jungle")==="suggest","correction manuelle : plus de changement automatique, une simple indication");t(decideRoleAction("suggest",s({dismissed:"jungle"}),"mid","jungle")==="none","indication ignorée : ne revient pas");
+ t(decideRoleAction("auto",s({handled:"jungle"}),"mid","jungle")==="suggest","déjà changé une fois dans cette draft : pas de va-et-vient");t(decideRoleAction("off",s(),"mid","jungle")==="none","désactivé : rien");t(decideRoleAction("auto",s(),"jungle","jungle")==="none","rôle déjà actif : rien");}
+
+// Rien ne vient du champion sélectionné
+{const src=document.querySelector('script[src="draft-profiles.js"]');t(!/championId|pick.*role|roleOf\(/i.test(decideRoleAction.toString()),"la décision ne lit aucun champion");}
+document.getElementById("out").textContent=JSON.stringify(res);
+</script></body></html>

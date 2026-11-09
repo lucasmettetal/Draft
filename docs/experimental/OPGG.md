@@ -27,7 +27,7 @@ Lues sur [op.gg/policies/agreement](https://op.gg/policies/agreement). Ce résum
 
 Les données de l'API Riot ne doivent concerner que le joueur lui-même : les règles de Riot interdisent de désanonymiser des joueurs.
 
-## Ce que DraftMid sait déjà faire
+## Ce que DRAFT sait déjà faire
 
 Une ligne par partie : champion, rôle, victoire, date, patch, durée, mid adverse, équipe adverse. On peut donc en tirer le nombre de parties, le winrate, le rôle, la forme récente, l'évolution, l'expérience et les matchups personnels. Une moyenne avec régression existe déjà pour éviter de croire aux petits échantillons.
 

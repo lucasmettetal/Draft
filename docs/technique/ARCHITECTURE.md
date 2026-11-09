@@ -59,9 +59,9 @@ Voir [validation](VALIDATION.md).
 | `tools/run-layout-tests.ps1` | Rendu, jusqu'à 29 tailles par état |
 | `tools/run-accuracy-tests.ps1` | Déduction du mid |
 | `tools/run-ux-shots.ps1` | Captures comparables |
-| `DraftMid-Portable.exe --selftest` | Tests natifs |
-| `DraftMid-Portable.exe --e2e` | Vraies fenêtres, faux client |
-| `DraftMid-Portable.exe --soak N` | Stabilité sur plusieurs cycles |
+| `DRAFT-Portable.exe --selftest` | Tests natifs |
+| `DRAFT-Portable.exe --e2e` | Vraies fenêtres, faux client |
+| `DRAFT-Portable.exe --soak N` | Stabilité sur plusieurs cycles |
 
 ## Dépendances tierces
 

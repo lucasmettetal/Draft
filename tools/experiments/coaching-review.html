@@ -1,0 +1,28 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre>
+<!-- Exemples à relire : les mêmes situations aux trois niveaux, avec leur contexte et ce qui a déclenché chaque conseil. -->
+<script src="draft-role-sheet.js"></script><script src="draft-role-rates-live.js"></script><script src="draft-champions.js"></script><script src="draft-champion-official.js"></script>
+<script>localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF"]}));localStorage.setItem("draftPatch","16.22");</script>
+<script src="draft-engine.js"></script><script src="draft-data.js"></script><script src="draft-coaching.js"></script>
+<script>
+const MID=["TF","Fizz","Kog'Maw","Xerath"],JG=["Viego","Master Yi","Briar","Lee Sin"];
+const fake=(c,n,w)=>Array.from({length:n},(_,i)=>({champ:c,pos:"JUNGLE",win:i<w,time:1e12+i,acct:"Test#TEST"}));
+const CASES=[
+ ["Mid, draft complète, mid connu","mid",MID,["Malzahar","Ornn","Rengar","Samira","Pyke"],{}],
+ ["Mid, matchup à longue portée","mid",MID,["Syndra","Ornn","Lee Sin","Jinx","Thresh"],{pick:"Fizz"}],
+ ["Mid, adversaire incertain","mid",MID,["Yasuo","Yone","Lee Sin","Jinx","Thresh"],{}],
+ ["Mid, beaucoup de plongeurs, champion immobile","mid",["Xerath","Kog'Maw"],["Zed","Rengar","Katarina","Jinx","Thresh"],{}],
+ ["Mid, draft incomplète","mid",MID,["Sett","Vi"],{}],
+ ["Mid, équipe sans frontline","mid",MID,["Lux","Jinx","Syndra","Caitlyn","Soraka"],{}],
+ ["Mid, dégâts surtout magiques","mid",MID,["Syndra","Ahri","Brand","Veigar","Thresh"],{}],
+ ["Jungle, égalité entre fiches identiques","jungle",JG,["Ornn","Sion","Maokai","Jinx","Thresh"],{}],
+ ["Jungle, historique personnel fictif","jungle",["Viego","Cho'Gath"],["Ornn","Vi","Ahri","Jinx","Thresh"],{personal:personalTrends(fake("Viego",150,95).concat(fake("Cho'Gath",5,3),fake("Lee Sin",40,18)))}],
+ ["Top, beaucoup de contrôles","top",["Darius","Malphite","Camille"],["Sion","Lee Sin","Syndra","Jinx","Leona"],{}],
+ ["ADC, adversaire direct connu","adc",["Jinx","Ezreal"],["Ornn","Lee Sin","Ahri","Caitlyn","Thresh"],{}],
+ ["Support, tank adverse direct","support",["Soraka","Leona","Lux"],["Ornn","Lee Sin","Ahri","Jinx","Alistar"],{manualOpponent:"Alistar"}]
+];
+const levels=["beginner","intermediate","advanced"];
+const out=[];
+levels.forEach(level=>CASES.forEach(([nom,role,pool,enemies,o])=>{applyProfile({role,pool});const a=coachingAdvice(Object.assign({enemies,level},o));const s=coachingSummary(Object.assign({enemies,level},o));const c=coachingContext(Object.assign({enemies},o));
+ out.push({nom,level,role,pool,enemies,pick:a.pick,rival:a.rival,opp:a.opponent,conf:a.confidence,scores:c.ranking.map(p=>label(p.pick)+" "+p.score.toFixed(2)),raisons:c.entry?c.entry.criteria.filter(x=>x.impact!==0).map(x=>x.label+" "+x.impact.toFixed(1)):[],court:a.short,headline:s.headline,items:a.items.map(i=>({id:i.id,basis:i.basisLabel,v:i.verification,title:i.title,text:i.text,limits:i.limits,ev:i.evidence}))});}));
+document.getElementById("out").textContent=JSON.stringify(out);
+</script></body></html>

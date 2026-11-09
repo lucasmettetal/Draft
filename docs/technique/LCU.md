@@ -27,7 +27,9 @@ Liste fermée, contrôlée par `LcuEndpoints.IsAllowed`.
 | `/lol-gameflow/v1/gameflow-phase` | GET | Phase de jeu, environ une fois par seconde | Nom de la phase |
 | `/lol-champ-select/v1/session` | GET | Seulement pendant `ChampSelect` | `theirTeam[].championId` supérieur à 0 |
 
-Sont volontairement ignorés : noms et identifiants de joueurs, `championPickIntent`, sorts, équipe alliée, bans.
+Depuis la V2.16 bêta, la même réponse de session fournit aussi **ton propre poste** (`assignedPosition` de ta case dans `myTeam`), pour proposer le bon profil. Champ non documenté par Riot, vérifié seulement en simulation : voir [PROFILS.md](PROFILS.md).
+
+Sont volontairement ignorés : noms et identifiants de joueurs, `championPickIntent`, sorts, champions et postes des alliés, bans.
 
 ## Garanties techniques
 
@@ -42,7 +44,7 @@ Sont volontairement ignorés : noms et identifiants de joueurs, `championPickInt
 
 ## Comportement
 
-| Phase LCU | Phase DraftMid |
+| Phase LCU | Phase DRAFT |
 |---|---|
 | `ChampSelect` | Draft : panneaux affichés |
 | `GameStart`, `InProgress`, `Reconnect` | Partie en cours : panneaux masqués |
@@ -62,6 +64,6 @@ Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nom
 
 Une demande de précisions a été envoyée à Riot par le propriétaire du projet, sans réponse connue au 4 novembre 2026. Cette note résume ce qu'il faut clarifier, notamment pour un enregistrement sur le portail développeur.
 
-> DraftMid est une application Windows qui conseille un pick mid à partir de la composition adverse visible. Nous souhaitons lire localement, en GET uniquement, `/lol-gameflow/v1/gameflow-phase` et `/lol-champ-select/v1/session`, pour afficher nos fenêtres pendant la sélection et récupérer les champions adverses déjà verrouillés et visibles. Nous n'effectuons aucune écriture ni action automatique, et nous ne lisons ni noms, ni identifiants de joueurs, ni intentions de pick. Le joueur garde chaque décision.
+> DRAFT est une application Windows qui conseille un pick mid à partir de la composition adverse visible. Nous souhaitons lire localement, en GET uniquement, `/lol-gameflow/v1/gameflow-phase` et `/lol-champ-select/v1/session`, pour afficher nos fenêtres pendant la sélection et récupérer les champions adverses déjà verrouillés et visibles. Nous n'effectuons aucune écriture ni action automatique, et nous ne lisons ni noms, ni identifiants de joueurs, ni intentions de pick. Le joueur garde chaque décision.
 >
 > Ces deux endpoints sont-ils autorisés pour cet usage, y compris pour une distribution publique ? Un conseil de pick pendant la sélection des champions est-il acceptable au regard de vos règles sur les « conclusions pendant le jeu » ?

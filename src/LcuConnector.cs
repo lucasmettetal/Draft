@@ -128,6 +128,8 @@ namespace DraftMid
         public bool Available;
         public string PhaseName = "";
         public Phase Phase = Phase.Uncertain;
+        // Ton poste dans cette sélection, si le client l'indique. Aucun autre joueur de ton équipe n'est lu.
+        public string AssignedRole;
         // Seuls les champions verrouillés et visibles de l'équipe adverse sont conservés.
         // Null pendant une draft : session illisible ou expirée, à ne pas confondre avec une équipe vide.
         public List<int> EnemyChampionIds = new List<int>();
@@ -155,6 +157,36 @@ namespace DraftMid
         }
 
         // Ne lit volontairement ni nom, ni identifiant de joueur, ni intention de pick, ni sort.
+        // Poste du joueur (myTeam[cellId == localPlayerCellId].assignedPosition). Champ non documenté par Riot.
+        // Vide en sélection aveugle ou dans les modes sans poste : on renvoie null, rien n'est deviné.
+        public static string ParseAssignedRole(string json)
+        {
+            try
+            {
+                Dictionary<string, object> root = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
+                object cell, team;
+                if (root == null || !root.TryGetValue("localPlayerCellId", out cell) || !(cell is int) || !root.TryGetValue("myTeam", out team) || !(team is object[])) return null;
+                foreach (object o in (object[])team)
+                {
+                    Dictionary<string, object> m = o as Dictionary<string, object>;
+                    object id, pos;
+                    if (m == null || !m.TryGetValue("cellId", out id) || !(id is int) || (int)id != (int)cell) continue;
+                    if (!m.TryGetValue("assignedPosition", out pos) || !(pos is string)) return null;
+                    switch (((string)pos).ToLowerInvariant())
+                    {
+                        case "top": return "top";
+                        case "jungle": return "jungle";
+                        case "middle": case "mid": return "mid";
+                        case "bottom": case "adc": return "adc";
+                        case "utility": case "support": return "support";
+                        default: return null;
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
         public static List<int> ParseEnemies(string json)
         {
             List<int> ids = new List<int>();
@@ -197,7 +229,12 @@ namespace DraftMid
             if (s.Phase != Phase.Draft) return s;
             // La session n'est demandée que pendant une draft.
             s.EnemyChampionIds = null;
-            try { s.EnemyChampionIds = LcuParser.ParseEnemies(await transport.GetAsync(LcuEndpoints.Session)); }
+            try
+            {
+                string session = await transport.GetAsync(LcuEndpoints.Session);
+                s.EnemyChampionIds = LcuParser.ParseEnemies(session);
+                if (s.EnemyChampionIds != null) s.AssignedRole = LcuParser.ParseAssignedRole(session);
+            }
             catch { }
             return s;
         }
@@ -285,6 +322,12 @@ namespace DraftMid
             t(LcuParser.MapPhase("PhaseInconnue") == Phase.Uncertain, "LCU : une phase inconnue reste incertaine");
             t(LcuParser.ParsePhase("pas du json") == "", "LCU : une réponse abîmée ne provoque pas d'erreur");
 
+            t(LcuParser.ParseAssignedRole(Session) == null, "LCU : sans poste indiqué, aucun rôle n'est deviné");
+            Func<string, string, string> withPos = (mine, other) => "{\"localPlayerCellId\":2,\"myTeam\":[{\"cellId\":1,\"assignedPosition\":\"" + other + "\",\"championId\":64},{\"cellId\":2,\"assignedPosition\":\"" + mine + "\",\"championId\":105}],\"theirTeam\":[]}";
+            t(LcuParser.ParseAssignedRole(withPos("jungle", "middle")) == "jungle", "LCU : le poste lu est celui du joueur, pas d'un allié");
+            t(LcuParser.ParseAssignedRole(withPos("middle", "jungle")) == "mid" && LcuParser.ParseAssignedRole(withPos("bottom", "")) == "adc" && LcuParser.ParseAssignedRole(withPos("utility", "")) == "support" && LcuParser.ParseAssignedRole(withPos("top", "")) == "top", "LCU : les cinq postes sont reconnus");
+            t(LcuParser.ParseAssignedRole(withPos("", "jungle")) == null && LcuParser.ParseAssignedRole(withPos("nouveau", "")) == null, "LCU : poste vide ou inconnu, rôle inconnu");
+            t(LcuParser.ParseAssignedRole("{abimé") == null && LcuParser.ParseAssignedRole("{\"myTeam\":[]}") == null && LcuParser.ParseAssignedRole("{\"localPlayerCellId\":2,\"myTeam\":[{\"cellId\":3,\"assignedPosition\":\"top\"}]}") == null, "LCU : réponse abîmée ou joueur absent, rôle inconnu");
             List<int> ids = LcuParser.ParseEnemies(Session);
             t(string.Join(",", ids) == "875,254,3,40", "LCU : seuls les champions adverses verrouillés sont lus");
             t(!ids.Contains(157) && !ids.Contains(222), "LCU : les intentions de pick ne sont jamais lues");

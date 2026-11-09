@@ -1,10 +1,11 @@
-# Documentation de DraftMid
+# Documentation de DRAFT
 
 ## Où se trouve quoi
 
 | Fonctionnalité | V2.14 stable (`main`) | Moteur (`feature/strategic-engine-coaching`) | Candidate (`integration/v2.15-coaching`) |
 |---|---|---|---|
 | Panneaux, profils, lecture du client | Oui | Base V2.13 | Oui |
+| Navigation en 5 onglets | Non (6 onglets) | Non | Oui |
 | Finition de l'interface, correctifs des réglages | Oui | Non | Oui |
 | Égalités sans effet de l'ordre du pool | Non | Dans le moteur | Moteur et écran |
 | Moteur de conseils | Non | Non branché | Onglet Conseils |
@@ -14,7 +15,9 @@
 | Profil OP.GG | Non | Non | Non : prototype local non suivi |
 | Bans adverses | Non | Non | Non : expérience locale non suivie |
 
-## Pour utiliser DraftMid
+## Pour utiliser DRAFT
+
+[Guide de la bêta privée](utilisateur/GUIDE-BETA.md), pour les testeurs.
 
 [Guide d'utilisation](utilisateur/GUIDE.md) : installation, configuration, profils, détection, recommandations, import, sauvegarde, dépannage.
 
@@ -22,6 +25,7 @@
 
 | Document | Sujet |
 |---|---|
+| [Profils, migration, rôle attribué](technique/PROFILS.md) | Renommage, stockage, export, compatibilité, `assignedPosition` |
 | [Architecture](technique/ARCHITECTURE.md) | C# et WebView2, frontend, compilation, carte des fichiers |
 | [Moteur](technique/MOTEUR.md) | Calcul du conseil, stabilité, historique des changements |
 | [Données](technique/DONNEES.md) | Sources, rôles probabilistes, fiabilité, licences |

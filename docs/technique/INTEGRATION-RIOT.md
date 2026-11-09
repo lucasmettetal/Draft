@@ -1,6 +1,6 @@
 # Intégration Riot : état et conditions
 
-La lecture du client est disponible en option, décochée par défaut, sans confirmation de Riot : voir [LCU.md](LCU.md). DraftMid fonctionne entièrement sans elle.
+La lecture du client est disponible en option, décochée par défaut, sans confirmation de Riot : voir [LCU.md](LCU.md). DRAFT fonctionne entièrement sans elle.
 
 Politiques consultées le 3 novembre 2026, et relues le 4 novembre pour ces trois pages. Elles peuvent évoluer : à relire avant toute activation.
 

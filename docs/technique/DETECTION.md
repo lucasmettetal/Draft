@@ -59,6 +59,6 @@ La détection de la fenêtre et celle de la phase sont indépendantes.
 
 ## Suivi
 
-Le déplacement est suivi par `SetWinEventHook`, sans injection, avec au plus une mise à jour toutes les 16 ms. Les deux panneaux bougent ensemble via `DeferWindowPos`, sans prendre le focus. Le passage entre deux panneaux et panneau unique attend 350 ms de stabilité. Une recherche lente, toutes les 2 secondes, ne sert qu'à détecter l'ouverture du client. DraftMid ne déplace ni ne redimensionne jamais le client.
+Le déplacement est suivi par `SetWinEventHook`, sans injection, avec au plus une mise à jour toutes les 16 ms. Les deux panneaux bougent ensemble via `DeferWindowPos`, sans prendre le focus. Le passage entre deux panneaux et panneau unique attend 350 ms de stabilité. Une recherche lente, toutes les 2 secondes, ne sert qu'à détecter l'ouverture du client. DRAFT ne déplace ni ne redimensionne jamais le client.
 
 WebView2 n'est chargé que lorsque le client est ouvert, et libéré à sa fermeture.

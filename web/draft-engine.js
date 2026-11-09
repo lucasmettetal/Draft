@@ -1,4 +1,4 @@
-// DraftMid : données et moteur de recommandation. Fichier chargé par la page et par draft-tests.html.
+// DRAFT : données et moteur de recommandation. Fichier chargé par la page et par draft-tests.html.
 const MATCHUPS = [
   { n:"Ahri", t:"Mage", first:"Fizz", second:"TF", avoid:"Kog'Maw" },
   { n:"Anivia", t:"Mage", first:"Fizz", second:"Xerath", avoid:"Kog'Maw" },
@@ -311,11 +311,27 @@ function analyze(enemies, mid, hasFront, scenarios) {
   const compo = compoOf(enemies);
   const ctx = { mid, hasFront };
   const several = scenarios && scenarios.length > 1;
-  // Égalité : on préfère le pick le moins pénalisé. L'ordre ne donne aucun avantage à un champion précis.
-  const worst = p => Math.min(0, ...p.why.map(w => w.v));
+  // Même score : le moins pénalisé passe devant, puis le favori choisi par le joueur. Restent ex æquo ceux que rien ne sépare :
+  // ils sont marqués comme tels, et rangés par nom pour que l'ordre du pool n'ait aucun effet. L'alphabet n'est pas un avantage.
+  const worst = p => tieKey(Math.min(0, ...p.why.map(w => w.v)));
   const ranking = availablePicks(enemies).map(p => several ? evaluateScenarios(p, compo, hasFront, scenarios) : evaluatePick(p, compo, ctx))
-    .sort((a, b) => b.score - a.score || worst(b) - worst(a) || (b.pick === ENGINE_PREFS.favorite) - (a.pick === ENGINE_PREFS.favorite));
-  return { ranking, unknown: enemies.filter(n => PROVISIONAL.includes(n)), counts: compo };
+    .sort((a, b) => tieKey(b.score) - tieKey(a.score) || worst(b) - worst(a) || (b.pick === ENGINE_PREFS.favorite) - (a.pick === ENGINE_PREFS.favorite) || label(a.pick).localeCompare(label(b.pick), "fr"));
+  return { ranking, ties: markTies(ranking), unknown: enemies.filter(n => PROVISIONAL.includes(n)), counts: compo };
+}
+
+// Égalité stratégique : même score. À ne pas confondre avec holdPick, qui ne fait que stabiliser le nom affiché pendant la draft.
+const tieKey = v => Math.round(v * 1e6);
+
+// Ajoute tiedWith à chaque pick et renvoie les groupes ex æquo, du meilleur au moins bon.
+function markTies(ranking) {
+  const groups = [];
+  ranking.forEach(p => {
+    const last = groups[groups.length - 1];
+    if (last && last.key === tieKey(p.score)) last.picks.push(p.pick);
+    else groups.push({ key:tieKey(p.score), score:p.score, picks:[p.pick] });
+  });
+  ranking.forEach(p => { p.tiedWith = groups.find(g => g.key === tieKey(p.score)).picks.filter(x => x !== p.pick); });
+  return groups.filter(g => g.picks.length > 1).map(g => ({ score:g.score, picks:g.picks }));
 }
 
 function availablePicks(enemies) {

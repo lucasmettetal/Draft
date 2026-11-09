@@ -1,0 +1,99 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests V2.15</title></head><body><pre id="out"></pre>
+<!-- Teste la vraie page, dans ses panneaux : égalités, conseils, expérience, réglages. Historiques fictifs. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const PROFILES={mid:{role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]},jungle:{role:"jungle",pool:["Cho'Gath","Viego","Master Yi","Lee Sin"]},duo:{role:"jungle",pool:["Viego","Master Yi"]},top:{role:"top",pool:["Darius","Garen","Malphite","Ornn","Camille"]},adc:{role:"adc",pool:["Jinx","Caitlyn","Kog'Maw","Ezreal","Vayne"]},support:{role:"support",pool:["Thresh","Leona","Soraka","Lulu","Lux"]}};
+const TANKS=["Ornn","Sion","Maokai","Jinx","Thresh"];
+async function open(profile,panel,W=320,H=720,extra=""){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(PROFILES[profile]));localStorage.setItem("draftPatch","16.22");const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html"+(panel?"?panel="+panel:"?x=1")+extra;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(350);const w=f.contentWindow;w.eval("window.$={get V(){return V},get state(){return state},analyze,commit,rerender,savePrefs,addEnemy,choosePick,essentialAdvice,coachData,hostState,historyProfile,suggest,identifiedOpponent,beliefScenarios,opponentBelief,get PREFS(){return PREFS},reset(){state.enemies.length=0;state.manualMid=null;state.held=null;state.roleOf={};commit();}}");return {f,w,d:f.contentDocument,$:w.$};}
+const close=x=>x.f.remove();
+const settle=()=>wait(120);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const mul=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let x=Math.imul(a^a>>>15,1|a);x=x+Math.imul(x^x>>>7,61|x)^x;return((x^x>>>14)>>>0)/4294967296;};
+const fakeHistory=(pos,list)=>{const rows=[];list.forEach(([champ,n,w])=>{for(let i=0;i<n;i++)rows.push({id:champ+i,acct:"Test#TEST",time:Date.now()-(i+1)*864e5,patch:"16.22",sec:1800,champ,pos,win:(i*7)%n<w,k:5,d:4,a:6,mid:"",enemies:[]});});return {generated:new Date().toISOString(),accounts:["Test#TEST"],rows};};
+const inject=(x,h)=>{x.w.DRAFT_HISTORY=h;x.$.historyProfile.done=false;x.$.historyProfile.value=null;x.$.commit();};
+const scores=$=>JSON.stringify($.V.res.ranking.map(p=>[p.pick,p.score]));
+
+(async()=>{
+// ---------- Égalités ----------
+{const x=await open("duo","right");TANKS.forEach(x.$.addEnemy);await settle();const items=[...x.d.querySelectorAll(".tie-item")];
+ t(items.length===2&&text(items[0]).includes("Master Yi")&&text(items[1]).includes("Viego"),"égalité : les deux champions au même niveau");
+ const sizes=items.map(i=>i.querySelector(".tie-name")).map(n=>x.w.getComputedStyle(n).fontSize);t(sizes[0]===sizes[1],"égalité : même taille de nom");
+ t(!x.d.querySelector(".p-chip")&&!x.d.querySelector(".p-reco"),"égalité : pas de « Recommandé », pas de portrait géant");t(![...x.d.querySelectorAll(".cta")].length,"égalité : pas de « Je joue » pour un seul nom");
+ t(text(x.d.querySelector(".p-status")).includes("Égalité"),"égalité : badge explicite");t(/ordre d'affichage/.test(text(x.d.querySelector(".tie-group"))),"égalité : l'ordre est dit sans signification");
+ t(/ne les départage pas/.test(text(x.d.querySelector(".coach-line"))),"égalité : conseil pédagogique affiché");t(text(x.d.querySelector('[aria-live]')).startsWith("Égalité entre"),"égalité : annoncée au lecteur d'écran");
+ const before=scores(x.$);x.$.choosePick("Viego");await settle();t(x.d.querySelector(".tie-item.picked")&&text(x.d.querySelector(".tie-item.picked")).includes("Viego"),"égalité : le choix du joueur est marqué");t(scores(x.$)===before,"égalité : choisir ne change aucun score");t(x.$.V.tied.length===2,"égalité : reste une égalité après le choix");
+ close(x);}
+{const x=await open("duo",null,1280,720);TANKS.forEach(x.$.addEnemy);await settle();const words=[...x.d.querySelectorAll(".rank-word")].map(text);t(words.slice(0,2).every(w=>w==="À égalité"),"classement : les deux marqués à égalité");t(!x.d.querySelector(".rank.first"),"classement : aucun premier mis en avant");t(x.d.querySelector(".stage .tie-item"),"fenêtre principale : égalité affichée");t(/Choisis un champion/.test(text(x.d.querySelector(".plan-block"))),"plan : pas de plan implicite pour le premier nom");close(x);}
+// Jungle : pool audité
+{const x=await open("jungle","compact",282,576);TANKS.forEach(x.$.addEnemy);await settle();const v=x.$.V;t(v.tied&&v.tied.length>=2,"Jungle Cho'Gath et Viego : égalité présentée ("+(v.tied||[]).join()+")");t(x.d.querySelectorAll(".tie-item").length===Math.min(3,v.tied.length),"panneau compact : au plus 3 lignes d'égalité");t(x.d.documentElement.scrollWidth<=x.d.documentElement.clientWidth,"panneau compact : pas de débordement horizontal");close(x);}
+// Favori, exclusions, correction manuelle, stabilité
+{const x=await open("duo","right");TANKS.forEach(x.$.addEnemy);await settle();x.$.savePrefs({favorite:"Viego"});await settle();t(x.$.V.tied&&x.$.V.tied[0]==="Viego"&&text(x.d.querySelector(".tie-item")).includes("Ton favori"),"favori : marqué, placé d'abord, sans masquer l'égalité");const s=x.$.V.res.ranking.map(p=>p.score);x.$.savePrefs({favorite:null});await settle();t(JSON.stringify(s)===JSON.stringify(x.$.V.res.ranking.map(p=>p.score)),"favori : aucun score changé");
+ x.$.savePrefs({excluded:["Viego"]});await settle();t(!x.$.V.tied&&x.$.V.shown==="Master Yi"&&!x.$.V.res.ranking.some(p=>p.pick==="Viego"),"exclusion : respectée, l'égalité disparaît");x.$.savePrefs({excluded:[]});close(x);}
+{const x=await open("mid","right");["Syndra","Ornn","Lee Sin","Jinx","Thresh"].forEach(x.$.addEnemy);await settle();const auto=x.$.V.mid;x.$.state.manualMid="Lee Sin";x.$.commit();await settle();t(x.$.V.mid==="Lee Sin"&&auto!=="Lee Sin","correction manuelle : respectée");x.$.reset();
+ x.$.addEnemy("Ahri");const first=x.$.V.shown;x.$.addEnemy("Ornn");await settle();const v=x.$.V,top=v.res.ranking[0];t(v.shown===first||top.score-v.res.ranking.find(p=>p.pick===first).score>=2||!v.res.ranking.some(p=>p.pick===first),"stabilité : le nom ne change qu'avec un vrai écart");close(x);}
+
+// ---------- Profils : classement inchangé, expérience sans effet ----------
+const POS={mid:"MIDDLE",jungle:"JUNGLE",top:"TOP",adc:"BOTTOM",support:"UTILITY"};
+for(const prof of ["mid","jungle","top","adc","support"]){
+ const x=await open(prof,"compact",320,720);const rng=mul(prof.length*97);let moved=0,manyCoach=0,human=0,errors=0,tiedShown=0,fails=0;const pool=PROFILES[prof].pool;const names=x.w.eval("NAMES");
+ const hist=fakeHistory(POS[prof],[[x.w.eval(`riotKey(label(${JSON.stringify(pool[pool.length-1])}))`),300,120],["Annie",100,50]]);
+ for(let i=0;i<60;i++){x.$.reset();const size=1+i%5;const l=[];while(l.length<size){const n=names[Math.floor(rng()*names.length)];if(!l.includes(n))l.push(n);}l.forEach(x.$.addEnemy);const a=scores(x.$),shownA=x.$.V.shown;inject(x,hist);if(scores(x.$)!==a||x.$.V.shown!==shownA)moved++;
+  ["beginner","advanced"].forEach(level=>{x.$.savePrefs({coachLevel:level});if(scores(x.$)!==a||x.$.V.shown!==shownA)moved++;const e=x.$.essentialAdvice();if(e&&e.verification!=="rule")human++;});
+  const c=x.$.coachData();if(!c.advice||!c.choices)errors++;if(c.choices&&JSON.stringify(c.choices.ranking.map(r=>r.score))!==JSON.stringify(x.$.V.res.ranking.map(p=>+p.score.toFixed(2))))fails++;
+  await wait(0);if(x.d.querySelectorAll(".coach-line").length>1)manyCoach++;if(x.$.V.tied)tiedShown++;inject(x,undefined);delete x.w.DRAFT_HISTORY;x.$.historyProfile.done=false;x.$.savePrefs({coachLevel:"beginner"});}
+ t(!moved,prof+" : historique et niveau ne changent ni score ni nom affiché");t(!manyCoach,prof+" : au plus un conseil pendant la draft");t(!human,prof+" : aucun avis à relire présenté comme essentiel");t(!errors,prof+" : conseils et expérience calculés sans erreur");t(!fails,prof+" : l'expérience présente le classement du moteur");res.notes[prof+"_egalites_sur_60"]=tiedShown;close(x);}
+
+// ---------- Profil Mid original : mêmes conseils qu'avant ----------
+{const x=await open("mid","right");["Malzahar","Ornn","Rengar","Samira","Pyke"].forEach(x.$.addEnemy);await settle();t(x.$.V.shown==="TF"&&!x.$.V.tied,"Mid : Twisted Fate reste conseillé sur la draft de référence");t(x.d.querySelector(".p-chip")&&x.d.querySelector(".cta"),"Mid : affichage habituel sans égalité");close(x);}
+
+// ---------- Expérience ----------
+{const x=await open("top","right");["Sett","Vi"].forEach(x.$.addEnemy);await settle();t(!x.d.querySelector(".familiar-line"),"sans historique : aucune ligne d'expérience");const s=x.$.V.shown;inject(x,fakeHistory("TOP",[["Darius",100,52],["Sion",120,60]]));await settle();const line=text(x.d.querySelector(".familiar-line"));t(/Le plus joué/.test(line)&&/Darius/.test(line)&&/100 parties/.test(line),"le plus joué : sur une ligne à part ("+line+")");t(x.$.V.shown===s,"le plus joué : le conseil ne change pas");t(!/maîtris|meilleur|expert|niveau/i.test(line),"le plus joué : pas présenté comme une compétence");t(/ne dit pas si tu joues bien/.test(x.d.querySelector(".familiar-line").title),"le plus joué : limite accessible");close(x);}
+{const x=await open("top",null,1280,720,"&tab=coach");["Sett","Vi"].forEach(x.$.addEnemy);inject(x,fakeHistory("TOP",[["Darius",100,52],["Garen",8,4],["Sion",120,60]]));await settle();x.$.rerender();await settle();const body=text(x.d.querySelector(".coach-tab"));
+ t(/Meilleur choix pour la draft/.test(body)&&/Le plus joué dans ce rôle/.test(body),"onglet Conseils : les deux lectures séparées");t(/Expérience dans ce rôle/.test(body)&&/Darius 100 parties/.test(body)&&/Garen 8 parties/.test(body),"onglet Conseils : écarts d'expérience");t(/Aucune partie importée sur/.test(body),"onglet Conseils : champions sans partie signalés");t(/autres modes/.test(body)&&/ne change pas le classement/.test(body),"onglet Conseils : limites de l'historique");
+ t(/À confirmer/.test(body),"onglet Conseils : avis à relire regroupés et signalés");t(/Niveau des conseils/.test(body),"onglet Conseils : choix du niveau");
+ const texts=l=>{x.$.savePrefs({coachLevel:l});return text(x.d.querySelector(".coach-tab"));};const a=texts("beginner");await settle();const a2=text(x.d.querySelector(".coach-tab"));x.$.savePrefs({coachLevel:"advanced"});await settle();t(a2!==text(x.d.querySelector(".coach-tab")),"trois niveaux : le texte change");close(x);}
+
+// Le danger reste avant le conseil ; les cartes du pool ne changent pas avec l'import
+{const x=await open("mid","right");["Yasuo","Yone","Lee Sin","Jinx","Thresh"].forEach(x.$.addEnemy);await settle();const danger=x.d.querySelector(".p-threat"),coach=x.d.querySelector(".coach-line");t(danger&&coach&&(danger.compareDocumentPosition(coach)&4),"panneau : le danger passe avant le conseil");close(x);}
+{const x=await open("mid",null,1280,720);["Malzahar","Ornn"].forEach(x.$.addEnemy);inject(x,fakeHistory("MIDDLE",[["Fizz",100,50]]));await settle();x.$.rerender();await settle();t(!x.d.querySelector(".rank-rec"),"historique importé : pas de bilan sur les cartes du pool");const tabs=[...x.d.querySelectorAll(".tab")],bar=x.d.querySelector(".col-right");t(tabs.map(b=>text(b)).join()==="Plan,Analyse,Conseils,Duel,Parties","cinq onglets, dans l'ordre demandé");t(new Set(tabs.map(b=>Math.round(b.getBoundingClientRect().top))).size===1,"à 1280 : onglets sur une seule ligne");t(tabs.length===5&&tabs.every(b=>{const r=b.getBoundingClientRect(),o=bar.getBoundingClientRect();return r.left>=o.left&&r.right<=o.right;}),"à 1280 : tous les onglets visibles");close(x);}
+{const x=await open("mid","right");["Malzahar","Ornn","Rengar","Samira","Pyke"].forEach(x.$.addEnemy);await settle();t(!x.d.querySelector(".coach-line"),"pas de conseil qui répète une raison déjà affichée");close(x);}
+
+{const x=await open("mid","right");["Yasuo","Yone","Lee Sin","Jinx","Thresh"].forEach(x.$.addEnemy);await settle();const p=x.d.querySelector(".coach-line p");t(p&&text(p).length<=110,"pendant la draft : explication courte ("+text(p).length+" signes)");close(x);}
+
+// ---------- Navigation : rien n'a disparu ----------
+{const x=await open("mid",null,1280,720,"&tab=analyse");["Malzahar","Ornn","Jinx"].forEach(x.$.addEnemy);await settle();const views=[...x.d.querySelectorAll("[data-view]")].map(b=>text(b)).join();t(views==="Critères,Comparer,Règles","Analyse : Critères, Comparer et Règles");t(x.d.querySelector(".matrix"),"Analyse : matrice des critères par défaut");
+ x.d.querySelector('[data-view="rules"]').click();await settle();t(/Situation|classés|Règle/i.test(text(x.d.querySelector(".tab-body")))&&x.d.querySelector(".tab-body table"),"Règles : contenu accessible depuis Analyse");
+ x.d.querySelector('[data-view="compare"]').click();await settle();const pickers=[...x.d.querySelectorAll(".cmp-pick")];t(pickers.length===2,"Comparer : choix des deux champions disponible");const before=text(x.d.querySelector(".cmp-title"));const other=[...pickers[0].querySelectorAll(".cmp-btn")].find(b=>b.getAttribute("aria-pressed")!=="true");other.click();await settle();t(text(x.d.querySelector(".cmp-title"))!==before,"Comparer : changer de champion change la comparaison");close(x);}
+for(const [param,marker] of [["compare","compare"],["rules","rules"]]){const x=await open("mid",null,1280,720,"&tab="+param);await settle();t(x.d.querySelector('.tab.on')&&x.d.querySelector('.tab.on').dataset.tab==="analyse"&&x.d.querySelector('[data-view="'+marker+'"]').getAttribute("aria-pressed")==="true","ancien lien ?tab="+param+" : mène à la bonne vue");close(x);}
+{const x=await open("adc",null,1280,720);["Ornn","Lee Sin"].forEach(x.$.addEnemy);await settle();t([...x.d.querySelectorAll(".tab")].some(b=>text(b)==="Duel"),"Duel : même nom à tous les rôles");x.d.querySelector('[data-tab="matchups"]').click();await settle();t(x.d.querySelector(".tab-body").textContent.length>0,"Duel : contenu présent");close(x);}
+{const r=await fetch("index.html").then(a=>a.text());t(/openDetail\("compare"\)/.test(r),"panneau : le bouton de l'alternative mène toujours à la comparaison");t(!/OpggBrowser|opgg/i.test(r),"page : aucune référence OP.GG");t(!/draft-role-rates\.js[^\n]*Meraki/.test(r),"page : aucune mention de données Meraki embarquées");}
+
+// ---------- Profils par rôle, dans la vraie page ----------
+{const x=await open("mid","right");const sw=x.d.querySelector(".role-switch");t(sw&&x.d.querySelectorAll(".role-btn").length===5,"panneau : sélecteur des cinq rôles");t(text(x.d.querySelector(".role-now"))==="Mid","rôle actif affiché");
+ x.$.addEnemy("Ahri");await settle();x.d.querySelector('[data-role="jungle"]').click();await settle();t(x.w.eval("myRole()")==="jungle"&&text(x.d.querySelector(".role-now"))==="Jungle","un clic suffit pour changer de rôle");t(/Aucun champion pour le rôle Jungle/.test(text(x.d.body)),"rôle sans champion : message clair, pas de conseil inventé");
+ x.w.eval("saveMyProfile('jungle',['Viego','Lee Sin'])");await settle();t(x.w.eval("PICKS.join()")==="Viego,Lee Sin","pool Jungle chargé et modifiable");
+ x.d.querySelector('[data-role="mid"]').click();await settle();t(x.w.eval("PICKS.join()")==="TF,Fizz,Kog'Maw,Xerath","retour au Mid : configuration retrouvée à l'identique");
+ t(x.w.eval("state.enemies.join()")==="Ahri","changer de rôle garde la composition adverse");
+ x.w.eval("handleAssignedRole('jungle')");await settle();const hint=x.d.querySelector(".role-hint");t(hint&&/LoL t'attribue Jungle/.test(text(hint))&&x.w.eval("myRole()")==="mid","rôle attribué différent : indication discrète, sans changement imposé");
+ [...hint.querySelectorAll("button")].find(b=>/Ignorer/.test(text(b))).click();await settle();t(!x.d.querySelector(".role-hint"),"indication ignorée : elle disparaît");
+ x.w.eval("handleAssignedRole(null);resetRoleSession();savePrefs({autoRole:'auto'});handleAssignedRole('jungle')");await settle();t(x.w.eval("myRole()")==="jungle","préférence explicite : changement automatique");
+ x.w.eval("handleAssignedRole(null);savePrefs({autoRole:'off'});handleAssignedRole('support')");await settle();t(x.w.eval("myRole()")==="jungle"&&!x.d.querySelector(".role-hint"),"changement désactivé : rien ne bouge");
+ x.w.eval("handleAssignedRole(null);savePrefs({autoRole:'suggest'})");close(x);}
+{const x=await open("mid",null,1280,720,"&tab=settings");await settle();const body=text(x.d.body);t(/Mes profils/.test(body)&&/Exporter mes profils/.test(body)&&/Importer/.test(body),"réglages : profils, export et import");
+ const roleBtn=[...x.d.querySelectorAll(".role-pick button")].find(b=>/Jungle/.test(text(b)));roleBtn.click();await settle();t(x.w.eval("myRole()")==="jungle"&&!x.d.querySelector(".settings .pool-chip.on"),"réglages : le rôle choisi charge son propre pool");
+ [...x.d.querySelectorAll(".role-pick button")].find(b=>/Mid/.test(text(b))).click();await settle();t(x.d.querySelectorAll(".settings .pool-chip.on").length===4,"réglages : le pool Mid revient");
+ t(/DRAFT 2\.16\.0 bêta/.test(body)&&/Non approuvé par Riot Games/.test(body),"réglages : nom, version et avertissement");close(x);}
+{const x=await open("mid",null,1280,720);t(x.d.title==="DRAFT"&&text(x.d.querySelector(".top .brand"))==="DRAFT","fenêtre principale : nom DRAFT");t(x.d.querySelector(".top .role-switch"),"fenêtre principale : sélecteur de rôle");t(!/DraftMid/.test(x.d.body.innerText),"aucun « DraftMid » visible");close(x);}
+
+// ---------- Réglages et recherche ----------
+{const x=await open("mid",null,1280,720,"&tab=settings");x.$.hostState.available=true;x.$.rerender();await settle();const body=text(x.d.body);t(/Mon historique Riot/.test(body),"réglages : section présente");const btn=[...x.d.querySelectorAll("button")].find(b=>text(b)==="Importer mon historique Riot");t(!!btn,"réglages : bouton « Importer mon historique Riot »");t(/n'est pas enregistrée/.test(body),"réglages : la clé est dite non enregistrée");t(/Niveau des conseils/.test(body),"réglages : niveau des conseils");
+ Object.assign(x.$.hostState,{historyRunning:true,historyStatus:"Import de l'historique : 5 sur 100 parties"});x.$.rerender();await settle();t([...x.d.querySelectorAll("button")].some(b=>text(b)==="Arrêter l'import")&&/5 sur 100/.test(text(x.d.body)),"réglages : avancement et arrêt visibles");Object.assign(x.$.hostState,{historyRunning:false,historyHasMore:true,historyStatus:"Import terminé"});x.$.rerender();await settle();t([...x.d.querySelectorAll("button")].some(b=>text(b)==="Importer plus de parties"),"réglages : enrichissement proposé");close(x);}
+{const x=await open("mid","left");t(x.$.suggest("ahr").includes("Ahri"),"recherche : trouve un champion");const input=x.d.querySelector("input");t(!!input,"recherche : champ présent");close(x);}
+// Une panne du coaching n'atteint pas le verdict
+{const x=await open("mid","right");x.w.coachingAdvice=()=>{throw new Error("panne")};x.w.eval("coachingAdvice=()=>{throw new Error('panne')};playerChoices=()=>{throw new Error('panne')}");["Ahri","Ornn"].forEach(x.$.addEnemy);await settle();t(x.d.querySelector(".p-chip")||x.d.querySelector(".tie-group"),"panne du coaching : le verdict reste affiché");t(!x.d.querySelector(".coach-line"),"panne du coaching : aucun conseil inventé");close(x);}
+// Aucun appel réseau vers Riot depuis la page
+{const r=await fetch("index.html").then(a=>a.text());t((r.match(/cmd:"importHistory"/g)||[]).length===1&&/onClick=\$\{\(\) => hostSend\(\{ cmd:"importHistory" \}\)\}/.test(r),"import : seulement au clic sur le bouton");t(!/api\.riotgames\.com|X-Riot-Token/.test(r),"page : aucun appel à l'API Riot");}
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
+</script></body></html>

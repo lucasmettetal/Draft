@@ -52,7 +52,10 @@ $states = @(
   @('inconnu', 'Sett,Vi', $mine, $null), @('serre', 'Yasuo,Yone,Lee Sin,Jinx,Thresh', $mine, $null), @('exclu', 'Syndra,Ornn,Lee Sin', $mine, '{"excluded":["Fizz"],"favorite":null,"assumeFront":true}'),
   @('support', 'Ornn,Lee Sin,Ahri,Jinx,Thresh', '{"role":"support","pool":["Lux","Seraphine","Renata Glasc","Tahm Kench","Soraka"]}', $null),
   @('sombre', 'Ornn,Lee Sin,Ahri,Jinx', '{"role":"adc","pool":["Kog''Maw","Vayne"]}', $null),
-  @('sans-profil', 'Ornn,Lee Sin', 'null', $null)
+  @('sans-profil', 'Ornn,Lee Sin', 'null', $null),
+  @('egalite-jungle', 'Ornn,Sion,Maokai,Jinx,Thresh', '{"role":"jungle","pool":["Cho''Gath","Viego","Master Yi","Lee Sin"]}', $null),
+  @('top', 'Sett,Vi,Ahri,Jinx,Thresh', '{"role":"top","pool":["Darius","Garen","Malphite","Ornn","Camille"]}', $null),
+  @('adc', 'Ornn,Lee Sin,Ahri,Caitlyn,Thresh', '{"role":"adc","pool":["Jinx","Caitlyn","Kog''Maw","Ezreal","Vayne"]}', $null)
 )
 foreach ($s in $states) {
   if ($Only -and $Only -notcontains $s[0]) { continue }
@@ -68,6 +71,19 @@ if (-not $Only) {
 if (-not $Only -or $Only -contains 'hors-ligne') {
   Shot 'hors-ligne-grand' 1280 720 ('frame.html?w=1280&h=720&enemies=' + [uri]::EscapeDataString($full)) $mine $null -Offline
   Shot 'hors-ligne-panneaux' 1456 720 ('sheet.html?x=1&enemies=' + [uri]::EscapeDataString($full)) $mine $null -Offline
+}
+if (-not $Only -or $Only -contains 'v215') {
+  # Historique fictif, pour voir le plus joué et les conseils sans aucune donnée personnelle.
+  $rows = 0..139 | ForEach-Object { '{"id":"H' + $_ + '","acct":"Test#TEST","time":' + ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - ($_ + 1) * 86400000) + ',"patch":"16.22","sec":1800,"champ":"' + $(if ($_ % 7) { 'Fizz' } else { 'Xerath' }) + '","pos":"MIDDLE","win":' + $(if ($_ % 2) { 'true' } else { 'false' }) + ',"k":5,"d":4,"a":6,"mid":"Ahri","enemies":["Ahri"]}' }
+  [IO.File]::WriteAllText((Join-Path $work 'draft-history.js'), 'window.DRAFT_HISTORY = {"generated":"2026-11-05T00:00:00Z","accounts":["Test#TEST"],"skipped":[],"rows":[' + ($rows -join ',') + ']};', [Text.UTF8Encoding]::new($false))
+  Shot 'v215-historique-panneaux' 1456 720 ('sheet.html?x=1&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-conseils-grand' 1280 720 ('frame.html?w=1280&h=720&tab=coach&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-conseils-long' 1280 1500 ('frame.html?w=1280&h=1500&tab=coach&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-analyse' 1280 720 ('frame.html?w=1280&h=720&tab=analyse&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-comparer' 1280 720 ('frame.html?w=1280&h=720&tab=compare&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-regles' 1280 720 ('frame.html?w=1280&h=720&tab=rules&enemies=' + [uri]::EscapeDataString($full)) $mine $null
+  Shot 'v215-reglages' 1280 720 'frame.html?w=1280&h=720&tab=settings&host=1' $mine $null
+  Remove-Item (Join-Path $work 'draft-history.js')
 }
 if (-not $Only -or $Only -contains 'stats') {
   # Statistiques fictives, pour voir ce rendu sans aucune donnée personnelle.
