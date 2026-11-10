@@ -661,10 +661,13 @@ public static class Autostart
         public string ValidationPath { get { return Path.Combine(dataDir, "validation-drafts.csv"); } }
         public void TestSetDiagnostics(bool on) { settings.Diagnostics = on; RefreshUi(); }
 
+        // Un tableur exécuterait une cellule commençant par = + - @ comme une formule.
+        public static string CsvCell(string v) { return v.Length > 0 && "=+-@\t".IndexOf(v[0]) >= 0 ? "'" + v : v; }
+
         void WriteValidationRow(System.Collections.IEnumerable values)
         {
             List<string> cells = new List<string> { DateTime.Now.ToString("yyyy-MM-dd HH:mm"), typeof(CompanionApp).Assembly.GetName().Version.ToString(3) };
-            foreach (object v in values) cells.Add(Regex.Replace(Convert.ToString(v), "[;\\r\\n\"]", " "));
+            foreach (object v in values) cells.Add(CsvCell(Regex.Replace(Convert.ToString(v), "[;\\r\\n\"]", " ")));
             cells.Add(machine.Current.ToString());
             string line = string.Join(";", cells) + ";;;\r\n";
             // Fichier ouvert dans Excel : la ligne part dans un fichier voisin plutôt que d'être perdue.
@@ -782,7 +785,8 @@ public static class Autostart
             {
                 try
                 {
-                    File.Copy(path, Path.Combine(webDir, HistoryImporter.FileName), true);
+                    // Comme au démarrage : relu et réécrit avant d'atteindre la page.
+                    if (!DataScripts.Publish(HistoryImporter.FileName, dataDir, webDir)) Program.Log(dataDir, "Fichier de données ignoré, contenu non valide : " + HistoryImporter.FileName);
                     rolesReloadPending = true;
                     ReloadRolesIfIdle();
                 }
@@ -848,7 +852,8 @@ public static class Autostart
             if (Quitting) return;
             if (r.Saved)
             {
-                File.Copy(Path.Combine(dataDir, fileName), Path.Combine(webDir, fileName), true);
+                // Les noms de champions viennent de l'API Riot : le fichier est relu et réécrit avant d'atteindre la page.
+                if (!DataScripts.Publish(fileName, dataDir, webDir)) Program.Log(dataDir, "Fichier de données ignoré, contenu non valide : " + fileName);
                 rolesReloadPending = true;
                 ReloadRolesIfIdle();
             }
@@ -954,10 +959,12 @@ public static class Autostart
             w.Settings.AreDevToolsEnabled = opts.Script != null;
             w.Settings.IsZoomControlEnabled = false;
             w.Settings.IsNonClientRegionSupportEnabled = true;
-            w.WebMessageReceived += (s, e) => OnMessage(f, e.WebMessageAsJson);
-            // Les liens externes s'ouvrent dans le navigateur par défaut, jamais dans un panneau.
-            w.NewWindowRequested += (s, e) => { e.Handled = true; OpenExternal(e.Uri); };
-            w.NavigationStarting += (s, e) => { if (!e.Uri.StartsWith("https://draftmid.local/")) { e.Cancel = true; OpenExternal(e.Uri); } };
+            // Seule la page de DRAFT peut envoyer des commandes au code natif.
+            w.WebMessageReceived += (s, e) => { if (IsAppPage(e.Source)) OnMessage(f, e.WebMessageAsJson); };
+            // Les liens externes s'ouvrent dans le navigateur par défaut, jamais dans un panneau, et seulement vers des sites connus.
+            w.NewWindowRequested += (s, e) => { e.Handled = true; OpenFromPage(e.Uri); };
+            w.NavigationStarting += (s, e) => { if (!IsAppPage(e.Uri)) { e.Cancel = true; OpenFromPage(e.Uri); } };
+            w.FrameNavigationStarting += (s, e) => { if (!IsAppPage(e.Uri)) e.Cancel = true; };
             TaskCompletionSource<bool> nav = new TaskCompletionSource<bool>();
             w.NavigationCompleted += (s, e) => nav.TrySetResult(true);
             w.Navigate("https://draftmid.local/index.html?" + query);
@@ -965,6 +972,22 @@ public static class Autostart
             done.TrySetResult(true);
             return f;
         }
+
+        public const string AppOrigin = "https://draftmid.local/";
+        public static bool IsAppPage(string uri) { return uri != null && uri.StartsWith(AppOrigin, StringComparison.Ordinal); }
+
+        // Sites que la page peut ouvrir dans le navigateur.
+        static readonly string[] PageLinkHosts = { "lolalytics.com", "developer.riotgames.com", "www.draft-app.fr", "draft-app.fr" };
+
+        public static bool AllowedPageLink(string uri)
+        {
+            Uri u;
+            if (!Uri.TryCreate(uri, UriKind.Absolute, out u) || u.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(u.UserInfo)) return false;
+            string host = u.Host.ToLowerInvariant();
+            return PageLinkHosts.Any(h => host == h || host.EndsWith("." + h));
+        }
+
+        void OpenFromPage(string uri) { if (AllowedPageLink(uri)) OpenExternal(uri); }
 
         void OpenExternal(string uri)
         {
@@ -1576,10 +1599,11 @@ public static class Autostart
             using (OpenFileDialog d = new OpenFileDialog { Title = "Choisir draft-stats.js", Filter = "Statistiques DRAFT|draft-stats.js|Tous les fichiers|*.*" })
             {
                 if (d.ShowDialog() != DialogResult.OK) return;
-                string head = File.ReadAllText(d.FileName);
-                if (!head.StartsWith("window.DRAFT_STATS")) { MessageBox.Show("Ce fichier n'est pas un import DRAFT : rien n'a été modifié.", "DRAFT"); return; }
-                File.Copy(d.FileName, Path.Combine(dataDir, "draft-stats.js"), true);
-                File.Copy(d.FileName, Path.Combine(webDir, "draft-stats.js"), true);
+                // Seules des données passent : le fichier est relu comme du JSON, puis réécrit par DRAFT.
+                string safe = DataScripts.ReadCanonical("DRAFT_STATS", d.FileName);
+                if (safe == null) { MessageBox.Show("Ce fichier n'est pas un import DRAFT valide : rien n'a été modifié.", "DRAFT"); return; }
+                File.WriteAllText(Path.Combine(dataDir, "draft-stats.js"), safe, new UTF8Encoding(false));
+                File.WriteAllText(Path.Combine(webDir, "draft-stats.js"), safe, new UTF8Encoding(false));
                 foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.Reload();
             }
         }
@@ -2651,6 +2675,10 @@ public static class Autostart
             MatchupStatsTests.Run(t, dataDir);
             HistoryImporterTests.Run(t, dataDir);
             AppUpdaterTests.Run(t, dataDir, self);
+            DataScriptsTests.Run(t, dataDir);
+            t(CompanionApp.IsAppPage("https://draftmid.local/index.html?panel=full") && !CompanionApp.IsAppPage("https://draftmid.local.exemple.test/") && !CompanionApp.IsAppPage("https://draftmid.local@exemple.test/") && !CompanionApp.IsAppPage(null), "Page de confiance : seule l'origine de DRAFT est reconnue");
+            t(CompanionApp.AllowedPageLink("https://lolalytics.com/lol/ahri/build/") && !CompanionApp.AllowedPageLink("https://lolalytics.com.exemple.test/") && !CompanionApp.AllowedPageLink("http://lolalytics.com/") && !CompanionApp.AllowedPageLink("https://exemple.test/?q=lolalytics.com") && !CompanionApp.AllowedPageLink("https://user@lolalytics.com/") && !CompanionApp.AllowedPageLink("file:///C:/Windows/"), "Liens de la page : seuls des sites connus, en HTTPS");
+            t(CompanionApp.CsvCell("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")" && CompanionApp.CsvCell("+1") == "'+1" && CompanionApp.CsvCell("Ahri") == "Ahri" && CompanionApp.CsvCell("") == "", "Relevé CSV : formules neutralisées");
 
             ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();
@@ -2705,14 +2733,9 @@ public static class Autostart
                 foreach (string old in Directory.GetDirectories(Path.Combine(dataDir, "app")).Where(d => d != dir))
                     try { Directory.Delete(old, true); } catch { }
             }
-            string stats = Path.Combine(dataDir, "draft-stats.js");
-            if (File.Exists(stats)) File.Copy(stats, Path.Combine(dir, "draft-stats.js"), true);
-            string history = Path.Combine(dataDir, HistoryImporter.FileName);
-            if (File.Exists(history)) File.Copy(history, Path.Combine(dir, HistoryImporter.FileName), true);
-            string liveRoles = Path.Combine(dataDir, "draft-role-rates-live.js");
-            if (File.Exists(liveRoles)) File.Copy(liveRoles, Path.Combine(dir, "draft-role-rates-live.js"), true);
-            string liveMatchups = Path.Combine(dataDir, "draft-matchups-live.js");
-            if (File.Exists(liveMatchups)) File.Copy(liveMatchups, Path.Combine(dir, "draft-matchups-live.js"), true);
+            // Les données sont relues et réécrites, jamais copiées telles quelles : un fichier piégé n'atteint pas la page.
+            foreach (string file in DataScripts.Files.Keys)
+                if (!DataScripts.Publish(file, dataDir, dir)) Log(dataDir, "Fichier de données ignoré, contenu non valide : " + file);
             return dir;
         }
 

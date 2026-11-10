@@ -46,6 +46,8 @@ namespace DraftMid
             r.Method = "GET";
             r.UserAgent = "DRAFT";
             r.Headers["X-Riot-Token"] = key;
+            // La clé ne suit jamais une redirection vers un autre serveur.
+            r.AllowAutoRedirect = false;
             using (new System.Threading.Timer(_ => r.Abort(), null, TimeoutMs, Timeout.Infinite))
             {
                 try

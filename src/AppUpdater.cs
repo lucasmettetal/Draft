@@ -284,6 +284,22 @@ namespace DraftMid
         public GitHubUpdateSource() { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12; }
         public string PublicKey { get { return AppUpdater.ReleaseKey; } }
 
+        // Une réponse plus grosse qu'attendu est refusée avant d'être lue en entier.
+        public static async Task<string> ReadLimited(Stream input, int max, CancellationToken ct)
+        {
+            using (MemoryStream buffer = new MemoryStream())
+            {
+                byte[] chunk = new byte[16 * 1024];
+                int n;
+                while ((n = await input.ReadAsync(chunk, 0, chunk.Length, ct)) > 0)
+                {
+                    if (buffer.Length + n > max) throw new UpdateError("La réponse de GitHub est anormalement grosse. Rien n'a été changé.");
+                    buffer.Write(chunk, 0, n);
+                }
+                return Encoding.UTF8.GetString(buffer.ToArray());
+            }
+        }
+
         public async Task<string> SignatureAsync(UpdateInfo info, CancellationToken ct)
         {
             if (info.SignatureUrl == null) throw new UpdateError("Cette version n'est pas encore signée. Réessaie dans un moment.");
@@ -293,12 +309,7 @@ namespace DraftMid
             using (ct.Register(r.Abort))
             using (new Timer(_ => r.Abort(), null, TimeoutMs, Timeout.Infinite))
             using (HttpWebResponse w = (HttpWebResponse)await r.GetResponseAsync())
-            using (StreamReader rd = new StreamReader(w.GetResponseStream(), Encoding.UTF8))
-            {
-                string text = await rd.ReadToEndAsync();
-                if (text.Length > 16 * 1024) throw new UpdateError("La signature reçue n'est pas valide. Rien n'a été changé.");
-                return text;
-            }
+                return await ReadLimited(w.GetResponseStream(), 16 * 1024, ct);
         }
 
         public async Task<UpdateInfo> LatestAsync(CancellationToken ct)
@@ -312,9 +323,8 @@ namespace DraftMid
                 try
                 {
                     using (HttpWebResponse w = (HttpWebResponse)await r.GetResponseAsync())
-                    using (StreamReader rd = new StreamReader(w.GetResponseStream(), Encoding.UTF8))
                     {
-                        UpdateInfo info = AppUpdater.ParseRelease(await rd.ReadToEndAsync());
+                        UpdateInfo info = AppUpdater.ParseRelease(await ReadLimited(w.GetResponseStream(), 2 * 1024 * 1024, ct));
                         if (info == null) throw new UpdateError("La dernière version publiée n'est pas utilisable par la mise à jour automatique.");
                         return info;
                     }
@@ -489,6 +499,9 @@ namespace DraftMid
             bad = caught(null, () => AppUpdater.Prepare(new Sim { Bytes = real, Key = key, Forced = Sign(other, ok.Tag, ok.Sha256) }, ok, exe, dir, null, (c, d, ct) => { ran = true; }, CancellationToken.None));
             t(bad is UpdateError && !ran && !File.Exists(candidate) && File.ReadAllText(exe) == "ancien", "Mise à jour : fausse signature, fichier supprimé sans jamais être lancé");
             }
+            bool big = false;
+            try { GitHubUpdateSource.ReadLimited(new MemoryStream(new byte[40000]), 16 * 1024, CancellationToken.None).GetAwaiter().GetResult(); } catch (UpdateError) { big = true; }
+            t(big && GitHubUpdateSource.ReadLimited(new MemoryStream(Encoding.UTF8.GetBytes("abc")), 16 * 1024, CancellationToken.None).GetAwaiter().GetResult() == "abc", "Mise à jour : réponse réseau plafonnée");
             t(AppUpdater.FriendlyError(new WebException("x")).Contains("GitHub") && AppUpdater.FriendlyError(new UpdateError("message")) == "message", "Mise à jour : erreurs compréhensibles");
             Directory.Delete(dir, true);
         }

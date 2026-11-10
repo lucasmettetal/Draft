@@ -3,7 +3,13 @@
 # Ce test ne remplace pas un controle a l'oeil : -Shots ecrit aussi des captures.
 param([string]$Out = (Join-Path $env:TEMP 'draftmid-layout'), [switch]$Shots)
 
-$Web = Join-Path (Split-Path $PSScriptRoot -Parent) 'web'
+$Source = Join-Path (Split-Path $PSScriptRoot -Parent) 'web'
+# Copie de test : le banc interroge la page avec eval, autorisé ici seulement, jamais dans l'application.
+$Web = Join-Path $env:TEMP ('draftmid-layout-web-' + $PID)
+Remove-Item -Recurse -Force $Web -ErrorAction SilentlyContinue
+Copy-Item $Source $Web -Recurse
+$index = Join-Path $Web 'index.html'
+[IO.File]::WriteAllText($index, [IO.File]::ReadAllText($index).Replace("script-src 'self' 'unsafe-inline'", "script-src 'self' 'unsafe-inline' 'unsafe-eval'"), [Text.UTF8Encoding]::new($false))
 $Chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $Chrome) { throw 'Chrome introuvable.' }
 New-Item -ItemType Directory -Force $Out | Out-Null

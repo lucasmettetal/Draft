@@ -1,4 +1,4 @@
-# Tests de la V2.15 sur la vraie page : égalités, conseils, expérience, réglages. Copie de travail, historiques fictifs.
+﻿# Tests de la V2.15 sur la vraie page : égalités, conseils, expérience, réglages. Copie de travail, historiques fictifs.
 param([string]$Work = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist-beta\v215'), [string]$Page = 'draft-v215-tests.html')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -6,6 +6,9 @@ Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repo 'web') $Work -Recurse
 # Comme la compilation candidate : sans Meraki.
 Remove-Item (Join-Path $Work 'draft-role-rates.js') -ErrorAction SilentlyContinue
+# Le banc interroge la page avec eval : autorisé dans cette copie de test seulement, jamais dans l'application.
+$index = Join-Path $Work 'index.html'
+[IO.File]::WriteAllText($index, [IO.File]::ReadAllText($index).Replace("script-src 'self' 'unsafe-inline'", "script-src 'self' 'unsafe-inline' 'unsafe-eval'"), [Text.UTF8Encoding]::new($false))
 $chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $chrome) { throw 'Chrome introuvable.' }
 $prof = Join-Path $Work 'pf'; $out = Join-Path $Work 'r.dom'; $url = 'file:///' + ((Join-Path $Work $Page) -replace '\\', '/')
