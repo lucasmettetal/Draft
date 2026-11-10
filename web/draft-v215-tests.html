@@ -83,7 +83,7 @@ for(const [param,marker] of [["compare","compare"],["rules","rules"]]){const x=a
 {const x=await open("mid",null,1280,720,"&tab=settings");await settle();const body=text(x.d.body);t(/Mes profils/.test(body)&&/Exporter mes profils/.test(body)&&/Importer/.test(body),"réglages : profils, export et import");
  const roleBtn=[...x.d.querySelectorAll(".role-pick button")].find(b=>/Jungle/.test(text(b)));roleBtn.click();await settle();t(x.w.eval("myRole()")==="jungle"&&!x.d.querySelector(".settings .pool-chip.on"),"réglages : le rôle choisi charge son propre pool");
  [...x.d.querySelectorAll(".role-pick button")].find(b=>/Mid/.test(text(b))).click();await settle();t(x.d.querySelectorAll(".settings .pool-chip.on").length===4,"réglages : le pool Mid revient");
- t(/DRAFT 2\.16\.0 bêta/.test(body)&&/Non approuvé par Riot Games/.test(body),"réglages : nom, version et avertissement");close(x);}
+ t(body.includes("DRAFT "+x.w.eval("APP_VERSION")+" bêta")&&/DRAFT 2\.\d+\.\d+ bêta/.test(body)&&/Non approuvé par Riot Games/.test(body),"réglages : nom, version et avertissement");close(x);}
 {const x=await open("mid",null,1280,720);t(x.d.title==="DRAFT"&&text(x.d.querySelector(".top .brand"))==="DRAFT","fenêtre principale : nom DRAFT");t(x.d.querySelector(".top .role-switch"),"fenêtre principale : sélecteur de rôle");t(!/DraftMid/.test(x.d.body.innerText),"aucun « DraftMid » visible");close(x);}
 
 // ---------- Réglages et recherche ----------
