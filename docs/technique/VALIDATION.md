@@ -23,7 +23,7 @@ Résultats, branches et statut de publication : voir [Branches et publication](B
 | `--e2e` | Vraies fenêtres et vrais WebView2, sur une fausse fenêtre LoL et un faux LCU | Le comportement du vrai client, l'antitriche, le ressenti |
 | `--soak` | Stabilité sur plusieurs cycles | Une longue session réelle |
 | `run-layout-tests` | Rendu Chrome de chaque état, à chaque taille | L'écran réel, les échelles fractionnaires |
-| `run-accuracy-tests` | Détection du mid, séparée du modèle | De vraies drafts, tant qu'aucune partie n'a été réservée |
+| `run-accuracy-tests` | Estimation des rôles adverses (5 rôles), sur la réserve de vraies compositions si elle existe, sinon sur des drafts synthétiques tirées de la fiche | La réserve n'existe qu'après un calcul des rôles ; les drafts synthétiques ne donnent qu'une borne haute |
 
 ## Vérifications manuelles
 
