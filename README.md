@@ -1,54 +1,85 @@
 # DRAFT
 
-*Ton assistant stratégique pour League of Legends.* Anciennement DraftMid : le projet couvre maintenant les cinq rôles.
+*Ton assistant stratégique pour League of Legends.*
 
-Application Windows qui aide à choisir son champion pendant la sélection de League of Legends. Elle compare les champions que tu as choisis pour ton rôle, affiche un conseil avec ses raisons, et **le joueur décide toujours lui-même**.
+Pendant la sélection, DRAFT classe les champions que tu joues face à la composition adverse, met en avant les plus adaptés et explique comment jouer chacun. **Il ne sélectionne, ne bannit et ne verrouille aucun champion : tu décides toujours.**
 
-**Pour qui :** les joueurs qui veulent préparer leur choix en quelques secondes, à n'importe quel rôle, sans quitter le client.
+## ⬇️ Télécharger
 
-**Statut :** projet personnel, non officiel. DRAFT n'est ni approuvé ni soutenu par Riot Games. Les portraits et illustrations appartiennent à Riot Games. L'exécutable n'est pas signé : Windows peut afficher un avertissement.
+**Version 2.16.0 bêta** · Windows 10 ou 11
 
-## Versions
-
-| Version | Où | État |
+| | Fichier | Pour qui |
 |---|---|---|
-| **V2.14** | Branche `main`, à compiler | **Stable de référence.** Pas encore publiée en release |
-| V2.6 à V2.10 | Anciennes releases publiques | **Pas recommandées.** Voir ci-dessous |
-| V2.15 | Branche `integration/v2.15-coaching` | **Candidate, non stable** |
-| V2.16 bêta (DRAFT) | Branche `feature/draft-profiles-beta` | **Bêta privée, non publiée** : profils par rôle, rôle attribué, export des profils |
+| **Recommandé** | [**DRAFT-Portable.exe**](https://github.com/lucasmettetal/Draft/releases/latest/download/DRAFT-Portable.exe) | Double-clic, rien à installer |
+| | [DRAFT-Setup.exe](https://github.com/lucasmettetal/Draft/releases/latest/download/DRAFT-Setup.exe) | Installe DRAFT, avec un raccourci et une désinstallation propre |
 
-Ce document décrit la V2.14. Le détail est dans [l'index de la documentation](docs/README.md).
+Toutes les versions : [page des releases](https://github.com/lucasmettetal/Draft/releases). Site : [draft-website-ashy.vercel.app](https://draft-website-ashy.vercel.app).
 
-**Anciennes releases :** GitHub affiche encore la V2.10 comme dernière release, mais aucune V2.11 ou plus récente n'a été publiée. Ces versions anciennes peuvent contenir des données Meraki, dont les droits de redistribution restent à clarifier, et des bilans personnels retirés depuis. La référence Meraki est retirée des fichiers courants, mais reste dans l'historique Git et ces releases : voir [leur statut](docs/technique/ANCIENNES-RELEASES.md).
+**Premier lancement :**
 
-## Fonctionnalités de la V2.14
+1. Windows peut afficher « Windows a protégé votre ordinateur », car l'exécutable n'est pas signé par un certificat : clique sur **Informations complémentaires**, puis **Exécuter quand même**.
+2. Aucune fenêtre ne s'ouvre : une icône **DRAFT** apparaît près de l'horloge. Clic droit dessus pour ouvrir les réglages et les panneaux.
+3. Dans **Réglages, Mes profils**, ajoute tes champions pour chaque rôle que tu joues.
 
-- **Profil :** ton rôle et ton pool, parmi tous les champions.
-- **Conseil :** un champion, une alternative et leurs raisons, selon la composition adverse.
-- **Panneaux autour du client :** composition adverse à gauche, verdict à droite, ou panneau unique.
-- **Lecture du client, en option :** les adversaires verrouillés se remplissent seuls.
-- **Saisie manuelle :** toujours disponible, et une draft aléatoire pour tester.
-- **Analyse :** comparaison, plan de jeu, bans conseillés, règles appliquées.
-- **Journal :** tes choix et tes résultats, sur ce PC.
+Il faut Microsoft Edge WebView2, déjà présent sur la plupart des PC : DRAFT le signale au lancement s'il manque. Aucune clé Riot, aucun compte, aucun historique ne sont nécessaires.
 
-## Fonctionnement avec League of Legends
+**Mises à jour :** à partir de la 2.16, plus besoin de retélécharger. Dans les réglages ou le menu de l'icône, **Rechercher une mise à jour** : DRAFT télécharge la nouvelle version, vérifie sa signature, la teste, puis redémarre. Si elle ne démarre pas, l'ancienne revient toute seule. Depuis la 2.14 ou avant, télécharge une fois la 2.16 ci-dessus.
 
-**Aucune action dans le client :** ni verrouillage, ni modification, ni injection, ni lecture de la mémoire, ni information volontairement masquée.
+> DRAFT n'est ni approuvé ni soutenu par Riot Games. *DRAFT isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.*
 
-**La lecture du client est décochée par défaut.** Elle lit localement la phase de jeu et les champions adverses verrouillés. **Riot n'a pas confirmé que cet usage est autorisé, et son activation se fait à tes risques.** Sans elle, tu saisis les adversaires à la main, et une estimation visuelle peu fiable sert de secours.
+## Fonctionnalités
+
+| Fonction | État |
+|---|---|
+| Classement de ton pool face à la composition adverse, avec une alternative et les raisons | ✅ |
+| Profils pour les cinq rôles, changement de rôle en un clic, export et import des profils | ✅ |
+| Panneaux compacts à côté du client, ou fenêtre complète | ✅ |
+| Cinq onglets : Plan de jeu, Analyse (critères, comparaison), Conseils, Duel, Parties | ✅ |
+| Égalités signalées quand deux options sont très proches | ✅ |
+| Saisie manuelle des adversaires, rôle supposé corrigeable d'un clic, draft aléatoire pour s'entraîner | ✅ |
+| Mise à jour depuis l'application, signée et réversible | ✅ |
+| Import de ton historique classé (avec ta propre clé Riot) : champions les plus joués, sans changer le classement | ✅ facultatif |
+| Statistiques de rôles et de matchups calculées depuis l'API Riot (avec ta propre clé) | ✅ facultatif |
+| Conseils pédagogiques (lane, milieu de partie, combats) | 🟡 écrits à la main, en relecture |
+| Lecture du client LoL : adversaires verrouillés et poste attribué | 🧪 désactivée par défaut |
+| Ouverture automatique des panneaux pendant la sélection | 🧪 estimation par une vignette du client |
+
+## Avec League of Legends
+
+**Aucune action dans le client :** ni sélection, ni bannissement, ni verrouillage, ni injection, ni lecture de la mémoire, ni information cachée.
+
+- **Lecture du client, décochée par défaut :** des requêtes de lecture locales vers deux adresses du client (phase de jeu et sélection), pour remplir les adversaires verrouillés et proposer le profil de ton poste. **Riot n'a pas confirmé que cet usage est autorisé** : son activation se fait à tes risques. Détails : [LCU](docs/technique/LCU.md).
+- **Ouverture automatique des panneaux :** DRAFT compare une vignette de 96 × 54 pixels de la fenêtre du client, gardée en mémoire et jamais enregistrée, pour estimer si une sélection commence. Désactivable dans le menu de l'icône.
 
 ## Limites
 
-- **Le score compare tes champions :** ce n'est ni un winrate, ni une probabilité. Les règles et les poids sont écrits à la main, et n'ont jamais été validés sur de vraies parties.
-- **Adversaire direct :** le client ne donne pas les rôles adverses. C'est une supposition, à corriger d'un clic.
-- **Tableau de matchups :** écrit à la main, seulement pour le mid avec Twisted Fate, Fizz, Kog'Maw et Xerath. Ailleurs, le conseil repose sur des fiches générales.
-- **Validation réelle :** une partie personnalisée a été testée de bout en bout. Le classé reste à valider.
+- **Le score compare tes champions entre eux :** ce n'est ni un winrate, ni une probabilité de victoire. Les règles et les poids sont écrits à la main.
+- **Rôles adverses :** le client ne les donne pas. DRAFT les suppose, et tu les corriges d'un clic.
+- **Matchups :** un tableau écrit à la main existe pour le mid (Twisted Fate, Fizz, Kog'Maw, Xerath). Ailleurs, le conseil repose sur des fiches générales, et sur des bilans réels si tu les calcules.
+- **Validation :** la 2.16 passe ses tests automatiques, mais n'a pas encore été éprouvée par des joueurs en classé.
+- **Interface en français** uniquement.
 
-## Installation
+## Tes données
 
-Prérequis : Windows 10 ou 11, avec Microsoft Edge WebView2 (généralement déjà présent).
+Tout reste sur ton PC, dans `%LOCALAPPDATA%\DraftMid` (le nom vient de l'ancienne version). Ni compte, ni télémétrie, ni serveur DRAFT.
 
-**Compiler la V2.14**, sans Visual Studio ni Node :
+- **Clé Riot :** facultative, saisie par toi au moment d'un import, masquée, jamais enregistrée.
+- **Connexions :** illustrations depuis Data Dragon (Riot) ; API Riot seulement quand tu lances un import ou un calcul ; GitHub seulement quand tu cliques sur **Rechercher une mise à jour**.
+- **Tout supprimer :** quitte DRAFT, puis supprime le dossier ci-dessus.
+
+Politique complète : [confidentialité](https://draft-website-ashy.vercel.app/confidentialite.html).
+
+## Versions
+
+| Version | État |
+|---|---|
+| **2.16.0** (DRAFT) | **Dernière release.** Profils par rôle, poste attribué, mise à jour intégrée |
+| 2.14.0 (DraftMid) | Release précédente, sans Meraki ni mise à jour intégrée |
+| 2.6 à 2.10 (DraftMid) | **Déconseillées** : elles peuvent contenir des données Meraki aux droits de redistribution non clarifiés. Voir [leur statut](docs/technique/ANCIENNES-RELEASES.md) |
+
+## Compiler soi-même
+
+Sans Visual Studio ni Node :
 
 ```powershell
 git clone https://github.com/lucasmettetal/Draft.git
@@ -56,25 +87,13 @@ cd Draft
 .\build.ps1
 ```
 
-Les exécutables sont dans `dist\` : `DRAFT-Portable.exe` sans installation, `DRAFT-Setup.exe` à installer sans droits administrateur.
-
-Au lancement, aucune fenêtre ne s'ouvre : une icône apparaît près de l'horloge. La suite est dans le [guide d'utilisation](docs/utilisateur/GUIDE.md).
-
-## Tes données
-
-Tout reste sur ton PC, dans `%LOCALAPPDATA%\DraftMid`. Il n'y a ni compte, ni télémétrie. Une clé Riot est facultative, saisie par toi, masquée et jamais enregistrée.
-
-## Fonctionnalités expérimentales
-
-**Aucune n'est disponible dans la V2.14.** Coaching pédagogique, affichage des égalités, import Riot dans l'application, profil OP.GG, bans adverses : voir [leur statut](docs/experimental/README.md).
+Les exécutables sont dans `dist\`. Les tests natifs se lancent avec `dist\DRAFT-Portable.exe --selftest --data <dossier> --out <fichier>`.
 
 ## Développement
 
-- [Architecture](docs/technique/ARCHITECTURE.md)
-- [Branches et publication](docs/technique/BRANCHES.md)
-- [Validation et tests](docs/technique/VALIDATION.md)
-- [Feuille de route V2.15](docs/ROADMAP-V2.15.md)
+- [Index de la documentation](docs/README.md) · [Architecture](docs/technique/ARCHITECTURE.md) · [Validation et tests](docs/technique/VALIDATION.md)
+- [Profils et migration](docs/technique/PROFILS.md) · [Mise à jour intégrée](docs/technique/MISE-A-JOUR.md) · [Guide de la bêta](docs/utilisateur/GUIDE-BETA.md)
 
-**Attention :** pousser un tag `v*` publie automatiquement une release. Voir [Branches et publication](docs/technique/BRANCHES.md).
+**Publier une version :** monter `AssemblyFileVersion`, pousser un tag `vX.Y.Z` (le workflow compile, teste et publie la release), puis lancer `.\tools\sign-release.ps1 -Tag vX.Y.Z` sur le PC qui détient la clé de signature. Sans signature, la mise à jour intégrée refuse la version. Voir [Branches et publication](docs/technique/BRANCHES.md).
 
-Aucun fichier de licence n'accompagne le projet pour l'instant : le code reste public sans licence de réutilisation accordée.
+Aucun fichier de licence n'accompagne le projet pour l'instant : le code est public, mais sans licence de réutilisation accordée.
