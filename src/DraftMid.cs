@@ -785,7 +785,8 @@ public static class Autostart
             {
                 try
                 {
-                    File.Copy(path, Path.Combine(webDir, HistoryImporter.FileName), true);
+                    // Comme au démarrage : relu et réécrit avant d'atteindre la page.
+                    if (!DataScripts.Publish(HistoryImporter.FileName, dataDir, webDir)) Program.Log(dataDir, "Fichier de données ignoré, contenu non valide : " + HistoryImporter.FileName);
                     rolesReloadPending = true;
                     ReloadRolesIfIdle();
                 }
@@ -851,7 +852,8 @@ public static class Autostart
             if (Quitting) return;
             if (r.Saved)
             {
-                File.Copy(Path.Combine(dataDir, fileName), Path.Combine(webDir, fileName), true);
+                // Les noms de champions viennent de l'API Riot : le fichier est relu et réécrit avant d'atteindre la page.
+                if (!DataScripts.Publish(fileName, dataDir, webDir)) Program.Log(dataDir, "Fichier de données ignoré, contenu non valide : " + fileName);
                 rolesReloadPending = true;
                 ReloadRolesIfIdle();
             }
