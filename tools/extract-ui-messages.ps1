@@ -1,4 +1,4 @@
-# Relève les messages réellement affichés par la page, sur une série de drafts, et les rattache à l'inventaire
+﻿# Relève les messages réellement affichés par la page, sur une série de drafts, et les rattache à l'inventaire
 # (catalogue dans web/draft-messages-tests.html). Signale aussi les explications qui contredisent le calcul (constats B..).
 # Copie de travail sous %TEMP% : le banc interroge la page avec eval, autorisé dans cette copie seulement, jamais dans l'application.
 # Aucun réseau n'est nécessaire (les portraits manquants n'empêchent rien). Aucune donnée personnelle n'est lue.
