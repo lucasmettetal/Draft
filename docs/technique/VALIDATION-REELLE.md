@@ -2,6 +2,8 @@
 
 But : mesurer DRAFT en situation réelle. **Aucun de ces tests n'a encore été réalisé.** Rien n'est à noter pendant la sélection : l'application enregistre, et le reste se fait après la partie.
 
+Le protocole complet (questions mesurées, minimisation des données, règles Riot, seuils de décision, relecture à l'aveugle) est dans [PROTOCOLE-DRAFTS-REELLES.md](PROTOCOLE-DRAFTS-REELLES.md). Quel que soit ton rôle, la colonne `mid_reel` reçoit l'adversaire direct réel (le champion d'en face sur ton rôle).
+
 ## Avant de commencer
 
 1. Ouvrir **Réglages > Avancé** et cocher le diagnostic.
