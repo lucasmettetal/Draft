@@ -541,7 +541,9 @@ public static class Autostart
         string LcuDiag()
         {
             if (lcu == null) return "off";
-            return lcu.Connected ? lcuInfo : "absent(" + LocalHttpsTransport.LastError + ")";
+            if (lcu.Connected) return lcuInfo;
+            // Ouverture (processus, lockfile) puis requête : la première étape en échec suffit à comprendre.
+            return "absent(" + (LcuFactory.LastOpenError != "" ? LcuFactory.LastOpenError : LocalHttpsTransport.LastError) + ")";
         }
 
         public void TestUseLcu(Func<ILcuTransport> open) { lcu = new LcuSession(open) { RetryMs = 0, PollTimeoutMs = 400 }; lastEnemies = ""; }
@@ -560,10 +562,12 @@ public static class Autostart
             {
                 uint pid;
                 Native.GetWindowThreadProcessId(tracker.Handle, out pid);
-                using (Process p = Process.GetProcessById((int)pid))
-                    return LcuFactory.CreateReal(settings.LcuEnabled, Path.GetDirectoryName(p.MainModule.FileName));
+                string error;
+                string folder = ClientProcess.FolderOf((int)pid, out error);
+                if (folder == null) { LcuFactory.LastOpenError = error; return null; }
+                return LcuFactory.CreateReal(settings.LcuEnabled, folder);
             }
-            catch { return null; }
+            catch (Exception e) { LcuFactory.LastOpenError = "ouverture : " + e.GetType().Name; return null; }
         }
 
         // Vrai si le client a répondu. Sinon, l'estimation visuelle et le mode manuel prennent le relais.
@@ -1548,16 +1552,46 @@ public static class Autostart
             if (!f.Visible) problem += "depuis le menu, Fermer masque toute la fenêtre ; ";
 
             // 6. Pendant une draft, depuis un panneau : rien ne doit rester devant le client.
+            // Panneaux réellement affichés (affichage manuel), comme pendant une draft.
             f.Hide();
-            bool shown = panelsShown;
-            panelsShown = true;
+            bool? manualBefore = visibility.Manual;
+            Func<bool, Task> showPanels = async on => { visibility.Manual = on; ApplyVisibility(); for (int i = 0; i < 100 && panelsShown != on; i++) await Task.Delay(50); };
+            await showPanels(true);
             OpenFull("settings");
             await findWindow();
             await waitFor(Close);
             await run(Close + ".click(); 1");
             for (int i = 0; i < 60 && f.Visible; i++) await Task.Delay(50);
-            panelsShown = shown;
+            if (!panelsShown) problem += "les panneaux de test ne sont pas restés affichés ; ";
             if (f.Visible) problem += "pendant une draft, Fermer laisse la grande fenêtre ouverte ; ";
+
+            // 7. Fenêtre principale déjà ouverte pendant une draft, page en plein rechargement (après un import, par exemple) :
+            //    fermer les réglages doit ramener à la fenêtre principale, pas la faire disparaître.
+            OpenFull("");
+            await findWindow();
+            await waitFor("document.querySelector('.app')");
+            f.View.CoreWebView2.Reload();
+            OpenFull("settings");
+            await waitFor(Close);
+            await Task.Delay(300);
+            await waitFor(Close);
+            await run(Close + ".click(); 1");
+            await waitFor("!document.querySelector('.settings')");
+            await Task.Delay(300);
+            if (!f.Visible) problem += "fenêtre principale ouverte, page en rechargement : Fermer fait disparaître la fenêtre principale ; ";
+
+            // 8. Réglages ouverts depuis un panneau pendant une draft, puis la draft se termine avant la fermeture :
+            //    plus aucun panneau à l'écran, DRAFT ne doit pas sembler fermé.
+            f.Hide();
+            OpenFull("settings");
+            await findWindow();
+            await waitFor(Close);
+            await showPanels(false);
+            await run(Close + ".click(); 1");
+            for (int i = 0; i < 20; i++) await Task.Delay(50);
+            if (!panels.Values.Any(p => p.Visible)) problem += "draft terminée pendant les réglages : Fermer ne laisse plus aucune fenêtre DRAFT ; ";
+            visibility.Manual = manualBefore;
+            ApplyVisibility();
 
             // Simulation : le bouton de la page de draft donne une draft complète, différente à chaque clic.
             OpenFull("");
@@ -1615,7 +1649,8 @@ public static class Autostart
                     if (open.IsDisposed || open.View.CoreWebView2 == null) return;
                     if (await open.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.settings')") == "true") return;
                 }
-                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings" + (panelsShown ? "&solo=1" : ""));
+                // La fenêtre principale était déjà à l'écran : fermer les réglages doit y revenir, jamais la masquer (pas de solo=1).
+                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings");
                 return;
             }
             // Pendant une draft, la fenêtre ne doit pas rester devant le client une fois les réglages fermés.
@@ -1690,7 +1725,9 @@ public static class Autostart
                     break;
                 }
                 case "profileAdopted": legacyProfile = false; settings.ProfileKnown = true; Persist(); break;
-                case "closeFull": { PanelForm full; if (panels.TryGetValue("full", out full)) full.Hide(); break; }
+                // Réglages ouverts seuls pendant une draft : on les referme sans rien laisser devant le client.
+                // Si la draft est finie entre-temps (plus aucun panneau), la fenêtre principale reste : sinon DRAFT semblerait fermé.
+                case "closeFull": { PanelForm full; if (panelsShown && panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
                 case "openFull": OpenFull(m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""); break;
                 case "setAutostart": Autostart.Set(val, exePath); RefreshUi(); break;

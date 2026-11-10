@@ -105,8 +105,41 @@ namespace DraftMid
         }
     }
 
+    // Dossier du client à partir de son processus.
+    // Process.MainModule demande un accès complet au processus : il est refusé quand le client tourne avec plus de droits
+    // que DRAFT (client lancé en administrateur, par exemple). La requête limitée, elle, est permise dans ce cas.
+    public static class ClientProcess
+    {
+        const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder name, ref int size);
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        static extern bool CloseHandle(IntPtr handle);
+
+        // Null si le chemin est introuvable ; error donne alors la raison, sans chemin ni identifiant.
+        public static string FolderOf(int pid, out string error)
+        {
+            error = "";
+            IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (h == IntPtr.Zero) { error = "processus du client inaccessible (Win32 " + System.Runtime.InteropServices.Marshal.GetLastWin32Error() + ")"; return null; }
+            try
+            {
+                StringBuilder s = new StringBuilder(1024);
+                int n = s.Capacity;
+                if (!QueryFullProcessImageName(h, 0, s, ref n)) { error = "chemin du client illisible (Win32 " + System.Runtime.InteropServices.Marshal.GetLastWin32Error() + ")"; return null; }
+                return Path.GetDirectoryName(s.ToString(0, n));
+            }
+            finally { CloseHandle(h); }
+        }
+    }
+
     public static class LcuFactory
     {
+        // Étape où la dernière ouverture a échoué, pour le journal de diagnostic : jamais de chemin, de port ni de mot de passe.
+        public static string LastOpenError = "";
+
         // Le lockfile n'est jamais ouvert tant que le verrou est fermé.
         public static ILcuTransport CreateReal(bool optionEnabled, string clientProcessFolder)
         {
@@ -118,10 +151,15 @@ namespace DraftMid
                 using (StreamReader r = new StreamReader(f))
                 {
                     LockfileInfo i = LockfileInfo.Parse(r.ReadToEnd());
+                    LastOpenError = i == null ? "lockfile invalide" : "";
                     return i == null ? null : new LocalHttpsTransport(i);
                 }
             }
-            catch { return null; }
+            catch (FileNotFoundException) { LastOpenError = "lockfile absent"; return null; }
+            catch (DirectoryNotFoundException) { LastOpenError = "lockfile absent"; return null; }
+            catch (UnauthorizedAccessException) { LastOpenError = "lockfile refusé"; return null; }
+            catch (IOException) { LastOpenError = "lockfile verrouillé"; return null; }
+            catch (Exception e) { LastOpenError = "lockfile : " + e.GetType().Name; return null; }
         }
     }
 
@@ -315,6 +353,35 @@ namespace DraftMid
             t(li != null && li.Port == 50000 && li.Password == "motdepasse", "LCU : lecture d'un lockfile simulé");
             t(!li.ToString().Contains("motdepasse"), "LCU : le mot de passe n'apparaît jamais dans un journal");
             t(LockfileInfo.Parse("abimé") == null && LockfileInfo.Parse("a:b:port:c:https") == null && LockfileInfo.Parse("a:1:50000:c:http") == null, "LCU : un lockfile invalide est refusé");
+            // Dossier du client : requête limitée, sans Process.MainModule.
+            string err;
+            string self = ClientProcess.FolderOf(Process.GetCurrentProcess().Id, out err);
+            t(self != null && string.Equals(self, Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), StringComparison.OrdinalIgnoreCase), "LCU : dossier du client lu par requête limitée");
+            t(ClientProcess.FolderOf(-1, out err) == null && err.StartsWith("processus du client inaccessible") && !err.Contains("\\"), "LCU : processus introuvable, raison donnée sans chemin");
+            // Processus de l'utilisateur lancé avec plus de droits (comme un client lancé en administrateur) : MainModule est refusé.
+            int elevated = -1;
+            foreach (Process p in Process.GetProcesses())
+                using (p)
+                {
+                    if (elevated > 0) continue;
+                    try { string m = p.MainModule.FileName; } catch { string e2; if (p.SessionId == Process.GetCurrentProcess().SessionId && ClientProcess.FolderOf(p.Id, out e2) != null) elevated = p.Id; }
+                }
+            t(true, elevated > 0 ? "LCU : processus à droits supérieurs (pid " + elevated + ") : MainModule refusé, dossier lu quand même" : "LCU : aucun processus à droits supérieurs sur ce PC, cas non rejoué");
+            string lockDir = Path.Combine(Path.GetTempPath(), "draft-lcu-test-" + Process.GetCurrentProcess().Id);
+            Directory.CreateDirectory(lockDir);
+            try
+            {
+                t(LcuFactory.CreateReal(true, lockDir) == null && LcuFactory.LastOpenError == "lockfile absent", "LCU : lockfile absent signalé dans le diagnostic");
+                File.WriteAllText(Path.Combine(lockDir, "lockfile"), "abimé");
+                t(LcuFactory.CreateReal(true, lockDir) == null && LcuFactory.LastOpenError == "lockfile invalide", "LCU : lockfile invalide signalé dans le diagnostic");
+                File.WriteAllText(Path.Combine(lockDir, "lockfile"), "LeagueClient:1234:50000:secretlcu:https");
+                t(LcuFactory.CreateReal(true, lockDir) != null && LcuFactory.LastOpenError == "", "LCU : lockfile valide, diagnostic remis à zéro");
+                File.WriteAllText(Path.Combine(lockDir, "lockfile"), "abimé:secretlcu");
+                LcuFactory.CreateReal(true, lockDir);
+                t(!LcuFactory.LastOpenError.Contains("secretlcu") && !LcuFactory.LastOpenError.Contains(lockDir), "LCU : le diagnostic ne contient ni mot de passe ni chemin");
+            }
+            finally { Directory.Delete(lockDir, true); LcuFactory.LastOpenError = ""; }
+
             string prefs = new JavaScriptSerializer().Serialize(new UserPreferences());
             t(!prefs.Contains("Password") && !prefs.Contains("Port") && prefs.Contains("\"LcuEnabled\":false"), "LCU : option désactivée par défaut, aucun identifiant dans les préférences");
 
