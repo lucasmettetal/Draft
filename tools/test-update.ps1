@@ -1,6 +1,12 @@
 # Essai complet de la mise à jour, dans des dossiers isolés (dist-beta\maj-*). Ne touche ni à une version installée, ni aux données.
-# Une vraie 2.16.0 se met à jour vers une version plus récente construite ici, puis redémarre. Enfin, lecture réelle de la dernière release GitHub.
-param([string]$Work = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist-beta\maj'))
+# La version de départ est soit construite depuis ces sources, soit un exécutable donné par -Base (par exemple la release 2.16.0 officielle),
+# ce qui teste la logique de mise à jour réellement distribuée. Les candidats sont construits ici, en versions plus récentes.
+# La source locale (--test-update) remplace GitHub et signe avec une clé jetable : les refus de signature, d'empreinte et de version
+# sont couverts par les tests natifs (--selftest) de chaque version, et la clé réelle est vérifiée à part ci-dessous.
+param(
+  [string]$Work = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist-beta\maj'),
+  [string]$Base
+)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
@@ -8,12 +14,16 @@ New-Item -ItemType Directory -Force $Work | Out-Null
 $fails = 0
 function Check($ok, $text) { if ($ok) { "OK : $text" } else { "ECHEC : $text"; $script:fails++ } }
 function Version($file) { (Get-Item $file).VersionInfo.FileVersion }
+$cs0 = [IO.File]::ReadAllText((Join-Path $repo 'src\DraftMid.cs'))
+$current = [regex]::Match($cs0, 'AssemblyFileVersion\("(\d+\.\d+\.\d+)\.0"\)').Groups[1].Value
+if (-not $current) { throw 'Version introuvable dans src\DraftMid.cs.' }
+function Bump($v, $n) { $p = $v.Split('.'); "$($p[0]).$($p[1]).$([int]$p[2] + $n)" }
 function Build($dir, $version, $inject = '') {
   $src = Join-Path $Work "src-$version"
   New-Item -ItemType Directory -Force $src | Out-Null
   foreach ($item in 'src', 'web', 'lib', 'build.ps1') { Copy-Item (Join-Path $repo $item) $src -Recurse }
   $cs = Join-Path $src 'src\DraftMid.cs'
-  $text = [IO.File]::ReadAllText($cs).Replace('AssemblyVersion("2.16.0.0")', "AssemblyVersion(`"$version.0`")").Replace('AssemblyFileVersion("2.16.0.0")', "AssemblyFileVersion(`"$version.0`")")
+  $text = [IO.File]::ReadAllText($cs).Replace("AssemblyVersion(`"$current.0`")", "AssemblyVersion(`"$version.0`")").Replace("AssemblyFileVersion(`"$current.0`")", "AssemblyFileVersion(`"$version.0`")")
   if ($inject) { $text = $text.Replace('string webDir = Extract(dataDir);', "$inject string webDir = Extract(dataDir);") }
   [IO.File]::WriteAllText($cs, $text, [Text.UTF8Encoding]::new($false))
   & (Join-Path $src 'build.ps1') -Out $dir | Out-Null
@@ -33,45 +43,61 @@ function Scenario($name, $source) {
   return $dir
 }
 
-Build (Join-Path $Work 'a') '2.16.0'
-Build (Join-Path $Work 'b') '2.16.1'
+# Version de départ.
+if ($Base) {
+  New-Item -ItemType Directory -Force (Join-Path $Work 'a') | Out-Null
+  Copy-Item $Base (Join-Path $Work 'a\DRAFT-Portable.exe')
+  $newer = $current
+  "Départ : $Base ($(Version $Base)), candidate : sources en $newer"
+} else {
+  Build (Join-Path $Work 'a') $current
+  $newer = Bump $current 1
+  "Départ : sources en $current, candidate : $newer"
+}
+$start = Version (Join-Path $Work 'a\DRAFT-Portable.exe')
+Build (Join-Path $Work 'b') $newer
 Build (Join-Path $Work 'c') '2.15.9'
-Check ((Version "$Work\b\DRAFT-Portable.exe") -eq '2.16.1.0') 'version 2.16.1 construite'
+Check ((Version "$Work\b\DRAFT-Portable.exe") -eq "$newer.0" -and [version]$newer -gt [version]$start) "candidate $newer construite, plus récente que $start"
 
 $dir = Scenario 'plus-recente' "$Work\b\DRAFT-Portable.exe"
-Check ((Version "$dir\app\DRAFT-Portable.exe") -eq '2.16.1.0') 'plus récente : exécutable remplacé en place'
+Check ((Version "$dir\app\DRAFT-Portable.exe") -eq "$newer.0") 'plus récente : exécutable remplacé en place'
 Check (Test-Path "$dir\etat.json") 'plus récente : la nouvelle version a redémarré et lu ses données'
 Check (-not (Test-Path "$dir\app\DRAFT-Portable.exe.ancien")) 'plus récente : ancienne version supprimée après le redémarrage'
 Check (-not (Test-Path "$dir\app\DRAFT-Portable.maj.exe")) 'plus récente : aucun fichier temporaire restant'
 Check (-not (Test-Path "$dir\data\maj-test")) 'plus récente : dossier de test supprimé'
 
 $dir = Scenario 'identique' "$Work\a\DRAFT-Portable.exe"
-Check ((Version "$dir\app\DRAFT-Portable.exe") -eq '2.16.0.0') 'même version : rien de remplacé'
+Check ((Version "$dir\app\DRAFT-Portable.exe") -eq $start) 'même version : rien de remplacé'
 Check ((Get-Content "$dir\resultat.txt" -Raw -Encoding utf8) -match 'à jour') 'même version : annonce à jour'
 
 $dir = Scenario 'plus-ancienne' "$Work\c\DRAFT-Portable.exe"
-Check ((Version "$dir\app\DRAFT-Portable.exe") -eq '2.16.0.0') 'version plus ancienne : aucun retour en arrière'
+Check ((Version "$dir\app\DRAFT-Portable.exe") -eq $start) 'version plus ancienne : aucun retour en arrière'
 
-Build (Join-Path $Work 'plante') '2.16.2' 'if (o.AfterUpdate > 0) Environment.Exit(3);'
+Build (Join-Path $Work 'plante') (Bump $newer 1) 'if (o.AfterUpdate > 0) Environment.Exit(3);'
 $dir = Scenario 'plantage' "$Work\plante\DRAFT-Portable.exe"
-Check ((Version "$dir\app\DRAFT-Portable.exe") -eq '2.16.0.0') 'plantage à l''ouverture : ancienne version remise en place'
+Check ((Version "$dir\app\DRAFT-Portable.exe") -eq $start) 'plantage à l''ouverture : ancienne version remise en place'
 Check (Test-Path "$dir\etat.json") 'plantage à l''ouverture : ancienne version relancée'
 Check (-not (Test-Path "$dir\app\DRAFT-Portable.exe.ancien")) 'plantage à l''ouverture : aucun reste'
 
-Build (Join-Path $Work 'fige') '2.16.3' 'if (o.AfterUpdate > 0) Thread.Sleep(Timeout.Infinite);'
+Build (Join-Path $Work 'fige') (Bump $newer 2) 'if (o.AfterUpdate > 0) Thread.Sleep(Timeout.Infinite);'
 $dir = Scenario 'blocage' "$Work\fige\DRAFT-Portable.exe"
-Check ((Version "$dir\app\DRAFT-Portable.exe") -eq '2.16.0.0') 'blocage à l''ouverture : ancienne version remise en place'
+Check ((Version "$dir\app\DRAFT-Portable.exe") -eq $start) 'blocage à l''ouverture : ancienne version remise en place'
 Check (Test-Path "$dir\etat.json") 'blocage à l''ouverture : ancienne version relancée'
 
-# Clé réelle : le fichier signé par l'outil est accepté par la clé publique embarquée, et seulement pour son tag.
+# Clé réelle : un fichier signé par l'outil est accepté par la clé publique embarquée dans la version de départ ET dans la candidate,
+# et seulement pour son tag. La clé n'est ni affichée ni copiée.
 $key = Join-Path $env:APPDATA 'DRAFT-signature\draft-update-private.xml'
 if (Test-Path $key) {
-  $exe = Join-Path $Work 'a\DRAFT-Portable.exe'; $sig = Join-Path $Work 'essai.sig'
-  & (Join-Path $PSScriptRoot 'sign-release.ps1') -Tag 'v9.9.9' -File $exe -Out $sig | Out-Null
-  $good = Start-Process $exe -ArgumentList '--test-signature', "`"$exe`"", 'v9.9.9', "`"$sig`"", '--data', "`"$Work\sig-data`"" -PassThru -Wait
-  Check ($good.ExitCode -eq 0) 'signature réelle : acceptée par la clé embarquée'
-  $bad = Start-Process $exe -ArgumentList '--test-signature', "`"$exe`"", 'v9.9.8', "`"$sig`"", '--data', "`"$Work\sig-data`"" -PassThru -Wait
-  Check ($bad.ExitCode -ne 0) 'signature réelle : refusée pour un autre tag'
+  foreach ($who in 'a', 'b') {
+    $exe = Join-Path $Work "$who\DRAFT-Portable.exe"; $sig = Join-Path $Work "essai-$who.sig"
+    & (Join-Path $PSScriptRoot 'sign-release.ps1') -Tag 'v9.9.9' -File (Join-Path $Work 'b\DRAFT-Portable.exe') -Out $sig | Out-Null
+    $good = Start-Process $exe -ArgumentList '--test-signature', "`"$(Join-Path $Work 'b\DRAFT-Portable.exe')`"", 'v9.9.9', "`"$sig`"", '--data', "`"$Work\sig-data`"" -PassThru -Wait
+    Check ($good.ExitCode -eq 0) "signature réelle : acceptée par la clé embarquée ($(Version $exe))"
+    $bad = Start-Process $exe -ArgumentList '--test-signature', "`"$(Join-Path $Work 'b\DRAFT-Portable.exe')`"", 'v9.9.8', "`"$sig`"", '--data', "`"$Work\sig-data`"" -PassThru -Wait
+    Check ($bad.ExitCode -ne 0) "signature réelle : refusée pour un autre tag ($(Version $exe))"
+    $other = Start-Process $exe -ArgumentList '--test-signature', "`"$(Join-Path $Work 'c\DRAFT-Portable.exe')`"", 'v9.9.9', "`"$sig`"", '--data', "`"$Work\sig-data`"" -PassThru -Wait
+    Check ($other.ExitCode -ne 0) "signature réelle : refusée pour un autre fichier ($(Version $exe))"
+  }
 } else { 'NON TESTE : clé privée absente de ce PC.' }
 
 $live = Join-Path $Work 'github'
