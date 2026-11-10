@@ -20,7 +20,7 @@ const scores=$=>JSON.stringify($.V.res.ranking.map(p=>[p.pick,p.score]));
  t(items.length===2&&text(items[0]).includes("Master Yi")&&text(items[1]).includes("Viego"),"égalité : les deux champions au même niveau");
  const sizes=items.map(i=>i.querySelector(".tie-name")).map(n=>x.w.getComputedStyle(n).fontSize);t(sizes[0]===sizes[1],"égalité : même taille de nom");
  t(!x.d.querySelector(".p-chip")&&!x.d.querySelector(".p-reco"),"égalité : pas de « Recommandé », pas de portrait géant");t(![...x.d.querySelectorAll(".cta")].length,"égalité : pas de « Je joue » pour un seul nom");
- t(text(x.d.querySelector(".p-status")).includes("Égalité"),"égalité : badge explicite");t(/ordre d'affichage/.test(text(x.d.querySelector(".tie-group"))),"égalité : l'ordre est dit sans signification");
+ t(text(x.d.querySelector(".p-status")).includes("Égalité"),"égalité : badge explicite");t(/Même risque : l'ordre est alphabétique/.test(text(x.d.querySelector(".tie-group"))),"égalité : fiches identiques, l'ordre alphabétique est dit comme tel");
  t(/ne les départage pas/.test(text(x.d.querySelector(".coach-line"))),"égalité : conseil pédagogique affiché");t(text(x.d.querySelector('[aria-live]')).startsWith("Égalité entre"),"égalité : annoncée au lecteur d'écran");
  const before=scores(x.$);x.$.choosePick("Viego");await settle();t(x.d.querySelector(".tie-item.picked")&&text(x.d.querySelector(".tie-item.picked")).includes("Viego"),"égalité : le choix du joueur est marqué");t(scores(x.$)===before,"égalité : choisir ne change aucun score");t(x.$.V.tied.length===2,"égalité : reste une égalité après le choix");
  close(x);}
@@ -90,6 +90,32 @@ for(const [param,marker] of [["compare","compare"],["rules","rules"]]){const x=a
 {const x=await open("mid",null,1280,720,"&tab=settings");x.$.hostState.available=true;x.$.rerender();await settle();const body=text(x.d.body);t(/Mon historique Riot/.test(body),"réglages : section présente");const btn=[...x.d.querySelectorAll("button")].find(b=>text(b)==="Importer mon historique Riot");t(!!btn,"réglages : bouton « Importer mon historique Riot »");t(/n'est pas enregistrée/.test(body),"réglages : la clé est dite non enregistrée");t(/Niveau des conseils/.test(body),"réglages : niveau des conseils");
  Object.assign(x.$.hostState,{historyRunning:true,historyStatus:"Import de l'historique : 5 sur 100 parties"});x.$.rerender();await settle();t([...x.d.querySelectorAll("button")].some(b=>text(b)==="Arrêter l'import")&&/5 sur 100/.test(text(x.d.body)),"réglages : avancement et arrêt visibles");Object.assign(x.$.hostState,{historyRunning:false,historyHasMore:true,historyStatus:"Import terminé"});x.$.rerender();await settle();t([...x.d.querySelectorAll("button")].some(b=>text(b)==="Importer plus de parties"),"réglages : enrichissement proposé");close(x);}
 {const x=await open("mid","left");t(x.$.suggest("ahr").includes("Ahri"),"recherche : trouve un champion");const input=x.d.querySelector("input");t(!!input,"recherche : champ présent");close(x);}
+// ---------- V2.17 : explications fidèles au calcul (PR D) ----------
+// Nom affiché maintenu alors qu'un autre pick mène de peu : rien ne doit le présenter comme 1er.
+{const x=await open("mid","right");["Yasuo","Yone"].forEach(x.$.addEnemy);await settle();const v=x.$.V,first=v.res.ranking[0];const held=!v.tied&&first.pick!==v.shown;
+ t(held,"précondition : Yasuo, Yone → le nom affiché n'est pas 1er ("+v.shown+" / "+first.pick+")");
+ if(held){const name=x.w.eval("label")(v.shown);t(text(x.d.querySelector(".p-chip"))!=="Recommandé","B-03 : pas de « Recommandé » sur un nom 2e");
+  for(const level of ["beginner","intermediate","advanced"]){x.$.savePrefs({coachLevel:level});await settle();const items=x.$.coachData().advice.items;const all=items.map(i=>i.title+" "+i.text).join(" ");
+   t(!new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+" (passe devant|mène)").test(all),"B-01 : « "+name+" passe devant / mène » jamais dit d'un nom 2e ("+level+")");t(!/Écart de -/.test(all),"B-01 : aucun écart négatif ("+level+")");
+   t(!/reste devant|Le score reste le meilleur/.test(all)||!items.some(i=>i.id==="draft.conflict"),"B-01 : « reste devant » réservé au 1er ("+level+")");}
+  x.$.savePrefs({coachLevel:"beginner"});await settle();const ch=x.$.coachData().choices;t(ch&&ch.strategic.label!=="Meilleur choix pour la draft"&&new RegExp(x.w.eval("label")(first.pick)).test(ch.strategic.label),"B-02 : « Meilleur choix » réservé au 1er ("+(ch&&ch.strategic.label)+")");}
+ // B-08 : une raison positive ne contient jamais « à éviter » ; les hypothèses sont nommées.
+ const reasons=x.$.V.reasons.concat(x.$.V.res.ranking.flatMap(p=>x.w.positiveReasons(p)));t(!reasons.some(r=>/éviter/i.test(r)),"B-08 : aucune raison positive « à éviter »");
+ const mixed=x.$.V.res.ranking.flatMap(p=>p.criteria).filter(c=>c.parts);t(mixed.length&&mixed.every(c=>/^Si c'est /.test(c.text)&&!/ · /.test(c.text)),"B-08 : hypothèses nommées (« Si c'est … »)");
+ close(x);}
+// B-04 : à score égal, l'ordre départagé par le risque est dit comme tel, pas comme l'alphabet.
+{const x=await open("mid",null,1280,720,"&tab=analyse");x.w.eval("saveMyProfile('jungle',['Graves','Warwick'])");await settle();["Lissandra","Nautilus","Kog'Maw"].forEach(x.$.addEnemy);await settle();const v=x.$.V;
+ const tied=v.tied&&v.tied.map(p=>v.res.ranking.find(e=>e.pick===p));const risk=tied&&new Set(tied.map(e=>Math.min(0,...e.why.map(w=>w.v)).toFixed(3))).size>1;t(risk,"précondition : égalité départagée par le risque ("+(v.tied||[]).join("=")+")");
+ if(risk){const note=text(x.d.querySelector(".tie-group .note"));t(/pire critère|aucun critère ne le pénalise/.test(note)&&!/alphab|n'a pas de sens/.test(note),"B-04 : la cause affichée est le risque ("+note+")");
+  const ana=text(x.d.querySelector(".tab-body"));t(!/n'a pas de sens/.test(ana)&&/pire critère|aucun critère ne le pénalise/.test(ana),"B-04 : même cause dans l'analyse");
+  x.$.savePrefs({coachLevel:"advanced"});await settle();const tie=x.$.coachData().advice.items.find(i=>i.id==="draft.tie");t(tie&&!/alphab/.test(tie.text)&&/pire critère|aucun critère ne le pénalise/.test(tie.text),"B-04 : conseil avancé, cause = risque");x.$.savePrefs({coachLevel:"beginner"});}
+ close(x);}
+// B-07, B-10, B-11, B-17 : réglage frontline décoché, draft incomplète.
+{const x=await open("mid",null,1280,720,"&tab=analyse");x.$.savePrefs({assumeFront:false});["Yasuo","Yone","Lee Sin"].forEach(x.$.addEnemy);await settle();
+ const ana=text(x.d.querySelector(".tab-body"));t(!/Frontline allié(e)? supposé(e)?\./.test(ana)&&/Pas de frontline alliée supposée/.test(ana),"B-07 : le réglage frontline est dit tel qu'il est");
+ x.d.querySelector('[data-view="compare"]').click();await settle();const cmp=text(x.d.querySelector(".tab-body"));t(!/si ton équipe n'a pas de frontline/.test(cmp),"B-10 : pas de « passerait devant si ton équipe n'a pas de frontline » quand c'est déjà le réglage");
+ x.d.querySelector('[data-tab="plan"]').click();await settle();const plan=text(x.d.querySelector(".tab-body"));t(/3 champions adverses visibles/.test(plan)&&!/5 champions adverses/.test(plan),"B-11 : le plan dit le nombre réel d'adversaires");
+ t(!/Peu adapté/.test(text(x.d.body)),"B-17 : plus de seuil « Peu adapté » sur le score absolu");x.$.savePrefs({assumeFront:true});close(x);}
 // Une panne du coaching n'atteint pas le verdict
 {const x=await open("mid","right");x.w.coachingAdvice=()=>{throw new Error("panne")};x.w.eval("coachingAdvice=()=>{throw new Error('panne')};playerChoices=()=>{throw new Error('panne')}");["Ahri","Ornn"].forEach(x.$.addEnemy);await settle();t(x.d.querySelector(".p-chip")||x.d.querySelector(".tie-group"),"panne du coaching : le verdict reste affiché");t(!x.d.querySelector(".coach-line"),"panne du coaching : aucun conseil inventé");close(x);}
 // Aucun appel réseau vers Riot depuis la page

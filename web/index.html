@@ -815,12 +815,12 @@ function describeChange(prev, shown, heldEntry, ranking) {
   const oldNow = ranking.find(p => p.pick === prev.shown);
   const oldBefore = prev.order.find(p => p.pick === prev.shown);
   const newBefore = prev.order.find(p => p.pick === shown);
-  const seen = (entry, w) => entry && entry.why.some(x => x.text === w.text);
-  const loss = oldNow && oldNow.why.find(w => w.v < 0 && !seen(oldBefore, w));
-  const gain = heldEntry.why.find(w => w.v > 0 && !seen(newBefore, w));
-  const reason = !oldNow ? `${label(prev.shown)} est pris en face` : (loss || gain || {}).text || "";
-  // Sans nouvelle raison, ce n'est pas ce champion qui a tout changé : l'écart existait déjà.
-  if (!reason && state.enemies.length >= 5) return { id: Date.now(), trigger: "Draft complète", from: label(prev.shown), to: label(shown), reason: "Il menait déjà de peu : le nom attendait la fin de la draft pour changer." };
+  // Le nouveau nom menait déjà avant cet ajout : c'est la fin de la draft qui libère le nom affiché, pas ce champion.
+  if (oldNow && state.enemies.length >= 5 && newBefore && oldBefore && newBefore.score > oldBefore.score) return { id: Date.now(), trigger: "Draft complète", from: label(prev.shown), to: label(shown), reason: "Il menait déjà de peu : le conseil change maintenant que la draft est complète." };
+  // Sinon, la raison est le critère qui sépare le plus les deux picks maintenant.
+  const lead = oldNow && leadCriterion(heldEntry, oldNow);
+  const crit = lead && heldEntry.criteria.find(c => c.key === lead.key);
+  const reason = !oldNow ? `${label(prev.shown)} est pris en face` : lead ? (crit && crit.impact > 0 && signedText(crit, 1)) || `avantage sur « ${lead.label} »` : "";
   return { id: Date.now(), trigger: state.lastAction, from: label(prev.shown), to: label(shown), reason };
 }
 
@@ -853,7 +853,7 @@ function computeVerdict() {
   const tiedEntries = tied ? tied.map(t => res.ranking.find(p => p.pick === t)) : [];
   const others = res.ranking.filter(p => p.pick !== shown && notTied(p));
   const rival = others.find(p => !avoided.includes(p.pick)) || others[0];
-  const clear = !n || !rival || heldEntry.score - rival.score >= HOLD_GAP;
+  const clear = !n || !others.length || heldEntry.score - others[0].score >= HOLD_GAP;
   state.shown = shown;
   state.clear = clear;
   const without = n && PREFS.assumeFront ? analyze(state.enemies, mid, false).ranking[0] : null;
@@ -868,7 +868,7 @@ function computeVerdict() {
     hypothesis: belief && n ? beliefHypothesis(belief, mid) : null,
     provisional: !!belief && n > 0 && (belief.confidence === "faible" || !!(scenarios && scenarios.length > 1 && scenarios.some(sc => analyze(state.enemies, sc.mid, PREFS.assumeFront).ranking[0].pick !== res.ranking[0].pick))),
     personal: personalLine(shown, mid),
-    without: without && without.pick !== shown ? without.pick : null,
+    without: without && without.pick !== shown && !(scenarios && scenarios.length > 1) ? without.pick : null,
     bans: suggestBans(),
     // Passer d'un ex æquo à l'autre n'est pas un changement de conseil.
     change: action && !(tied && prevV && tied.includes(prevV.shown)) && !(prevV && prevV.tied && prevV.tied.includes(shown)) ? describeChange(prevV, shown, heldEntry, res.ranking) : null
@@ -1403,7 +1403,7 @@ function TieGroup({ detailed }) {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const list = V.tied.slice(0, TIE_SHOWN), more = V.tied.length - list.length;
   return html`<section className="tie-group" aria-label="Champions à égalité">
-    <p className="tie-title"><b>${V.tied.length} choix équivalents</b> sur cette draft</p>
+    <p className="tie-title"><b>${V.tied.length} picks à égalité de score</b> sur cette draft</p>
     <div className="tie-list">
       ${list.map(p => {
         const chosen = entry && entry.picked === p, why = detailed ? positiveReasons(V.res.ranking.find(x => x.pick === p))[0] : null;
@@ -1414,7 +1414,7 @@ function TieGroup({ detailed }) {
         </button>`;
       })}
     </div>
-    <p className="note">${more ? `Et ${more} autre${more > 1 ? "s" : ""} dans Analyse. ` : ""}L'ordre d'affichage n'a pas de sens.</p>
+    <p className="note">${more ? `Et ${more} autre${more > 1 ? "s" : ""} dans Analyse. ` : ""}${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}</p>
   </section>`;
 }
 
@@ -1582,7 +1582,8 @@ function rankWord(p, i) {
   if (V.avoided.includes(p.pick)) return ["À éviter", "bad"];
   if (i === 0) return [V.clear ? "Recommandé" : "Très proche", "best"];
   if (i === 1) return [V.clear ? "Alternative" : "Très proche", V.clear ? "alt" : "best"];
-  return [p.score < 0 ? "Peu adapté" : "Possible", p.score < 0 ? "bad" : "other"];
+  const far = V.order[0] && V.order[0].score - p.score >= HOLD_GAP;
+  return [far ? "Moins adapté" : "Possible", far ? "bad" : "other"];
 }
 
 // Au-delà, la liste écraserait le verdict : le reste du pool se lit dans Analyse et Comparer.
@@ -1673,7 +1674,7 @@ function PlanTab() {
     <${motion.ul} key=${phase + playing} className="tips" initial=${{ opacity:.4, y:4 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>
       ${plan[phase].map(tip => html`<li key=${tip}>${tip}</li>`)}
     <//>
-    <p className="small">Avis général basé sur les 5 champions adverses, sans cooldowns ni builds vérifiés.</p>
+    <p className="small">Avis général basé sur ${V.n > 1 ? `les ${V.n} champions adverses visibles` : V.n ? "1 champion adverse visible" : "aucun champion adverse pour l'instant"}, sans tenir compte des cooldowns ni des builds.</p>
   </div>`;
 }
 
@@ -1688,11 +1689,11 @@ function CriteriaView() {
   if (V.res.ranking[0] && V.res.ranking[0].byScenario) uncertain.push("Classement pondéré entre ces hypothèses, avec les mêmes règles.");
   if (!V.mid) uncertain.push(`${oppName()} inconnu : le matchup direct n'est pas évalué.`);
   if (V.mid && !matchupOf(V.mid) && !PICKS.some(p => liveMatchup(p, V.mid))) uncertain.push(`Pas de données de matchup contre ${V.mid} : ce critère n'est pas évalué.`);
-  if (V.tied) uncertain.push(`${V.tied.map(label).join(", ")} ont le même score : l'ordre d'affichage n'a pas de sens.`);
+  if (V.tied) uncertain.push(`${V.tied.map(label).join(", ")} ont le même score. ${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}`);
   if (entries[0] && V.shown !== entries[0].pick && !(V.tied && V.tied.includes(entries[0].pick))) uncertain.push(`${label(V.shown)} reste affiché : ${label(entries[0].pick)} mène de trop peu pour changer de nom en cours de draft.`);
   if (V.n < 5) uncertain.push(`Draft incomplète : ${V.n} adversaire(s) sur 5.`);
   if (V.res.unknown.length) uncertain.push(`Profil provisoire : ${V.res.unknown.join(", ")}.`);
-  uncertain.push("Frontline allié supposé.");
+  uncertain.push(PREFS.assumeFront ? "Frontline alliée supposée (réglage)." : "Pas de frontline alliée supposée (réglage).");
   return html`<div>
     <p className="small">${uncertain.join(" ")}</p>
     <div className="matrix" role="table" aria-label="Critères par champion">
@@ -1715,8 +1716,8 @@ function CriteriaView() {
       return html`<details key=${p.pick} className="pick-detail" open=${i === 0}>
         <summary><${Portrait} name=${label(p.pick)} size=${24} /> ${label(p.pick)}</summary>
         <p className="small">${positionText(entries, p)}</p>
-        ${plus.length ? html`<ul className="why">${plus.map(w => html`<li key=${w.text} className="pos">+ ${w.text}</li>`)}</ul>` : null}
-        ${minus.length ? html`<ul className="why">${minus.map(w => html`<li key=${w.text} className="neg">− ${w.text}</li>`)}</ul>` : null}
+        ${plus.length ? html`<ul className="why">${plus.map(w => html`<li key=${w.text} className="pos">+ ${signedText(w, 1) || w.text}</li>`)}</ul>` : null}
+        ${minus.length ? html`<ul className="why">${minus.map(w => html`<li key=${w.text} className="neg">− ${signedText(w, -1) || w.text}</li>`)}</ul>` : null}
         ${!plus.length && !minus.length ? html`<p className="small">Aucun critère ne le distingue dans cette draft.</p>` : null}
         ${threats.length ? html`<p className="small">Menaces : ${threats.join(", ")}</p>` : null}
         ${targets.length ? html`<p className="small">Opportunités : ${targets.join(", ")}</p>` : null}
@@ -1756,7 +1757,9 @@ function CompareTab() {
     ${entries.map(p => html`<button key=${p.pick} type="button" aria-pressed=${cur === p.pick} aria-label=${label(p.pick)} title=${label(p.pick)} className=${`cmp-btn${cur === p.pick ? " on" : ""}`} onClick=${() => select(slot, p.pick)}><${Portrait} name=${label(p.pick)} size=${26} /></button>`)}
   </div>`;
   const pros = (x, y) => cmp.rows.filter(r => (x === a ? r.diff > 0 : r.diff < 0)).map(r => x === a ? r.textA || `Moins pénalisé : ${r.label}` : r.textB || `Moins pénalisé : ${r.label}`).slice(0, 3);
-  const when = whenBetter(trailer.pick, leader.pick, state.enemies, V.mid);
+  // whenBetter compte une frontline alliée et ignore les hypothèses sur le vis-à-vis : sinon, rien n'est affirmé.
+  const severalHypotheses = !!(V.res.ranking[0] && V.res.ranking[0].byScenario);
+  const when = severalHypotheses || !PREFS.assumeFront ? null : whenBetter(trailer.pick, leader.pick, state.enemies, V.mid);
   return html`<div className="compare">
     <div className="cmp-head">${picker(0, pa)}<b>VS</b>${picker(1, pb)}</div>
     <p className="cmp-title"><b>${label(pa)}</b> contre <b>${label(pb)}</b></p>
@@ -1774,7 +1777,7 @@ function CompareTab() {
       </div>`;
     })}
     <h3>${label(trailer.pick)} passerait devant</h3>
-    <p className="small">${when.length ? when.join(", ") + "." : "Dans aucun des cas simples testés : changement de mid, absence de frontline ou nouvel adversaire type."}</p>
+    <p className="small">${severalHypotheses ? "Pas calculé tant que ton vis-à-vis n'est pas identifié." : !when ? "Pas calculé sans frontline alliée : ces cas supposent une frontline dans ton équipe." : when.length ? when.join(", ") + "." : "Dans aucun des cas simples testés : autre vis-à-vis, absence de frontline ou nouvel adversaire type."}</p>
   </div>`;
 }
 
@@ -1804,7 +1807,7 @@ function MatchupsTab() {
     <p className="small" style=${{ margin:"0 0 6px" }}>Regarde quoi prendre contre un mid, sans toucher à ta draft.</p>
     <input id="q" type="search" value=${value} autoComplete="off" spellCheck="false" aria-label="Chercher un mid adverse" placeholder="Mid adverse : ahri, tf, kata..."
       onChange=${e => setValue(e.target.value)} onKeyDown=${e => { if (e.key === "Escape") { e.stopPropagation(); setValue(""); } }} />
-    ${value.trim() && !found.length ? html`<p className="small">Pas dans le tableau.${PICKS.includes("TF") ? html` Par défaut, prends <b>Twisted Fate</b>.` : ""}</p>` : null}
+    ${value.trim() && !found.length ? html`<p className="small">Pas dans le tableau. Ajoute ce champion à ta draft pour voir le classement.</p>` : null}
     ${found.map(m => {
       const [first, second] = optionsFor(m);
       const avoid = avoidedPicks(m).map(label).join(", ");
@@ -1905,7 +1908,7 @@ function JournalTab() {
 
 const RulesTab = () => html`<div>
   ${myRole() !== "mid" || !PICKS.every(p => WRITTEN_PICKS.includes(p)) ? html`<h3>Comment tes picks sont classés</h3>
-  <p className="small">Chaque champion a une fiche écrite à la main : chasseur de cibles fragiles, tueur de tanks, immobile, protecteur, etc. Le moteur compare ces fiches à la composition adverse. C'est un avis général, sans statistiques.</p>` : html`<h3>Selon la composition adverse</h3>
+  <p className="small">Chaque champion a une fiche écrite à la main : chasseur de cibles fragiles, tueur de tanks, immobile, protecteur, etc. Le moteur compare ces fiches à la composition adverse. C'est un avis général, sans statistiques.</p>` : html`<h3>Repères pour ton pool (résumé, pas le calcul exact)</h3>
   <table><thead><tr><th>Situation</th><th>Pick</th></tr></thead><tbody>
     <tr><td>Au moins 2 tanks ou bruisers, et tu as un frontline</td><td>Kog'Maw</td></tr>
     <tr><td>Au moins 2 carrys fragiles, et peu de contrôles ciblés</td><td>Fizz</td></tr>
@@ -1932,7 +1935,7 @@ const RulesTab = () => html`<div>
     <li><b>Personnel :</b> ton journal et ton import Riot. Affichés, mais sans effet sur le classement.</li>
   </ul>
   <h3>Fiabilité</h3>
-  <p className="small">L'outil suppose que ton équipe a un frontline et le signale si ça changerait le verdict. Le nom affiché ne change que si un autre pick mène nettement. Les autres rôles servent à l'affichage. Le ban conseillé vient des tableaux de cet outil. La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch 16.21. Seuls les bilans « Tes parties » viennent de tes comptes, et ils portent souvent sur peu de parties.</p>
+  <p className="small">${PREFS.assumeFront ? "L'outil compte sur une frontline dans ton équipe (réglage). Quand ton vis-à-vis est identifié, il indique le pick qui passerait devant sans elle." : "Réglage actuel : pas de frontline alliée supposée."} Pendant la draft, le nom affiché ne change que si un autre pick mène d'au moins ${HOLD_GAP} points. Les autres rôles servent à l'affichage. Le ban conseillé vient de tes bilans calculés s'il y en a, sinon du tableau de matchups (mid), sinon des fiches de champions. La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch en cours. Seuls les bilans « Tes parties » viennent de tes comptes, et ils portent souvent sur peu de parties.</p>
   <p className="legal">Outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games.</p>
 </div>`;
 
@@ -2021,6 +2024,9 @@ function TitleBar() {
   </header>`;
 }
 
+// Le nom affiché est-il 1er du classement ? Pendant la draft, il peut être maintenu alors qu'un autre mène de moins de HOLD_GAP points.
+const shownIsFirst = () => { const first = V.res.ranking[0]; return !first || first.pick === V.shown || (first.tiedWith || []).includes(V.shown); };
+
 function VerdictPanel() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
@@ -2044,14 +2050,14 @@ function VerdictPanel() {
       <${SplashStack} name=${name} />
       <div className="p-reco-scrim"></div>
       <${motion.div} key=${name} className="p-reco-text" initial=${{ y:8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
-        <span className="p-chip">Recommandé</span>
+        <span className="p-chip">${shownIsFirst() ? "Recommandé" : "Presque à égalité"}</span>
         <div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div>
       <//>
     </section>`}
     ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}><b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}</${motion.p}>` : null}
     ${V.rival ? html`<button type="button" className="p-alt" title="Comparer ces deux champions" onClick=${() => openDetail("compare")}>
       <${Portrait} name=${label(V.rival.pick)} size=${40} />
-      <span className="p-alt-text"><small>${V.tied ? "Sinon" : V.clear ? "Alternative" : "Presque à égalité"}</small>${label(V.rival.pick)}</span>
+      <span className="p-alt-text"><small>${V.tied ? "Sinon" : V.clear ? "Alternative" : shownIsFirst() ? "Presque à égalité" : "Devant de peu"}</small>${label(V.rival.pick)}</span>
       <span aria-hidden="true">›</span>
     </button>` : null}
     <${FamiliarLine} />

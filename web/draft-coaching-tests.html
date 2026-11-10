@@ -104,6 +104,24 @@ t(!broken.length,"aucun texte cassé "+broken.slice(0,3).join(" | "));t(!banned.
 {const r2=mulberry(4321);let same=0,over=0;for(let i=0;i<400;i++){const l=[];while(l.length<5){const n=NAMES[Math.floor(r2()*NAMES.length)];if(!l.includes(n))l.push(n);}["beginner","advanced"].forEach(level=>{const x=coachingSummary({enemies:l,level});if(x.explanation&&x.risk&&x.explanation.id===x.risk.id)same++;if(coachingAdvice({enemies:l,level}).items.length>8)over++;});}t(!same,"résumé : explication et risque ne répètent pas le même conseil");t(!over,"détail : jamais noyé de conseils");}
 // Bases : réservées aux débutants, et aucune qui ne dépende pas du rôle quand elle est propre à un rôle.
 applyProfile({role:"support",pool:["Thresh"]});const f=advice(FIVE);t(!f.items.some(i=>/fund\.(farm|trades|role-mid)/.test(i.id)),"bases adaptées au rôle");t(!advice(FIVE,{level:"advanced"}).items.some(i=>i.category==="fundamentals"),"pas de bases pour un joueur avancé");applyProfile(MINE);
+// V2.17 (PR D) : un nom affiché qui n'est pas 1er n'est jamais présenté comme devant.
+{const esc=n=>n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");let held=0,bad=0;const r=mulberry(217);
+ for(let i=0;i<120;i++){const l=[];const size=1+i%4;while(l.length<size){const n=NAMES[Math.floor(r()*NAMES.length)];if(!l.includes(n)&&!PICKS.map(label).includes(n))l.push(n);}
+  const ctx=coachingContext({enemies:l});const first=ctx.ranking[0];
+  ctx.ranking.slice(1).filter(p=>first.score-p.score>1e-6&&first.score-p.score<HOLD_GAP).forEach(p=>{held++;
+   ["beginner","intermediate","advanced"].forEach(level=>{const a=advice(l,{pick:label(p.pick),level});const all=a.items.map(x=>x.title+" "+x.text).join(" ");
+    if(new RegExp(esc(label(p.pick))+" (passe devant|mène)").test(all)||/Écart de -/.test(all)||(has(a,"draft.conflict")&&/reste devant|Le score reste le meilleur/.test(get(a,"draft.conflict").text))||(has(a,"champ.alternative")&&a.rival===label(first.pick)))bad++;});});}
+ t(held>20&&!bad,"PR D : nom affiché 2e, jamais « passe devant », « mène », écart négatif ni « reste devant » ("+held+" cas, "+bad+" faux)");}
+// Cause d'une égalité : risque, puis favori, puis alphabet, comme le tri du moteur.
+{applyProfile({role:"jungle",pool:["Graves","Warwick"]});const l=["Lissandra","Nautilus","Kog'Maw"];const rk=analyze(l,null,true,beliefScenarios(opponentBelief(l)));const c=tieCause(rk.ranking,rk.ranking.map(p=>p.pick));
+ t(rk.ranking[0].tiedWith.length&&c&&c.kind==="risk"&&c.first===rk.ranking[0].pick,"égalité départagée par le risque : cause « risk »");
+ applyProfile({role:"jungle",pool:["Viego","Master Yi"]});ENGINE_PREFS.favorite="Viego";const f=analyze(FIVE,null,true);t(tieCause(f.ranking,["Viego","Master Yi"]).kind==="favorite","favori : cause « favorite »");
+ ENGINE_PREFS.favorite=null;const g=analyze(FIVE,null,true);const ga=tieCause(g.ranking,["Viego","Master Yi"]);t(ga.kind==="alpha"&&/alphabétique/.test(tieCauseText(ga)),"fiches identiques : cause « alpha »");
+ t(/déjà le conseil affiché/.test(tieCauseText(ga,ga.second)),"nom maintenu à égalité : dit comme tel");applyProfile(MINE);}
+// Les hypothèses sont nommées et une raison positive ne contient pas « à éviter ».
+{let named=0,badPos=0;const r=mulberry(9);for(let i=0;i<200;i++){const l=[];const size=1+i%4;while(l.length<size){const n=NAMES[Math.floor(r()*NAMES.length)];if(!l.includes(n))l.push(n);}
+  const sc=beliefScenarios(opponentBelief(l));if(sc.length<2)continue;analyze(l,null,true,sc).ranking.forEach(p=>{p.criteria.filter(c=>c.parts).forEach(c=>{if(/^Si c'est /.test(c.text)||/^S'il n'est pas encore choisi/.test(c.text))named++;else badPos++;});if(positiveReasons(p).some(x=>/éviter/i.test(x)))badPos++;});}
+ t(named>0&&!badPos,"hypothèses nommées, sans « à éviter » parmi les raisons positives ("+named+" textes)");}
 // Aucune dépendance au réseau.
 {const of=window.fetch;let calls=0;window.fetch=()=>{calls++;return Promise.reject()};advice(FIVE);window.fetch=of;t(!calls,"aucun appel réseau");}
 res.stats={drafts,moyenneParDraft:{debutant:+(notes.beginner/(drafts/3)).toFixed(1),intermediaire:+(notes.intermediate/(drafts/3)).toFixed(1),avance:+(notes.advanced/(drafts/3)).toFixed(1)},avecConseilPropre:Math.round(100*specific/drafts),texteLePlusLong:longest,frequence:Object.fromEntries(Object.entries(seen).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,Math.round(100*v/drafts)]))};
