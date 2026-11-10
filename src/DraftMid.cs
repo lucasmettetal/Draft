@@ -1324,6 +1324,78 @@ public static class Autostart
 
         // Protections de la page, vérifiées dans la vraie WebView2 : CSP réellement appliquée, eval interdit,
         // réseau et cadres limités, navigation et fenêtres vers un site inconnu refusées. Aucun accès réseau réel (.invalid).
+        public string DetailOpenReport = "non mesuré";
+
+        // Perte de draft (audit UX, P0) : ouvrir Analyse détaillée ou Comparer depuis les panneaux ne doit jamais vider ni écraser
+        // la vraie draft. 50 ouvertures successives, chacune recharge la grande fenêtre. Puis le simulateur, qui reste local.
+        public async Task<string> TestDraftSurvivesDetail(int openings)
+        {
+            string problem = "";
+            bool? manualBefore = visibility.Manual;
+            visibility.Manual = true;
+            ApplyVisibility();
+            Func<PanelForm, string, Task<string>> run = async (p, code) => await p.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<PanelForm, string, int, Task<bool>> waitIn = async (p, code, ms) =>
+            {
+                for (int i = 0; i < ms / 50; i++)
+                {
+                    if (p != null && p.Ready.IsCompleted && p.View.CoreWebView2 != null && await run(p, "!!(" + code + ")") == "true") return true;
+                    await Task.Delay(50);
+                }
+                return false;
+            };
+            Func<List<PanelForm>> shownPanels = () => panels.Values.Where(p => p.Id != "full" && p.Visible).ToList();
+            for (int i = 0; i < 200 && (!panelsShown || shownPanels().Count == 0 || !shownPanels().All(p => p.Ready.IsCompleted)); i++) await Task.Delay(50);
+            List<PanelForm> sources = shownPanels();
+            if (sources.Count == 0) { visibility.Manual = manualBefore; ApplyVisibility(); return "(aucun panneau affiché)"; }
+            foreach (PanelForm p in sources) await waitIn(p, "typeof draftApi !== 'undefined' && typeof state !== 'undefined'", 6000);
+            const string Expected = "\"Ahri,Sion,Vi\"";
+            await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1");
+            foreach (PanelForm p in sources)
+                if (!await waitIn(p, "state.enemies.join() === 'Ahri,Sion,Vi'", 3000)) problem += "draft de départ absente du panneau " + p.Id + " ; ";
+            if (problem != "") { visibility.Manual = manualBefore; ApplyVisibility(); return problem; }
+
+            int lost = 0, notShown = 0;
+            for (int k = 0; k < openings; k++)
+            {
+                PanelForm full;
+                if (panels.TryGetValue("full", out full) && full.Visible) full.Hide();
+                OpenFull(k % 2 == 0 ? "analyse" : "compare");
+                for (int i = 0; i < 200 && !(panels.TryGetValue("full", out full) && full.Visible && full.Ready.IsCompleted); i++) await Task.Delay(50);
+                // La grande fenêtre doit afficher la vraie draft, puis laisser le temps à une éventuelle diffusion parasite.
+                if (!await waitIn(full, "state.enemies.join() === 'Ahri,Sion,Vi'", 3000)) notShown++;
+                await Task.Delay(400);
+                foreach (PanelForm p in sources)
+                    if (await run(p, "state.enemies.join()") != Expected) { lost++; await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1"); await Task.Delay(300); break; }
+            }
+            DetailOpenReport = openings + " ouvertures (Analyse détaillée / Comparer), " + lost + " perte(s) de draft, " + notShown + " fenêtre(s) sans la draft";
+            if (lost > 0) problem += lost + " perte(s) de draft sur " + openings + " ouvertures ; ";
+            if (notShown > 0) problem += notShown + " ouverture(s) sans la draft en cours ; ";
+
+            // Simulateur : Draft aléatoire reste dans la grande fenêtre, la draft en cours n'est pas touchée.
+            PanelForm f;
+            panels.TryGetValue("full", out f);
+            if (f != null && await waitIn(f, "document.querySelector('[data-random-draft]')", 3000))
+            {
+                await run(f, "document.querySelector('[data-random-draft]').click(); 1");
+                if (!await waitIn(f, "state.enemies.length === 5 && !!document.querySelector('[data-simulation]')", 3000)) problem += "le simulateur ne se lance pas ou n'est pas signalé ; ";
+                await Task.Delay(400);
+                foreach (PanelForm p in sources) if (await run(p, "state.enemies.join()") != Expected) { problem += "Draft aléatoire écrase la draft du panneau " + p.Id + " ; "; break; }
+                await run(sources[0], "draftApi.add('Jinx'); 1");
+                await Task.Delay(300);
+                if (await run(f, "state.enemies.includes('Jinx')") == "true") problem += "la simulation est modifiée par la draft en cours ; ";
+                await run(f, "document.querySelector('[data-simulation] button').click(); 1");
+                if (!await waitIn(f, "state.enemies.join() === 'Ahri,Sion,Vi,Jinx' && !document.querySelector('[data-simulation]')", 3000)) problem += "Revenir à la draft en cours ne la retrouve pas ; ";
+            }
+            else problem += "(grande fenêtre absente pour le simulateur) ";
+
+            await run(sources[0], "draftApi.reset(); 1");
+            if (panels.TryGetValue("full", out f) && f.Visible) f.Hide();
+            visibility.Manual = manualBefore;
+            ApplyVisibility();
+            return problem;
+        }
+
         public async Task<string> TestPageSecurity()
         {
             OpenFull("");
@@ -2082,6 +2154,8 @@ public static class Autostart
             t(profileProblem == "", "Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre " + profileProblem);
             string historyProblem = await app.TestHistoryImport();
             t(historyProblem == "", "Import Riot simulé depuis l'application, sans appel réel, sans trace de clé " + historyProblem);
+            string detailProblem = await app.TestDraftSurvivesDetail(50);
+            t(detailProblem == "", "Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (" + app.DetailOpenReport + ") " + detailProblem);
             string securityProblem = await app.TestPageSecurity();
             t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
         }
