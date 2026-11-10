@@ -82,6 +82,8 @@ namespace DraftMid
             r.Headers[HttpRequestHeader.Authorization] = "Basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes("riot:" + info.Password));
             // Certificat auto-signé du client, accepté pour cette seule requête locale.
             r.ServerCertificateValidationCallback = (s, c, ch, e) => true;
+            // Le mot de passe du client ne suit jamais une redirection.
+            r.AllowAutoRedirect = false;
             // HttpWebRequest.Timeout ne s'applique pas aux appels asynchrones : un client figé bloquerait les lectures suivantes.
             using (new Timer(_ => r.Abort(), null, TimeoutMs, Timeout.Infinite))
             try
