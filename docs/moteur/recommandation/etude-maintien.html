@@ -1,0 +1,41 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre>
+<!-- Étude du nom maintenu pendant la draft (holdPick), agent 2. Aucune modification du code livré. Graine fixe. -->
+<script src="draft-role-sheet.js"></script><script src="draft-role-rates-live.js"></script><script src="draft-champions.js"></script>
+<script>localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");</script>
+<script src="draft-engine.js"></script><script src="draft-data.js"></script>
+<script>
+const OUT={};
+try{
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let rng=mulberry(20261111);
+const live=window.ROLE_RATES_LIVE.champions;const ids={};NAMES.forEach(n=>{ids[rateId(n)]=n});
+const weights=[0,1,2,3,4].map(r=>Object.keys(live).filter(k=>ids[k]&&!PROVISIONAL.includes(ids[k])).map(k=>[ids[k],live[k][r]]).filter(x=>x[1]>0));
+function weighted(list,ex){const l=list.filter(x=>!ex.includes(x[0]));const total=l.reduce((s,x)=>s+x[1],0);let v=rng()*total;for(const x of l){v-=x[1];if(v<0)return x[0];}return l[l.length-1][0];}
+function drawTeam(ex){for(;;){const t=weights.map(l=>weighted(l,ex));if(new Set(t).size===5)return t;}}
+const shuffle=a=>{a=a.slice();for(let j=a.length-1;j>0;j--){const k=Math.floor(rng()*(j+1));[a[j],a[k]]=[a[k],a[j]];}return a;};
+const pct=(x,n)=>n?Math.round(1000*x/n)/10:0;
+const POOLS={"Mid (4 d'origine)":["mid",["TF","Fizz","Kog'Maw","Xerath"]],"Jungle (classique)":["jungle",["Vi","Amumu","Graves","Kha'Zix","Hecarim"]],"Jungle (Cho'Gath)":["jungle",["Cho'Gath","Viego","Master Yi","Briar","Lee Sin"]],"Support":["support",["Thresh","Leona","Soraka","Lulu","Lux"]],"Top":["top",["Darius","Garen","Malphite","Ornn","Camille"]],"ADC":["adc",["Jinx","Caitlyn","Kog'Maw","Ezreal","Vayne"]]};
+Object.entries(POOLS).forEach(([name,[role,pool]])=>{
+  applyProfile({role,pool});const own=pool.map(label);
+  let steps=0,heldBehind=0,closeNeg=0;
+  for(let i=0;i<800;i++){
+    const seq=shuffle(drawTeam(own));let held=null;
+    for(let k=1;k<=4;k++){
+      const team=seq.slice(0,k);const b=opponentBelief(team);const mid=identifiedOpponent(team);const r=analyze(team,mid,true,beliefScenarios(b)).ranking;
+      held=holdPick(r,held);steps++;
+      const top=r[0],e=r.find(p=>p.pick===held);
+      if(e.score<top.score-1e-9){heldBehind++;
+        // Ce que lirait draft-coaching.js : entry = pick affiché, rival = premier autre du classement, donc mieux classé.
+        const rival=r.find(p=>p!==e);if(rival&&e.score-rival.score<HOLD_GAP&&comparePicks(e,rival).decisive.find(x=>x.diff>0))closeNeg++;}
+    }
+  }
+  // Égalités en tête : l'ordre vient-il du risque (worst) plutôt que du nom ou du favori ?
+  let tied=0,byRisk=0;
+  for(let i=0;i<800;i++){const team=drawTeam(own);const b=opponentBelief(team);const r=analyze(team,identifiedOpponent(team),true,beliefScenarios(b)).ranking;
+    if(r[0].tiedWith.length){tied++;const w=e=>Math.min(0,...e.why.map(x=>x.v));const second=r.find(p=>p.pick===r[0].tiedWith[0]);if(Math.abs(w(r[0])-w(second))>1e-6)byRisk++;}}
+  OUT[name+" (égalités)"]={draftsCompletesAvecEgaliteEnTete:pct(tied,800),dontOrdreDecideParLeRisque:pct(byRisk,tied)};
+  OUT[name]={etapesDraftIncomplete:steps,nomAfficheMoinsBienNoteQueLe1er:pct(heldBehind,steps),conseilChoixSerreQuiDitPasseDevantAlorsQuIlEstDerriere:pct(closeNeg,steps)};
+});
+}catch(e){OUT.erreur=String(e&&e.stack||e);}
+document.getElementById("out").textContent=JSON.stringify(OUT,null,1);
+</script></body></html>

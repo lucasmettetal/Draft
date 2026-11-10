@@ -1,0 +1,52 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre>
+<script>try{localStorage.clear();}catch(e){}</script>
+<script src="draft-champions.js"></script><script src="draft-role-sheet.js"></script>
+<script src="draft-engine.js"></script><script src="draft-data.js"></script>
+<script>
+// Étude agent 1 : comportement du moteur avec les seuls rôles écrits à la main (aucune donnée live).
+const out = [];
+const R = ROLE_ORDER;
+const fmt = v => v.toFixed(2);
+const POOLS = { top:["Garen"], jungle:["Vi"], mid:["TF","Fizz","Kog'Maw","Xerath"], adc:["Jinx"], support:["Thresh"] };
+function show(role, team, fixed) {
+  applyProfile({ role, pool: POOLS[role] });
+  const b = roleBelief(team, fixed);
+  const ob = opponentBelief(team, fixed);
+  const sc = beliefScenarios(ob);
+  out.push(`## profil ${role} | ${team.join(", ")}${fixed ? " | corrections " + JSON.stringify(fixed) : ""}`);
+  team.forEach((n, i) => out.push(`  ${n.padEnd(14)} parts ${b.evidence[i].shares.map(fmt).join(" ")} | marg ${b.marginals[i].map(fmt).join(" ")} | ${b.evidence[i].quality}`));
+  out.push(`  vacant ${b.vacant.map(fmt).join(" ")}`);
+  out.push(`  confiance=${ob.confidence} identifie=${identifiedOpponent(team, fixed)} guessMid=${guessMid(team, fixed)} scenarios=${sc.map(s => (s.mid||"non révélé")+":"+fmt(s.p)).join(", ")}`);
+}
+show("mid", ["Garen","Vi","Ahri","Jinx","Thresh"]);
+show("mid", ["Garen","Vi","Kog'Maw","Jinx","Thresh"]);
+show("mid", ["Garen","Vi","Kog'Maw","Lucian","Thresh"]);
+show("mid", ["Kog'Maw"]);
+show("mid", ["Kog'Maw","Jinx"]);
+show("mid", ["Garen","Vi","Kog'Maw","Jinx","Thresh"], { Jinx:"adc" });
+show("jungle", ["Quinn","Darius","Ahri","Jinx","Thresh"]);
+show("mid", ["Quinn","Darius","Ahri","Jinx","Thresh"]);
+show("top", ["Quinn","Darius","Ahri","Jinx","Thresh"]);
+show("mid", ["Sylas","Yasuo","Vi","Jinx","Thresh"]);
+show("mid", ["Garen","Vi","Xerath","Jinx","Lux"]);
+show("support", ["Garen","Vi","Xerath","Jinx","Lux"]);
+show("mid", ["Pantheon","Vi","Galio","Jinx","Karma"]);
+show("mid", ["Garen","Taliyah","Zed","Jinx","Thresh"]);
+show("mid", ["Garen","Vi","Tristana","Smolder","Thresh"]);
+show("mid", ["Gragas","Sett","Vi","Jinx","Thresh"]);
+show("mid", ["Malphite","Vi","Sion","Jinx","Thresh"]);
+show("mid", ["Locke","Vi","Garen","Jinx","Thresh"]);
+show("mid", ["Garen","Vi","Twitch","Jinx","Thresh"]);
+show("adc", ["Garen","Vi","Ahri","Seraphine","Senna"]);
+show("mid", ["Ahri"]);
+show("mid", ["Sylas"]);
+show("mid", ["Lux"]);
+// Répartition des parts mid selon la fiche écrite
+applyProfile({ role:"mid", pool: POOLS.mid });
+const buckets = {};
+NAMES.forEach(n => { const s = roleShares(n); const k = s ? fmt(s[2]) : "aucune"; buckets[k] = (buckets[k]||0)+1; });
+out.push("## parts mid (fiche écrite) -> nombre de champions : " + JSON.stringify(buckets));
+const single = Object.keys(ROLE_SHEET).filter(n => ROLE_SHEET[n].length === 1).length;
+out.push(`## fiche : ${Object.keys(ROLE_SHEET).length} champions, ${single} avec un seul rôle`);
+document.getElementById("out").textContent = out.join("\n");
+</script></body></html>

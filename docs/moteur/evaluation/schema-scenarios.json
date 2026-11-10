@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jeu de scénarios synthétiques du banc d'évaluation DRAFT",
+  "description": "Format de scenarios-dev.json et scenarios-eval.json. Toutes les données sont SYNTHÉTIQUES. Les annotations sont écrites à la main, jamais calculées par le moteur.",
+  "type": "object",
+  "required": ["synthetique", "version_schema", "graine", "jeu", "avertissement", "source_annotations", "scenarios"],
+  "properties": {
+    "synthetique": { "const": true, "description": "Obligatoire. Le banc refuse un jeu sans ce champ." },
+    "version_schema": { "type": "string" },
+    "graine": { "type": "integer", "description": "Graine du générateur et de la séparation développement / évaluation." },
+    "jeu": { "enum": ["developpement", "evaluation_gele"] },
+    "avertissement": { "type": "string" },
+    "source_annotations": { "type": "string" },
+    "scenarios": { "type": "array", "items": { "$ref": "#/$defs/scenario" } }
+  },
+  "$defs": {
+    "role": { "enum": ["top", "jungle", "mid", "adc", "support"] },
+    "champion": { "type": "string", "description": "Nom exact d'une clé de CHAMPION_TRAITS (web/draft-champions.js)." },
+    "scenario": {
+      "type": "object",
+      "required": ["id", "synthetique", "categorie", "description", "joueur", "adversaires", "annotations"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^(CE|CF|HR|NV|IN|EG|PP)-[0-9]{3}$" },
+        "synthetique": { "const": true },
+        "categorie": { "enum": ["complet_evident", "complet_flex", "atypique_hors_role", "atypique_inconnu", "incomplet", "egalite_attendue", "pick_pris"] },
+        "description": { "type": "string" },
+        "joueur": {
+          "type": "object", "required": ["role", "pool"],
+          "properties": { "role": { "$ref": "#/$defs/role" }, "pool": { "type": "array", "minItems": 2, "maxItems": 5, "items": { "$ref": "#/$defs/champion" } } }
+        },
+        "adversaires": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "$ref": "#/$defs/champion" }, "description": "Dans l'ordre de révélation." },
+        "annotations": {
+          "type": "object",
+          "required": ["roles_attendus", "roles_possibles", "adversaire_direct_attendu", "egalites_attendues", "absents_attendus", "confiance_elevee_interdite", "jugement_expert"],
+          "properties": {
+            "roles_attendus": {
+              "type": "object", "description": "Seulement les champions dont le rôle est annoté.",
+              "additionalProperties": {
+                "type": "object", "required": ["role", "niveau"],
+                "properties": {
+                  "role": { "$ref": "#/$defs/role" },
+                  "niveau": { "enum": ["evident", "elimination", "hors_role_par_construction"], "description": "evident : champion presque toujours joué à ce rôle. elimination : seul rôle libre compatible. hors_role_par_construction : le scénario déclare un choix rare." }
+                }
+              }
+            },
+            "roles_possibles": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/role" } } },
+            "adversaire_direct_attendu": {
+              "oneOf": [
+                { "type": "null", "description": "Pas d'attente (cas ambigu)." },
+                { "type": "object", "required": ["nom", "niveau"], "properties": { "nom": { "type": ["string", "null"] }, "niveau": { "type": "string" } }, "description": "nom null avec niveau non_revele : le moteur ne doit nommer personne." }
+              ]
+            },
+            "egalites_attendues": { "type": "array", "items": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/champion" } } },
+            "absents_attendus": { "type": "array", "items": { "$ref": "#/$defs/champion" } },
+            "confiance_elevee_interdite": { "type": "boolean" },
+            "jugement_expert": {
+              "type": ["object", "null"],
+              "description": "À collecter. Forme prévue : { meilleur: champion, acceptables: [champions], a_eviter: [champions], experts: entier, accord: nombre entre 0 et 1, date: texte }."
+            }
+          }
+        }
+      }
+    }
+  }
+}

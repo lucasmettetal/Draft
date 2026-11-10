@@ -1,0 +1,155 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre>
+<!-- Étude de sensibilité du moteur (agent 2). Aucune modification du code livré : les variantes de poids sont appliquées
+     dans cette page seulement, puis remises à leur valeur. Graine fixe. Lancer avec run-etude.ps1 (copie dans %TEMP%). -->
+<script src="draft-role-sheet.js"></script><script src="draft-role-rates-live.js"></script><script src="draft-champions.js"></script>
+<script>localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");</script>
+<script src="draft-engine.js"></script><script src="draft-data.js"></script>
+<script>
+const OUT={};
+try{
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let rng=mulberry(20261110);const reseed=s=>{rng=mulberry(s)};
+const live=window.ROLE_RATES_LIVE&&window.ROLE_RATES_LIVE.champions;
+const ids={};NAMES.forEach(n=>{ids[rateId(n)]=n});
+const weights=[0,1,2,3,4].map(r=>Object.keys(live).filter(k=>ids[k]&&!PROVISIONAL.includes(ids[k])).map(k=>[ids[k],live[k][r]]).filter(x=>x[1]>0));
+function weighted(list,ex){const l=list.filter(x=>!ex.includes(x[0]));const total=l.reduce((s,x)=>s+x[1],0);let v=rng()*total;for(const x of l){v-=x[1];if(v<0)return x[0];}return l[l.length-1][0];}
+// Équipe complète, dans l'ordre des rôles top, jungle, mid, adc, support.
+function drawTeam(exclude){for(;;){const t=weights.map(l=>weighted(l,exclude));if(new Set(t).size===5)return t;}}
+const shuffle=a=>{a=a.slice();for(let j=a.length-1;j>0;j--){const k=Math.floor(rng()*(j+1));[a[j],a[k]]=[a[k],a[j]];}return a;};
+const pct=(x,n)=>n?Math.round(1000*x/n)/10:0;
+const r2=x=>Math.round(x*100)/100;
+// L'adversaire supposé ne dépend pas des poids : mis en cache par rôle et par équipe.
+const BELIEF={};
+function rank(team,front=true){const key=myRole()+"|"+team.join(",");let h=BELIEF[key];if(!h){const b=opponentBelief(team);h=BELIEF[key]={mid:identifiedOpponent(team),sc:team.length?beliefScenarios(b):null};}return {mid:h.mid,sc:h.sc,res:analyze(team,h.mid,front,h.sc)};}
+const topSet=r=>r.ranking.length?[r.ranking[0].pick].concat(r.ranking[0].tiedWith):[];
+const sameTop=(a,b)=>{const x=topSet(a),y=topSet(b);return x.length===y.length&&x.every(p=>y.includes(p));};
+
+const POOLS={
+ "Mid (4 d'origine)":["mid",["TF","Fizz","Kog'Maw","Xerath"]],
+ "Mid mixte (2 du tableau + 3 hors tableau)":["mid",["TF","Fizz","Ahri","Syndra","Orianna"]],
+ "Mid hors tableau":["mid",["Ahri","Syndra","Viktor","Yasuo","Galio"]],
+ "Jungle (Cho'Gath)":["jungle",["Cho'Gath","Viego","Master Yi","Briar","Lee Sin"]],
+ "Jungle (classique)":["jungle",["Vi","Amumu","Graves","Kha'Zix","Hecarim"]],
+ "Top":["top",["Darius","Garen","Malphite","Ornn","Camille"]],
+ "ADC":["adc",["Jinx","Caitlyn","Kog'Maw","Ezreal","Vayne"]],
+ "Support":["support",["Thresh","Leona","Soraka","Lulu","Lux"]]
+};
+const N=1500;
+// Drafts figées par pool : complètes (5) et partielles (1 à 4).
+function drafts(pool,seed){reseed(seed);const own=pool.map(label);const list=[];for(let i=0;i<N;i++){const full=drawTeam(own);list.push({full,order:shuffle(full)});}return list;}
+
+// ---------- E1 : base, part des critères, écarts ----------
+OUT.base={};OUT.loo={};OUT.perturb={};OUT.subst={};OUT.fidelity={};OUT.order={};
+Object.entries(POOLS).forEach(([name,[role,pool]],pi)=>{
+  applyProfile({role,pool});
+  const D=drafts(pool,1000+pi);
+  const share={},critAbs={},critDecisive={};let tieTop=0,allZero=0,gaps=[0,0,0,0],withMatchup=0,multi=0;
+  const base=D.map(d=>rank(d.full));
+  base.forEach(({res,sc})=>{
+    const r=res.ranking,top=topSet(res);
+    top.forEach(p=>share[label(p)]=(share[label(p)]||0)+1/top.length);
+    if(top.length>1)tieTop++;
+    if(r.every(e=>Math.abs(e.score)<1e-9))allZero++;
+    if(sc&&sc.length>1)multi++;
+    if(r.some(e=>e.criteria.some(c=>c.key==="matchup")))withMatchup++;
+    r.forEach(e=>e.criteria.forEach(c=>{critAbs[c.key]=(critAbs[c.key]||0)+Math.abs(c.impact);}));
+    if(r.length>1&&top.length===1){const g=r[0].score-r[1].score;gaps[g<.5?0:g<1?1:g<2?2:3]++;const lead=leadCriterion(r[0],r[1]);if(lead)critDecisive[lead.key]=(critDecisive[lead.key]||0)+1;}
+  });
+  const totAbs=Object.values(critAbs).reduce((a,b)=>a+b,0);
+  const nonTie=N-tieTop;
+  OUT.base[name]={
+    enTete:Object.fromEntries(Object.entries(share).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,pct(v,N)])),
+    egaliteEnTete:pct(tieTop,N),toutAZero:pct(allZero,N),plusieursHypotheses:pct(multi,N),critereMatchupActif:pct(withMatchup,N),
+    ecart1er2e_horsEgalite:{"<0,5":pct(gaps[0],nonTie),"0,5-1":pct(gaps[1],nonTie),"1-2 (serré)":pct(gaps[2],nonTie),">=2 (net)":pct(gaps[3],nonTie)},
+    partDuPoidsAbsolu:Object.fromEntries(Object.entries(critAbs).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,pct(v,totAbs)])),
+    critereDecisif:Object.fromEntries(Object.entries(critDecisive).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,pct(v,nonTie)]))
+  };
+  // ---------- E2 : retirer un critère (poids 0), puis ±25 % ----------
+  const loo={},per={};
+  CRITERIA.forEach(def=>{
+    const w=def.weight;
+    def.weight=0;let ch=0;D.forEach((d,i)=>{if(!sameTop(base[i].res,rank(d.full).res))ch++;});loo[def.key]=pct(ch,N);
+    let up=0,down=0;
+    def.weight=w*1.25;D.forEach((d,i)=>{if(!sameTop(base[i].res,rank(d.full).res))up++;});
+    def.weight=w*.75;D.forEach((d,i)=>{if(!sameTop(base[i].res,rank(d.full).res))down++;});
+    def.weight=w;per[def.key]={"+25 %":pct(up,N),"-25 %":pct(down,N)};
+  });
+  OUT.loo[name]=loo;OUT.perturb[name]=per;
+  // ---------- E3 : remplacer un seul adversaire (même rôle), draft complète ----------
+  reseed(5000+pi);const own=pool.map(label);let changed=0,changedNotOpp=0,notOpp=0,cause={},bigStep=0;
+  D.forEach((d,i)=>{
+    const slot=Math.floor(rng()*5);const nt=d.full.slice();nt[slot]=weighted(weights[slot],own.concat(d.full));
+    const before=base[i].res,after=rank(nt).res;
+    const oppChanged=base[i].mid!==rank(nt).mid;
+    if(!oppChanged)notOpp++;
+    if(!sameTop(before,after)){changed++;if(!oppChanged){changedNotOpp++;
+      const a=before.ranking[0],b=after.ranking[0];
+      // Critère dont l'écart entre l'ancien et le nouveau 1er a le plus bougé.
+      const val=(res,p,k)=>{const e=res.ranking.find(x=>x.pick===p);const c=e&&e.criteria.find(x=>x.key===k);return c?c.impact:0;};
+      let best=null,bd=0;CRITERIA.forEach(def=>{const dd=(val(after,b.pick,def.key)-val(after,a.pick,def.key))-(val(before,b.pick,def.key)-val(before,a.pick,def.key));if(dd>bd){bd=dd;best=def.key;}});
+      if(best)cause[best]=(cause[best]||0)+1;if(bd>=2)bigStep++;}}
+  });
+  OUT.subst[name]={nomEnTeteChange:pct(changed,N),horsChangementAdversaireDirect:pct(changedNotOpp,notOpp),dontSautDe2PointsOuPlus:pct(bigStep,changedNotOpp),causePrincipale:Object.fromEntries(Object.entries(cause).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,pct(v,changedNotOpp)]))};
+  // ---------- E4 : ordre de saisie (pick maintenu par holdPick) ----------
+  let diff=0,cmp=0,perm=0;
+  D.slice(0,500).forEach(d=>{
+    const four=d.order.slice(0,4);const o2=four.slice().reverse();
+    const run=seq=>{let held=null;for(let k=1;k<=seq.length;k++){const r=rank(seq.slice(0,k)).res;held=k>=5?r.ranking[0].pick:holdPick(r.ranking,held);}return held;};
+    const s1=run(four),s2=run(o2),top=topSet(rank(four).res);
+    cmp++;if(s1!==s2&&!(top.includes(s1)&&top.includes(s2)))diff++;
+    // Ordre du pool : le classement complet ne doit pas bouger.
+    const ref=JSON.stringify(rank(d.full).res.ranking.map(e=>[e.pick,r2(e.score)]));
+    applyProfile({role,pool:pool.slice().reverse()});const rev=JSON.stringify(rank(d.full).res.ranking.map(e=>[e.pick,r2(e.score)]));applyProfile({role,pool});
+    if(ref!==rev)perm++;
+  });
+  OUT.order[name]={memes4Adversaires_ordreInverse_nomAfficheDifferent:pct(diff,cmp),poolInverse_classementDifferent:pct(perm,cmp)};
+  // ---------- E5 : fidélité des explications ----------
+  let mixText=0,posWithAvoid=0,netSkip=0,full5=0,withoutMismatch=0;
+  base.forEach(({res,mid})=>{
+    const r=res.ranking;if(!r.length)return;
+    const e=r[0];
+    const mt=e.criteria.find(c=>c.key==="matchup");if(mt&&mt.text.includes(" · "))mixText++;
+    if(positiveReasons(e).some(t=>/À éviter/.test(t)))posWithAvoid++;
+    // Réplique de computeVerdict (draft complète : held = 1er) : le rival saute les picks « à éviter ».
+    full5++;const m=matchupOf(mid);const avoided=m?avoidedPicks(m).filter(p=>p!==e.pick):[];const others=r.filter(p=>p!==e.pick&&!e.tiedWith.includes(p.pick));
+    const rival=others.find(p=>!avoided.includes(p.pick))||others[0];
+    if(rival&&others[0]&&rival!==others[0]&&e.score-rival.score>=HOLD_GAP&&e.score-others[0].score<HOLD_GAP)netSkip++;
+  });
+  OUT.fidelity[name]={texteMatchupMelangeantPlusieursHypotheses:pct(mixText,N),raisonPositiveContenantAEviter:pct(posWithAvoid,N),choixNetAlorsQueLe2eEstAMoinsDe2Points:pct(netSkip,full5)};
+});
+
+// ---------- E6 : fiches sans aucune règle active (hors carte) ----------
+const ACTIVE="hEklwitcepoq";
+OUT.fichesInertes=NAMES.filter(n=>!/[hEklwitcepoq]/.test(CHAMPION_TRAITS[n]||"")).map(n=>`${n}:${CHAMPION_TRAITS[n]||"(aucune)"}`);
+const tcount={};Object.values(CHAMPION_TRAITS).forEach(t=>[...t].forEach(c=>tcount[c]=(tcount[c]||0)+1));OUT.traitsCompte=tcount;
+OUT.frontlineTotal=NAMES.filter(n=>/[tb]/.test(ROSTER[n])).length;
+
+// ---------- E7 : tableau écrit, bilan par pick ----------
+applyProfile({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]});
+OUT.tableau=Object.fromEntries(["TF","Fizz","Kog'Maw","Xerath"].map(p=>{let f=0,s=0,a=0,neutral=0,sum=0;MATCHUPS.forEach(m=>{if(m.n===label(p)){return;}const r=RULES.matchup(p,{},{mid:m.n});if(!r)return;sum+=r[0]*3;if(r[0]===1)f++;else if(r[0]===.5)s++;else if(r[0]<0)a++;else neutral++;});return [label(p),{premier:f,second:s,aEviter:a,sansAvis:neutral,moyennePoints:r2(sum/(MATCHUPS.length-1))}];}));
+OUT.blind=Object.fromEntries(["TF","Fizz","Kog'Maw","Xerath"].map(p=>{const r=RULES.blind(p,{},{mid:null});return [label(p),r?r2(r[0]):null];}));
+
+// ---------- E8 : cas à seuil, SYNTHÉTIQUES (compositions inventées pour isoler une règle) ----------
+const show=(team,mid,front=true)=>analyze(team,mid,front).ranking.map(e=>`${label(e.pick)} ${r2(e.score)}`).join(" | ");
+OUT.seuils={
+ "Fizz, 3 connus sans carry fragile":show(["Ornn","Sejuani","Leona"],null),
+ "Fizz, 4 connus sans carry fragile":show(["Ornn","Sejuani","Leona","Braum"],null),
+ "1 bruiser":show(["Darius","Lulu","Janna"],null),
+ "2 bruisers (Darius, Yasuo)":show(["Darius","Yasuo","Janna"],null),
+ "Xerath : 1 mobile":show(["Ornn","Ahri","Janna"],null),
+ "Xerath : 2 mobiles":show(["Ornn","Ahri","Ezreal"],null),
+ "Xerath : 3 mobiles":show(["Ornn","Ahri","Ezreal","Vayne"],null),
+ "1 plongeur (Zed)":show(["Zed","Janna","Ornn"],null),
+ "2 plongeurs (Zed, Talon)":show(["Zed","Talon","Ornn"],null),
+ "Viktor au mid (dans le tableau, profil s, poke)":show(["Ornn","Sejuani","Viktor","Jinx","Leona"],"Viktor"),
+ "Heimerdinger au mid (hors tableau, même profil s, poke)":show(["Ornn","Sejuani","Heimerdinger","Jinx","Leona"],"Heimerdinger")
+};
+// ---------- E9 : bilans calculés partiels, SYNTHÉTIQUES ----------
+// TF a 40 parties contre Ahri (synthétique), les autres picks n'ont rien : ils restent sur le tableau écrit.
+window.MATCHUPS_LIVE={role:"mid",updated:new Date().toISOString().slice(0,10),pool:{twistedfate:{wins:520,games:1000,vs:{ahri:[18,40]}}}};
+OUT.bilansPartiels={avec:show(["Ahri"],"Ahri"),texteTF:(analyze(["Ahri"],"Ahri",true).ranking.find(e=>e.pick==="TF").criteria.find(c=>c.key==="matchup")||{}).text,aEviter:avoidedPicks(MATCHUPS.find(m=>m.n==="Ahri"))};
+window.MATCHUPS_LIVE=undefined;
+OUT.bilansPartiels.sans=show(["Ahri"],"Ahri");
+}catch(e){OUT.erreur=String(e&&e.stack||e);}
+document.getElementById("out").textContent=JSON.stringify(OUT,null,1);
+</script></body></html>

@@ -1,0 +1,13 @@
+{
+  "synthetique": true,
+  "avertissement": "Scénarios SYNTHÉTIQUES. Aucune statistique réelle.",
+  "generateur": "generer-scenarios.js 1.0",
+  "graine": 217,
+  "part_evaluation": 0.30,
+  "methode_separation": "Dans chaque catégorie, tri des id par FNV-1a 32 bits de la chaîne '217:<id>', puis les 30 % au plus petit hachage vont dans le jeu d'évaluation.",
+  "total": 360,
+  "developpement": { "fichier": "scenarios-dev.json", "scenarios": 252, "sha256": "9B935E4393608EBFC8B9624FC51F7D6A51E6012200BCEF36B9CA0EB56F6F0E1E" },
+  "evaluation_gele": { "fichier": "scenarios-eval.json", "scenarios": 108, "sha256": "589A45440794CA16A177F52AE10080B9C1FDEC44AD6ED0AF60D2ADB07379FBE5", "gele_le": "2026-11-10" },
+  "par_categorie": { "complet_evident": 90, "complet_flex": 60, "atypique_hors_role": 40, "atypique_inconnu": 10, "incomplet": 120, "egalite_attendue": 30, "pick_pris": 10 },
+  "instantane_reference": { "fichier": "instantanes/instantane-moteur-2.2-main-78519fb.json", "moteur": "ENGINE_VERSION 2.2, dépôt main 78519fb", "statut": "Sorties observées, pas une vérité." }
+}

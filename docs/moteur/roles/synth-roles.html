@@ -1,0 +1,49 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre>
+<script>try{localStorage.clear();}catch(e){}</script>
+<script src="draft-champions.js"></script><script src="draft-role-sheet.js"></script>
+<script src="draft-engine.js"></script><script src="draft-data.js"></script>
+<script>
+// SYNTHÉTIQUE : équipes tirées depuis la fiche écrite elle-même (générateur = modèle). Mesure une borne haute, pas la réalité.
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rng = mulberry(20261110);
+const W = [1, .35, .15];
+const byRole = ROLE_ORDER.map((_, r) => Object.keys(ROLE_SHEET).map(n => ({ n, w: ROLE_SHEET[n].indexOf("tjmas"[r]) >= 0 ? W[ROLE_SHEET[n].indexOf("tjmas"[r])] : 0 })).filter(x => x.w > 0));
+const draw = r => { const l = byRole[r], tot = l.reduce((s, x) => s + x.w, 0); let x = rng() * tot; for (const c of l) { x -= c.w; if (x < 0) return c.n; } return l[l.length - 1].n; };
+const team = () => { for (;;) { const t = [0,1,2,3,4].map(draw); if (new Set(t).size === 5) return t; } };
+const perms = []; (function p(a, rest) { if (!rest.length) return perms.push(a); rest.forEach((x, i) => p(a.concat(x), rest.filter((_, k) => k !== i))); })([], [0,1,2,3,4]);
+const out = []; const N = 2000;
+for (const role of ["top","jungle","mid","adc","support"]) {
+  applyProfile({ role, pool: ["Garen"] });
+  const ri = ROLE_ORDER.indexOf(role);
+  const stats = {};
+  const calib = Array.from({ length: 10 }, () => ({ n: 0, sum: 0, hit: 0 }));
+  let mapOk = 0, mapN = 0;
+  for (let size = 1; size <= 5; size++) {
+    const s = stats[size] = { n: 0, revealed: 0, named: 0, namedOk: 0, faible: 0, moyenne: 0, elevee: 0, hiddenNamed: 0, top1Ok: 0, covered: 0 };
+    for (let i = 0; i < N / 5 * 2; i++) {
+      const t = team(), order = [0,1,2,3,4]; for (let j = 4; j > 0; j--) { const k = Math.floor(rng() * (j + 1)); [order[j], order[k]] = [order[k], order[j]]; }
+      const roles = order.slice(0, size), shown = roles.map(r => t[r]), truth = t[ri], revealed = shown.includes(truth);
+      const b = opponentBelief(shown), id = identifiedOpponent(shown), sc = beliefScenarios(b);
+      s.n++; if (revealed) s.revealed++;
+      s[{ "faible":"faible", "moyenne":"moyenne", "élevée":"elevee" }[b.confidence]]++;
+      if (id) { s.named++; if (id === truth) s.namedOk++; if (!revealed) s.hiddenNamed++; }
+      const top = b.candidates[0];
+      // top-1 : le candidat le plus probable, ou « non révélé » si la place vide pèse plus.
+      const guess = top && top.known && top.p >= b.unrevealed ? top.name : null;
+      if ((revealed && guess === truth) || (!revealed && guess === null)) s.top1Ok++;
+      if (sc.some(x => x.mid === (revealed ? truth : null))) s.covered++;
+      b.candidates.forEach(c => { const k = Math.min(9, Math.floor(c.p * 10)); calib[k].n++; calib[k].sum += c.p; if (c.name === truth) calib[k].hit++; });
+      if (size === 5) {
+        const ev = shown.map(roleEvidence);
+        let best = null, bw = -1; perms.forEach(p => { const w = p.reduce((m, r, k) => m * ev[k].shares[r], 1); if (w > bw) { bw = w; best = p; } });
+        mapN++; if (best.every((r, k) => r === roles[k])) mapOk++;
+      }
+    }
+  }
+  out.push(`## profil ${role}`);
+  Object.keys(stats).forEach(k => { const s = stats[k]; out.push(`  ${k} révélé(s): n=${s.n} adversaire révélé=${s.revealed} | top-1 juste ${(100*s.top1Ok/s.n).toFixed(0)}% | nommé ${s.named} dont juste ${s.named ? (100*s.namedOk/s.named).toFixed(0) : "-"}% | nommé alors que non révélé ${s.hiddenNamed} | confiance faible/moyenne/élevée ${s.faible}/${s.moyenne}/${s.elevee} | vrai cas gardé dans les hypothèses ${(100*s.covered/s.n).toFixed(0)}%`); });
+  out.push(`  assignation complète (5 révélés, MAP) juste : ${(100*mapOk/mapN).toFixed(0)}% sur ${mapN}`);
+  out.push(`  calibration (p annoncée -> fréquence observée) : ` + calib.map((c, i) => c.n ? `[${i/10}-${(i+1)/10}) ${(c.sum/c.n).toFixed(2)}->${(c.hit/c.n).toFixed(2)} (n=${c.n})` : "").filter(Boolean).join(" "));
+}
+document.getElementById("out").textContent = out.join("\n");
+</script></body></html>

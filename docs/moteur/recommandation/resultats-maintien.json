@@ -1,0 +1,56 @@
+{
+ "Mid (4 d'origine) (égalités)": {
+  "draftsCompletesAvecEgaliteEnTete": 2.4,
+  "dontOrdreDecideParLeRisque": 89.5
+ },
+ "Mid (4 d'origine)": {
+  "etapesDraftIncomplete": 3200,
+  "nomAfficheMoinsBienNoteQueLe1er": 20.4,
+  "conseilChoixSerreQuiDitPasseDevantAlorsQuIlEstDerriere": 20.4
+ },
+ "Jungle (classique) (égalités)": {
+  "draftsCompletesAvecEgaliteEnTete": 0,
+  "dontOrdreDecideParLeRisque": 0
+ },
+ "Jungle (classique)": {
+  "etapesDraftIncomplete": 3200,
+  "nomAfficheMoinsBienNoteQueLe1er": 38.7,
+  "conseilChoixSerreQuiDitPasseDevantAlorsQuIlEstDerriere": 14.8
+ },
+ "Jungle (Cho'Gath) (égalités)": {
+  "draftsCompletesAvecEgaliteEnTete": 40.5,
+  "dontOrdreDecideParLeRisque": 0
+ },
+ "Jungle (Cho'Gath)": {
+  "etapesDraftIncomplete": 3200,
+  "nomAfficheMoinsBienNoteQueLe1er": 12.6,
+  "conseilChoixSerreQuiDitPasseDevantAlorsQuIlEstDerriere": 1.4
+ },
+ "Support (égalités)": {
+  "draftsCompletesAvecEgaliteEnTete": 59.6,
+  "dontOrdreDecideParLeRisque": 0
+ },
+ "Support": {
+  "etapesDraftIncomplete": 3200,
+  "nomAfficheMoinsBienNoteQueLe1er": 23.2,
+  "conseilChoixSerreQuiDitPasseDevantAlorsQuIlEstDerriere": 23.2
+ },
+ "Top (égalités)": {
+  "draftsCompletesAvecEgaliteEnTete": 34.8,
+  "dontOrdreDecideParLeRisque": 0
+ },
+ "Top": {
+  "etapesDraftIncomplete": 3200,
+  "nomAfficheMoinsBienNoteQueLe1er": 32.8,
+  "conseilChoixSerreQuiDitPasseDevantAlorsQuIlEstDerriere": 32.8
+ },
+ "ADC (égalités)": {
+  "draftsCompletesAvecEgaliteEnTete": 17.9,
+  "dontOrdreDecideParLeRisque": 0
+ },
+ "ADC": {
+  "etapesDraftIncomplete": 3200,
+  "nomAfficheMoinsBienNoteQueLe1er": 4.3,
+  "conseilChoixSerreQuiDitPasseDevantAlorsQuIlEstDerriere": 0.4
+ }
+}

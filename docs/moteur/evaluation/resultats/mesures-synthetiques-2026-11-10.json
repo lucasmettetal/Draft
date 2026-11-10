@@ -1,0 +1,234 @@
+{
+  "synthetique": true,
+  "avertissement": "Chiffres mesurés sur des scénarios SYNTHÉTIQUES, avec des annotations écrites à la main. Ils ne mesurent pas la qualité du moteur sur de vraies parties.",
+  "banc": "1.0",
+  "moteur": "2.2",
+  "jeux": {
+    "developpement": {
+      "scenarios": 252,
+      "roles": {
+        "precisionArgmax": 97.4,
+        "precisionMAP": 98.4,
+        "champions": 1026,
+        "parRole": {
+          "top": "99.5 % (205)",
+          "jungle": "97 % (200)",
+          "mid": "94.7 % (206)",
+          "adc": "99.1 % (215)",
+          "support": "96.5 % (200)"
+        },
+        "parNiveau": {
+          "evident": "99.5 % (936)",
+          "elimination": "91.9 % (62)",
+          "hors_role_par_construction": "39.3 % (28)"
+        },
+        "affectationCompleteJuste": "94.9 % (157 drafts complètes entièrement annotées)",
+        "brier": 0.0453,
+        "ece": 0.075,
+        "fiabilite": [
+          "0.2-0.3 : n=1, p moyen 0.3, juste 0",
+          "0.4-0.5 : n=39, p moyen 0.48, juste 0.51",
+          "0.5-0.6 : n=5, p moyen 0.56, juste 0.8",
+          "0.6-0.7 : n=29, p moyen 0.67, juste 0.93",
+          "0.7-0.8 : n=34, p moyen 0.76, juste 0.94",
+          "0.8-0.9 : n=208, p moyen 0.85, juste 0.99",
+          "0.9-1 : n=710, p moyen 0.96, juste 1"
+        ]
+      },
+      "adversaireDirect": {
+        "attenduNomme": 201,
+        "juste": 96,
+        "faux": 0,
+        "abstention": 4,
+        "candidatPrincipalJuste": 97.5,
+        "parConfiance": {
+          "moyenne": "n=193, nommé 193, juste 193",
+          "faible": "n=8, nommé 0, juste 0"
+        },
+        "nonRevele": "40/40 sans adversaire inventé",
+        "confianceEleveeInterdite": "0 violation(s) sur 29"
+      },
+      "invariance": {
+        "determinisme": "252/252 identiques (100 %)",
+        "ordrePool": "1008/1008 identiques (100 %)",
+        "ordreAdversaires": "972/972 identiques (100 %)",
+        "ordreAdversairesRoles": "972/972 identiques (100 %)",
+        "exclusionHorsPool": "252/252 identiques (100 %)",
+        "favoriHorsEgalite": "206/206 identiques (100 %)"
+      },
+      "egalites": "21/21 égalités attendues respectées ; 7/7 picks pris bien absents",
+      "monotonie": {
+        "plongeur": "un plongeur ou assassin de plus ne doit pas faire monter un pick immobile (i) : mid fixé 1/83 violations, chemin complet 0/83 violations, top 1 basculé vers un pick fragile 0 fois",
+        "tank": "un tank de plus ne doit pas faire baisser un tueur de tanks (k) : mid fixé 0/79 violations, chemin complet 0/79 violations, top 1 basculé vers un pick fragile 0 fois",
+        "cible": "une cible fragile de plus ne doit pas faire baisser un assassin (h) : mid fixé 0/50 violations, chemin complet 1/50 violations, top 1 basculé vers un pick fragile 0 fois"
+      },
+      "remplacementMemeArchetype": "10/156 changements du 1er choix (6.4 %), distance de Kendall moyenne 0.049",
+      "exemples": {
+        "ordreAdversaires": [],
+        "monotonie": [
+          "IN-041 +Zed (plongeur) : Xerath -0.69 -> 1.31 à mid fixé",
+          "IN-085 +Jinx (cible) : Fizz 0.18 -> -0.19 chemin complet (mid Cassiopeia -> Cassiopeia)"
+        ],
+        "adversaire": [],
+        "roles": [
+          "CF-001 Zyra : attendu jungle (elimination), moteur support à 0.494",
+          "CF-026 Morgana : attendu support (evident), moteur jungle à 0.7237",
+          "CF-026 Pantheon : attendu jungle (elimination), moteur support à 0.7182",
+          "CF-034 Rengar : attendu jungle (evident), moteur top à 0.4763",
+          "CF-057 Seraphine : attendu adc (elimination), moteur support à 0.5802",
+          "CF-057 Gragas : attendu support (elimination), moteur jungle à 0.2956",
+          "CF-058 Annie : attendu support (elimination), moteur mid à 0.4763",
+          "HR-011 Tristana : attendu mid (hors_role_par_construction), moteur adc à 0.4916",
+          "HR-012 Zilean : attendu mid (hors_role_par_construction), moteur support à 0.4836",
+          "HR-014 Sion : attendu top (evident), moteur support à 0.4134",
+          "HR-014 Teemo : attendu support (hors_role_par_construction), moteur top à 0.6053",
+          "HR-015 Kog'Maw : attendu mid (hors_role_par_construction), moteur adc à 0.4929"
+        ]
+      }
+    },
+    "evaluation_gele": {
+      "scenarios": 108,
+      "roles": {
+        "precisionArgmax": 96.2,
+        "precisionMAP": 97,
+        "champions": 399,
+        "parRole": {
+          "top": "98.8 % (82)",
+          "jungle": "93.6 % (78)",
+          "mid": "92.5 % (80)",
+          "adc": "98.7 % (78)",
+          "support": "97.5 % (81)"
+        },
+        "parNiveau": {
+          "evident": "99.2 % (360)",
+          "elimination": "85.2 % (27)",
+          "hors_role_par_construction": "33.3 % (12)"
+        },
+        "affectationCompleteJuste": "90.9 % (66 drafts complètes entièrement annotées)",
+        "brier": 0.0677,
+        "ece": 0.0769,
+        "fiabilite": [
+          "0.2-0.3 : n=1, p moyen 0.3, juste 0",
+          "0.3-0.4 : n=2, p moyen 0.4, juste 1",
+          "0.4-0.5 : n=17, p moyen 0.48, juste 0.53",
+          "0.5-0.6 : n=6, p moyen 0.58, juste 0.83",
+          "0.6-0.7 : n=14, p moyen 0.64, juste 0.93",
+          "0.7-0.8 : n=19, p moyen 0.74, juste 0.95",
+          "0.8-0.9 : n=63, p moyen 0.84, juste 0.95",
+          "0.9-1 : n=277, p moyen 0.96, juste 1"
+        ]
+      },
+      "adversaireDirect": {
+        "attenduNomme": 81,
+        "juste": 95.1,
+        "faux": 1.2,
+        "abstention": 3.7,
+        "candidatPrincipalJuste": 97.5,
+        "parConfiance": {
+          "moyenne": "n=78, nommé 78, juste 77",
+          "faible": "n=3, nommé 0, juste 0"
+        },
+        "nonRevele": "22/22 sans adversaire inventé",
+        "confianceEleveeInterdite": "0 violation(s) sur 13"
+      },
+      "invariance": {
+        "determinisme": "108/108 identiques (100 %)",
+        "ordrePool": "432/432 identiques (100 %)",
+        "ordreAdversaires": "348/348 identiques (100 %)",
+        "ordreAdversairesRoles": "348/348 identiques (100 %)",
+        "exclusionHorsPool": "108/108 identiques (100 %)",
+        "favoriHorsEgalite": "78/78 identiques (100 %)"
+      },
+      "egalites": "9/9 égalités attendues respectées ; 3/3 picks pris bien absents",
+      "monotonie": {
+        "plongeur": "un plongeur ou assassin de plus ne doit pas faire monter un pick immobile (i) : mid fixé 0/26 violations, chemin complet 0/26 violations, top 1 basculé vers un pick fragile 0 fois",
+        "tank": "un tank de plus ne doit pas faire baisser un tueur de tanks (k) : mid fixé 0/27 violations, chemin complet 0/27 violations, top 1 basculé vers un pick fragile 0 fois",
+        "cible": "une cible fragile de plus ne doit pas faire baisser un assassin (h) : mid fixé 0/22 violations, chemin complet 0/22 violations, top 1 basculé vers un pick fragile 0 fois"
+      },
+      "remplacementMemeArchetype": "4/68 changements du 1er choix (5.9 %), distance de Kendall moyenne 0.04",
+      "exemples": {
+        "ordreAdversaires": [],
+        "monotonie": [],
+        "adversaire": [
+          "HR-003 [mid] Renekton, Nocturne, Tristana, Renata Glasc, Kog'Maw : attendu Kog'Maw, moteur Tristana (moyenne)"
+        ],
+        "roles": [
+          "CF-016 Pantheon : attendu jungle (elimination), moteur support à 0.2956",
+          "CF-041 Sylas : attendu jungle (elimination), moteur mid à 0.4827",
+          "CF-044 Volibear : attendu top (elimination), moteur jungle à 0.8585",
+          "CF-044 Sylas : attendu jungle (elimination), moteur top à 0.7205",
+          "HR-002 Teemo : attendu support (hors_role_par_construction), moteur top à 0.494",
+          "HR-003 Tristana : attendu adc (evident), moteur mid à 0.8125",
+          "HR-003 Kog'Maw : attendu mid (hors_role_par_construction), moteur adc à 0.8365",
+          "HR-005 Garen : attendu mid (hors_role_par_construction), moteur top à 0.4836",
+          "HR-006 Rengar : attendu jungle (evident), moteur mid à 0.4134",
+          "HR-006 Nunu : attendu mid (hors_role_par_construction), moteur jungle à 0.6053",
+          "HR-007 Pyke : attendu mid (hors_role_par_construction), moteur support à 0.4929",
+          "HR-008 Senna : attendu support (evident), moteur jungle à 0.4043"
+        ]
+      }
+    }
+  },
+  "demoVariante": {
+    "description": "Variante fictive en mémoire : poids du critère front 2 -> 1,5. Sert seulement à montrer le rapport de différences.",
+    "declareFront": {
+      "scenarios": 252,
+      "top1": 5,
+      "ordre": 9,
+      "scores": 76,
+      "adversaire": 0,
+      "roles": 0,
+      "attendus": 9,
+      "inattendus": 0,
+      "details": [
+        "CE-007 : Evelynn,Gwen,Nidalee,Viego,Warwick -> Evelynn,Nidalee,Gwen,Viego,Warwick ; critères modifiés : front (attendu)",
+        "CE-031 : Irelia,Jax,Mordekaiser,Gragas,Kayle -> Gragas,Irelia,Jax,Mordekaiser,Kayle ; critères modifiés : front (attendu)",
+        "CE-068 : Fizz,Xerath,Kog'Maw,Twisted Fate -> Fizz,Xerath,Twisted Fate,Kog'Maw ; critères modifiés : front (attendu)",
+        "CE-081 : Darius,Lillia,Aurora,Tahm Kench -> Lillia,Darius,Aurora,Tahm Kench ; critères modifiés : front (attendu)",
+        "CF-054 : Kog'Maw,Nilah,Samira,Draven -> Nilah,Samira,Kog'Maw,Draven ; critères modifiés : front (attendu)",
+        "HR-018 : Kog'Maw,Xerath,Twisted Fate,Fizz -> Kog'Maw,Xerath,Fizz,Twisted Fate ; critères modifiés : front (attendu)",
+        "HR-033 : Fizz,Kog'Maw,Twisted Fate -> Fizz,Twisted Fate,Kog'Maw ; critères modifiés : front (attendu)",
+        "EG-011 : Ryze,Yorick,Katarina -> Katarina,Ryze,Yorick ; critères modifiés : front (attendu)",
+        "EG-021 : Smolder,Yunara,Xayah,Draven -> Xayah,Smolder,Yunara,Draven ; critères modifiés : front (attendu)"
+      ],
+      "tauxChangementTop1": 2,
+      "tauxInattendu": 0
+    },
+    "declareRien": {
+      "scenarios": 252,
+      "top1": 5,
+      "ordre": 9,
+      "scores": 76,
+      "adversaire": 0,
+      "roles": 0,
+      "attendus": 0,
+      "inattendus": 9,
+      "details": [
+        "CE-007 : Evelynn,Gwen,Nidalee,Viego,Warwick -> Evelynn,Nidalee,Gwen,Viego,Warwick ; critères modifiés : front (INATTENDU)",
+        "CE-031 : Irelia,Jax,Mordekaiser,Gragas,Kayle -> Gragas,Irelia,Jax,Mordekaiser,Kayle ; critères modifiés : front (INATTENDU)",
+        "CE-068 : Fizz,Xerath,Kog'Maw,Twisted Fate -> Fizz,Xerath,Twisted Fate,Kog'Maw ; critères modifiés : front (INATTENDU)",
+        "CE-081 : Darius,Lillia,Aurora,Tahm Kench -> Lillia,Darius,Aurora,Tahm Kench ; critères modifiés : front (INATTENDU)",
+        "CF-054 : Kog'Maw,Nilah,Samira,Draven -> Nilah,Samira,Kog'Maw,Draven ; critères modifiés : front (INATTENDU)",
+        "HR-018 : Kog'Maw,Xerath,Twisted Fate,Fizz -> Kog'Maw,Xerath,Fizz,Twisted Fate ; critères modifiés : front (INATTENDU)",
+        "HR-033 : Fizz,Kog'Maw,Twisted Fate -> Fizz,Twisted Fate,Kog'Maw ; critères modifiés : front (INATTENDU)",
+        "EG-011 : Ryze,Yorick,Katarina -> Katarina,Ryze,Yorick ; critères modifiés : front (INATTENDU)",
+        "EG-021 : Smolder,Yunara,Xayah,Draven -> Xayah,Smolder,Yunara,Draven ; critères modifiés : front (INATTENDU)"
+      ],
+      "tauxChangementTop1": 2,
+      "tauxInattendu": 3.6
+    }
+  },
+  "memeVersion": {
+    "scenarios": 252,
+    "top1": 0,
+    "ordre": 0,
+    "scores": 0,
+    "adversaire": 0,
+    "roles": 0,
+    "attendus": 0,
+    "inattendus": 0,
+    "details": [],
+    "tauxChangementTop1": 0,
+    "tauxInattendu": 0
+  }
+}

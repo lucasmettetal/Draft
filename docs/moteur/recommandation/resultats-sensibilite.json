@@ -1,0 +1,910 @@
+{
+ "base": {
+  "Mid (4 d'origine)": {
+   "enTete": {
+    "Fizz": 54.4,
+    "Twisted Fate": 22.5,
+    "Kog'Maw": 16.3,
+    "Xerath": 6.8
+   },
+   "egaliteEnTete": 1.8,
+   "toutAZero": 0,
+   "plusieursHypotheses": 27.5,
+   "critereMatchupActif": 85.9,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 5.5,
+    "0,5-1": 17.9,
+    "1-2 (serré)": 25.5,
+    ">=2 (net)": 51.1
+   },
+   "partDuPoidsAbsolu": {
+    "matchup": 35.6,
+    "dive": 15.8,
+    "targets": 15.6,
+    "front": 14.7,
+    "peel": 5.8,
+    "map": 5.4,
+    "control": 5.3,
+    "range": 1.8
+   },
+   "critereDecisif": {
+    "targets": 41.8,
+    "matchup": 25.4,
+    "front": 14.5,
+    "dive": 8.2,
+    "control": 6.3,
+    "peel": 3.6,
+    "range": 0.1,
+    "map": 0.1
+   }
+  },
+  "Mid mixte (2 du tableau + 3 hors tableau)": {
+   "enTete": {
+    "Fizz": 41.5,
+    "Ahri": 31.1,
+    "Twisted Fate": 27.4,
+    "Orianna": 0
+   },
+   "egaliteEnTete": 10.5,
+   "toutAZero": 0,
+   "plusieursHypotheses": 30.6,
+   "critereMatchupActif": 83.7,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 19.3,
+    "0,5-1": 12,
+    "1-2 (serré)": 36.1,
+    ">=2 (net)": 32.6
+   },
+   "partDuPoidsAbsolu": {
+    "targets": 43.7,
+    "matchup": 21.4,
+    "dive": 17,
+    "control": 8.7,
+    "map": 5.9,
+    "front": 2.4,
+    "range": 1
+   },
+   "critereDecisif": {
+    "matchup": 66.6,
+    "targets": 19.1,
+    "control": 7.1,
+    "map": 6.5,
+    "front": 0.8
+   }
+  },
+  "Mid hors tableau": {
+   "enTete": {
+    "Ahri": 49,
+    "Yasuo": 26.6,
+    "Galio": 24.4
+   },
+   "egaliteEnTete": 2.5,
+   "toutAZero": 0,
+   "plusieursHypotheses": 31.9,
+   "critereMatchupActif": 0,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 27.5,
+    "0,5-1": 39.2,
+    "1-2 (serré)": 29.2,
+    ">=2 (net)": 4.1
+   },
+   "partDuPoidsAbsolu": {
+    "targets": 45.3,
+    "dive": 28.6,
+    "front": 15.1,
+    "map": 5.5,
+    "control": 4.5,
+    "range": 1.1
+   },
+   "critereDecisif": {
+    "map": 27.4,
+    "front": 26.4,
+    "dive": 23.7,
+    "control": 13.1,
+    "targets": 9.4
+   }
+  },
+  "Jungle (Cho'Gath)": {
+   "enTete": {
+    "Cho'Gath": 42.3,
+    "Lee Sin": 35.1,
+    "Master Yi": 11.2,
+    "Viego": 11.2,
+    "Briar": 0.2
+   },
+   "egaliteEnTete": 38.9,
+   "toutAZero": 0.9,
+   "plusieursHypotheses": 23.7,
+   "critereMatchupActif": 0,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 0,
+    "0,5-1": 0.4,
+    "1-2 (serré)": 23.3,
+    ">=2 (net)": 76.2
+   },
+   "partDuPoidsAbsolu": {
+    "front": 65.6,
+    "targets": 23.2,
+    "dive": 8,
+    "control": 3.2
+   },
+   "critereDecisif": {
+    "targets": 49.2,
+    "dive": 36.5,
+    "front": 14.3
+   }
+  },
+  "Jungle (classique)": {
+   "enTete": {
+    "Kha'Zix": 46.1,
+    "Amumu": 41.5,
+    "Hecarim": 12.4
+   },
+   "egaliteEnTete": 0,
+   "toutAZero": 0,
+   "plusieursHypotheses": 21.5,
+   "critereMatchupActif": 0,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 76.5,
+    "0,5-1": 0.1,
+    "1-2 (serré)": 23.3,
+    ">=2 (net)": 0
+   },
+   "partDuPoidsAbsolu": {
+    "targets": 76.4,
+    "dive": 8,
+    "control": 6,
+    "front": 4.8,
+    "map": 4.8
+   },
+   "critereDecisif": {
+    "map": 58.5,
+    "dive": 41.5
+   }
+  },
+  "Top": {
+   "enTete": {
+    "Ornn": 74.5,
+    "Malphite": 17.9,
+    "Camille": 6.2,
+    "Garen": 1.4
+   },
+   "egaliteEnTete": 37.1,
+   "toutAZero": 0,
+   "plusieursHypotheses": 30.1,
+   "critereMatchupActif": 0,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 0.2,
+    "0,5-1": 10.6,
+    "1-2 (serré)": 69.7,
+    ">=2 (net)": 19.5
+   },
+   "partDuPoidsAbsolu": {
+    "front": 53.2,
+    "dive": 23.9,
+    "targets": 18.6,
+    "map": 4.3
+   },
+   "critereDecisif": {
+    "dive": 47.3,
+    "targets": 42.8,
+    "map": 9.9
+   }
+  },
+  "ADC": {
+   "enTete": {
+    "Vayne": 64.8,
+    "Ezreal": 28.4,
+    "Caitlyn": 6.9,
+    "Jinx": 0
+   },
+   "egaliteEnTete": 17.3,
+   "toutAZero": 0,
+   "plusieursHypotheses": 12.7,
+   "critereMatchupActif": 0,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 31.6,
+    "0,5-1": 16.9,
+    "1-2 (serré)": 20.1,
+    ">=2 (net)": 31.3
+   },
+   "partDuPoidsAbsolu": {
+    "dive": 41.8,
+    "front": 37.4,
+    "targets": 8.9,
+    "control": 6.3,
+    "range": 3.5,
+    "map": 2.2,
+    "peel": 0
+   },
+   "critereDecisif": {
+    "front": 40.1,
+    "map": 29.2,
+    "control": 13.9,
+    "targets": 12.1,
+    "dive": 2.7,
+    "range": 2.1
+   }
+  },
+  "Support": {
+   "enTete": {
+    "Leona": 30.6,
+    "Thresh": 30.6,
+    "Soraka": 27.4,
+    "Lux": 11.5
+   },
+   "egaliteEnTete": 61.1,
+   "toutAZero": 0,
+   "plusieursHypotheses": 13.3,
+   "critereMatchupActif": 0,
+   "ecart1er2e_horsEgalite": {
+    "<0,5": 29.2,
+    "0,5-1": 70.8,
+    "1-2 (serré)": 0,
+    ">=2 (net)": 0
+   },
+   "partDuPoidsAbsolu": {
+    "dive": 60.2,
+    "targets": 31.5,
+    "map": 5.8,
+    "range": 2,
+    "control": 0.6
+   },
+   "critereDecisif": {
+    "map": 70.5,
+    "range": 29.5
+   }
+  }
+ },
+ "loo": {
+  "Mid (4 d'origine)": {
+   "matchup": 38.1,
+   "blind": 0,
+   "targets": 39,
+   "front": 15.9,
+   "dive": 10,
+   "control": 10.5,
+   "range": 1.3,
+   "peel": 6.5,
+   "map": 8.9
+  },
+  "Mid mixte (2 du tableau + 3 hors tableau)": {
+   "matchup": 71.1,
+   "blind": 0,
+   "targets": 41.5,
+   "front": 3.3,
+   "dive": 0.3,
+   "control": 8.7,
+   "range": 0,
+   "peel": 0,
+   "map": 19.9
+  },
+  "Mid hors tableau": {
+   "matchup": 0,
+   "blind": 0,
+   "targets": 53,
+   "front": 27.5,
+   "dive": 25.7,
+   "control": 8.9,
+   "range": 0,
+   "peel": 0,
+   "map": 29.3
+  },
+  "Jungle (Cho'Gath)": {
+   "matchup": 0,
+   "blind": 0,
+   "targets": 50.2,
+   "front": 48.5,
+   "dive": 31.1,
+   "control": 4.1,
+   "range": 0,
+   "peel": 0,
+   "map": 0
+  },
+  "Jungle (classique)": {
+   "matchup": 0,
+   "blind": 0,
+   "targets": 46.1,
+   "front": 5.1,
+   "dive": 41.5,
+   "control": 6.5,
+   "range": 0,
+   "peel": 0,
+   "map": 58.5
+  },
+  "Top": {
+   "matchup": 0,
+   "blind": 0,
+   "targets": 59.8,
+   "front": 56.7,
+   "dive": 21.7,
+   "control": 0,
+   "range": 0,
+   "peel": 0,
+   "map": 6.2
+  },
+  "ADC": {
+   "matchup": 0,
+   "blind": 0,
+   "targets": 22.7,
+   "front": 63,
+   "dive": 14.6,
+   "control": 6.7,
+   "range": 2.1,
+   "peel": 0,
+   "map": 24.2
+  },
+  "Support": {
+   "matchup": 0,
+   "blind": 0,
+   "targets": 61.1,
+   "front": 0,
+   "dive": 4.6,
+   "control": 0.7,
+   "range": 11.5,
+   "peel": 0,
+   "map": 27.4
+  }
+ },
+ "perturb": {
+  "Mid (4 d'origine)": {
+   "matchup": {
+    "+25 %": 3.3,
+    "-25 %": 4.6
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 4.9,
+    "-25 %": 7.9
+   },
+   "front": {
+    "+25 %": 8.1,
+    "-25 %": 5.7
+   },
+   "dive": {
+    "+25 %": 2.2,
+    "-25 %": 2.9
+   },
+   "control": {
+    "+25 %": 0.8,
+    "-25 %": 2.1
+   },
+   "range": {
+    "+25 %": 0.1,
+    "-25 %": 0.3
+   },
+   "peel": {
+    "+25 %": 6.2,
+    "-25 %": 2.4
+   },
+   "map": {
+    "+25 %": 2,
+    "-25 %": 2.3
+   }
+  },
+  "Mid mixte (2 du tableau + 3 hors tableau)": {
+   "matchup": {
+    "+25 %": 2.3,
+    "-25 %": 9.1
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 6.9,
+    "-25 %": 2.3
+   },
+   "front": {
+    "+25 %": 0.7,
+    "-25 %": 0.7
+   },
+   "dive": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "control": {
+    "+25 %": 0.5,
+    "-25 %": 1.3
+   },
+   "range": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "peel": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "map": {
+    "+25 %": 0.4,
+    "-25 %": 0.6
+   }
+  },
+  "Mid hors tableau": {
+   "matchup": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 4.3,
+    "-25 %": 20
+   },
+   "front": {
+    "+25 %": 19.2,
+    "-25 %": 14.3
+   },
+   "dive": {
+    "+25 %": 11.9,
+    "-25 %": 2.5
+   },
+   "control": {
+    "+25 %": 0.8,
+    "-25 %": 0.8
+   },
+   "range": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "peel": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "map": {
+    "+25 %": 2.5,
+    "-25 %": 2.5
+   }
+  },
+  "Jungle (Cho'Gath)": {
+   "matchup": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 20.1,
+    "-25 %": 20.1
+   },
+   "front": {
+    "+25 %": 19.2,
+    "-25 %": 19.2
+   },
+   "dive": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "control": {
+    "+25 %": 0.9,
+    "-25 %": 0.9
+   },
+   "range": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "peel": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "map": {
+    "+25 %": 0,
+    "-25 %": 0
+   }
+  },
+  "Jungle (classique)": {
+   "matchup": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 18.1,
+    "-25 %": 0
+   },
+   "front": {
+    "+25 %": 0,
+    "-25 %": 4.2
+   },
+   "dive": {
+    "+25 %": 0,
+    "-25 %": 18.1
+   },
+   "control": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "range": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "peel": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "map": {
+    "+25 %": 0,
+    "-25 %": 0
+   }
+  },
+  "Top": {
+   "matchup": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "front": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "dive": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "control": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "range": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "peel": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "map": {
+    "+25 %": 0,
+    "-25 %": 0
+   }
+  },
+  "ADC": {
+   "matchup": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "front": {
+    "+25 %": 2,
+    "-25 %": 10.1
+   },
+   "dive": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "control": {
+    "+25 %": 0,
+    "-25 %": 2
+   },
+   "range": {
+    "+25 %": 0,
+    "-25 %": 2
+   },
+   "peel": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "map": {
+    "+25 %": 0,
+    "-25 %": 0
+   }
+  },
+  "Support": {
+   "matchup": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "blind": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "targets": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "front": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "dive": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "control": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "range": {
+    "+25 %": 0,
+    "-25 %": 11.2
+   },
+   "peel": {
+    "+25 %": 0,
+    "-25 %": 0
+   },
+   "map": {
+    "+25 %": 0,
+    "-25 %": 0
+   }
+  }
+ },
+ "subst": {
+  "Mid (4 d'origine)": {
+   "nomEnTeteChange": 25.5,
+   "horsChangementAdversaireDirect": 16.7,
+   "dontSautDe2PointsOuPlus": 67,
+   "causePrincipale": {
+    "control": 33,
+    "dive": 21.1,
+    "targets": 16.5,
+    "front": 16.5,
+    "range": 5.2,
+    "matchup": 5.2,
+    "peel": 1
+   }
+  },
+  "Mid mixte (2 du tableau + 3 hors tableau)": {
+   "nomEnTeteChange": 22.9,
+   "horsChangementAdversaireDirect": 13,
+   "dontSautDe2PointsOuPlus": 46.9,
+   "causePrincipale": {
+    "targets": 33.1,
+    "control": 20,
+    "matchup": 11.7,
+    "front": 6.9
+   }
+  },
+  "Mid hors tableau": {
+   "nomEnTeteChange": 22.4,
+   "horsChangementAdversaireDirect": 18.4,
+   "dontSautDe2PointsOuPlus": 64.5,
+   "causePrincipale": {
+    "dive": 35.1,
+    "front": 23.2,
+    "targets": 22.3,
+    "control": 16.1
+   }
+  },
+  "Jungle (Cho'Gath)": {
+   "nomEnTeteChange": 31.3,
+   "horsChangementAdversaireDirect": 27.3,
+   "dontSautDe2PointsOuPlus": 47.9,
+   "causePrincipale": {
+    "front": 37.1,
+    "targets": 6.7,
+    "control": 3.8,
+    "dive": 0.3
+   }
+  },
+  "Jungle (classique)": {
+   "nomEnTeteChange": 21,
+   "horsChangementAdversaireDirect": 20,
+   "dontSautDe2PointsOuPlus": 88.7,
+   "causePrincipale": {
+    "dive": 73,
+    "control": 16.1,
+    "front": 7.8,
+    "targets": 3
+   }
+  },
+  "Top": {
+   "nomEnTeteChange": 19.5,
+   "horsChangementAdversaireDirect": 19.4,
+   "dontSautDe2PointsOuPlus": 82.8,
+   "causePrincipale": {
+    "front": 72.1,
+    "targets": 16.7,
+    "dive": 11.2
+   }
+  },
+  "ADC": {
+   "nomEnTeteChange": 22.1,
+   "horsChangementAdversaireDirect": 26.1,
+   "dontSautDe2PointsOuPlus": 77.7,
+   "causePrincipale": {
+    "front": 70.3,
+    "dive": 9.7,
+    "control": 8.3,
+    "range": 2.3
+   }
+  },
+  "Support": {
+   "nomEnTeteChange": 19.7,
+   "horsChangementAdversaireDirect": 18.1,
+   "dontSautDe2PointsOuPlus": 21.4,
+   "causePrincipale": {
+    "targets": 57.8,
+    "dive": 21.4,
+    "range": 19.4,
+    "control": 1.5
+   }
+  }
+ },
+ "fidelity": {
+  "Mid (4 d'origine)": {
+   "texteMatchupMelangeantPlusieursHypotheses": 15.3,
+   "raisonPositiveContenantAEviter": 1.5,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  },
+  "Mid mixte (2 du tableau + 3 hors tableau)": {
+   "texteMatchupMelangeantPlusieursHypotheses": 11,
+   "raisonPositiveContenantAEviter": 1.7,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  },
+  "Mid hors tableau": {
+   "texteMatchupMelangeantPlusieursHypotheses": 0,
+   "raisonPositiveContenantAEviter": 0,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  },
+  "Jungle (Cho'Gath)": {
+   "texteMatchupMelangeantPlusieursHypotheses": 0,
+   "raisonPositiveContenantAEviter": 0,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  },
+  "Jungle (classique)": {
+   "texteMatchupMelangeantPlusieursHypotheses": 0,
+   "raisonPositiveContenantAEviter": 0,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  },
+  "Top": {
+   "texteMatchupMelangeantPlusieursHypotheses": 0,
+   "raisonPositiveContenantAEviter": 0,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  },
+  "ADC": {
+   "texteMatchupMelangeantPlusieursHypotheses": 0,
+   "raisonPositiveContenantAEviter": 0,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  },
+  "Support": {
+   "texteMatchupMelangeantPlusieursHypotheses": 0,
+   "raisonPositiveContenantAEviter": 0,
+   "choixNetAlorsQueLe2eEstAMoinsDe2Points": 0
+  }
+ },
+ "order": {
+  "Mid (4 d'origine)": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 10.6,
+   "poolInverse_classementDifferent": 0
+  },
+  "Mid mixte (2 du tableau + 3 hors tableau)": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 9.6,
+   "poolInverse_classementDifferent": 0
+  },
+  "Mid hors tableau": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 48.4,
+   "poolInverse_classementDifferent": 0
+  },
+  "Jungle (Cho'Gath)": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 10.4,
+   "poolInverse_classementDifferent": 0
+  },
+  "Jungle (classique)": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 51,
+   "poolInverse_classementDifferent": 0
+  },
+  "Top": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 0,
+   "poolInverse_classementDifferent": 0
+  },
+  "ADC": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 1.2,
+   "poolInverse_classementDifferent": 0
+  },
+  "Support": {
+   "memes4Adversaires_ordreInverse_nomAfficheDifferent": 0,
+   "poolInverse_classementDifferent": 0
+  }
+ },
+ "fichesInertes": [
+  "Aatrox:d",
+  "Briar:d",
+  "Illaoi:d",
+  "Rek'Sai:dr",
+  "Rumble:dn",
+  "Taliyah:gr",
+  "Udyr:d",
+  "Zaahen:d"
+ ],
+ "traitsCompte": {
+  "d": 68,
+  "h": 30,
+  "r": 24,
+  "e": 20,
+  "t": 30,
+  "E": 42,
+  "c": 24,
+  "k": 44,
+  "i": 34,
+  "l": 26,
+  "w": 5,
+  "p": 12,
+  "o": 3,
+  "g": 16,
+  "n": 4,
+  "q": 2
+ },
+ "frontlineTotal": 69,
+ "tableau": {
+  "Twisted Fate": {
+   "premier": 14,
+   "second": 13,
+   "aEviter": 1,
+   "sansAvis": 12,
+   "moyennePoints": 1.44
+  },
+  "Fizz": {
+   "premier": 18,
+   "second": 6,
+   "aEviter": 13,
+   "sansAvis": 3,
+   "moyennePoints": 0.28
+  },
+  "Kog'Maw": {
+   "premier": 8,
+   "second": 4,
+   "aEviter": 10,
+   "sansAvis": 19,
+   "moyennePoints": -0.25
+  },
+  "Xerath": {
+   "premier": 1,
+   "second": 18,
+   "aEviter": 11,
+   "sansAvis": 10,
+   "moyennePoints": -0.35
+  }
+ },
+ "blind": {
+  "Twisted Fate": 0.85,
+  "Fizz": -1,
+  "Kog'Maw": -0.54,
+  "Xerath": -0.69
+ },
+ "seuils": {
+  "Fizz, 3 connus sans carry fragile": "Twisted Fate 2.35 | Kog'Maw 2.21 | Xerath -0.19 | Fizz -1.75",
+  "Fizz, 4 connus sans carry fragile": "Twisted Fate 2.35 | Kog'Maw 2.21 | Xerath -0.19 | Fizz -5.75",
+  "1 bruiser": "Twisted Fate 1.35 | Xerath 1.31 | Fizz -0.75 | Kog'Maw -0.79",
+  "2 bruisers (Darius, Yasuo)": "Kog'Maw 2.21 | Twisted Fate 1.35 | Xerath 1.31 | Fizz -0.75",
+  "Xerath : 1 mobile": "Twisted Fate 1.35 | Xerath 1.31 | Fizz 0 | Kog'Maw -0.79",
+  "Xerath : 2 mobiles": "Fizz 2.25 | Twisted Fate 1.35 | Xerath 0.06 | Kog'Maw -0.79",
+  "Xerath : 3 mobiles": "Fizz 2.25 | Twisted Fate 1.35 | Kog'Maw -0.79 | Xerath -1.94",
+  "1 plongeur (Zed)": "Twisted Fate 1.35 | Xerath 1.31 | Fizz -0.75 | Kog'Maw -0.79",
+  "2 plongeurs (Zed, Talon)": "Twisted Fate 1.35 | Fizz -0.75 | Xerath -3.69 | Kog'Maw -3.79",
+  "Viktor au mid (dans le tableau, profil s, poke)": "Fizz 5.25 | Kog'Maw 2.75 | Xerath 2.75 | Twisted Fate 1.5",
+  "Heimerdinger au mid (hors tableau, même profil s, poke)": "Kog'Maw 2.75 | Fizz 2.25 | Twisted Fate 1.5 | Xerath 1.25"
+ },
+ "bilansPartiels": {
+  "avec": "Fizz 4 | Xerath 0 | Twisted Fate -1.37 | Kog'Maw -4.25",
+  "texteTF": "-3 % contre Ahri sur 40 parties",
+  "aEviter": [
+   "TF",
+   "Kog'Maw"
+  ],
+  "sans": "Fizz 4 | Twisted Fate 2 | Xerath 0 | Kog'Maw -4.25"
+ }
+}
