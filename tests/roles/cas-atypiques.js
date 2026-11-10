@@ -1,0 +1,58 @@
+// Cas atypiques SYNTHÉTIQUES pour la mesure des rôles adverses.
+// Les compositions sont écrites à la main. Les rôles attendus sont annotés à la main, d'après le scénario décrit :
+// ils ne viennent jamais du moteur. Ce sont des situations plausibles en partie classée, pas des parties réelles.
+// equipe : champions adverses dans l'ordre où ils sont révélés.
+// attendu : rôle réel de chaque champion dans le scénario (top, jungle, mid, adc, support).
+// profil : rôle du joueur. L'adversaire direct attendu est le champion dont le rôle attendu est celui du profil,
+// ou « pas encore choisi » si aucun champion révélé n'a ce rôle.
+// corrections : rôles imposés par le joueur dans l'interface (facultatif).
+const ROLE_CASES = [
+  { id:"kog-mid-jinx", synthetique:true, profil:"mid", equipe:["Garen", "Vi", "Kog'Maw", "Jinx", "Thresh"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Kog'Maw":"mid", "Jinx":"adc", "Thresh":"support" }, note:"Kog'Maw joué au mid, avec un vrai ADC." },
+  { id:"kog-mid-jinx-corrige", synthetique:true, profil:"mid", equipe:["Garen", "Vi", "Kog'Maw", "Jinx", "Thresh"], corrections:{ "Jinx":"adc" },
+    attendu:{ "Garen":"top", "Vi":"jungle", "Kog'Maw":"mid", "Jinx":"adc", "Thresh":"support" }, note:"Même draft, le joueur indique que Jinx est l'ADC." },
+  { id:"kog-mid-lucian", synthetique:true, profil:"mid", equipe:["Garen", "Vi", "Kog'Maw", "Lucian", "Nami"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Kog'Maw":"mid", "Lucian":"adc", "Nami":"support" }, note:"Kog'Maw au mid, Lucian et Nami en duo bot." },
+  { id:"kog-mid-seul", synthetique:true, profil:"mid", equipe:["Kog'Maw"],
+    attendu:{ "Kog'Maw":"mid" }, note:"Kog'Maw révélé seul, joué au mid." },
+  { id:"kog-adc-temoin", synthetique:true, profil:"adc", equipe:["Garen", "Vi", "Ahri", "Kog'Maw", "Lulu"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Ahri":"mid", "Kog'Maw":"adc", "Lulu":"support" }, note:"Témoin : Kog'Maw à son rôle habituel." },
+  { id:"quinn-jungle", synthetique:true, profil:"jungle", equipe:["Quinn", "Darius", "Ahri", "Jinx", "Thresh"],
+    attendu:{ "Quinn":"jungle", "Darius":"top", "Ahri":"mid", "Jinx":"adc", "Thresh":"support" }, note:"Quinn jouée à la jungle, Darius au top." },
+  { id:"quinn-jungle-partiel", synthetique:true, profil:"jungle", equipe:["Quinn", "Ahri", "Jinx"],
+    attendu:{ "Quinn":"jungle", "Ahri":"mid", "Jinx":"adc" }, note:"Quinn jungle, top pas encore révélé." },
+  { id:"quinn-top-temoin", synthetique:true, profil:"top", equipe:["Quinn", "Vi", "Ahri", "Jinx", "Thresh"],
+    attendu:{ "Quinn":"top", "Vi":"jungle", "Ahri":"mid", "Jinx":"adc", "Thresh":"support" }, note:"Témoin : Quinn à son rôle habituel." },
+  { id:"seraphine-adc-senna", synthetique:true, profil:"adc", equipe:["Garen", "Vi", "Ahri", "Seraphine", "Senna"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Ahri":"mid", "Seraphine":"adc", "Senna":"support" }, note:"Seraphine ADC, Senna support." },
+  { id:"senna-adc-seraphine", synthetique:true, profil:"adc", equipe:["Garen", "Vi", "Ahri", "Seraphine", "Senna"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Ahri":"mid", "Senna":"adc", "Seraphine":"support" }, note:"Même draft, rôles inversés : Senna ADC, Seraphine support." },
+  { id:"seraphine-adc-nautilus", synthetique:true, profil:"adc", equipe:["Garen", "Vi", "Ahri", "Seraphine", "Nautilus"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Ahri":"mid", "Seraphine":"adc", "Nautilus":"support" }, note:"Seraphine ADC avec un support d'engage." },
+  { id:"seraphine-mid", synthetique:true, profil:"mid", equipe:["Garen", "Vi", "Seraphine", "Jinx", "Thresh"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Seraphine":"mid", "Jinx":"adc", "Thresh":"support" }, note:"Seraphine au mid." },
+  { id:"pantheon-support", synthetique:true, profil:"support", equipe:["Garen", "Vi", "Ahri", "Jinx", "Pantheon"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Ahri":"mid", "Jinx":"adc", "Pantheon":"support" }, note:"Pantheon support." },
+  { id:"pantheon-support-partiel", synthetique:true, profil:"support", equipe:["Pantheon", "Jinx"],
+    attendu:{ "Pantheon":"support", "Jinx":"adc" }, note:"Duo bot révélé en premier." },
+  { id:"sylas-seul-mid", synthetique:true, profil:"mid", equipe:["Sylas"],
+    attendu:{ "Sylas":"mid" }, note:"Sylas révélé seul, joué au mid." },
+  { id:"sylas-seul-top", synthetique:true, profil:"top", equipe:["Sylas"],
+    attendu:{ "Sylas":"top" }, note:"Sylas révélé seul, joué au top." },
+  { id:"xerath-mid-lux-support", synthetique:true, profil:"mid", equipe:["Garen", "Vi", "Xerath", "Jinx", "Lux"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Xerath":"mid", "Jinx":"adc", "Lux":"support" }, note:"Xerath mid, Lux support." },
+  { id:"lux-mid-xerath-support", synthetique:true, profil:"support", equipe:["Garen", "Vi", "Xerath", "Jinx", "Lux"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Lux":"mid", "Jinx":"adc", "Xerath":"support" }, note:"Même draft, rôles inversés : Lux mid, Xerath support." },
+  { id:"twitch-jungle", synthetique:true, profil:"jungle", equipe:["Garen", "Twitch", "Ahri", "Jinx", "Thresh"],
+    attendu:{ "Garen":"top", "Twitch":"jungle", "Ahri":"mid", "Jinx":"adc", "Thresh":"support" }, note:"Twitch joué à la jungle." },
+  { id:"smolder-mid", synthetique:true, profil:"mid", equipe:["Garen", "Vi", "Smolder", "Caitlyn", "Thresh"],
+    attendu:{ "Garen":"top", "Vi":"jungle", "Smolder":"mid", "Caitlyn":"adc", "Thresh":"support" }, note:"Smolder au mid, Caitlyn ADC." },
+  { id:"malphite-mid", synthetique:true, profil:"mid", equipe:["Sion", "Vi", "Malphite", "Jinx", "Thresh"],
+    attendu:{ "Sion":"top", "Vi":"jungle", "Malphite":"mid", "Jinx":"adc", "Thresh":"support" }, note:"Malphite au mid, Sion au top." },
+  { id:"sans-fiche-par-elimination", synthetique:true, profil:"mid", equipe:["Locke", "Vi", "Garen", "Jinx", "Thresh"],
+    attendu:{ "Locke":"mid", "Vi":"jungle", "Garen":"top", "Jinx":"adc", "Thresh":"support" }, note:"Champion sans fiche : il est mid par élimination." },
+  { id:"mid-pas-revele", synthetique:true, profil:"mid", equipe:["Vi", "Jinx"],
+    attendu:{ "Vi":"jungle", "Jinx":"adc" }, note:"Le mid adverse n'est pas encore choisi." },
+  { id:"rien-revele", synthetique:true, profil:"mid", equipe:[],
+    attendu:{}, note:"Aucun champion adverse révélé." }
+];
