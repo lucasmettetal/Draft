@@ -93,8 +93,8 @@ Elles viennent de la PR #3. Détail dans [AUDIT-SECURITE-216.md](AUDIT-SECURITE-
 | Outil | Résultat sur `release/2.16.1` |
 |---|---|
 | Claude Security | **Indisponible** : l'outil Workflow manque toujours dans cette session. Aucune analyse n'a été simulée |
-| `/security-review` (différence avec `main`) | Voir la PR (lancée après le dernier commit) |
-| CodeQL (GitHub Actions, `security-extended`) | Voir la PR. Sur `main` : C# 0 alerte, JavaScript 1 alerte dans une page de test non livrée |
+| `/security-review` (différence avec `main`, agent indépendant) | **Aucune faille.** Le test qui écrit un script dans la page n'est accessible qu'avec `--e2e`, les serveurs de test n'écoutent qu'en local et seulement avec `--selftest`, et la CSP comme la relecture des données sont inchangées |
+| CodeQL (GitHub Actions, `security-extended`) | **PR #4 : C# 0 alerte, JavaScript 0 alerte.** Une alerte `js/incomplete-sanitization`, introduite par cette branche dans `draft-v215-tests.html` (page de test non livrée), a été corrigée par une comparaison de texte |
 | Semgrep 1.185.0 | 38 alertes `unsafe-path-combine`, toutes déjà classées faux positifs (tests et noms fixes). Aucune nouvelle |
 | Gitleaks 8.30.1 | Historique (toutes branches) et fichiers : **aucune fuite** |
 
