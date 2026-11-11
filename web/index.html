@@ -895,10 +895,17 @@ const hostState = { available:false, autostart:false, follow:true, autoDraft:tru
 const SHARED = ["enemies", "manualMid", "held", "current", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
+// Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
+// Elle ne diffuse rien avant d'avoir reçu l'état des autres fenêtres, ou constaté qu'aucune ne répond :
+// sinon sa draft vide écraserait la vraie draft des panneaux.
+let synced = !channel;
+const SYNC_WAIT_MS = 1500;
+// Simulation (Draft aléatoire) : la fenêtre principale travaille sur sa propre draft, sans toucher à la draft en cours.
+let simulating = false;
 
 function publish(action) {
   rerender();
-  if (!channel) return;
+  if (!channel || !synced || simulating) return;
   const snapshot = { kind:"state", action: action || null, prefs: PREFS, profile: PROFILE };
   SHARED.forEach(k => { snapshot[k] = state[k]; });
   channel.postMessage(snapshot);
@@ -966,8 +973,11 @@ function savePrefs(change) {
 
 if (channel) channel.onmessage = e => {
   const m = e.data;
-  if (m.kind === "hello") { publish(null); return; }
+  // Seule une page qui connaît la vraie draft répond : deux pages qui s'ouvrent en même temps ne s'écrasent pas.
+  if (m.kind === "hello") { if (synced && !simulating) publish(null); return; }
   if (m.kind !== "state") return;
+  synced = true;
+  if (simulating) return;
   SHARED.forEach(k => { state[k] = m[k]; });
   PROFILES = loadProfiles(localStorage, PREFS);
   if (m.profile) applyProfile(m.profile);
@@ -1016,8 +1026,18 @@ function applyDetected(ids) {
 function startRandomDraft() {
   const names = randomDraft();
   if (!names) return;
+  simulating = true;
   resetDraft();
   names.forEach(addEnemy);
+}
+
+// Retour à la draft en cours : la simulation est effacée, puis l'état des autres fenêtres est redemandé.
+function leaveSimulation() {
+  if (!simulating) return;
+  resetDraft();
+  simulating = false;
+  rerender();
+  if (channel) channel.postMessage({ kind:"hello" });
 }
 
 let demoProvider = null;
@@ -2351,7 +2371,7 @@ function App() {
   }, []);
   useEffect(() => {
     rerender = force;
-    if (channel) channel.postMessage({ kind:"hello" });
+    if (channel) { channel.postMessage({ kind:"hello" }); setTimeout(() => { synced = true; }, SYNC_WAIT_MS); }
     if (IS_HOST) {
       window.chrome.webview.addEventListener("message", e => {
         const m = e.data;
@@ -2371,7 +2391,7 @@ function App() {
           handleAssignedRole(m.assignedRole || null);
         }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") { resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
+        if (m.kind === "draftStart") { leaveSimulation(); resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
         if (m.kind === "openSettings") setShowSettings(true);
@@ -2411,6 +2431,7 @@ function App() {
         <button type="button" className="ghost-btn" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
         <button type="button" className="ghost-btn" disabled=${!state.enemies.length} onClick=${resetDraft}>Nouvelle draft</button>
       </header>
+      ${simulating ? html`<p className="small" role="status" data-simulation=${true}>Simulation : ta draft en cours n'est pas modifiée. <button type="button" className="ghost-btn" onClick=${leaveSimulation}>Revenir à la draft en cours</button></p>` : null}
       <div className="desk">
         <${EnemyPanel} />
         <main className="col col-mid"><${Stage} /><${Ranking} /></main>
