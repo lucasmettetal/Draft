@@ -1,0 +1,36 @@
+{
+  "synthetique": true,
+  "avertissement": "Scénarios SYNTHÉTIQUES. Aucune statistique réelle.",
+  "generateur": "generer-scenarios.js 1.1 (jeu gelé produit par la version 1.0, reproduit à l'identique par la 1.1)",
+  "graine": 217,
+  "graine_ajouts_developpement": 2172,
+  "part_evaluation": 0.30,
+  "methode_separation": "Dans chaque catégorie d'origine, tri des id par FNV-1a 32 bits de la chaîne '217:<id>', puis les 30 % au plus petit hachage vont dans le jeu d'évaluation. Les ajouts V2.17 (flex_revele_seul) vont tous dans le développement.",
+  "methode_empreinte": "SHA-256 du texte UTF-8 avec fins de ligne LF (CRLF remplacé par LF avant le calcul), pour ne pas dépendre de core.autocrlf.",
+  "total": 420,
+  "developpement": {
+    "fichier": "scenarios-dev.json", "scenarios": 312, "version_schema": "1.1",
+    "sha256": "9054133C394EFC888851DBFC8262CF2FE23D4C7F61BFA0DAA13D045670D01E6F",
+    "par_categorie": { "complet_evident": 63, "complet_flex": 42, "atypique_hors_role": 28, "atypique_inconnu": 7, "incomplet": 84, "egalite_attendue": 21, "pick_pris": 7, "flex_revele_seul": 60 },
+    "historique": [
+      { "date": "2026-11-10", "scenarios": 252, "sha256_fichier_crlf": "9B935E4393608EBFC8B9624FC51F7D6A51E6012200BCEF36B9CA0EB56F6F0E1E", "note": "Étude etude/moteur-v217 (b097c5d)." },
+      { "date": "2026-11-10", "scenarios": 312, "note": "V2.17 : +60 scénarios flex_revele_seul (FS-001 à FS-060). Les 252 d'origine sont inchangés." }
+    ]
+  },
+  "evaluation_gele": {
+    "fichier": "scenarios-eval.json", "scenarios": 108, "version_schema": "1.0", "gele_le": "2026-11-10",
+    "sha256": "14B66E79EAD92935B4F677B23533A044E15E96F476438FB2A3212D83A05844D5",
+    "sha256_fichier_crlf_origine": "589A45440794CA16A177F52AE10080B9C1FDEC44AD6ED0AF60D2ADB07379FBE5",
+    "par_categorie": { "complet_evident": 27, "complet_flex": 18, "atypique_hors_role": 12, "atypique_inconnu": 3, "incomplet": 36, "egalite_attendue": 9, "pick_pris": 3 },
+    "lancements": [
+      { "date": "2026-11-10", "moteur": "2.2 (main 78519fb)", "contexte": "Étude etude/moteur-v217 : mesure initiale (RAPPORT-VALIDATION.md)." },
+      { "date": "2026-11-10", "moteur": "2.2 (main 78519fb)", "contexte": "PR banc V2.17 : création de l'instantané de référence seulement (aucun réglage décidé avec ce jeu)." }
+    ]
+  },
+  "instantane_reference": {
+    "fichier": "instantanes/instantane-moteur-2.2-main-78519fb.json",
+    "moteur": "ENGINE_VERSION 2.2, dépôt main 78519fb (DRAFT 2.16.1)",
+    "contenu": "312 scénarios de développement et 108 d'évaluation. Les 360 d'origine sont identiques à l'instantané de l'étude (0 différence) ; les 60 FS ont été ajoutés avec le même moteur.",
+    "statut": "Sorties observées, pas une vérité."
+  }
+}

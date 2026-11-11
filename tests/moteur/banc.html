@@ -1,0 +1,15 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Banc d'évaluation DRAFT (synthétique)</title></head><body><pre id="out"></pre><pre id="inst"></pre>
+<!-- Page lancée par tools/run-engine-eval.ps1 dans un dossier de travail, à côté d'une COPIE des fichiers du moteur (web/).
+     Aucun appel réseau, aucune donnée personnelle : seules les données livrées dans le dépôt sont chargées. -->
+<script src="draft-role-sheet.js"></script><script src="draft-champions.js"></script>
+<script>try{localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");}catch(e){}</script>
+<script src="draft-engine.js"></script><script src="draft-data.js"></script>
+<script src="generer-scenarios.js"></script><script src="banc-config.js"></script><script src="banc-evaluation.js"></script><script src="banc-etudes.js"></script>
+<script>
+const out = document.getElementById("out");
+try {
+  const r = lancerBanc();
+  out.textContent = JSON.stringify(r.sortie);
+  document.getElementById("inst").textContent = JSON.stringify(r.instantane);
+} catch (e) { out.textContent = JSON.stringify({ erreur: String(e && e.stack || e) }); }
+</script></body></html>

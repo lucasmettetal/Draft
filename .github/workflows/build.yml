@@ -24,6 +24,11 @@ jobs:
           $p = Start-Process .\dist\DRAFT-Portable.exe -ArgumentList '--selftest','--data',"$env:RUNNER_TEMP\dm",'--out',"$env:RUNNER_TEMP\selftest.txt" -PassThru -Wait
           Get-Content "$env:RUNNER_TEMP\selftest.txt"
           exit $p.ExitCode
+      # Scénarios SYNTHÉTIQUES, jeu de développement seulement, contre l'instantané de référence. Hors ligne.
+      # Chrome fait partie de l'image windows-latest ; s'il manque, le script s'arrête avec « Chrome introuvable ».
+      - name: Banc d'évaluation du moteur
+        shell: pwsh
+        run: .\tools\run-engine-eval.ps1 -Work "$env:RUNNER_TEMP\engine-eval" -Generer
   release:
     # Un tag v* publie une release. « gh release create » échoue si elle existe déjà : une release publiée n'est jamais remplacée.
     # Les exécutables doivent ensuite être signés hors de GitHub (tools/sign-release.ps1) : la clé n'est jamais ici.
