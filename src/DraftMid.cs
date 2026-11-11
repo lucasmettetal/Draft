@@ -1306,6 +1306,23 @@ public static class Autostart
             return "";
         }
 
+        // Vrai dans toutes les pages chargées (fenêtre principale et panneaux), au plus 5 secondes.
+        async Task<bool> AllPages(string code)
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                bool all = true;
+                foreach (PanelForm p in panels.Values.ToList())
+                {
+                    if (p.IsDisposed || !p.Ready.IsCompleted || p.View.CoreWebView2 == null) continue;
+                    if (await p.View.CoreWebView2.ExecuteScriptAsync("typeof PREFS !== 'undefined' && !!(" + code + ")") != "true") { all = false; break; }
+                }
+                if (all) return true;
+                await Task.Delay(50);
+            }
+            return false;
+        }
+
         public async Task<string> TestProfilesAndRole()
         {
             OpenFull("");
@@ -1331,7 +1348,11 @@ public static class Autostart
             TestSetAssignedRole("jungle");
             if (!await wait("state.assignedRole==='jungle' && myRole()==='mid' && document.querySelector('[data-test=\"role-hint\"]')")) return "(proposition absente)";
             await run("savePrefs({autoRole:'auto'}); 1");
+            // Toutes les pages (fenêtre et panneaux, même masqués) doivent connaître la préférence et l'absence de rôle attribué
+            // avant le nouveau rôle : sinon une page en retard peut diffuser l'ancien état (échec intermittent, 1 sur 8).
+            if (!await AllPages("PREFS.autoRole === 'auto'")) return "(préférence autoRole non transmise à toutes les pages)";
             TestSetAssignedRole(null);
+            if (!await AllPages("!state.assignedRole")) return "(rôle attribué non effacé dans toutes les pages)";
             TestSetAssignedRole("jungle");
             if (!await wait("myRole()==='jungle'")) return "(changement automatique absent)";
             await run("switchRole('mid','manual'); 1");
@@ -1348,7 +1369,7 @@ public static class Autostart
 
         // Protections de la page, vérifiées dans la vraie WebView2 : CSP réellement appliquée, eval interdit,
         // réseau et cadres limités, navigation et fenêtres vers un site inconnu refusées. Aucun accès réseau réel (.invalid).
-        public string DetailOpenReport = "non mesuré";
+        public string DetailOpenReport = "non mesuré", SimulationReport = "non mesuré";
 
         // Perte de draft (audit UX, P0) : ouvrir Analyse détaillée ou Comparer depuis les panneaux ne doit jamais vider ni écraser
         // la vraie draft. 50 ouvertures successives, chacune recharge la grande fenêtre. Puis le simulateur, qui reste local.
@@ -1379,9 +1400,10 @@ public static class Autostart
                 if (!await waitIn(p, "state.enemies.join() === 'Ahri,Sion,Vi'", 3000)) problem += "draft de départ absente du panneau " + p.Id + " ; ";
             if (problem != "") { visibility.Manual = manualBefore; ApplyVisibility(); return problem; }
 
-            int lost = 0, notShown = 0, lostOnClose = 0;
+            int lost = 0, notShown = 0, lostOnClose = 0, reloadsBefore = -1;
             for (int k = 0; k < openings; k++)
             {
+                if (k == 1) reloadsBefore = FullReloads;
                 PanelForm full;
                 if (panels.TryGetValue("full", out full) && full.Visible)
                 {
@@ -1391,7 +1413,8 @@ public static class Autostart
                     foreach (PanelForm p in sources)
                         if (await run(p, "state.enemies.join()") != Expected) { lostOnClose++; await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1"); await Task.Delay(300); break; }
                 }
-                OpenFull(k % 2 == 0 ? "analyse" : "compare");
+                // Comme « Détails » et « Comparer » d'un panneau : source « live ».
+                OpenFull(k % 2 == 0 ? "analyse" : "compare", "live");
                 for (int i = 0; i < 200 && !(panels.TryGetValue("full", out full) && full.Visible && full.Ready.IsCompleted); i++) await Task.Delay(50);
                 // La grande fenêtre doit afficher la vraie draft, puis laisser le temps à une éventuelle diffusion parasite.
                 if (!await waitIn(full, "state.enemies.join() === 'Ahri,Sion,Vi'", 3000)) notShown++;
@@ -1399,7 +1422,9 @@ public static class Autostart
                 foreach (PanelForm p in sources)
                     if (await run(p, "state.enemies.join()") != Expected) { lost++; await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1"); await Task.Delay(300); break; }
             }
-            DetailOpenReport = openings + " ouvertures (Analyse détaillée / Comparer), " + lost + " perte(s) de draft, " + lostOnClose + " perte(s) à la fermeture, " + notShown + " fenêtre(s) sans la draft";
+            int reloads = reloadsBefore < 0 ? 0 : FullReloads - reloadsBefore;
+            DetailOpenReport = openings + " ouvertures (Analyse détaillée / Comparer), " + lost + " perte(s) de draft, " + lostOnClose + " perte(s) à la fermeture, " + notShown + " fenêtre(s) sans la draft, " + reloads + " rechargement(s) de la page";
+            if (reloads > 0) problem += reloads + " ouverture(s) rechargent la fenêtre principale au lieu de changer d'onglet ; ";
             if (lost > 0) problem += lost + " perte(s) de draft sur " + openings + " ouvertures ; ";
             if (lostOnClose > 0) problem += lostOnClose + " perte(s) de draft à la fermeture de la grande fenêtre ; ";
             if (notShown > 0) problem += notShown + " ouverture(s) sans la draft en cours ; ";
@@ -1420,6 +1445,32 @@ public static class Autostart
                 if (await run(f, "state.enemies.join()") != simulated) problem += "la simulation est modifiée par la draft en cours ; ";
                 await run(f, "document.querySelector('[data-test=\"leave-simulation\"]').click(); 1");
                 if (!await waitIn(f, "state.enemies.join() === 'Ahri,Sion,Vi,Jinx' && !document.querySelector('[data-test=\"simulation\"]')", 3000)) problem += "Revenir à la draft en cours ne la retrouve pas ; ";
+
+                // UX-2 : simulation vide, 20 actions, aucune ne touche la draft en cours des panneaux.
+                const string Live4 = "\"Ahri,Sion,Vi,Jinx\"";
+                await run(f, "document.querySelector('[data-test=\"source-sim\"]').click(); 1");
+                if (!await waitIn(f, "simulating && state.enemies.length === 0 && !!document.querySelector('[data-test=\"simulation\"]')", 3000)) problem += "le bouton Simulation n'ouvre pas une simulation vide ; ";
+                string[] actions = { "draftApi.add('Garen')", "draftApi.add('Lux')", "document.querySelector('[data-test=\"random-draft\"]').click()", "draftApi.remove(state.enemies[0])",
+                    "document.querySelector('[data-test=\"new-draft\"]').click()", "undoLast()", "document.querySelector('[data-test=\"resume-live\"]').click()", "addEnemy('Zed')", "state.enemies.length && removeLastEnemy()", "draftApi.reset()" };
+                int touched = 0;
+                for (int a = 0; a < 20; a++)
+                {
+                    await run(f, actions[a % actions.Length] + "; 1");
+                    await Task.Delay(120);
+                    foreach (PanelForm p in sources) if (await run(p, "state.enemies.join()") != Live4) { touched++; break; }
+                }
+                if (touched > 0) problem += touched + " action(s) de simulation sur 20 changent la draft des panneaux ; ";
+                SimulationReport = "20 actions de simulation, " + touched + " changement(s) des panneaux";
+                // « Reprendre la draft en cours » copie la vraie draft ; la suite ne change que la simulation.
+                await run(f, "draftApi.reset(); document.querySelector('[data-test=\"resume-live\"]').click(); 1");
+                if (!await waitIn(f, "simulating && state.enemies.join() === 'Ahri,Sion,Vi,Jinx'", 2000)) problem += "Reprendre la draft en cours ne copie pas la draft (" + await run(f, "state.enemies.join()") + ") ; ";
+                await run(f, "draftApi.add('Garen'); 1");
+                await Task.Delay(300);
+                foreach (PanelForm p in sources) if (await run(p, "state.enemies.join()") != Live4) { problem += "la copie reste liée à la draft en cours ; "; break; }
+                // « Détails » depuis un panneau pendant la simulation : la vraie draft, sans recharger la page.
+                await run(f, "window.keepMark2 = 1; 1");
+                OpenFull("analyse", "live");
+                if (!await waitIn(f, "!simulating && state.enemies.join() === 'Ahri,Sion,Vi,Jinx' && window.keepMark2 === 1", 3000)) problem += "Détails pendant une simulation ne montre pas la vraie draft sans recharger (" + await run(f, "state.enemies.join() + ' ' + simulating + ' ' + window.keepMark2") + ") ; ";
             }
             else problem += "(grande fenêtre absente pour le simulateur) ";
 
@@ -1566,7 +1617,7 @@ public static class Autostart
                 }
                 return false;
             };
-            Func<Task> findWindow = async () => { for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50); };
+            Func<Task> findWindow = async () => { for (int i = 0; i < 200 && !(OpenPending == 0 && panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50); };
             Func<string, string, int, string, Task> press = async (key, code, vk, text) =>
             {
                 string common = "\"key\":\"" + key + "\",\"code\":\"" + code + "\",\"windowsVirtualKeyCode\":" + vk;
@@ -1765,10 +1816,39 @@ public static class Autostart
             return problem;
         }
 
-        async void OpenFull(string tab)
+        int openViewToken;
+        // Ouvertures d'onglet en attente de la page (tests : attendre la fin avant d'agir sur la fenêtre).
+        public int OpenPending;
+        public int FullReloads;
+
+        // source "live" : ouvert depuis un panneau (« Détails », « Comparer ») : la fenêtre montre la vraie draft, simulation quittée.
+        async void OpenFull(string tab, string source = "")
         {
             bool exists = panels.ContainsKey("full");
             PanelForm open;
+            // Fenêtre déjà chargée, visible ou masquée : l'onglet s'ouvre sans recharger la page, donc sans perdre ni réinitialiser
+            // la draft affichée (UX-2). Si la page ne répond pas (rechargement en cours), on retombe sur la navigation.
+            if (tab != "settings" && exists && panels.TryGetValue("full", out open) && !open.IsDisposed && open.Ready.IsCompleted && open.View.CoreWebView2 != null)
+            {
+                int token = ++openViewToken;
+                OpenPending++;
+                try
+                {
+                    open.View.CoreWebView2.PostWebMessageAsJson(new JavaScriptSerializer().Serialize(new Dictionary<string, object> { { "kind", "openView" }, { "tab", tab ?? "" }, { "source", source ?? "" }, { "token", token } }));
+                    for (int i = 0; i < 30; i++)
+                    {
+                        await Task.Delay(50);
+                        if (open.IsDisposed || open.View.CoreWebView2 == null) break;
+                        if (await open.View.CoreWebView2.ExecuteScriptAsync("window.__openViewSeen || 0") == token.ToString())
+                        {
+                            ShowFull(open);
+                            return;
+                        }
+                    }
+                }
+                finally { OpenPending--; }
+                if (open.IsDisposed) return;
+            }
             // Fenêtre principale déjà à l'écran : les réglages s'ouvrent par-dessus, sans la recharger.
             if (tab == "settings" && exists && panels.TryGetValue("full", out open) && open.Visible && open.Ready.IsCompleted && open.View.CoreWebView2 != null)
             {
@@ -1792,6 +1872,7 @@ public static class Autostart
             PanelForm f = await Ensure("full", q);
             if (exists)
             {
+                FullReloads++;
                 // La fenêtre n'apparaît qu'une fois la page chargée : sinon un clic sur l'ancienne page se perdrait.
                 TaskCompletionSource<bool> loaded = new TaskCompletionSource<bool>();
                 EventHandler<CoreWebView2NavigationCompletedEventArgs> done = null;
@@ -1801,9 +1882,17 @@ public static class Autostart
                 await Task.WhenAny(loaded.Task, Task.Delay(3000));
                 if (f.IsDisposed) return;
             }
+            ShowFull(f);
+        }
+
+        void ShowFull(PanelForm f)
+        {
             Monitor m = ClientWindow.Monitors().OrderByDescending(x => x.Work.W).First();
-            if (!f.Visible) f.Show();
-            f.PlaceNoActivate(new Native.RECT(m.Work.Left + 40, m.Work.Top + 20, m.Work.Left + 40 + Math.Min((int)(1280 * m.Scale), m.Work.W - 80), m.Work.Top + 20 + Math.Min((int)(820 * m.Scale), m.Work.H - 40)), false);
+            if (!f.Visible)
+            {
+                f.Show();
+                f.PlaceNoActivate(new Native.RECT(m.Work.Left + 40, m.Work.Top + 20, m.Work.Left + 40 + Math.Min((int)(1280 * m.Scale), m.Work.W - 80), m.Work.Top + 20 + Math.Min((int)(820 * m.Scale), m.Work.H - 40)), false);
+            }
             if (opts.Script == null) f.Activate();
         }
 
@@ -1863,7 +1952,7 @@ public static class Autostart
                 // Si la draft est finie entre-temps (plus aucun panneau), la fenêtre principale reste : sinon DRAFT semblerait fermé.
                 case "closeFull": { PanelForm full; if (panelsShown && panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
-                case "openFull": OpenFull(m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""); break;
+                case "openFull": { string tab = m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""; OpenFull(tab, tab == "settings" ? "" : "live"); break; }
                 case "setAutostart": Autostart.Set(val, exePath); RefreshUi(); break;
                 case "setFollow": SetFollow(val); break;
                 case "setAutoDraft": SetAutoDraft(val); break;
@@ -2300,7 +2389,7 @@ public static class Autostart
             string historyProblem = await app.TestHistoryImport();
             t(historyProblem == "", "Import Riot simulé depuis l'application, sans appel réel, sans trace de clé " + historyProblem);
             string detailProblem = await app.TestDraftSurvivesDetail(50);
-            t(detailProblem == "", "Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (" + app.DetailOpenReport + ") " + detailProblem);
+            t(detailProblem == "", "Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (" + app.DetailOpenReport + " ; " + app.SimulationReport + ") " + detailProblem);
             string securityProblem = await app.TestPageSecurity();
             t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
             // Mise à jour lancée depuis le menu de l'icône : chaque issue répond par une bulle, réglages fermés (UX-1).

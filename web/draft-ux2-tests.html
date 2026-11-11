@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests UX-2</title></head><body><pre id="out"></pre>
+<!-- UX-2 : Simulateur isolé, sur la vraie page. Chaque vérification échoue avant UX-2 (ux/1-comportements). -->
+<!-- Lancement : tools\run-v215-tests.ps1 -Page draft-ux2-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+async function open(W=1280,H=720,extra=""){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?x=1"+extra;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(350);const w=f.contentWindow;w.eval("window.$={get state(){return state},get sim(){return simulating},addEnemy,draftApi,openViewInPage:typeof openViewInPage==='function'?openViewInPage:null}");return {f,w,d:f.contentDocument,$:w.$};}
+const close=x=>x.f.remove();
+const settle=()=>wait(150);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const q=(x,s)=>x.d.querySelector(`[data-test="${s}"]`);
+const click=async(x,s)=>{const b=q(x,s);if(b)b.click();await settle();return !!b;};
+const LIVE=["Ornn","Sion","Ahri"];
+
+(async()=>{
+{const x=await open();LIVE.forEach(x.$.addEnemy);await settle();
+ t(!!q(x,"source-live")&&!!q(x,"source-sim"),"bascule de source « Draft en cours / Simulation » présente");
+ t(await click(x,"source-sim")&&x.$.sim&&x.$.state.enemies.length===0,"Simulation : part d'une draft vide");
+ const band=q(x,"simulation");t(!!band&&/Simulation : ta draft en cours n'est pas modifiée\./.test(text(band)),"bandeau Simulation explicite ("+text(band)+")");
+ t(/Nouvelle simulation/.test(text(q(x,"new-draft"))),"le bouton dit « Nouvelle simulation » pendant une simulation");
+ await click(x,"random-draft");t(x.$.sim&&x.$.state.enemies.length===5,"Draft aléatoire reste dans la simulation");
+ const r=q(x,"resume-live");t(!!r&&!r.disabled,"« Reprendre la draft en cours » disponible");
+ await click(x,"resume-live");t(x.$.sim&&x.$.state.enemies.join()===LIVE.join(),"Reprendre copie la draft en cours dans la simulation ("+x.$.state.enemies.join()+")");
+ x.$.addEnemy("Jinx");await settle();await click(x,"source-live");
+ t(!x.$.sim&&x.$.state.enemies.join()===LIVE.join(),"retour à la draft en cours : intacte, la copie n'était pas liée ("+x.$.state.enemies.join()+")");
+ close(x);}
+{const x=await open();LIVE.forEach(x.$.addEnemy);await settle();await click(x,"random-draft");x.w.keepMark=1;
+ t(typeof x.$.openViewInPage==="function","ouverture d'un onglet sans rechargement disponible");
+ if(x.$.openViewInPage){x.$.openViewInPage("compare","live");await settle();
+  t(!x.$.sim&&x.$.state.enemies.join()===LIVE.join(),"« Détails » depuis l'overlay : vraie draft affichée, simulation quittée");
+  t(x.w.keepMark===1,"« Détails » : la page n'est pas rechargée");
+  const tab=x.d.querySelector('.tab.on');t(tab&&tab.dataset.tab==="analyse"&&x.d.querySelector('[data-view="compare"].on'),"« Comparer » ouvre l'onglet Analyse, vue Comparer");}
+ close(x);}
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
+</script></body></html>
