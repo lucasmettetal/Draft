@@ -22,6 +22,14 @@ namespace DraftMid
             { "draft-matchups-live.js", "MATCHUPS_LIVE" }
         };
 
+        // Catalogues de langue livrés avec l'interface (chemin dans la page, variable). Relus comme des données à l'extraction :
+        // un catalogue qui ne serait pas un objet JSON strict est remplacé par un catalogue vide (la page retombe sur « [clé] »).
+        public static readonly Dictionary<string, string> Catalogs = new Dictionary<string, string>
+        {
+            { "i18n/fr.js", "DRAFT_I18N_FR" }
+        };
+        public static string EmptyCatalog(string name) { return "window." + name + " = {};\n"; }
+
         static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = int.MaxValue, RecursionLimit = 64 }; }
 
         // Null si le texte n'est pas exactement « window.NOM = {objet JSON}; », précédé au plus de commentaires « // ».
@@ -113,6 +121,17 @@ namespace DraftMid
             File.WriteAllText(Path.Combine(dir, "draft-matchups-live.js"), "// Bilans\nwindow.MATCHUPS_LIVE = {\"role\":\"mid\",\"pool\":{}};\n");
             t(DataScripts.Publish("draft-matchups-live.js", dir, web) && File.ReadAllText(Path.Combine(web, "draft-matchups-live.js")).StartsWith("window.MATCHUPS_LIVE = {"), "Données de la page : fichier valide publié");
             t(DataScripts.Publish("draft-role-rates-live.js", dir, web), "Données de la page : fichier absent sans erreur");
+
+            // Catalogue de langue : mêmes règles que les données (I18N-0).
+            Func<string, string> fr = text => DataScripts.Canonical("DRAFT_I18N_FR", text);
+            string shipped;
+            using (Stream s = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("web/i18n/fr.js"))
+            using (StreamReader r = new StreamReader(s, System.Text.Encoding.UTF8)) shipped = r.ReadToEnd();
+            string canon = fr(shipped);
+            t(canon != null && canon.Contains("\"_meta\""), "Catalogue français livré : objet JSON strict, relu sans perte");
+            t(fr("window.DRAFT_I18N_FR = {\"a.b\":\"x\"}; alert(1);") == null && fr("window.DRAFT_I18N_FR = {\"a.b\":\"x\"}, fetch(\"https://exemple.test\");") == null, "Catalogue de langue : code ajouté refusé");
+            t(fr("window.DRAFT_I18N_EN = {}") == null, "Catalogue de langue : variable d'une autre langue refusée");
+            t(fr("window.DRAFT_I18N_FR = {\"a.b\":\"</script><script>alert(1)</script>\"};").Contains("\\u003c/script\\u003e"), "Catalogue de langue : chevrons neutralisés");
             Directory.Delete(dir, true);
         }
     }

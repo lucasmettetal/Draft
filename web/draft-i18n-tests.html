@@ -1,0 +1,34 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests I18N-0</title></head><body><pre id="out"></pre>
+<!-- I18N-0 : fonctions de traduction (draft-i18n.js) sur un catalogue de test, puis la vraie page en mode test (&i18ncheck=1). -->
+<!-- Lancement : tools\run-v215-tests.ps1 -Page draft-i18n-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const t0=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+// Catalogue de test, au format de web/i18n/fr.js. Le vrai catalogue est vérifié dans la page elle-même, plus bas.
+window.DRAFT_I18N_FR={"_meta":{"lang":"fr","name":"Français","version":1},"test.play":"Je joue {champion}","test.games":{"one":"{count} partie ajoutée à ton journal.","other":"{count} parties ajoutées à ton journal."},"test.braces":"Les accolades {{ et }} s'écrivent doublées.","test.overtakes":"{champion} passe devant {other}"};
+</script>
+<script src="draft-i18n.js"></script>
+<script>
+(async()=>{
+const {t,tp,tx}=I18N;
+t0(I18N.lang==="fr","langue par défaut : français");
+t0(t("test.play",{champion:"Ahri"})==="Je joue Ahri","variable nommée");
+t0(tp("test.games",0)==="0 partie ajoutée à ton journal."&&tp("test.games",1)==="1 partie ajoutée à ton journal."&&tp("test.games",3)==="3 parties ajoutées à ton journal.","pluriel français (0 et 1 au singulier)");
+t0(tp("test.games",1.5)==="1,5 partie ajoutée à ton journal.","nombre décimal avec virgule");
+t0(t("test.braces")==="Les accolades { et } s'écrivent doublées.","accolades doublées");
+const parts=tx("test.overtakes",{champion:{b:"Ahri"},other:"Zed"});t0(parts.length===2&&parts[0].b==="Ahri"&&parts[1]===" passe devant Zed","tx : une variable peut être un élément (gras sans HTML dans le catalogue)");
+t0(t("nexiste.pas")==="[nexiste.pas]"&&I18N.missing().some(m=>m.includes("nexiste.pas")),"clé absente : [clé] visible et relevée");
+t0(t("test.play",{})==="Je joue {champion}"&&I18N.missing().some(m=>m.includes("variable absente : champion")),"variable absente : visible et relevée");
+t0(Object.isFrozen(I18N),"I18N ne peut pas être modifié par un autre script");
+// La vraie page : catalogue chargé, aucune clé manquante, anglais non sélectionnable.
+for(const q of ["?x=1&i18ncheck=1","?x=1&i18ncheck=1&lang=en","?panel=right&i18ncheck=1"]){
+  const f=document.createElement("iframe");f.width=1280;f.height=720;f.src="index.html"+q;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(500);const w=f.contentWindow;
+  t0(!!w.I18N&&w.I18N.lang==="fr","page "+q+" : traduction chargée, français");
+  t0(!!w.DRAFT_I18N_FR&&w.DRAFT_I18N_FR._meta&&w.DRAFT_I18N_FR._meta.lang==="fr","page "+q+" : catalogue français chargé");
+  t0(w.I18N&&w.I18N.missing().length===0,"page "+q+" : aucune clé manquante ("+(w.I18N?w.I18N.missing().join(" | "):"")+")");
+  t0(!!f.contentDocument.querySelector('[data-test="app"],[data-test="panel"]'),"page "+q+" : la page démarre");
+  f.remove();
+}
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message),notes:res.notes});});
+</script></body></html>
