@@ -1,0 +1,17 @@
+{"Version":2,"Synthetique":true,"Note":"Fichier de TEST SYNTHÉTIQUE au format de draft-role-rates-state.json. Compositions écrites à la main, rangées top, jungle, mid, adc, support comme la réserve. Aucune partie réelle.","Regions":["Test"],"Seen":[],"Patches":{},"Legacy":null,
+"Holdout":[
+["garen","vi","ahri","jinx","thresh"],
+["darius","quinn","ahri","jinx","thresh"],
+["garen","vi","kogmaw","jinx","thresh"],
+["garen","vi","xerath","jinx","lux"],
+["garen","vi","lux","jinx","xerath"],
+["garen","vi","ahri","seraphine","senna"],
+["garen","vi","ahri","jinx","pantheon"],
+["sylas","leesin","yasuo","caitlyn","nautilus"],
+["monkeyking","graves","orianna","ezreal","renata"],
+["quinn","kayn","syndra","kogmaw","lulu"],
+["jax","twitch","zed","jinx","leona"],
+["malphite","sejuani","viktor","jhin","karma"],
+["garen","vi","championinconnu","jinx","thresh"],
+["garen","vi","ahri","jinx"]
+]}
