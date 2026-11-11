@@ -414,6 +414,8 @@ Ils ne sont pas dans l'inventaire de la page et n'ont pas été relevés à l'é
 | N-22 | HistoryImporter.cs:167, 252, 260 | Limite de requêtes de Riot atteinte : reprise dans {n} secondes. Rien n'est perdu. · Compte invalide : le format attendu est Nom#TAG. · Réponse de Riot illisible : … | Correct. |
 | N-23 | RoleRatesUpdater.cs:702-711 | Clé Riot (masquée, jamais enregistrée) : · Région : · Lancer · Annuler | Correct. |
 | N-24 | RoleRatesUpdater.cs:252, 261 | Réponse de Riot illisible. · Écriture du fichier impossible. | Correct. |
+| N-25 | DraftMid.cs (menu de l'icône, 2.16.2) | Diagnostic de connexion LoL... | Correct. Ajouté par la 2.16.2. |
+| N-26 | LcuConnector.cs, LcuDiagnostic (2.16.2) | Fenêtre « DRAFT : diagnostic de connexion LoL » : étapes (Fenêtre du client, Lockfile, Proxy Windows, Connexion locale, Lecture de la phase) et « Conclusion : … » ; « Ce texte est copié : colle-le dans ton message. » | Correct. Textes de diagnostic volontairement factuels ; à traduire avec les textes natifs (I18N-3). |
 
 ## 9. Limites
 
