@@ -120,14 +120,14 @@ const POKE = new Set("Ashe,Caitlyn,Corki,Ezreal,Heimerdinger,Hwei,Jayce,Jhin,Kar
 
 const CRITERIA = [
   { key:"matchup", label:"Matchup direct", weight:3, source:"Bilans calculés sur de vraies parties dès 30 parties, sinon tableau écrit à la main. Inclut la pression de lane, pour ne pas la compter deux fois." },
-  { key:"blind", label:"Sécurité sans adversaire connu", weight:1, source:"Calculé : part des mids du tableau où le pick est à éviter. Ne compte que si le mid est inconnu." },
-  { key:"targets", label:"Cibles exploitables", weight:1.5, source:"Règle heuristique : nombre de carrys fragiles adverses." },
-  { key:"front", label:"Tanks et bruisers", weight:2, source:"Règle heuristique : nombre de frontlines adverses." },
-  { key:"dive", label:"Survie aux plongeurs", weight:2, source:"Règle heuristique : nombre d'assassins et de plongeurs adverses." },
-  { key:"control", label:"Engages et contrôles", weight:2, source:"Règle heuristique : contrôles ciblés et engages adverses, comptés une seule fois par pick." },
-  { key:"range", label:"Poke et longue portée", weight:1, source:"Règle heuristique : nombre de champions à longue portée adverses." },
-  { key:"peel", label:"Protection nécessaire", weight:1.5, source:"Règle heuristique : frontline allié supposé, mobilité adverse." },
-  { key:"map", label:"Pression sur la carte", weight:.5, source:"Atout propre au champion. Poids faible, car il ne dépend pas de la draft." }
+  { key:"blind", label:"Sûr en blind", weight:1, source:"Calculé : part des mids du tableau où le pick est à éviter. Ne compte qu'au mid, tant que ton vis-à-vis n'est pas nommé." },
+  { key:"targets", label:"Carrys à punir", weight:1.5, source:"Règle écrite à la main : nombre de carrys fragiles adverses." },
+  { key:"front", label:"Frontline adverse", weight:2, source:"Règle écrite à la main : nombre de tanks et bruisers adverses." },
+  { key:"dive", label:"Résistance au dive", weight:2, source:"Règle écrite à la main : nombre d'assassins et de champions de dive adverses." },
+  { key:"control", label:"Engage et CC adverses", weight:2, source:"Règle écrite à la main : CC ciblés et engages adverses, comptés une seule fois par pick." },
+  { key:"range", label:"Poke adverse", weight:1, source:"Règle écrite à la main : nombre de champions de poke adverses." },
+  { key:"peel", label:"Besoin de peel", weight:1.5, source:"Règle écrite à la main : frontline alliée supposée (réglage), mobilité adverse." },
+  { key:"map", label:"Pression sur la map", weight:.5, source:"Atout propre au champion. Poids faible, car il ne dépend pas de la draft." }
 ];
 const MID_COUNT = MATCHUPS.length;
 // Noms que Riot écrit autrement dans ses données.
@@ -213,17 +213,17 @@ const RULES = {
     if (!maxAvoid) return null;
     const bad = avoidCount(p);
     const v = 1 - 2 * bad / maxAvoid;
-    return [v, v > 0 ? `Mid inconnu : peu de mauvais matchups (${bad} sur ${MID_COUNT} dans le tableau)` : `Mid inconnu : risqué, mauvais dans ${bad} matchups sur ${MID_COUNT} du tableau`];
+    return [v, `${v > 0 ? "Sûr en blind" : "Risqué en blind"}, mauvais dans ${bad} matchup${bad > 1 ? "s" : ""} sur ${MID_COUNT} du tableau`];
   },
   targets(p, c) {
     const n = c.carries.length;
     if (hasTrait(p, "h")) {
-      if (n >= 2) return [2, `${n} cibles fragiles : ${namesOf(c.carries)}`];
-      if (n === 1) return [.5, `Une cible fragile : ${c.carries[0]}`];
-      if (c.known.length >= 4) return [-2, "Aucune cible fragile à éliminer"];
+      if (n >= 2) return [2, `${n} carrys fragiles à punir : ${namesOf(c.carries)}`];
+      if (n === 1) return [.5, `Un carry fragile à punir : ${c.carries[0]}`];
+      if (c.known.length >= 4) return [-2, "Aucun carry fragile à punir"];
     }
-    if (hasTrait(p, "E") && n >= 2) return [1, `${n} cibles fragiles à attraper : ${namesOf(c.carries)}`];
-    if (hasTrait(p, "l") && n >= 2) return [.5, `${n} cibles à abîmer de loin : ${namesOf(c.carries)}`];
+    if (hasTrait(p, "E") && n >= 2) return [1, `${n} carrys fragiles à attraper : ${namesOf(c.carries)}`];
+    if (hasTrait(p, "l") && n >= 2) return [.5, `${n} carrys à poke : ${namesOf(c.carries)}`];
     return null;
   },
   front(p, c) {
@@ -242,35 +242,35 @@ const RULES = {
   dive(p, c) {
     const n = c.divers.length;
     if (n < 2) return null;
-    if (hasTrait(p, "i")) return [n >= 3 ? -2 : -1.5, `${n} plongeurs contre un champion immobile : ${namesOf(c.divers)}`];
-    if (hasTrait(p, "t")) return [1, `Encaisse leurs ${n} plongeurs`];
-    if (hasTrait(p, "c")) return [1, `Peut protéger ses alliés de leurs ${n} plongeurs`];
-    return [0, p === "Fizz" ? "Son E lui laisse une sortie contre les plongeurs" : p === "TF" ? "Son étourdissement l'aide à se défendre contre les plongeurs" : "Peut survivre aux plongeurs"];
+    if (hasTrait(p, "i")) return [n >= 3 ? -2 : -1.5, `${n} champions de dive contre un champion peu mobile : ${namesOf(c.divers)}`];
+    if (hasTrait(p, "t")) return [1, `Tient bien face à leurs ${n} champions de dive`];
+    if (hasTrait(p, "c")) return [1, `Bon peel contre leurs ${n} champions de dive`];
+    return [0, p === "Fizz" ? "Son E lui laisse une sortie contre le dive" : p === "TF" ? "Son stun l'aide à se défendre contre le dive" : "Peut survivre au dive"];
   },
   control(p, c) {
-    if (hasTrait(p, "h") && hasTrait(p, "d") && c.cc.length >= 2) return [-1.5, `${c.cc.length} contrôles ciblés punissent ses plongeons : ${namesOf(c.cc)}`];
-    if (hasTrait(p, "e") && (c.cc.length >= 2 || c.engage.length >= 2)) return [.75, p === "TF" ? "Peut jouer loin de leur engage et revenir avec son ultime" : "Peut jouer loin de leur engage et de leurs contrôles"];
-    if (hasTrait(p, "i") && c.engage.length >= 3) return [-.5, `${c.engage.length} engages contre un champion lent : ${namesOf(c.engage)}`];
+    if (hasTrait(p, "h") && hasTrait(p, "d") && c.cc.length >= 2) return [-1.5, `${c.cc.length} CC ciblés punissent ses all-in : ${namesOf(c.cc)}`];
+    if (hasTrait(p, "e") && (c.cc.length >= 2 || c.engage.length >= 2)) return [.75, p === "TF" ? "Peut jouer loin de leur engage et revenir avec son ult" : "Peut jouer loin de leur engage et de leurs CC"];
+    if (hasTrait(p, "i") && c.engage.length >= 3) return [-.5, `${c.engage.length} engages contre un champion peu mobile : ${namesOf(c.engage)}`];
     return null;
   },
   range(p, c) {
     if (c.poke.length < 2) return null;
-    if (hasTrait(p, "l")) return [1, `Peut rendre les coups à distance : ${namesOf(c.poke)}`];
-    if (hasTrait(p, "o")) return [-1, `Se fait toucher avant de pouvoir frapper : ${namesOf(c.poke)}`];
+    if (hasTrait(p, "l")) return [1, `Peut répondre à leur poke : ${namesOf(c.poke)}`];
+    if (hasTrait(p, "o")) return [-1, `Subit leur poke avant de pouvoir agir : ${namesOf(c.poke)}`];
     return null;
   },
   peel(p, c, x) {
-    if (hasTrait(p, "p")) return x.hasFront ? [0, "Suppose un frontline allié pour le protéger"] : [-2, "Ton équipe n'a pas de frontline pour le protéger"];
+    if (hasTrait(p, "p")) return x.hasFront ? [0, "Suppose une frontline alliée pour le protéger (réglage)"] : [-2, "Pas de frontline alliée pour le protéger (réglage)"];
     if (!hasTrait(p, "q")) return null;
-    if (!x.hasFront && c.mobile.length >= 2) return [-2, "Personne pour te protéger de leur mobilité"];
+    if (!x.hasFront && c.mobile.length >= 2) return [-2, "Pas de frontline alliée contre leur mobilité (réglage)"];
     if (c.mobile.length >= 3) return [-4 / 3, `${c.mobile.length} champions très mobiles : ${namesOf(c.mobile)}`];
-    if (x.hasFront && c.divers.length <= 1 && c.mobile.length <= 1 && c.known.length >= 3) return [4 / 3, "Peu de plongeurs et de mobilité, et un frontline devant toi"];
+    if (x.hasFront && c.divers.length <= 1 && c.mobile.length <= 1 && c.known.length >= 3) return [4 / 3, "Peu de dive et de mobilité en face, et une frontline devant toi"];
     return null;
   },
   map(p) {
-    if (hasTrait(p, "g")) return [1, p === "TF" ? "Son ultime couvre toute la carte" : "Peut peser sur toute la carte"];
+    if (hasTrait(p, "g")) return [1, p === "TF" ? "Son ult couvre toute la map" : "Grosse pression sur la map"];
     if (hasTrait(p, "r")) return [.5, "Peut roamer une fois sa vague poussée"];
-    if (hasTrait(p, "n")) return [-.5, "Peu d'impact hors des combats groupés"];
+    if (hasTrait(p, "n")) return [-.5, "Peu d'impact hors teamfight"];
     return null;
   }
 };
@@ -463,20 +463,20 @@ function tieCause(ranking, picks) {
 // ---------- Comparaison ----------
 const PICK_STYLES = {
   "Fizz": "Assassin de mêlée : entre, tue une cible et ressort.",
-  "TF": "Mage de carte : pousse, contrôle une cible et rejoint les autres lanes.",
+  "TF": "Mage de map : push, stun une cible et rejoint les autres lanes.",
   "Kog'Maw": "Artillerie immobile : fait de gros dégâts s'il est protégé.",
-  "Xerath": "Artillerie à très longue portée : affaiblit avant le combat."
+  "Xerath": "Artillerie à très longue portée : poke avant le teamfight."
 };
 
 function pickStyle(p) {
   if (PICK_STYLES[p]) return PICK_STYLES[p];
   if (hasTrait(p, "c")) return "Protecteur : garde ses alliés en vie.";
-  if (hasTrait(p, "t") && hasTrait(p, "E")) return "Tank d'engage : lance les combats et encaisse.";
-  if (hasTrait(p, "t")) return "Tank : encaisse en première ligne.";
-  if (hasTrait(p, "h")) return "Assassin : cherche les cibles fragiles.";
-  if (hasTrait(p, "k")) return "Tueur de tanks : fait fondre la première ligne.";
-  if (hasTrait(p, "d")) return "Combattant : plonge dans le combat.";
-  if (hasTrait(p, "l")) return "Longue portée : affaiblit avant le combat.";
+  if (hasTrait(p, "t") && hasTrait(p, "E")) return "Tank d'engage : engage les combats et encaisse.";
+  if (hasTrait(p, "t")) return "Tank : encaisse en frontline.";
+  if (hasTrait(p, "h")) return "Assassin : cherche les carrys fragiles.";
+  if (hasTrait(p, "k")) return "Anti-tank : fait fondre la frontline.";
+  if (hasTrait(p, "d")) return "Combattant : va au contact dans les combats.";
+  if (hasTrait(p, "l")) return "Longue portée : poke avant le teamfight.";
   return "Polyvalent : s'adapte au déroulé de la partie.";
 }
 
@@ -493,7 +493,7 @@ function comparePicks(a, b) {
   return { rows, decisive, gap: a.score - b.score };
 }
 
-const WHAT_IF_ADDS = [["un tank de plus", "Ornn"], ["un plongeur de plus", "Zed"], ["un contrôle ciblé de plus", "Leona"], ["un carry fragile de plus", "Jinx"], ["un poke de plus", "Ziggs"]];
+const WHAT_IF_ADDS = [["un tank de plus", "Ornn"], ["un champion de dive de plus", "Zed"], ["un CC ciblé de plus", "Leona"], ["un carry fragile de plus", "Jinx"], ["un poke de plus", "Ziggs"]];
 
 // Recalcule la draft avec le même moteur pour trouver quand l'autre pick passerait devant.
 const hasMatchupData = name => !!matchupOf(name) || PICKS.some(p => liveMatchup(p, name));
@@ -544,13 +544,13 @@ function compoReading(c) {
   const weak = [];
   if (c.front.length >= 2) strong.push("frontline");
   if (c.engage.length >= 2) strong.push("engage");
-  if (c.cc.length >= 2) strong.push("contrôles ciblés");
-  if (c.divers.length >= 2) strong.push("plongeurs");
+  if (c.cc.length >= 2) strong.push("CC ciblés");
+  if (c.divers.length >= 2) strong.push("dive");
   if (c.poke.length >= 2) strong.push("poke");
-  if (c.carries.length >= 2) weak.push("plusieurs cibles fragiles");
+  if (c.carries.length >= 2) weak.push("plusieurs carrys fragiles");
   if (c.known.length >= 4 && !c.front.length) weak.push("pas de frontline");
   if (c.known.length >= 4 && !c.engage.length) weak.push("peu d'engage");
-  if (c.known.length >= 4 && !c.cc.length) weak.push("aucun contrôle ciblé");
+  if (c.known.length >= 4 && !c.cc.length) weak.push("aucun CC ciblé");
   return { strong, weak };
 }
 
@@ -565,10 +565,10 @@ const pickThreats = {
 const threatsFromTraits = (pick, c) => hasTrait(pick, "d") ? c.cc.concat(c.divers) : hasTrait(pick, "q") ? c.divers.concat(c.mobile, c.engage) : c.divers.concat(c.engage);
 const threatsFor = (pick, c) => [...new Set((pickThreats[pick] || (x => threatsFromTraits(pick, x)))(c))].slice(0, 2);
 function threatText(pick, name, c) {
-  if (c.cc.includes(name) && hasTrait(pick, "d")) return "Son contrôle ciblé peut stopper ton plongeon.";
+  if (c.cc.includes(name) && hasTrait(pick, "d")) return "Son CC ciblé peut stopper ton all-in.";
   if (c.divers.includes(name)) return hasTrait(pick, "d") ? "Peut te rattraper quand tu ressors d'un combat." : "Peut te sauter dessus si tu es mal placé.";
   if (c.mobile.includes(name)) return "Sa mobilité lui permet d'éviter tes sorts à distance.";
-  if (c.engage.includes(name)) return "Peut démarrer le combat sur toi.";
+  if (c.engage.includes(name)) return "Peut engager le combat sur toi.";
   return "À surveiller pendant la partie.";
 }
 const targetsFor = (pick, c) => (hasTrait(pick, "k") ? c.front.concat(c.carries) : c.carries).filter((n, i, l) => l.indexOf(n) === i).slice(0, 2);
@@ -576,8 +576,8 @@ const targetsFor = (pick, c) => (hasTrait(pick, "k") ? c.front.concat(c.carries)
 function winConditionFromTraits(pick, c) {
   const carry = c.carries[0] || "leur carry";
   if (hasTrait(pick, "c")) return `Protège ton meilleur carry, et fais échouer les engages sur lui.`;
-  if (hasTrait(pick, "E")) return `Lance le combat sur ${carry} dès que ton équipe peut suivre.`;
-  if (hasTrait(pick, "t")) return "Encaisse en première ligne, et prends l'espace autour des objectifs.";
+  if (hasTrait(pick, "E")) return `Engage sur ${carry} dès que ton équipe peut suivre.`;
+  if (hasTrait(pick, "t")) return "Encaisse en frontline, et prends l'espace autour des objectifs.";
   if (hasTrait(pick, "h")) return `Prends ton avantage, puis élimine ${carry} avant l'objectif.`;
   if (hasTrait(pick, "k")) return c.front.length >= 2 ? `Fais fondre ${c.front[0]}, et reste en vie jusqu'à la fin du combat.` : "Frappe la cible la plus proche, et reste en vie jusqu'à la fin du combat.";
   if (hasTrait(pick, "l")) return "Affaiblis-les à distance avant l'objectif, sans te faire attraper.";
@@ -589,9 +589,9 @@ function winCondition(pick, c) {
   if (!WRITTEN_PICKS.includes(pick)) return winConditionFromTraits(pick, c);
   return {
     "Fizz": carry ? `Pousse ta vague, roam, et tue ${carry} avant l'objectif.` : "Pousse ta vague, roam, et tue leur carry avant l'objectif.",
-    "TF": "Pousse à la carte bleue, puis crée un surnombre avec ton ultime.",
-    "Kog'Maw": c.front.length >= 2 ? `Reste derrière ton frontline et fais fondre ${c.front[0]} autour des objectifs.` : "Reste derrière ton frontline et frappe autour des objectifs.",
-    "Xerath": "Affaiblis-les à distance avant l'objectif, loin de leurs plongeurs."
+    "TF": "Push avec la carte bleue, puis crée un surnombre avec ton ult.",
+    "Kog'Maw": c.front.length >= 2 ? `Reste derrière ta frontline et fais fondre ${c.front[0]} autour des objectifs.` : "Reste derrière ta frontline et frappe autour des objectifs.",
+    "Xerath": "Poke-les avant l'objectif, loin de leur dive."
   }[pick];
 }
 
@@ -611,12 +611,12 @@ function buildPlan(pick, compo, mid, jungler) {
 
   const lane = [
     !WRITTEN_PICKS.includes(pick) && mid && midDive && `${mid} peut te sauter dessus : garde tes distances et ton sort de défense.`,
-    !WRITTEN_PICKS.includes(pick) && mid && midCc && !midDive && `${mid} a un contrôle ciblé : attends de le voir partir avant d'engager.`,
+    !WRITTEN_PICKS.includes(pick) && mid && midCc && !midDive && `${mid} a un CC ciblé : attends de le voir partir avant d'engager.`,
     !WRITTEN_PICKS.includes(pick) && mid && !midDive && !midCc && `Contre ${mid}, observe ses sorts importants avant d'engager un échange.`,
     midBad && `${mid} est un matchup difficile : farme prudemment et n'échange qu'après avoir vu partir un de ses sorts importants.`,
-    pick === "Fizz" && midCc && `${mid} a un contrôle ciblé : attends de le voir partir avant de lancer ton all-in.`,
+    pick === "Fizz" && midCc && `${mid} a un CC ciblé : attends de le voir partir avant de lancer ton all-in.`,
     pick === "Fizz" && !midBad && mid && `Contre ${mid}, cherche des échanges courts, puis ressors avec ton E.`,
-    ranged && midDive && `${mid} peut te sauter dessus : garde tes distances et ne gaspille pas ton sort de contrôle ou de ralentissement.`,
+    ranged && midDive && `${mid} peut te sauter dessus : garde tes distances et ne gaspille pas ton CC ou ton ralentissement.`,
     pick === "Xerath" && !midDive && mid && `Touche ${mid} de loin dès qu'il vient au farm, sans dépasser la moitié de la lane.`,
     pick === "Kog'Maw" && !midDive && mid && `Contre ${mid}, farme à portée maximale et échange seulement quand ta vague te couvre.`,
     pick === "TF" && mid && `Contre ${mid}, garde ta carte dorée pour répondre à un engage ou préparer un gank.`,
@@ -625,26 +625,26 @@ function buildPlan(pick, compo, mid, jungler) {
     role === "jungle" ? "Prépare ton chemin vers la lane qui peut le mieux profiter de ton aide." : role === "support" ? "Garde la vision de ton côté avant de chercher un engage." : "Pousse ta vague avant de bouger, pour ne pas perdre de farm."
   ];
   const midGame = [
-    pick === "TF" && carry && `Utilise ton ultime dès qu'une lane peut punir ${carry}.`,
+    pick === "TF" && carry && `Utilise ton ult dès qu'une lane peut punir ${carry}.`,
     pick === "Fizz" && carry && `Cherche ${carry} isolé sur un côté, puis disparais avant la riposte.`,
-    pick === "Kog'Maw" && "Reste groupé avec ton frontline : seul sur un côté, tu n'as presque aucune échappatoire.",
+    pick === "Kog'Maw" && "Reste groupé avec ta frontline : seul sur un côté, tu n'as presque aucune échappatoire.",
     pick === "Xerath" && carry && `Affaiblis ${carry} avant chaque objectif, depuis un endroit couvert par une ward.`,
-    diver && `Repère ${diver} sur la carte avant de te placer : sans visuel, recule.`,
-    engager && `Pose une ward de contrôle sur le chemin de ${engager} avant les objectifs.`,
+    diver && `Repère ${diver} sur la map avant de te placer : sans vision, recule.`,
+    engager && `Pose une control ward sur le chemin de ${engager} avant les objectifs.`,
     tank && pick !== "Kog'Maw" && `Ne perds pas de temps sur ${tank} si une tour ou un objectif est disponible.`,
     "Après un combat gagné, prends tout de suite une tour ou un objectif."
   ];
   const fight = [
-    pick === "Fizz" && cc && `Entre seulement après avoir vu partir le contrôle de ${cc}.`,
-    pick === "Fizz" && carry && `Ta cible prioritaire est ${carry}, pas le frontline.`,
-    pick === "Fizz" && !carry && "Sans cible fragile accessible, ne plonge pas : va chercher un objectif ailleurs.",
-    pick === "TF" && carry && `Garde ta carte dorée pour ${carry} ou pour le premier qui plonge.`,
+    pick === "Fizz" && cc && `Entre seulement après avoir vu partir le CC de ${cc}.`,
+    pick === "Fizz" && carry && `Ta cible prioritaire est ${carry}, pas la frontline.`,
+    pick === "Fizz" && !carry && "Sans carry fragile accessible, ne dive pas : va chercher un objectif ailleurs.",
+    pick === "TF" && carry && `Garde ta carte dorée pour ${carry} ou pour le premier qui dive.`,
     pick === "TF" && engager && `Temporise tant que ${engager} n'a pas engagé, puis rejoins le combat.`,
-    ranged && diver && `Garde-toi une sortie contre ${diver} : ne te place jamais en première ligne.`,
+    ranged && diver && `Garde-toi une sortie contre ${diver} : ne te place jamais devant ta frontline.`,
     pick === "Kog'Maw" && tank && `Frappe ${tank} s'il est le plus proche : ne traverse pas le combat pour une cible lointaine.`,
     pick === "Xerath" && carry && `Lance tes sorts sur ${carry} depuis l'arrière, et recule dès qu'un adversaire s'approche.`,
-    ranged && engager && `Évite les combats sans vision : ${engager} peut démarrer l'engage sur toi.`,
-    "Évite d'ouvrir un combat quand plusieurs adversaires sont invisibles sur la carte."
+    ranged && engager && `Évite les combats sans vision : ${engager} peut engager sur toi.`,
+    "Évite d'ouvrir un combat quand plusieurs adversaires sont absents de la map."
   ];
   const three = list => [...new Set(list.filter(Boolean))].slice(0, 3);
   return { lane: three(lane), mid: three(midGame), fight: three(fight) };

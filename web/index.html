@@ -1210,11 +1210,11 @@ function traitsOf(name) {
   const words = [];
   if (t.includes("t")) words.push("Tank");
   if (t.includes("b")) words.push("Bruiser");
-  if (t.includes("s")) words.push("Carry");
-  if (t.includes("a")) words.push("Plongeur");
-  if (t.includes("c")) words.push("Contrôle");
+  if (t.includes("s")) words.push("Carry fragile");
+  if (t.includes("a")) words.push("Dive");
+  if (t.includes("c")) words.push("CC");
   if (t.includes("e")) words.push("Engage");
-  return words.join(", ") || "Soutien";
+  return words.join(", ") || "Utilitaire";
 }
 
 function SearchBox() {
@@ -1401,12 +1401,12 @@ function EnemyPanel() {
         ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
       </div>
     <//>
-    <h2 className="sec-title profile">Profil de l'équipe</h2>
+    <h2 className="sec-title profile">Profil de leur comp</h2>
     <div className="meters profile">
       <${Meter} label="Frontline" count=${c.front.length} />
       <${Meter} label="Carrys fragiles" count=${c.carries.length} />
-      <${Meter} label="Plongeurs" count=${c.divers.length} danger=${true} />
-      <${Meter} label="Contrôles ciblés" count=${c.cc.length} danger=${true} />
+      <${Meter} label="Dive" count=${c.divers.length} danger=${true} />
+      <${Meter} label="CC ciblés" count=${c.cc.length} danger=${true} />
       <${Meter} label="Engage" count=${c.engage.length} />
     </div>
     <${DraftEffects} />
@@ -1604,7 +1604,7 @@ function Stage() {
         ${(V.reasons.length ? V.reasons : ["Aucun argument particulier dans cette draft"]).map(t => html`<${motion.li} key=${t} initial=${{ x:-6, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
       <//>
       <${motion.div} className="stage-notes" variants=${item}>
-        ${V.risk ? html`<p className="alert-line"><b>Danger</b> ${V.risk}</p>` : null}
+        ${V.risk ? html`<p className="alert-line"><b>Risque</b> ${V.risk}</p>` : null}
         <${CoachLine} />
         <${FamiliarLine} />
         <${OpponentLine} />
@@ -1736,8 +1736,8 @@ function CriteriaView() {
   if (V.mid && !matchupOf(V.mid) && !PICKS.some(p => liveMatchup(p, V.mid))) uncertain.push(`Pas de données de matchup contre ${V.mid} : ce critère n'est pas évalué.`);
   if (V.tied) uncertain.push(`${V.tied.map(label).join(", ")} ont le même score. ${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}`);
   if (entries[0] && V.shown !== entries[0].pick && !(V.tied && V.tied.includes(entries[0].pick))) uncertain.push(`${label(V.shown)} reste affiché : ${label(entries[0].pick)} mène de trop peu pour changer de nom en cours de draft.`);
-  if (V.n < 5) uncertain.push(`Draft incomplète : ${V.n} adversaire(s) sur 5.`);
-  if (V.res.unknown.length) uncertain.push(`Profil provisoire : ${V.res.unknown.join(", ")}.`);
+  if (V.n < 5) uncertain.push(`Draft incomplète : ${V.n} adversaire${V.n > 1 ? "s" : ""} sur 5.`);
+  if (V.res.unknown.length) uncertain.push(`Fiche provisoire : ${V.res.unknown.join(", ")}.`);
   uncertain.push(PREFS.assumeFront ? "Frontline alliée supposée (réglage)." : "Pas de frontline alliée supposée (réglage).");
   return html`<div>
     <p className="small">${uncertain.join(" ")}</p>
@@ -1953,19 +1953,19 @@ function JournalTab() {
 
 const RulesTab = () => html`<div>
   ${myRole() !== "mid" || !PICKS.every(p => WRITTEN_PICKS.includes(p)) ? html`<h3>Comment tes picks sont classés</h3>
-  <p className="small">Chaque champion a une fiche écrite à la main : chasseur de cibles fragiles, tueur de tanks, immobile, protecteur, etc. Le moteur compare ces fiches à la composition adverse. C'est un avis général, sans statistiques.</p>` : html`<h3>Repères pour ton pool (résumé, pas le calcul exact)</h3>
+  <p className="small">Chaque champion a une fiche écrite à la main : chasseur de carrys fragiles, anti-tank, peu mobile, protecteur, etc. Le moteur compare ces fiches à leur comp. C'est un avis général, sans statistiques.</p>` : html`<h3>Repères pour ton pool (résumé, pas le calcul exact)</h3>
   <table><thead><tr><th>Situation</th><th>Pick</th></tr></thead><tbody>
-    <tr><td>Au moins 2 tanks ou bruisers, et tu as un frontline</td><td>Kog'Maw</td></tr>
-    <tr><td>Au moins 2 carrys fragiles, et peu de contrôles ciblés</td><td>Fizz</td></tr>
-    <tr><td>Adversaires lents et peu de plongeurs, et tu as un frontline</td><td>Xerath</td></tr>
+    <tr><td>Au moins 2 tanks ou bruisers, et tu as une frontline</td><td>Kog'Maw</td></tr>
+    <tr><td>Au moins 2 carrys fragiles, et peu de CC ciblés</td><td>Fizz</td></tr>
+    <tr><td>Adversaires peu mobiles et peu de dive, et tu as une frontline</td><td>Xerath</td></tr>
     <tr><td>Tous les autres cas, ou draft inconnue</td><td>Twisted Fate</td></tr>
   </tbody></table>
   <h3>Quand éviter chaque pick</h3>
   <ul className="plain">
-    <li><b>Kog'Maw :</b> ton équipe n'a pas de frontline, ou l'équipe adverse a au moins 2 assassins ou plongeurs.</li>
-    <li><b>Fizz :</b> aucune cible fragile accessible, ou beaucoup de contrôles ciblés en face.</li>
-    <li><b>Xerath :</b> plusieurs champions très mobiles en face, et ton équipe ne peut pas te protéger.</li>
-    <li><b>Twisted Fate :</b> rarement mauvais, mais moins utile si tes mates ne suivent jamais tes ultimes.</li>
+    <li><b>Kog'Maw :</b> ton équipe n'a pas de frontline, ou leur comp a au moins 2 assassins ou champions de dive.</li>
+    <li><b>Fizz :</b> aucun carry fragile accessible, ou beaucoup de CC ciblés en face.</li>
+    <li><b>Xerath :</b> plusieurs champions très mobiles en face, et pas de peel dans ton équipe.</li>
+    <li><b>Twisted Fate :</b> rarement mauvais, mais moins utile si tes alliés ne suivent jamais tes ults.</li>
   </ul>`}
   <h3>Critères et poids du moteur</h3>
   <p className="small">Chaque critère donne une note de -2 à +2, multipliée par son poids. Le total sert seulement à comparer tes picks : ce n'est ni un winrate ni une probabilité. Ces poids sont des choix de conception, jamais mesurés sur de vraies parties.</p>
@@ -1976,7 +1976,7 @@ const RulesTab = () => html`<div>
   <ul className="plain">
     <li><b>Officiel (Riot, Data Dragon) :</b> noms, portraits, illustrations, numéro de patch, classes de Locke et Zaahen.</li>
     <li><b>Statistiques observées :</b> rôles et bilans de matchups, si tu les as calculés avec l'API Riot. Le lien LoLalytics ouvre simplement leur page.</li>
-    <li><b>Heuristique (écrit à la main) :</b> matchups sans assez de parties, profils de champions, règles, plan de jeu.</li>
+    <li><b>Écrit à la main :</b> matchups sans assez de parties, profils de champions, règles, plan de jeu.</li>
     <li><b>Personnel :</b> ton journal et ton import Riot. Affichés, mais sans effet sur le classement.</li>
   </ul>
   <h3>Fiabilité</h3>
@@ -2022,7 +2022,7 @@ function MobileBar() {
   if (V.tied) return html`<div className="mobile-bar"><span className="mobile-name">Égalité : ${V.tied.map(label).join(", ")}</span></div>`;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${label(V.shown)} size=${32} />${label(V.shown)}</span>
-    <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je prends"}<//>
+    <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je joue"}<//>
   </div>`;
 }
 
@@ -2110,9 +2110,9 @@ function VerdictPanel() {
     <ul className="p-reasons">
       ${(reasons.length ? reasons : [V.tied ? "Leurs raisons diffèrent : compare-les dans Analyse." : "Aucun argument marqué pour l'instant : ajoute des adversaires."]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
     </ul>
-    ${threat ? html`<section className="p-threat" aria-label="Danger principal">
+    ${threat ? html`<section className="p-threat" aria-label="Menace principale">
       <${Portrait} name=${threat} size=${30} />
-      <div><b>Danger : ${threat}</b><p>${V.tied ? "Commun à ces champions." : threatText(V.shown, threat, c)}</p></div>
+      <div><b>Menace : ${threat}</b><p>${V.tied ? "Commun à ces champions." : threatText(V.shown, threat, c)}</p></div>
     </section>` : null}
     <${CoachLine} />
     <${OpponentLine} />
@@ -2251,7 +2251,7 @@ function DataSources() {
   const missing = report.filter(r => !r.available).length;
   const dateOf = d => { const t = Date.parse(d || ""); return isNaN(t) ? "inconnue" : new Date(t).toLocaleDateString("fr-FR"); };
   return html`<details className="set-more" onToggle=${e => setOpen(e.currentTarget.open)}>
-    <summary>Sources de données${stale ? ` : ${stale} ancienne(s)` : ""}${missing ? `${stale ? "," : " :"} ${missing} absente(s)` : ""}</summary>
+    <summary>Sources de données${stale ? ` : ${stale} ancienne${stale > 1 ? "s" : ""}` : ""}${missing ? `${stale ? "," : " :"} ${missing} absente${missing > 1 ? "s" : ""}` : ""}</summary>
     <ul className="data-list">${report.map(r => html`<li key=${r.id} className=${r.available ? "" : "off"}>
       <b>${r.label}</b> <span className="data-kind">${r.kindLabel}</span>${r.stale ? html` <span className="data-old">Ancienne</span>` : null}${r.available ? null : html` <span className="data-old">Absente</span>`}
       <p>${r.source}.${!r.available || r.kind === "heuristic" ? "" : ` Patch : ${r.patch || "inconnu"}${r.stale ? ` (${r.age} patchs d'écart)` : ""}.`}${r.collected ? ` Date : ${dateOf(r.collected)}.` : ""}${!r.available || r.kind === "official" || r.kind === "heuristic" ? "" : ` Observations : ${r.games === null ? "non mesurées" : `${r.games} ${r.unit}`}.`}${r.region ? ` Région : ${r.region}.` : ""}${r.rank ? ` Rang : ${r.rank}.` : ""}${r.uncertainty ? ` Incertitude ${r.uncertainty}.` : ""}</p>
@@ -2274,7 +2274,7 @@ function Settings({ onClose }) {
       const known = new Set(list.map(x => x.id));
       const added = incoming.filter(x => x && x.id && x.picked && !known.has(x.id));
       saveJournal(list.concat(added).sort((a, b) => a.id - b.id));
-      setImportNote(`${added.length} partie(s) ajoutée(s) à ton journal.`);
+      setImportNote(`${added.length} partie${added.length > 1 ? "s ajoutées" : " ajoutée"} à ton journal.`);
       publish(null);
     }).catch(() => setImportNote("Ce fichier n'est pas un journal DRAFT : rien n'a été modifié."));
   };
@@ -2329,13 +2329,13 @@ function Settings({ onClose }) {
       <h3>Mes picks</h3>
       <p className="set-hint flush">Exclure pour l'instant :</p>
       <div className="set-row">${PICKS.map(p => html`<label key=${p} className="set-check"><input type="checkbox" checked=${PREFS.excluded.includes(p)} onChange=${() => toggleExcluded(p)} /> ${label(p)}</label>`)}</div>
-      <label className="set-line">À égalité exacte, préférer
+      <label className="set-line">En cas d'égalité, mettre en premier
         <select value=${PREFS.favorite || ""} onChange=${e => savePrefs({ favorite: e.target.value || null })}>
           <option value="">Aucun</option>
           ${PICKS.map(p => html`<option key=${p} value=${p}>${label(p)}</option>`)}
         </select>
       </label>
-      <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Supposer un frontline dans mon équipe</label>
+      <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Compter sur une frontline dans mon équipe</label>
 
       ${hostState.available ? html`<div>
         <h3>Rôles des champions</h3>

@@ -71,7 +71,7 @@ function describeRiotRoles() {
   const noPatch = buckets.every(b => !b.patch);
   return {
     available:true, patch: noPatch ? null : newest.patch, collected: live.updated, games: buckets.reduce((sum, b) => sum + (b.games || 0), 0), unit:"parties",
-    region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:"Silver à Émeraude, classé solo/duo", age: newest.age,
+    region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:"Silver à Emerald, classé solo/duo", age: newest.age,
     uncertainty: newest.age === null || newest.age >= STALE_PATCHES ? "élevée" : "moyenne",
     note: noPatch ? "Calcul fait avant le suivi par patch : le patch et la région n'ont pas été enregistrés, l'âge est estimé d'après la date." : `${buckets.length} patch(s) conservé(s). Les plus anciens comptent moins, sans être supprimés.`
   };
@@ -140,7 +140,7 @@ const DATA_PROVIDERS = [
       const dated = buckets.map(b => ageOf(b.patch, b.collected)).filter(x => x.age !== null).map(x => x.age);
       const age = dated.length ? Math.min(...dated) : null;
       return { available:true, patch: Object.keys(live.patches || {}).sort((a, b) => (patchIndex(b) || 0) - (patchIndex(a) || 0))[0] || null, collected:live.updated, games:live.games, unit:"parties", age,
-        region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:"Silver à Émeraude, classé solo/duo", uncertainty: age === null || age >= STALE_PATCHES ? "élevée" : "moyenne",
+        region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:"Silver à Emerald, classé solo/duo", uncertainty: age === null || age >= STALE_PATCHES ? "élevée" : "moyenne",
         note:`Pour le rôle ${ROLE_NAMES[live.role || "mid"]}. Sous ${MATCHUP_MIN_GAMES} parties utiles, un bilan n'est pas utilisé.` };
     }
   },

@@ -482,7 +482,7 @@ for (let i = 0; i < DRAFTS; i++) {
     const sum = p.criteria.reduce((s, c) => s + c.impact, 0);
     if (Math.abs(sum - p.score) > 1e-9) issues.somme++;
     if (p.criteria.some(c => !c.text)) issues.texte++;
-    if (p.why.some(w => /^(À éviter|Aucune cible|Ton équipe n'a pas)/.test(w.text) && w.v > 0)) issues.signe++;
+    if (p.why.some(w => /^(À éviter|Aucun carry|Pas de frontline alliée|Risqué en blind)/.test(w.text) && w.v > 0)) issues.signe++;
     const keys = p.criteria.map(c => c.key);
     if (new Set(keys).size !== keys.length) issues.double++;
     const plan = buildPlan(p.pick, r.counts, mid, list[0]);
