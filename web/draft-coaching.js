@@ -69,6 +69,18 @@ function coachReason(text, fallback) {
   if (m && m[3].split(", ").every(n => ROSTER[n] !== undefined)) { const shown = m[3].split(", ").length, total = +m[1]; if (shown < total) out = `${text} et ${total - shown} autre${total - shown > 1 ? "s" : ""}`; }
   return NAMES.some(n => out.startsWith(n)) ? out : out.charAt(0).toLowerCase() + out.slice(1);
 }
+// Pourquoi un pick est affiché en premier à score égal (tieCause, draft-engine.js). shown : le nom affiché en premier.
+function tieCauseText(cause, shown) {
+  if (!cause) return "";
+  const first = label(cause.first), second = label(cause.second);
+  if (shown && shown !== cause.first) return `${label(shown)} reste en premier car c'était déjà le conseil affiché : à score égal, le nom ne change pas en cours de draft.`;
+  if (cause.kind === "risk") return cause.firstRisk
+    ? `${first} passe en premier : son pire critère pèse moins (« ${cause.firstRisk} », contre « ${cause.secondRisk} » pour ${second}).`
+    : `${first} passe en premier : aucun critère ne le pénalise, alors que ${second} a « ${cause.secondRisk} » contre lui.`;
+  if (cause.kind === "favorite") return `${first} passe en premier car c'est ton favori : ce n'est pas un avantage dans la draft.`;
+  if (cause.kind === "mixed") return "L'ordre suit d'abord le risque (le pire critère le moins lourd passe devant), puis ton favori, puis l'alphabet.";
+  return "Même risque : l'ordre est alphabétique, il ne veut rien dire.";
+}
 const coachRangeWords = names => { const w = names.map(n => coachRangeWord(coachRange(n)) || "portée inconnue"); return names.length === 2 && w[0] === w[1] ? `Les deux : ${w[0]}` : names.map((n, i) => `${n} : ${w[i]}`).join(", "); };
 // Champions qui changent de forme : une seule portée de base ne les décrit pas.
 const COACH_RANGE_CHANGES = ["Jayce", "Nidalee", "Elise", "Gnar", "Kayle"];
@@ -120,48 +132,70 @@ const COACH_RULES = [
       if (!c.n || !c.entry || !c.entry.tiedWith || !c.entry.tiedWith.length) return null;
       const others = c.entry.tiedWith.map(label);
       const sameSheet = others.every(n => CHAMPION_TRAITS[n] !== undefined && CHAMPION_TRAITS[n] === CHAMPION_TRAITS[c.pick]);
-      return { others, sameSheet };
+      return { others, sameSheet, cause:tieCause(c.ranking, [c.entry.pick].concat(c.entry.tiedWith)) };
     },
     build: (c, d) => { const names = coachList([c.pick].concat(d.others)); return { title:`Égalité : ${names}`,
       text:[`Le classement ne les départage pas. Choisis celui que tu connais le mieux.`,
         d.sameSheet ? `Leurs fiches sont identiques : l'outil ne peut pas les distinguer dans cette draft. Ta maîtrise et ton envie comptent davantage que le classement.`
           : `Même score pour des raisons différentes. Regarde ce que chacun apporte dans Analyse, vue Comparer, et choisis selon ta maîtrise.`,
-        `Score identique (${coachNum(c.entry.score)}). Le nom affiché en premier ne vient que de l'ordre alphabétique, ou de ton favori : ce n'est pas un avantage.${d.sameSheet ? " Fiches identiques : aucune règle ne peut les séparer." : ""}`],
-      limits:"Les règles ne les distinguent pas ici : ce n'est pas une preuve qu'ils se valent en jeu.", evidence:[{ kind:"tie", picks:[c.pick].concat(d.others), score:+c.entry.score.toFixed(2) }] }; } },
+        `Score identique (${coachNum(c.entry.score)}). ${tieCauseText(d.cause, c.entry.pick)}${d.sameSheet ? " Fiches identiques : aucune règle ne peut les séparer." : ""}`],
+      limits:"Les règles ne les distinguent pas ici : ce n'est pas une preuve qu'ils se valent en jeu.", evidence:[{ kind:"tie", picks:[c.pick].concat(d.others), score:+c.entry.score.toFixed(2), cause:d.cause ? d.cause.kind : null }] }; } },
   { id:"draft.why", category:"decision", priority:82, basis:"heuristic",
     when: c => {
       if (!c.n || !c.entry || (c.entry.tiedWith && c.entry.tiedWith.length) || (c.rival && c.entry.score - c.rival.score < HOLD_GAP)) return null;
       const live = c.opponent && liveMatchup(c.entry.pick, c.opponent);
       const best = c.entry.criteria.filter(x => x.impact > 0 && x.text && !(live && x.key === "matchup")).sort((a, b) => b.impact - a.impact)[0];
-      return best ? { best } : null;
+      return best ? { best, reason:signedText(best, 1) } : null;
     },
     build: (c, d) => ({ title:`Pourquoi ${c.pick}`,
-      text:[`La raison principale : ${coachReason(d.best.text)}.`,
-        `« ${d.best.label} » pèse le plus : ${coachReason(d.best.text)}.`,
+      text:[`La raison principale : ${coachReason(d.reason)}.`,
+        `« ${d.best.label} » pèse le plus : ${coachReason(d.reason)}.`,
         `Critère le plus lourd : « ${d.best.label} » (+${coachNum(d.best.impact)})${c.rival ? `, pour ${coachNum(c.entry.score - c.rival.score)} points d'écart avec ${label(c.rival.pick)}` : ""}.`],
       evidence:[{ kind:"criterion", key:d.best.key, value:+d.best.impact.toFixed(2) }], stance:{ key:d.best.key, sign:1 } }) },
+  // Choix serré. Le pick affiché peut être 2e : pendant la draft, le nom ne change que si un autre mène d'au moins HOLD_GAP points.
+  // « passe devant » n'est alors dit que du vrai 1er.
   { id:"draft.close", category:"decision", priority:84, basis:"heuristic",
     when: c => {
       if (!c.rival || !c.n || c.entry.score - c.rival.score >= HOLD_GAP || (c.entry.tiedWith && c.entry.tiedWith.length)) return null;
-      const row = comparePicks(c.entry, c.rival).decisive.find(r => r.diff > 0);
-      return row ? { row } : null;
+      const held = c.rival.score > c.entry.score;
+      const lead = held ? c.rival : c.entry, other = held ? c.entry : c.rival;
+      const row = comparePicks(lead, other).decisive.find(r => r.diff > 0);
+      if (!row) return null;
+      const crit = lead.criteria.find(x => x.key === row.key);
+      return { row, held, lead:label(lead.pick), other:label(other.pick), gap:lead.score - other.score, reason:crit && crit.impact > 0 ? signedText(crit, 1) : "" };
     },
-    build: (c, d) => ({ title:`${c.pick} ou ${label(c.rival.pick)} : le choix est serré`,
-      text:[`Les deux peuvent convenir. ${c.pick} passe devant : ${coachReason(d.row.textA, `avantage sur « ${d.row.label} »`)}. Prends celui avec lequel tu es le plus à l'aise.`,
-        `${c.pick} mène surtout sur « ${d.row.label} »${d.row.textA ? ` : ${coachReason(d.row.textA)}` : ""}. L'écart reste faible : la maîtrise et ton équipe peuvent décider.`,
-        `Écart de ${coachNum(c.entry.score - c.rival.score)} point : sous le seuil de ${HOLD_GAP} utilisé pour parler de choix net. Le critère décisif est « ${d.row.label} ». Ces points servent à comparer, ce n'est pas une probabilité de victoire.`],
-      evidence:[{ kind:"criterion", key:d.row.key, value:+d.row.diff.toFixed(2) }], stance:{ key:d.row.key, sign:Math.sign(d.row.a - d.row.b), relative:true } }) },
+    build: (c, d) => {
+      const why = coachReason(d.reason, `avantage sur « ${d.row.label} »`), stays = `${c.pick} reste affiché tant que l'écart reste sous ${HOLD_GAP} points, pour que le conseil ne change pas à chaque pick.`;
+      return { title:d.held ? `Choix serré : ${d.lead} passe devant de peu` : `${c.pick} ou ${d.other} : le choix est serré`,
+        text:d.held ? [`${d.lead} passe devant de peu : ${why}. ${stays}`,
+          `${d.lead} mène surtout sur « ${d.row.label} »${d.reason ? ` : ${coachReason(d.reason)}` : ""}. ${stays}`,
+          `${d.lead} mène de ${coachNum(d.gap)} point, sous le seuil de ${HOLD_GAP} utilisé pour changer le nom affiché. Le critère décisif est « ${d.row.label} ». Ces points servent à comparer, ce n'est pas une probabilité de victoire.`]
+        : [`Les deux se valent presque. ${c.pick} passe devant : ${why}. Prends celui que tu maîtrises le mieux.`,
+          `${c.pick} mène surtout sur « ${d.row.label} »${d.reason ? ` : ${coachReason(d.reason)}` : ""}. L'écart reste faible : ta maîtrise et ton équipe peuvent décider.`,
+          `Écart de ${coachNum(d.gap)} point : sous le seuil de ${HOLD_GAP} utilisé pour parler de choix net. Le critère décisif est « ${d.row.label} ». Ces points servent à comparer, ce n'est pas une probabilité de victoire.`],
+        evidence:[{ kind:"criterion", key:d.row.key, value:+d.row.diff.toFixed(2), held:d.held }], stance:{ key:d.row.key, sign:d.held ? -1 : 1, relative:true } };
+    } },
   { id:"draft.conflict", category:"decision", priority:90, basis:"heuristic",
     when: c => {
       if (!c.entry) return null;
       const worst = c.entry.criteria.filter(x => x.impact <= -2).sort((a, b) => a.impact - b.impact)[0];
-      return worst && c.entry.score > 0 ? { worst } : null;
+      if (!worst || c.entry.score <= 0) return null;
+      // Rang réel du pick : devant, à égalité, ou affiché alors qu'un autre mène de peu.
+      const ahead = c.rival ? tieKey(c.entry.score) - tieKey(c.rival.score) : 1;
+      return { worst, reason:signedText(worst, -1) || worst.text, rank:ahead > 0 ? "first" : ahead === 0 ? "tied" : "held" };
     },
-    build: (c, d) => ({ title:`${c.pick} ressort malgré un vrai risque`,
-      text:[`Le risque : ${coachReason(d.worst.text)}. ${c.pick} reste devant car le reste de la draft compense, par rapport à tes autres champions.`,
-        `Le score reste le meilleur, mais « ${d.worst.label} » pèse contre ce choix : ${coachReason(d.worst.text)}. Vérifie que tu peux jouer avec cette contrainte.`,
-        `Critère négatif « ${d.worst.label} » (${coachNum(d.worst.impact)}), compensé par les autres. Un classement par somme peut masquer ce type de faiblesse : décide si elle est acceptable pour toi.`],
-      evidence:[{ kind:"criterion", key:d.worst.key, value:+d.worst.impact.toFixed(2) }], stance:{ key:d.worst.key, sign:-1 } }) },
+    build: (c, d) => {
+      const risk = coachReason(d.reason), other = c.rival ? label(c.rival.pick) : "";
+      const where = d.rank === "first" ? `${c.pick} reste devant car le reste de la draft compense, par rapport à tes autres champions.`
+        : d.rank === "tied" ? `${c.pick} reste au même score que ${other}, car le reste de la draft compense.`
+        : `${c.pick} reste affiché, mais ${other} mène de peu.`;
+      return { title:d.rank === "held" ? `${c.pick} reste affiché malgré un vrai risque` : `${c.pick} ressort malgré un vrai risque`,
+        text:[`Le risque : ${risk}. ${where}`,
+          d.rank === "first" ? `Le score reste le meilleur, mais « ${d.worst.label} » pèse contre ce choix : ${risk}. Vérifie que tu peux jouer avec cette contrainte.`
+            : `« ${d.worst.label} » pèse contre ce choix : ${risk}. ${where} Vérifie que tu peux jouer avec cette contrainte.`,
+          `Critère négatif « ${d.worst.label} » (${coachNum(d.worst.impact)}), compensé par les autres. Un classement par somme peut masquer ce type de faiblesse : décide si elle est acceptable pour toi.`],
+        evidence:[{ kind:"criterion", key:d.worst.key, value:+d.worst.impact.toFixed(2) }], stance:{ key:d.worst.key, sign:-1 } };
+    } },
   { id:"draft.incomplete", category:"decision", priority:40, basis:"general",
     when: c => c.n > 0 && c.n < 5 ? {} : null,
     build: c => ({ title:`Il reste ${5 - c.n} adversaire${5 - c.n > 1 ? "s" : ""} à voir`,
@@ -189,7 +223,7 @@ const COACH_RULES = [
     },
     build: (c, d) => { const good = d.cr.impact > 0; return { title:`${c.pick} contre ${c.opponent}${!c.manual && c.belief.confidence !== "élevée" ? " (supposé)" : ""} : ${good ? "plutôt un bon choix" : "un matchup difficile"}`,
       text:[good ? `Le tableau de DRAFT place ${c.pick} parmi les bons choix contre ${c.opponent}.` : `Le tableau de DRAFT déconseille ${c.pick} contre ${c.opponent}. Si ce choix reste devant, c'est pour le reste de la draft.`,
-        `${d.cr.text}, selon un tableau écrit à la main. Ce critère est le plus lourd du classement.`,
+        `${d.cr.text}, selon un tableau écrit à la main. C'est le critère au plus gros poids du calcul.`,
         `${d.cr.text} : avis écrit à la main (${coachNum(d.cr.impact)} points), sans statistiques ni patch. Un bilan calculé le remplacera dès ${MATCHUP_MIN_GAMES} parties utiles.`],
       limits:"Avis écrit à la main, pas une statistique.", evidence:[{ kind:"criterion", key:"matchup", value:+d.cr.impact.toFixed(2) }], stance:{ key:"matchup", sign:Math.sign(d.cr.impact) } }; } },
   { id:"matchup.range", category:"matchup", priority:78, basis:"official",
@@ -250,7 +284,7 @@ const COACH_RULES = [
       return { title:risky ? `${names} peuvent atteindre ${c.pick}` : `${c.compo.divers.length} adversaires sautent sur leurs cibles`, terms:["assassin"],
         text:risky ? [`${names} peuvent venir sur toi d'un coup, et ${c.pick} s'échappe mal. Joue près d'un allié qui peut te protéger.`,
           `${c.pick} a peu de sorties contre ${names}. Reste dans la zone de protection de ton équipe, et repère-les avant d'avancer.`,
-          `Risque compté par le moteur (« ${cr.label} »). Il baisse avec une frontline alliée qui protège : à vérifier selon les picks de ton équipe.`]
+          `Risque compté par le moteur (« ${cr.label} »). En jeu, une frontline alliée qui peel le réduit, mais le calcul n'en tient pas compte.`]
         : solid ? [`${names} cherchent des cibles fragiles. ${c.pick} encaisse ou protège bien : place-toi près de ton joueur le plus fragile.`,
           `Contre ${names}, ta solidité aide ton équipe : garde ton carry à portée pour répondre à leur saut.`,
           `Le moteur compte un avantage sur « ${cr.label} » : profil solide ou protecteur face à ${c.compo.divers.length} plongeurs.`]
@@ -281,8 +315,14 @@ const COACH_RULES = [
       evidence:[{ kind:"count", key:"frontline", value:0 }] }) },
   { id:"comp.control", category:"composition", priority:60, basis:"heuristic",
     when: c => c.compo.cc.length >= 2 && c.pick ? {} : null,
-    build: c => { const names = coachNames(c.compo.cc), cr = c.crit("control"), bad = cr && cr.impact < 0, good = cr && cr.impact > 0; return { title:`${names} peuvent t'immobiliser`, terms:["contrôle"],
-      text:bad ? [`Si tu fonces et qu'ils t'immobilisent, tu ne peux plus rien faire. Mieux vaut entrer après avoir vu leurs sorts partir.`,
+    build: c => { const names = coachNames(c.compo.cc), cr = c.crit("control"), bad = cr && cr.impact < 0, good = cr && cr.impact > 0;
+      // Malus venu des engages (champion peu mobile), pas des CC ciblés : même règle, autre branche (draft-engine.js, critère control).
+      const engage = bad && !(hasTrait(c.entry.pick, "h") && hasTrait(c.entry.pick, "d") && c.compo.cc.length >= 2);
+      return { title:`${names} peuvent t'immobiliser`, terms:["contrôle"],
+      text:engage ? [`${coachNames(c.compo.engage)} peuvent engager sur toi, et ${c.pick} est peu mobile. Reste derrière ta frontline et attends leur engage.`,
+        `${cr.text}. Place-toi derrière ta frontline avant les objectifs.`,
+        `Malus du critère « ${cr.label} » : ${c.compo.engage.length} engages contre un champion peu mobile, pas les CC ciblés.`]
+      : bad ? [`Si tu fonces et qu'ils t'immobilisent, tu ne peux plus rien faire. Mieux vaut entrer après avoir vu leurs sorts partir.`,
         `Leurs contrôles punissent ${c.pick} : ${cr.text}. Regarde quel sort vient de partir avant d'entrer.`,
         `Malus du critère « ${cr.label} » : ${c.compo.cc.length} contrôles ciblés visibles.`]
       : good ? [`${c.pick} peut rester loin de leurs contrôles, puis revenir au bon moment. Ne te place pas devant ton équipe.`,
@@ -357,7 +397,7 @@ const COACH_RULES = [
       evidence:[{ kind:"official", difficulty:d.value }] }) },
   { id:"champ.alternative", category:"champion", priority:48, basis:"heuristic", minLevel:2,
     when: c => {
-      if (!c.rival || !c.n) return null;
+      if (!c.rival || !c.n || c.rival.score > c.entry.score) return null;
       const row = comparePicks(c.rival, c.entry).decisive.find(r => r.diff > 0);
       return row && row.textA ? { row } : null;
     },
@@ -416,6 +456,8 @@ const COACH_RULES = [
 ];
 
 function when2(c) {
+  if (c.scenarios && c.scenarios.length > 1) return `Pas de calcul des cas où ${label(c.rival.pick)} passerait devant tant que ton vis-à-vis n'est pas identifié.`;
+  if (!c.hasFront) return "Ces cas ne sont calculés qu'avec une frontline alliée, pas avec ton réglage actuel.";
   const found = whenBetter(c.rival.pick, c.entry.pick, c.enemies, c.opponent);
   return found.length ? `Ce choix passerait devant ${found.slice(0, 2).join(", ou ")}.` : "Aucun changement simple de la draft ne le fait passer devant.";
 }

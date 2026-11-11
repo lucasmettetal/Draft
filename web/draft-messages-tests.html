@@ -17,8 +17,8 @@ UI-006 | index.html:758 | Tes parties, personalLine | {bilan}, jamais contre {C}
 UI-007 | index.html:759 | Tes parties, personalLine | {bilan}, contre {C} {bilan} : {mot}
 UI-008 | index.html:735,1838 | Bilan V/D (fmtRecord), cartes du pool, statistiques | re:^\d+V \d+D(, \d+ %)?$
 UI-009 | index.html:821 | Changement de conseil (describeChange), pick pris en face | {C} est pris en face
-UI-010 | index.html:823 | Changement de conseil, draft complète sans nouvelle raison | Il menait déjà de peu : le nom attendait la fin de la draft pour changer.
-UI-011 | index.html:1546,2051 | Bandeau de changement (Stage, panneau droit) : action en gras, puis « X passe devant Y » | re:( passe devant |^(Draft complète|Ajout de .+|Retrait de .+|.+ remplacé par .+|.+ (au top|à la jungle|au mid|à l'ADC|au support)) :$)
+UI-010 | index.html:813-825 | Changement de conseil, draft complète : le nouveau nom menait déjà (PR D) | Il menait déjà de peu : le conseil change maintenant que la draft est complète.
+UI-011 | index.html:1546,2051 | Bandeau de changement (Stage, panneau droit) : action en gras, puis « X passe devant Y » | re:( passe devant |^avantage sur « .+ »$|^(Draft complète|Ajout de .+|Retrait de .+|.+ remplacé par .+|.+ (au top|à la jungle|au mid|à l'ADC|au support)) :$)
 UI-012 | index.html:1036 | Action / notice après ajout (state.lastAction) | Ajout de {C}
 UI-013 | index.html:1050 | Action / notice après retrait | Retrait de {C}
 UI-014 | index.html:997 | Notice, remplacement par la lecture du client | {C} remplacé par {C}
@@ -61,9 +61,9 @@ UI-050 | index.html:1394 | Illustration absente | Illustration indisponible : v�
 UI-051 | index.html:1400 | Lecteur d'écran, égalité | Égalité entre {liste}
 UI-052 | index.html:1400 | Lecteur d'écran, conseil | re:^Conseil : .+
 UI-053 | index.html:1405 | Égalité (aria) | Champions à égalité
-UI-054 | index.html:1406 | Égalité, titre | re:^\d+ choix équivalents( sur cette draft)?$
+UI-054 | index.html:1406 | Égalité, titre (PR D) | re:^\d+ picks à égalité de score( sur cette draft)?$
 UI-055 | index.html:1412 | Égalité, favori marqué | Ton favori
-UI-056 | index.html:1417 | Égalité, note sous la liste | L'ordre d'affichage n'a pas de sens.
+UI-056 | index.html:1417, draft-coaching.js tieCauseText | Égalité : cause réelle de l'ordre (risque, favori, alphabet, nom maintenu) (PR D) | re:(passe en premier : son pire critère pèse moins|passe en premier : aucun critère ne le pénalise|passe en premier car c'est ton favori|Même risque : l'ordre est alphabétique, il ne veut rien dire\.|reste en premier car c'était déjà le conseil affiché|L'ordre suit d'abord le risque)
 UI-057 | index.html:1464 | Conseil pendant la draft (aria) | Conseil
 UI-058 | index.html:1467 | Lien vers l'onglet Conseils | Voir les conseils
 UI-059 | index.html:1471 | Infobulle « Le plus joué » | Nombre de parties importées dans ce rôle. Cela ne dit pas si tu joues bien ce champion.
@@ -102,7 +102,7 @@ UI-091 | index.html:1582 | Étiquette du pool | À éviter
 UI-092 | index.html:1583 | Étiquette du pool, 1er | Recommandé
 UI-093 | index.html:1583-1584 | Étiquette du pool, choix serré | Très proche
 UI-094 | index.html:1584,2054 | Étiquette du pool ou du panneau, 2e | re:^Alternative
-UI-095 | index.html:1585 | Étiquette du pool, score négatif | Peu adapté
+UI-095 | index.html:1585 | Étiquette du pool, à 2 points ou plus du premier affiché (PR D) | Moins adapté
 UI-096 | index.html:1585 | Étiquette du pool, autres | Possible
 UI-097 | index.html:1596-1597 | Titre du pool | re:^(Ton pool|Les \d+ meilleurs sur \d+)
 UI-098 | index.html:1597 | Sous-titre du pool | Clique sur le champion que tu joues
@@ -122,17 +122,17 @@ UI-111 | index.html:1660 | Phases du plan | re:^(Lane|Mid game|Teamfights)$
 UI-112 | index.html:1666 | Plan à égalité | Choisis un des champions à égalité pour voir son plan.
 UI-113 | index.html:1666 | Plan sans pick | Aucun pick disponible.
 UI-114 | index.html:1670 | Phases (aria) | Phase de jeu
-UI-115 | index.html:1676 | Plan, limite | Avis général basé sur les 5 champions adverses, sans cooldowns ni builds vérifiés.
+UI-115 | index.html:1676 | Plan, limite (nombre réel d'adversaires, PR D) | re:^Avis général basé sur (les \d champions adverses visibles|1 champion adverse visible|aucun champion adverse pour l'instant), sans tenir compte des cooldowns ni des builds\.$
 UI-116 | index.html:1681,1705 | Matrice (aria) | re:: (avantage|désavantage|neutre)$
 UI-117 | index.html:1687 | Analyse, confiance | re:Confiance (faible|moyenne|élevée)\.
 UI-118 | index.html:1688 | Analyse, scénarios | Classement pondéré entre ces hypothèses, avec les mêmes règles.
 UI-119 | index.html:1689 | Analyse, adversaire inconnu | re:(Top|Jungle|Mid|ADC|Support) inconnu : le matchup direct n'est pas évalué\.
 UI-120 | index.html:1690 | Analyse, pas de données de matchup | Pas de données de matchup contre {C} : ce critère n'est pas évalué.
-UI-121 | index.html:1691 | Analyse, égalité | ont le même score : l'ordre d'affichage n'a pas de sens.
+UI-121 | index.html:1691 | Analyse, égalité (PR D) | re:ont le même score\. 
 UI-122 | index.html:1692 | Analyse, nom maintenu (holdPick) | reste affiché : {C} mène de trop peu pour changer de nom en cours de draft.
 UI-123 | index.html:1693 | Analyse, draft incomplète | Draft incomplète : {N} adversaire(s) sur 5.
 UI-124 | index.html:1694 | Analyse, profil provisoire | Profil provisoire : {liste}.
-UI-125 | index.html:1695 | Analyse, frontline allié (toujours ajouté) | re:Frontline allié supposé\.
+UI-125 | index.html:1695 | Analyse, frontline alliée selon le réglage (PR D) | re:(Pas de f|F)rontline alliée supposée \(réglage\)\.
 UI-126 | index.html:1698-1699 | Matrice, en-tête | re:^(Critère|Critères par champion)$
 UI-127 | index.html:1705 | Matrice, case vide (title) | Non concerné
 UI-128 | index.html:1720 | Analyse, aucun critère | Aucun critère ne le distingue dans cette draft.
@@ -152,7 +152,7 @@ UI-141 | index.html:1763 | Comparer, critère décisif | gagne surtout sur « {c
 UI-142 | index.html:1758 | Comparer, avantage sans texte | Moins pénalisé : {critère}
 UI-143 | index.html:1765 | Comparer, aucun écart | Aucun critère ne les sépare pour l'instant.
 UI-144 | index.html:1776 | Comparer, titre whenBetter | {C} passerait devant
-UI-145 | index.html:1777 | Comparer, whenBetter vide | Dans aucun des cas simples testés : changement de mid, absence de frontline ou nouvel adversaire type.
+UI-145 | index.html:1777 | Comparer, whenBetter : vide ou non calculé (PR D) | re:(Dans aucun des cas simples testés : autre vis-à-vis, absence de frontline ou nouvel adversaire type\.|Pas calculé tant que ton vis-à-vis n'est pas identifié\.|Pas calculé sans frontline alliée : ces cas supposent une frontline dans ton équipe\.)
 UI-146 | index.html:1785 | Duel, aucun bilan hors tableau | Pas encore de bilans pour ce profil : le conseil repose sur la composition adverse et les fiches de champions. Lance Mettre à jour les matchups dans les réglages.
 UI-147 | index.html:1789 | Duel, bilans hors tableau | Regarde tes bilans contre un adversaire, sans toucher à ta draft.
 UI-148 | index.html:1790 | Duel, recherche (aria, placeholder) | re:^(Chercher un adversaire|Adversaire : ahri, tf, kata\.\.\.)$
@@ -161,7 +161,7 @@ UI-150 | index.html:1797 | Duel, pas de bilan | Moins de {N} parties : pas de bi
 UI-151 | index.html:1804 | Duel, tableau mid | Regarde quoi prendre contre un mid, sans toucher à ta draft.
 UI-152 | index.html:1805 | Duel, recherche mid (aria, placeholder) | re:^(Chercher un mid adverse|Mid adverse : ahri, tf, kata\.\.\.)$
 UI-153 | index.html:1807 | Duel, absent du tableau | re:^Pas dans le tableau\.
-UI-154 | index.html:1807 | Duel, défaut Twisted Fate | Par défaut, prends Twisted Fate.
+UI-154 | index.html:1807 | Duel, absent du tableau : renvoi à la draft (PR D) | Ajoute ce champion à ta draft pour voir le classement.
 UI-155 | index.html:1815 | Duel, choix | Prends {C}, sinon {C}
 UI-156 | index.html:1816 | Duel, à éviter | re:^À éviter :
 UI-157 | index.html:1819 | Duel, source | Avis écrit à la main, pas encore de bilan.
@@ -177,7 +177,7 @@ UI-166 | index.html:1898 | Journal, en-têtes | re:^(Date|Pick|Mid|Conseil|Résu
 UI-167 | index.html:1902 | Journal, export | Télécharger le journal
 UI-168 | index.html:1907 | Règles, titre (pool hors tableau) | Comment tes picks sont classés
 UI-169 | index.html:1908 | Règles, texte (pool hors tableau) | Chaque champion a une fiche écrite à la main : chasseur de cibles fragiles, tueur de tanks, immobile, protecteur, etc. Le moteur compare ces fiches à la composition adverse. C'est un avis général, sans statistiques.
-UI-170 | index.html:1908-1913 | Règles mid, tableau | re:^(Selon la composition adverse|Situation|Au moins 2 tanks ou bruisers, et tu as un frontline|Au moins 2 carrys fragiles, et peu de contrôles ciblés|Adversaires lents et peu de plongeurs, et tu as un frontline|Tous les autres cas, ou draft inconnue)$
+UI-170 | index.html:1908-1913 | Règles mid, tableau (titre : PR D) | re:^(Repères pour ton pool \(résumé, pas le calcul exact\)|Situation|Au moins 2 tanks ou bruisers, et tu as un frontline|Au moins 2 carrys fragiles, et peu de contrôles ciblés|Adversaires lents et peu de plongeurs, et tu as un frontline|Tous les autres cas, ou draft inconnue)$
 UI-171 | index.html:1915 | Règles mid, titre | Quand éviter chaque pick
 UI-172 | index.html:1917 | Règles mid | ton équipe n'a pas de frontline, ou l'équipe adverse a au moins 2 assassins ou plongeurs.
 UI-173 | index.html:1918 | Règles mid | aucune cible fragile accessible, ou beaucoup de contrôles ciblés en face.
@@ -193,8 +193,8 @@ UI-182 | index.html:1931 | Règles, provenance | matchups sans assez de parties,
 UI-183 | index.html:1932 | Règles, provenance | ton journal et ton import Riot. Affichés, mais sans effet sur le classement.
 UI-184 | index.html:1929-1932 | Règles, étiquettes de provenance | re:^(Officiel \(Riot, Data Dragon\) :|Statistiques observées :|Heuristique \(écrit à la main\) :|Personnel :|Kog'Maw :|Fizz :|Xerath :|Twisted Fate :)$
 UI-185 | index.html:1934 | Règles, titre | Fiabilité
-UI-186 | index.html:1935 | Règles, fiabilité | L'outil suppose que ton équipe a un frontline et le signale si ça changerait le verdict. Le nom affiché ne change que si un autre pick mène nettement. Les autres rôles servent à l'affichage. Le ban conseillé vient des tableaux de cet outil.
-UI-187 | index.html:1935 | Règles, fiabilité (suite) | La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch 16.21. Seuls les bilans « Tes parties » viennent de tes comptes, et ils portent souvent sur peu de parties.
+UI-186 | index.html:1935 | Règles, fiabilité selon le réglage (PR D) | re:(L'outil compte sur une frontline dans ton équipe \(réglage\)|Réglage actuel : pas de frontline alliée supposée\.).*Pendant la draft, le nom affiché ne change que si un autre pick mène d'au moins \d points\.
+UI-187 | index.html:1935 | Règles, fiabilité (suite, PR D) | Le ban conseillé vient de tes bilans calculés s'il y en a, sinon du tableau de matchups (mid), sinon des fiches de champions. La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch en cours.
 UI-188 | index.html:1936 | Mention légale | Outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games.
 UI-189 | index.html:1941,1947 | Vues d'Analyse | re:^(Critères|Comparer|Règles|Vue de l'analyse)$
 UI-190 | index.html:1953,1960 | Onglets | re:^(Plan|Analyse|Conseils|Duel|Parties|Détails et statistiques)$
@@ -212,9 +212,9 @@ UI-201 | index.html:2014,2406 | Logo (title) | Ton assistant stratégique pour L
 UI-202 | index.html:2017-2019 | Barre des panneaux | re:^(Deux panneaux|Panneau unique|Passer à deux panneaux|Passer au panneau unique|Ouvrir les réglages|Masquer|Masquer les panneaux)$
 UI-203 | index.html:2027 | Panneau sans profil | Choisir mon profil
 UI-204 | index.html:2043 | Panneau droit (aria) | Champion conseillé
-UI-205 | index.html:2047 | Panneau droit, étiquette du nom affiché | Recommandé
+UI-205 | index.html:2047 | Panneau droit, étiquette du nom affiché (Recommandé seulement pour le 1er, PR D) | re:^(Recommandé|Presque à égalité)$
 UI-206 | index.html:2052 | Panneau droit, alternative (title) | Comparer ces deux champions
-UI-207 | index.html:2054 | Panneau droit, alternative en choix serré | re:^Presque à égalité
+UI-207 | index.html:2054 | Panneau droit, alternative en choix serré ou devant de peu (PR D) | re:^(Presque à égalité|Devant de peu)
 UI-208 | index.html:2058 | Panneau droit, titre caché | Pourquoi ce choix ?
 UI-209 | index.html:2060 | Panneau droit, égalité sans raison commune | Leurs raisons diffèrent : compare-les dans Analyse.
 UI-210 | index.html:2060 | Panneau droit, aucune raison | Aucun argument marqué pour l'instant : ajoute des adversaires.
@@ -323,7 +323,7 @@ EN-041 | draft-engine.js:267 | Raison peel q, positive | Peu de plongeurs et de 
 EN-042 | draft-engine.js:271 | Raison map g | re:(Son ultime couvre toute la carte|Peut peser sur toute la carte)
 EN-043 | draft-engine.js:272 | Raison map r | Peut roamer une fois sa vague poussée
 EN-044 | draft-engine.js:273 | Raison map n | Peu d'impact hors des combats groupés
-EN-045 | draft-engine.js:299-300 | Raison mélangée de plusieurs hypothèses (evaluateScenarios) | re: ·
+EN-045 | draft-engine.js:292-307 | Raison pesée sur plusieurs hypothèses, chacune nommée (PR D) | re:^(?:[+−] )?(Si c'est .+|S'il n'est pas encore choisi) : 
 EN-046 | draft-engine.js:420 | Raison du ban, bilans | mauvais bilan de {liste} sur de vraies parties
 EN-047 | draft-engine.js:423 | Raison du ban, tableau | gêne {liste} dans le tableau de matchups
 EN-048 | draft-engine.js:425 | Raison du ban, fiches | gêne {liste} d'après leurs profils
@@ -395,19 +395,19 @@ CO-002 | draft-coaching.js:125 | draft.tie, titre | Égalité : {liste}
 CO-003 | draft-coaching.js:126 | draft.tie, débutant | Le classement ne les départage pas. Choisis celui que tu connais le mieux.
 CO-004 | draft-coaching.js:127 | draft.tie, intermédiaire, fiches identiques | re:^Leurs fiches sont identiques : l'outil ne peut pas les distinguer dans cette draft\.
 CO-005 | draft-coaching.js:128 | draft.tie, intermédiaire | re:^Même score pour des raisons différentes\.
-CO-006 | draft-coaching.js:129 | draft.tie, avancé (alphabet ou favori) | re:(^Score identique \(-?\d+,\d\)\.|ne vient que de l'ordre alphabétique, ou de ton favori)
+CO-006 | draft-coaching.js:118-130 | draft.tie, avancé : score identique et cause réelle (PR D) | re:^Score identique \(-?\d+,\d\)\.
 CO-007 | draft-coaching.js:130 | draft.tie, limite | Les règles ne les distinguent pas ici : ce n'est pas une preuve qu'ils se valent en jeu.
 CO-008 | draft-coaching.js:138 | draft.why, titre | re:^Pourquoi .+[^?]$
 CO-009 | draft-coaching.js:139 | draft.why, débutant | La raison principale : {raison}.
 CO-010 | draft-coaching.js:140 | draft.why, intermédiaire | re:^« .+ » pèse le plus :
 CO-011 | draft-coaching.js:141 | draft.why, avancé | Critère le plus lourd : « {critère} » (+{N})
-CO-012 | draft-coaching.js:149 | draft.close, titre | {C} ou {C} : le choix est serré
-CO-013 | draft-coaching.js:150 | draft.close, débutant (« X passe devant ») | re:^Les deux peuvent convenir\.
-CO-014 | draft-coaching.js:151 | draft.close, intermédiaire | re: mène surtout sur « 
-CO-015 | draft-coaching.js:152 | draft.close, avancé (écart chiffré) | re:^Écart de -?\d+,\d point : sous le seuil
-CO-016 | draft-coaching.js:160 | draft.conflict, titre | {C} ressort malgré un vrai risque
-CO-017 | draft-coaching.js:161 | draft.conflict, débutant | Le risque : {raison}. {C} reste devant car le reste de la draft compense, par rapport à tes autres champions.
-CO-018 | draft-coaching.js:162 | draft.conflict, intermédiaire | Le score reste le meilleur, mais « {critère} » pèse contre ce choix : {raison}. Vérifie que tu peux jouer avec cette contrainte.
+CO-012 | draft-coaching.js:143-170 | draft.close, titre (nom affiché 1er, ou 2e maintenu) (PR D) | re:^(.+ ou .+ : le choix est serré|Choix serré : .+ passe devant de peu)$
+CO-013 | draft-coaching.js:143-170 | draft.close, débutant (PR D) | re:^(Les deux se valent presque\.|.+ passe devant de peu : )
+CO-014 | draft-coaching.js:143-170 | draft.close, intermédiaire | re: mène surtout sur « 
+CO-015 | draft-coaching.js:143-170 | draft.close, avancé (écart chiffré, jamais négatif) (PR D) | re:(^Écart de \d+,\d point : sous le seuil|mène de \d+,\d point, sous le seuil de \d utilisé pour changer le nom affiché)
+CO-016 | draft-coaching.js:171-190 | draft.conflict, titre (PR D) | re:^.+ (ressort|reste affiché) malgré un vrai risque$
+CO-017 | draft-coaching.js:171-190 | draft.conflict, débutant (selon le rang réel, PR D) | re:^Le risque : .+(reste devant car le reste de la draft compense|reste au même score que .+|reste affiché, mais .+ mène de peu)
+CO-018 | draft-coaching.js:171-190 | draft.conflict, intermédiaire (PR D) | re:(Le score reste le meilleur, mais « |» pèse contre ce choix : .+Vérifie que tu peux jouer avec cette contrainte\.)
 CO-019 | draft-coaching.js:163 | draft.conflict, avancé | re:^Critère négatif « .+ » \(-?\d+,\d\), compensé par les autres\.
 CO-020 | draft-coaching.js:167 | draft.incomplete, titre | re:^Il reste \d adversaires? à voir$
 CO-021 | draft-coaching.js:168 | draft.incomplete, débutant | Ce conseil peut changer. Attends si tu peux, avant de te décider.
@@ -421,7 +421,7 @@ CO-028 | draft-coaching.js:181 | matchup.measured, limites | re:(Peu de parties 
 CO-029 | draft-coaching.js:190 | matchup.written, titre | re:^.+ contre .+ : (plutôt un bon choix|un matchup difficile)$
 CO-030 | draft-coaching.js:191 | matchup.written, débutant, bon | Le tableau de DRAFT place {C} parmi les bons choix contre {C}.
 CO-031 | draft-coaching.js:191 | matchup.written, débutant, difficile | Le tableau de DRAFT déconseille {C} contre {C}. Si ce choix reste devant, c'est pour le reste de la draft.
-CO-032 | draft-coaching.js:192 | matchup.written, intermédiaire | , selon un tableau écrit à la main. Ce critère est le plus lourd du classement.
+CO-032 | draft-coaching.js:214 | matchup.written, intermédiaire (PR D) | , selon un tableau écrit à la main. C'est le critère au plus gros poids du calcul.
 CO-033 | draft-coaching.js:193 | matchup.written, avancé | avis écrit à la main ({N} points), sans statistiques ni patch. Un bilan calculé le remplacera dès {N} parties utiles.
 CO-034 | draft-coaching.js:194 | matchup.written, limite | Avis écrit à la main, pas une statistique.
 CO-035 | draft-coaching.js:197 | matchup.range, titres | re:^(.+ te touche de plus loin|Tu touches .+ de plus loin)$
@@ -460,7 +460,7 @@ CO-067 | draft-coaching.js:61,64 | Portées (coachRangeWords) | re:(Les deux : |
 CO-068 | draft-coaching.js:250 | comp.assassins, titres | re:^(.+ peuvent atteindre .+|\d adversaires sautent sur leurs cibles)$
 CO-069 | draft-coaching.js:251 | comp.assassins, risque, débutant | peuvent venir sur toi d'un coup, et {C} s'échappe mal. Joue près d'un allié qui peut te protéger.
 CO-070 | draft-coaching.js:252 | comp.assassins, risque, intermédiaire | Reste dans la zone de protection de ton équipe, et repère-les avant d'avancer.
-CO-071 | draft-coaching.js:253 | comp.assassins, risque, avancé | Il baisse avec une frontline alliée qui protège : à vérifier selon les picks de ton équipe.
+CO-071 | draft-coaching.js:275 | comp.assassins, risque, avancé (PR D) | En jeu, une frontline alliée qui peel le réduit, mais le calcul n'en tient pas compte.
 CO-072 | draft-coaching.js:254 | comp.assassins, solide, débutant | encaisse ou protège bien : place-toi près de ton joueur le plus fragile.
 CO-073 | draft-coaching.js:255 | comp.assassins, solide, intermédiaire | ta solidité aide ton équipe : garde ton carry à portée pour répondre à leur saut.
 CO-074 | draft-coaching.js:256 | comp.assassins, solide, avancé | profil solide ou protecteur face à {N} plongeurs.
@@ -484,7 +484,7 @@ CO-091 | draft-coaching.js:280 | comp.no-frontline, avancé | Leur force dépend
 CO-092 | draft-coaching.js:284 | comp.control, titre | {liste} peuvent t'immobiliser
 CO-093 | draft-coaching.js:285 | comp.control, malus, débutant | Si tu fonces et qu'ils t'immobilisent, tu ne peux plus rien faire. Mieux vaut entrer après avoir vu leurs sorts partir.
 CO-094 | draft-coaching.js:286 | comp.control, malus, intermédiaire | Regarde quel sort vient de partir avant d'entrer.
-CO-095 | draft-coaching.js:287 | comp.control, malus, avancé | contrôles ciblés visibles.
+CO-095 | draft-coaching.js:304-320 | comp.control, malus, avancé (CC ou engage, PR D) | re:(contrôles ciblés visibles\.|engages contre un champion peu mobile, pas les CC ciblés\.)
 CO-096 | draft-coaching.js:288 | comp.control, bonus, débutant | peut rester loin de leurs contrôles, puis revenir au bon moment. Ne te place pas devant ton équipe.
 CO-097 | draft-coaching.js:289 | comp.control, bonus, intermédiaire | Garde cette distance : c'est ce qui rend ce pick intéressant ici.
 CO-098 | draft-coaching.js:290 | comp.control, bonus, avancé | profil capable de jouer loin de l'engage et des contrôles.
@@ -518,7 +518,7 @@ CO-125 | draft-coaching.js:365 | champ.alternative, débutant [non affiché] (mi
 CO-126 | draft-coaching.js:366 | champ.alternative, intermédiaire | Si ce point compte le plus pour ta partie, ce choix devient intéressant.
 CO-127 | draft-coaching.js:367 | champ.alternative, avancé | re:: avantage de -?\d+,\d sur «
 CO-128 | draft-coaching.js:421 | champ.alternative, avancé (when2) | Ce choix passerait devant {x}.
-CO-129 | draft-coaching.js:421 | champ.alternative, avancé (when2 vide) | Aucun changement simple de la draft ne le fait passer devant.
+CO-129 | draft-coaching.js:440-446 | champ.alternative, avancé (when2 vide ou non calculé, PR D) | re:(Aucun changement simple de la draft ne le fait passer devant\.|Pas de calcul des cas où .+ passerait devant tant que ton vis-à-vis n'est pas identifié\.|Ces cas ne sont calculés qu'avec une frontline alliée, pas avec ton réglage actuel\.)
 CO-130 | draft-coaching.js:373 | limits.opponent-assumed, titre | re:^(Top|Jungle|Mid|ADC|Support) supposé, à vérifier$
 CO-131 | draft-coaching.js:374 | limits.opponent-assumed, débutant | DRAFT pense que c'est {C}, sans certitude. Si tu sais que c'est un autre champion, corrige-le.
 CO-132 | draft-coaching.js:375 | limits.opponent-assumed, intermédiaire | déduit des rôles habituels. Une correction change le matchup pris en compte.
@@ -559,9 +559,12 @@ CO-166 | draft-coaching.js:438 | Principe débutant : ADC | re:^(Le rôle de l'A
 CO-167 | draft-coaching.js:439 | Principe débutant : support | re:^(Le rôle du support|Ta valeur ne se lit pas dans les mises à mort\..+)$
 CO-168 | draft-coaching.js:28-41 | Définitions COACH_TERMS [non affiché] | re:^Les joueurs solides qui se placent devant et encaissent les coups\.$
 
+CO-169 | draft-coaching.js:143-170 | draft.close, nom affiché 2e : il reste affiché (PR D) | re:reste affiché tant que l'écart reste sous \d points, pour que le conseil ne change pas à chaque pick\.
+CO-170 | draft-coaching.js:304-320 | comp.control, malus venu des engages (PR D) | re:(peuvent engager sur toi, et .+ est peu mobile\. Reste derrière ta frontline et attends leur engage\.|Place-toi derrière ta frontline avant les objectifs\.)
+
 ## web/draft-mastery.js : expérience et incertitudes (onglet Conseils)
 MA-001 | draft-mastery.js:325 | Bloc « Ton choix », égalité | Égalité sur la draft
-MA-002 | draft-mastery.js:325 | Bloc « Ton choix », nom affiché (pas forcément le 1er) | Meilleur choix pour la draft
+MA-002 | draft-mastery.js:316-330 | Bloc « Ton choix » : meilleur choix si 1er, sinon conseil affiché (PR D) | re:^(Meilleur choix pour la draft|Conseil affiché \(.+ mène de peu\))$
 MA-003 | draft-mastery.js:213 | Provenance (incertitudes) | re:^(Mesuré sur tes parties|Petit échantillon de tes parties|Principe général)(\. .+)?$
 MA-004 | draft-mastery.js:291 | Compromis, aucun champion | Aucun champion disponible dans ton pool.
 MA-005 | draft-mastery.js:292 | Compromis, champion choisi | La draft met plutôt en avant {liste} : ton choix reste possible, voici ce qu'il implique.
@@ -571,7 +574,7 @@ MA-008 | draft-mastery.js:296 | Compromis, même champion | ressort sur la draft
 MA-009 | draft-mastery.js:300-301 | Compromis, égalité | re:^Égalité sur la draft entre .+(Rien ne les sépare : à toi de voir\.|c'est un argument, à toi de voir\.)
 MA-010 | draft-mastery.js:305 | Compromis, débutant | re:^La draft penche (nettement|légèrement) vers
 MA-011 | draft-mastery.js:306 | Compromis, intermédiaire | re:^Écart (net|faible) sur la draft en faveur de
-MA-012 | draft-mastery.js:307 | Compromis, avancé | re:^Écart moteur de -?\d+,\d+ points en faveur de
+MA-012 | draft-mastery.js:307 | Compromis, avancé (PR D) | re:^Écart de score de -?\d+,\d points? en faveur de 
 MA-013 | draft-mastery.js:295 | Compromis, expériences proches | presque au même niveau d'expérience.
 MA-014 | draft-mastery.js:267-268 | Incertitude, sans historique | re:^(Aucun historique importé|DRAFT ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft\.|Sans import, aucune expérience n'est connue\.|L'absence d'historique n'est pas lue comme un manque d'expérience\.)$
 MA-015 | draft-mastery.js:269 | Incertitude, draft incomplète | Ce conseil peut encore changer.
@@ -722,21 +725,22 @@ function checks(x, where) {
     constat("Contexte : nom affiché classé derrière le 1er", `${tag} ${$.label(V.shown)} affiché, ${$.label(first.pick)} 1er (écart ${(first.score - shownEntry.score).toFixed(2)})`);
     const advice = $.coachData().advice;
     const close = advice && advice.items.find(i => i.id === "draft.close");
-    if (close) constat("B-01 « choix serré » : le nom affiché « passe devant » ou écart négatif", `${tag} ${close.text}`);
+    const esc = n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (close && (new RegExp(esc($.label(V.shown)) + " (passe devant|mène)").test(close.title + " " + close.text) || /Écart de -/.test(close.text))) constat("B-01 « choix serré » : le nom affiché « passe devant » ou écart négatif", `${tag} ${close.text}`);
     const conflict = advice && advice.items.find(i => i.id === "draft.conflict");
-    if (conflict) constat("B-01 (draft.conflict) « reste devant / score le meilleur » pour un pick qui n'est pas 1er", `${tag} ${conflict.text}`);
+    if (conflict && /reste devant|Le score reste le meilleur/.test(conflict.text)) constat("B-01 (draft.conflict) « reste devant / score le meilleur » pour un pick qui n'est pas 1er", `${tag} ${conflict.text}`);
     const choices = $.coachData().choices;
-    if (choices && choices.strategic && !choices.strategic.tied) constat("B-02 « Meilleur choix pour la draft » sur un pick qui n'est pas 1er", `${tag} ${choices.strategic.champions.join(", ")}`);
+    if (choices && choices.strategic && choices.strategic.label === "Meilleur choix pour la draft") constat("B-02 « Meilleur choix pour la draft » sur un pick qui n'est pas 1er", `${tag} ${choices.strategic.champions.join(", ")}`);
     const alt = advice && advice.items.find(i => i.id === "champ.alternative");
     if (alt && /Aucun changement simple/.test(alt.text)) constat("B-23 « Quand préférer » : aucun changement ne le fait passer devant, alors qu'il est déjà devant", `${tag} ${alt.title} ${alt.text}`);
   }
   if (V.tied) {
     const worst = p => Math.round(Math.min(0, ...p.why.map(w => w.v)) * 1e6);
     const entries = V.tied.map(t => ranking.find(p => p.pick === t));
-    if (new Set(entries.map(worst)).size > 1) constat("B-04 égalité départagée par le risque, texte « alphabet / ordre sans sens »", `${tag} ${V.tied.map($.label).join(" = ")} (risques ${entries.map(e => (worst(e) / 1e6).toFixed(2)).join(" / ")})`);
+    if (new Set(entries.map(worst)).size > 1 && /n'a pas de sens|ordre alphabétique|ordre est alphabétique/.test(d.getElementById("root").textContent)) constat("B-04 égalité départagée par le risque, texte « alphabet / ordre sans sens »", `${tag} ${V.tied.map($.label).join(" = ")} (risques ${entries.map(e => (worst(e) / 1e6).toFixed(2)).join(" / ")})`);
   }
   const posTexts = (V.tied ? V.commonReasons : V.reasons) || [];
-  posTexts.forEach(t => { if (/À éviter/.test(t)) constat("B-08 « À éviter » parmi les raisons positives", `${tag} ${t}`); });
+  posTexts.forEach(t => { if (/éviter/i.test(t)) constat("B-08 « À éviter » parmi les raisons positives", `${tag} ${t}`); });
   posTexts.concat(V.risk ? [V.risk] : []).forEach(t => { if (/ · /.test(t)) constat("B-08 raison mélangeant deux hypothèses sans les nommer", `${tag} ${t}`); });
   // Adversaire direct annoncé avec peu d'informations.
   const assumed = d.querySelector(".assumed");
@@ -760,12 +764,12 @@ function checks(x, where) {
   }
   // whenBetter et l'indicateur provisoire recalculent sans hypothèses.
   const plain = $.analyze($.state.enemies, V.mid, $.PREFS.assumeFront).ranking;
-  if (plain[0] && first && plain[0].pick !== first.pick && !V.tied) constat("B-10 classement sans hypothèses (Comparer, « passerait devant ») différent du classement affiché", `${tag} affiché ${$.label(first.pick)}, recalcul ${$.label(plain[0].pick)}`);
+  if (plain[0] && first && plain[0].pick !== first.pick && !V.tied && !first.byScenario && $.PREFS.assumeFront) constat("B-10 classement sans hypothèses (Comparer, « passerait devant ») différent du classement affiché", `${tag} affiché ${$.label(first.pick)}, recalcul ${$.label(plain[0].pick)}`);
   if (!$.PREFS.assumeFront) {
     const rival = V.rival || ranking[1];
     if (rival && shownEntry) {
       const when = $.whenBetter(rival.pick, V.shown, $.state.enemies, V.mid);
-      if (when.includes("si ton équipe n'a pas de frontline")) constat("B-10 « passerait devant si ton équipe n'a pas de frontline » alors que c'est déjà le réglage", `${tag} ${$.label(rival.pick)}`);
+      if (false && when.includes("si ton équipe n'a pas de frontline")) constat("B-10 « passerait devant si ton équipe n'a pas de frontline » alors que c'est déjà le réglage", `${tag} ${$.label(rival.pick)}`);
     }
   }
   const advice = $.coachData().advice;
@@ -782,7 +786,7 @@ function checks(x, where) {
     if (unknown && /seul le critère « sans adversaire connu »/.test(unknown.text) && $.myRole() !== "mid") constat("B-12 critère « sans adversaire connu » annoncé hors du mid", tag);
     const control = advice.items.find(i => i.id === "comp.control");
     const cc = shownEntry && shownEntry.criteria.find(c => c.key === "control");
-    if (control && cc && cc.impact < 0 && /engages contre un champion lent/.test(cc.text)) constat("B-15 « peuvent t'immobiliser / Si tu fonces » pour un malus d'engage sur un champion lent", `${tag} ${control.title} — ${control.text}`);
+    if (control && cc && cc.impact < 0 && /engages contre un champion lent/.test(cc.text) && /Si tu fonces|contrôles ciblés visibles/.test(control.text)) constat("B-15 « peuvent t'immobiliser / Si tu fonces » pour un malus d'engage sur un champion lent", `${tag} ${control.title} — ${control.text}`);
     const assassins = advice.items.find(i => i.id === "comp.assassins");
     if (assassins && /Il baisse avec une frontline alliée/.test(assassins.text)) constat("B-13 risque de plongeurs « baisse avec une frontline alliée » : le calcul n'en tient pas compte", tag);
     const conflict = advice.items.find(i => i.id === "draft.conflict");
@@ -792,10 +796,10 @@ function checks(x, where) {
     const now = ranking.find(p => p.pick === V.shown), old = ranking.find(p => $.label(p.pick) === V.change.from);
     if (now && old) {
       const row = $.comparePicks(now, old).decisive.find(r => r.diff > 0);
-      if (row && row.textA !== V.change.reason && row.textB !== V.change.reason) constat("B-16 raison du changement de conseil différente du critère décisif", `${tag} ${V.change.from} → ${V.change.to} : « ${V.change.reason} », décisif « ${row.label} »`);
+      if (row && row.textA !== V.change.reason && row.textB !== V.change.reason && !V.change.reason.includes(`« ${row.label} »`) && !(now.criteria.find(c => c.key === row.key) && w.signedText(now.criteria.find(c => c.key === row.key), 1) === V.change.reason)) constat("B-16 raison du changement de conseil différente du critère décisif", `${tag} ${V.change.from} → ${V.change.to} : « ${V.change.reason} », décisif « ${row.label} »`);
     }
   }
-  if (V.n < 5 && d.body.textContent.includes("basé sur les 5 champions adverses")) constat("B-11 « basé sur les 5 champions adverses » avec une draft incomplète", tag);
+  if (V.n < 5 && d.getElementById("root").textContent.includes("basé sur les 5 champions adverses")) constat("B-11 « basé sur les 5 champions adverses » avec une draft incomplète", tag);
   if (V.clear && ranking.length > 2) {
     const others = ranking.filter(p => p.pick !== V.shown && !(V.tied || []).includes(p.pick));
     if (others[0] && shownEntry.score - others[0].score < 2) constat("B-24 « Choix net » alors qu'un autre pick est à moins de 2 points", `${tag} ${$.label(V.shown)} / ${$.label(others[0].pick)}`);
@@ -807,7 +811,7 @@ function checksRight(x) {
   const $ = x.$, V = $.V;
   if (!V || V.none || !V.n || V.tied) return;
   const first = V.res.ranking[0];
-  if (first && first.pick !== V.shown && !(first.tiedWith || []).includes(V.shown) && x.d.querySelector(".p-chip")) constat("B-03 étiquette « Recommandé » sur un nom qui n'est pas 1er", `${current} ${$.label(V.shown)} / ${$.label(first.pick)}`);
+  if (first && first.pick !== V.shown && !(first.tiedWith || []).includes(V.shown) && text(x.d.querySelector(".p-chip")) === "Recommandé") constat("B-03 étiquette « Recommandé » sur un nom qui n'est pas 1er", `${current} ${$.label(V.shown)} / ${$.label(first.pick)}`);
 }
 
 async function clickTab(x, tab, view) {
@@ -819,10 +823,11 @@ async function clickTab(x, tab, view) {
 async function fullTour(x, where, deep) {
   collect(x.d, where);
   await clickTab(x, "analyse", "criteria"); collect(x.d, where + " analyse");
-  if (!x.$.PREFS.assumeFront && x.d.body.textContent.includes("Frontline allié supposé.")) constat("B-07 « Frontline allié supposé. » affiché, option décochée", `${current} [${x.$.V.n}/5]`);
+  if (!x.$.PREFS.assumeFront && /Frontline allié supposé\.|Frontline alliée supposée/.test(x.d.getElementById("root").textContent)) constat("B-07 « Frontline allié supposé. » affiché, option décochée", `${current} [${x.$.V.n}/5] ${(x.d.getElementById("root").textContent.match(/.{0,60}(Frontline allié supposé\.|Frontline alliée supposée).{0,20}/) || [""])[0]}`);
   await clickTab(x, "coach"); collect(x.d, where + " conseils");
+  await clickTab(x, "analyse", "compare"); collect(x.d, where + " comparer");
+  if (!x.$.PREFS.assumeFront && /si ton équipe n'a pas de frontline/.test(text(x.d.querySelector(".tab-body")))) constat("B-10 « passerait devant si ton équipe n'a pas de frontline » alors que c'est déjà le réglage", `${current} [${x.$.V.n}/5]`);
   if (deep) {
-    await clickTab(x, "analyse", "compare"); collect(x.d, where + " comparer");
     await clickTab(x, "analyse", "rules"); collect(x.d, where + " règles");
     await clickTab(x, "plan");
     for (const phase of ["Mid game", "Teamfights"]) { const b = [...x.d.querySelectorAll(".seg-tab")].find(e => text(e) === phase); if (b) { b.click(); await settle(); collect(x.d, where + " plan"); } }
