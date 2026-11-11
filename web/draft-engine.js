@@ -289,6 +289,13 @@ function evaluatePick(pick, compo, ctx) {
   };
 }
 
+// « Si c'est Yasuo : 1er choix ». Le nom de l'hypothèse remplace « contre Yasuo » dans le texte de la règle.
+function scenarioText(mid, text) {
+  const short = mid ? text.replace(` contre ${mid}`, "") : text;
+  return `${mid ? `Si c'est ${mid}` : "S'il n'est pas encore choisi"} : ${short.charAt(0).toLowerCase()}${short.slice(1)}`;
+}
+const joinScenarioTexts = parts => parts.map((x, i) => i ? x.text.charAt(0).toLowerCase() + x.text.slice(1) : x.text).join(" ; ");
+
 // Plusieurs adversaires possibles : mêmes règles, pondérées par la probabilité de chaque hypothèse.
 function evaluateScenarios(pick, compo, hasFront, scenarios) {
   const each = scenarios.map(s => ({ s, entry: evaluatePick(pick, compo, { mid:s.mid, hasFront }) }));
@@ -296,13 +303,14 @@ function evaluateScenarios(pick, compo, hasFront, scenarios) {
     const found = each.map(x => ({ s:x.s, c:x.entry.criteria.find(c => c.key === def.key) })).filter(x => x.c);
     if (!found.length) return null;
     const v = found.reduce((sum, x) => sum + x.s.p * x.c.v, 0);
-    const texts = [...new Set(found.map(x => x.c.text))];
-    return { key:def.key, label:def.label, v, impact:v * def.weight, text:texts.length > 1 ? texts.slice(0, 2).join(" · ") : texts[0] };
+    // Textes seulement : quand les hypothèses ne disent pas la même chose, chacune est nommée, avec le signe de sa propre note.
+    const parts = found.filter((x, i) => found.findIndex(y => y.c.text === x.c.text) === i).slice(0, 2).map(x => ({ mid:x.s.mid, v:x.c.v, text:scenarioText(x.s.mid, x.c.text) }));
+    return { key:def.key, label:def.label, v, impact:v * def.weight, text:parts.length > 1 ? joinScenarioTexts(parts) : found[0].c.text, parts:parts.length > 1 ? parts : null };
   }).filter(Boolean);
   return {
     pick, criteria,
     score: criteria.reduce((sum, c) => sum + c.impact, 0),
-    why: criteria.filter(c => c.impact !== 0).map(c => ({ key:c.key, v:c.impact, text:c.text })),
+    why: criteria.filter(c => c.impact !== 0).map(c => ({ key:c.key, v:c.impact, text:c.text, parts:c.parts })),
     byScenario: each.map(x => ({ mid:x.s.mid, p:x.s.p, score:x.entry.score }))
   };
 }
@@ -425,13 +433,31 @@ const banReason = name => {
   return rough.length ? `gêne ${rough.join(", ")} d'après leurs profils` : "";
 };
 
+// Une raison pesée sur plusieurs hypothèses ne garde que celles du bon signe : jamais « à éviter » parmi les raisons positives.
+const signedText = (w, sign) => w.parts ? joinScenarioTexts(w.parts.filter(x => Math.sign(x.v) === sign)) : w.text;
+
 function positiveReasons(entry) {
-  return entry.why.filter(w => w.v > 0).sort((x, y) => y.v - x.v).slice(0, 2).map(w => w.text);
+  return entry.why.filter(w => w.v > 0).sort((x, y) => y.v - x.v).map(w => signedText(w, 1)).filter(Boolean).slice(0, 2);
 }
 
 function mainRisk(entry) {
-  const bad = entry.why.filter(w => w.v < 0).sort((x, y) => x.v - y.v)[0];
-  return bad ? bad.text : "";
+  return entry.why.filter(w => w.v < 0).sort((x, y) => x.v - y.v).map(w => signedText(w, -1)).filter(Boolean)[0] || "";
+}
+
+// Pourquoi, à score égal, un pick est rangé avant l'autre. Lit le tri d'analyze (risque, puis favori, puis alphabet) sans rien changer.
+function tieCause(ranking, picks) {
+  const entries = ranking.filter(p => picks.includes(p.pick));
+  if (entries.length < 2) return null;
+  const [a, b] = entries;
+  const worstOf = e => e.why.filter(w => w.v < 0).sort((x, y) => x.v - y.v)[0] || null;
+  const risk = e => tieKey(worstOf(e) ? worstOf(e).v : 0);
+  const wa = worstOf(a), wb = worstOf(b);
+  const name = w => w ? (CRITERIA.find(c => c.key === w.key) || {}).label : null;
+  if (risk(a) !== risk(b)) return { kind:"risk", first:a.pick, second:b.pick, firstRisk:name(wa), secondRisk:name(wb) };
+  // La 1re paire ne se départage pas par le risque, mais la suite du groupe, si : l'ordre mêle plusieurs règles.
+  const mixed = entries.some(e => risk(e) !== risk(a)) || (a.pick !== ENGINE_PREFS.favorite && entries.some(e => e.pick === ENGINE_PREFS.favorite));
+  if (a.pick === ENGINE_PREFS.favorite) return { kind:"favorite", first:a.pick, second:b.pick, mixed };
+  return { kind:mixed ? "mixed" : "alpha", first:a.pick, second:b.pick };
 }
 
 // ---------- Comparaison ----------

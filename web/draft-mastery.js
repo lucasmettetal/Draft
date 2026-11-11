@@ -224,11 +224,11 @@ function theorySection(x) {
   if (x.names.length > 1) out.push(masteryItem("theory.tie", "theory", "heuristic", `Égalité : ${nameList(x.names)}`, byLevel(level, [
     "Les règles de DRAFT ne les séparent pas dans cette draft.", "Même score sur la draft : ces règles ne permettent pas de les distinguer.", `Score identique (${masteryDecimal(top.score)}). L'ordre affiché ne porte aucune information.`]), "Ce n'est pas une preuve qu'ils se valent en jeu."));
   if (best) out.push(masteryItem("theory.reason", "theory", "heuristic", `Pourquoi ${top.name} en théorie`, byLevel(level, [
-    `La raison principale : ${coachReason(best.text)}.`, `« ${best.label} » pèse le plus : ${coachReason(best.text)}.`, `Critère le plus lourd : « ${best.label} » (+${masteryDecimal(best.impact)}).`]), "Règle écrite à la main, pas une statistique."));
+    `La raison principale : ${coachReason(signedText(best, 1) || best.text)}.`, `« ${best.label} » pèse le plus : ${coachReason(signedText(best, 1) || best.text)}.`, `Critère le plus lourd : « ${best.label} » (+${masteryDecimal(best.impact)}).`]), "Règle écrite à la main, pas une statistique."));
   else if (!x.enemiesCount) out.push(masteryItem("theory.empty", "theory", "general", "Pas encore d'adversaire", "Sans adversaire visible, la théorie n'a presque rien à comparer.", null));
   else out.push(masteryItem("theory.none", "theory", "heuristic", `${top.name} sur cette draft`, "Aucune règle ne le met particulièrement en avant ici.", "Les fiches sont écrites à la main et parfois incomplètes."));
   const worst = top.reasons.filter(c => c.impact <= -2).sort((a, b) => a.impact - b.impact)[0];
-  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", `Le risque de ${top.name}`, `${worst.text.charAt(0).toUpperCase()}${worst.text.slice(1)}.`, "Règle écrite à la main, pas une statistique."));
+  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", `Le risque de ${top.name}`, `${(signedText(worst, -1) || worst.text).charAt(0).toUpperCase()}${(signedText(worst, -1) || worst.text).slice(1)}.`, "Règle écrite à la main, pas une statistique."));
   const stat = providedMatchup(top.name, opponent, x.role);
   if (stat) {
     out.push(masteryItem("theory.matchup-stat", "theory", "measured", `${top.name} contre ${opponent} : statistique externe`, byLevel(level, [
@@ -293,18 +293,20 @@ function compromiseOf(x) {
   if (!profile || !profile.available) return { kind:"no-history", text:"Sans historique, seule la lecture de la draft est disponible." };
   if (!familiar) return { kind:"no-familiar", text:`Aucun champion de ce pool n'a au moins ${FAMILIAR_MIN_GAMES} parties dans ce rôle : seule la lecture de la draft est disponible.` };
   const f = familiar.row.name, severalFamiliar = familiar.close.length ? ` ${nameList(familiar.close)} ${familiar.close.length > 1 ? "sont" : "est"} presque au même niveau d'expérience.` : "";
-  if (familiar.row === top) return { kind:"same", text:`${f} ressort sur la draft, et c'est aussi ton champion le plus joué.${severalFamiliar}` };
-  if (names.includes(f) && names.length > 1) {
-    const near = familiar.close.filter(n => names.includes(n));
+  // Le nom affiché peut être maintenu alors qu'un autre mène de peu : la lecture de la draft parle du vrai 1er.
+  const lead = !chosen && x.lead ? x.lead : top, heads = !chosen && x.lead ? [x.lead.name].concat(x.lead.tiedWith) : names;
+  if (familiar.row === lead) return { kind:"same", text:`${f} ressort sur la draft, et c'est aussi ton champion le plus joué.${severalFamiliar}` };
+  if (heads.includes(f) && heads.length > 1) {
+    const near = familiar.close.filter(n => heads.includes(n));
     return { kind:"tie", tieBreak:result.tieBreak, text:near.length
-      ? `Égalité sur la draft entre ${nameList(names)}, et ton expérience sur ${nameList([f].concat(near))} est proche. Rien ne les sépare : à toi de voir.`
-      : `Égalité sur la draft entre ${nameList(names)}. ${f} est ton champion le plus joué : c'est un argument, à toi de voir.` };
+      ? `Égalité sur la draft entre ${nameList(heads)}, et ton expérience sur ${nameList([f].concat(near))} est proche. Rien ne les sépare : à toi de voir.`
+      : `Égalité sur la draft entre ${nameList(heads)}. ${f} est ton champion le plus joué : c'est un argument, à toi de voir.` };
   }
-  const gap = top.score - familiar.row.score, big = gap >= HOLD_GAP, head = nameList(names);
+  const gap = lead.score - familiar.row.score, big = gap >= HOLD_GAP, head = nameList(heads);
   return { kind:big ? "gap-large" : "gap-small", gap:+gap.toFixed(2), text:byLevel(level, [
     big ? `La draft penche nettement vers ${head}. ${f} est simplement le champion que tu as le plus joué : à toi de peser.` : `La draft penche légèrement vers ${head}. ${f} est le champion que tu as le plus joué : les deux lectures se défendent.`,
     `${big ? "Écart net" : "Écart faible"} sur la draft en faveur de ${head}. ${f} a plus de parties, ce qui ne prédit pas son efficacité ici.`,
-    `Écart moteur de ${masteryDecimal(gap)} points en faveur de ${head} (seuil de ${HOLD_GAP} pour un choix net). Aucune conversion entre parties jouées et points : c'est à toi de trancher.`]) + severalFamiliar };
+    `Écart de score de ${masteryDecimal(gap)} point${Math.abs(gap) >= 2 ? "s" : ""} en faveur de ${head} (seuil de ${HOLD_GAP} pour un choix net). Aucune conversion entre parties jouées et points : c'est à toi de trancher.`]) + severalFamiliar };
 }
 
 // Point d'entrée de la présentation. Le classement renvoyé reste celui du moteur : rien n'est décidé à la place du joueur.
@@ -317,12 +319,14 @@ function playerChoices(input) {
   const best = (input.displayed && rows.find(r => r.pick === input.displayed)) || rows[0] || null, top = chosen || best;
   const names = best ? [best.name].concat(best.tiedWith) : [];
   const familiar = mostFamiliar(rows);
-  const x = { input, level, top, best, names, chosen, familiar, profile, result, role:result.role, opponent:result.opponent, enemiesCount:(input.enemies || []).length };
+  // Nom affiché maintenu pendant la draft alors qu'un autre pick mène de peu : celui-là est le vrai 1er.
+  const lead = best && rows[0] && rows[0] !== best && masteryKey(rows[0].score) > masteryKey(best.score) ? rows[0] : null;
+  const x = { input, level, top, best, lead, names, chosen, familiar, profile, result, role:result.role, opponent:result.opponent, enemiesCount:(input.enemies || []).length };
   if (!top) return { version:1, level:input.level || "beginner", strategic:null, familiar:null, compromise:compromiseOf(x), theory:[], experience:[], uncertainty:[], ranking:[], scoresChanged:false, offline:true };
   return {
     version:1, level:input.level || "beginner", role:result.role, opponent:result.opponent, confidence:result.manual ? "manuel" : result.belief.confidence,
     // Le meilleur choix de la draft, et lui seul : le score ne dépend ni du joueur, ni de la difficulté.
-    strategic:{ champions:names, score:+best.score.toFixed(2), tied:names.length > 1, label:names.length > 1 ? "Égalité sur la draft" : "Meilleur choix pour la draft", source:MASTERY_BASIS.heuristic },
+    strategic:{ champions:names, score:+best.score.toFixed(2), tied:names.length > 1, label:names.length > 1 ? "Égalité sur la draft" : lead ? `Conseil affiché (${lead.name} mène de peu)` : "Meilleur choix pour la draft", source:MASTERY_BASIS.heuristic, leader:lead ? lead.name : null },
     // Le plus joué : ce n'est pas une évaluation de performance.
     familiar:familiar ? { champion:familiar.row.name, games:familiar.row.familiarity.count, recentGames:familiar.row.familiarity.recentGames, daysSince:familiar.row.familiarity.daysSince, rusty:familiar.row.familiarity.rusty, usefulExperience:+familiar.row.experience.toFixed(1), strategicRank:familiar.row.strategicRank + 1, close:familiar.close, label:"Le plus joué", source:MASTERY_BASIS.measured, isPerformance:false } : null,
     explained:top.name, compromise:compromiseOf(x), tieBreak:result.tieBreak,
