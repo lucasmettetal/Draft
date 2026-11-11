@@ -114,5 +114,21 @@ window.DRAFT_I18N_FR = {
 "settings.display.sub": "Les panneaux pendant la draft, et leur place à l'écran.",
 "settings.data.sub": "Rôles, matchups, historique et sources. Rien ne quitte ton PC sans ton action.",
 "settings.updates.sub": "La version installée, et la recherche d'une nouvelle version.",
-"settings.diag.sub": "Pour comprendre la détection et signaler un problème."
+"settings.diag.sub": "Pour comprendre la détection et signaler un problème.",
+"panel.details": "Détails",
+"panel.detailsHelp": "Ouvre le Simulateur sur ta draft en cours, sans la modifier.",
+"panel.compare": "Comparer",
+"panel.openPool": "Ouvrir Mon pool",
+"panel.tools.display": "Réglages d'affichage",
+"panel.source.client": "Lecture du client",
+"panel.source.manual": "Saisie à la main",
+"panel.source.help": "D'où viennent les adversaires : lus dans le client LoL, ou saisis à la main.",
+"panel.empty.noProfile": "Choisis ton rôle et tes champions dans Mon pool.",
+"panel.empty.noPick": "Aucun champion pour le rôle {role}. Ajoute-les dans Mon pool, ou change de rôle.",
+"panel.empty.allExcluded": "Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans Mon pool.",
+"settings.display.replace": "Replacer les panneaux",
+"settings.display.replaceHint": "Recolle les panneaux au client LoL, à la place calculée par DRAFT.",
+"settings.diag.lcu": "Diagnostic de connexion LoL",
+"settings.diag.lcuHint": "Teste la lecture du client et copie le rapport dans le presse-papiers, pour le joindre à un signalement.",
+"stats.oldFile.stats": "Importer un ancien fichier draft-stats.js"
 };

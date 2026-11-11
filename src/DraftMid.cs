@@ -348,6 +348,23 @@ public static class Autostart
         public void Dispose() { NativeHook.UnregisterHotKey(Handle, 1); DestroyHandle(); }
     }
 
+    // Libellés du menu de l'icône, regroupés pour le catalogue (native.menu.*, I18N-3) et identiques à ceux de la page.
+    static class MenuText
+    {
+        public const string Open = "Ouvrir DRAFT";
+        public const string ShowPanels = "Afficher les panneaux";
+        public const string Simulate = "Simuler une draft";
+        public const string Detection = "Détection de la draft";
+        public const string TeachDraft = "C'est une draft : retenir cet écran";
+        public const string TeachNotDraft = "Ce n'est pas une draft : retenir cet écran";
+        public const string LcuDiagnostic = "Diagnostic de connexion LoL";
+        public const string Settings = "Réglages";
+        public const string CheckUpdate = "Rechercher une mise à jour";
+        public const string Quit = "Quitter";
+        public const string HiddenHotkey = "Panneaux masqués. Ctrl+Alt+D pour les rappeler.";
+        public const string HiddenMenu = "Panneaux masqués. Menu de l'icône, « Afficher les panneaux », pour les rappeler.";
+    }
+
     public class CompanionApp : ApplicationContext
     {
         const int SlowPollMs = 2000, SampleMs = 1000, MoveSettleMs = 150, ModeSettleMs = 350;
@@ -374,7 +391,7 @@ public static class Autostart
         string placementNote = "Client LoL non détecté.";
         public bool Quitting;
         public Icon AppIcon;
-        ToolStripMenuItem miUpdate, miRoles, miMatchups, miCompact, miFollow, miAutoDraft, miAutostart, miShow, miPhase;
+        ToolStripMenuItem miUpdate, miShow, miPhase, miOpen;
         public long MoveCount;
 
         public Phase CurrentPhase { get { return machine.Current; } }
@@ -401,38 +418,36 @@ public static class Autostart
             grabber = new FrameGrabber();
             try { AppIcon = Icon.ExtractAssociatedIcon(exePath); } catch { }
 
+            // Menu de l'icône : 8 entrées au plus (OVERLAY-V3 § 5), sans perte de fonctionnalité. Ce qui en sort est dans la fenêtre :
+            // Réglages > Affichage et fenêtres (affichage automatique, collage, panneau unique, replacer), Réglages > Général (démarrage),
+            // Réglages > Données (rôles, matchups), Mes statistiques (ancien fichier draft-stats.js). Libellés identiques à ceux de la page.
             ContextMenuStrip menu = new ContextMenuStrip();
             miPhase = new ToolStripMenuItem("") { Enabled = false };
-            miShow = new ToolStripMenuItem("Afficher les panneaux (Ctrl+Alt+D)", null, (s, e) => ToggleManual());
-            miAutoDraft = new ToolStripMenuItem("Afficher les panneaux automatiquement pendant la draft", null, (s, e) => SetAutoDraft(!settings.AutoDraft));
-            miFollow = new ToolStripMenuItem("Coller les panneaux au client LoL", null, (s, e) => SetFollow(!settings.Follow));
-            miCompact = new ToolStripMenuItem("Un seul panneau", null, (s, e) => SetCompact(!settings.Compact));
-            miAutostart = new ToolStripMenuItem("Démarrer avec Windows", null, (s, e) => { Autostart.Set(!Autostart.IsOn(), exePath); RefreshUi(); });
+            miOpen = new ToolStripMenuItem(MenuText.Open, null, (s, e) => OpenFull("home"));
+            miOpen.Font = new Font(miOpen.Font, FontStyle.Bold);
+            miShow = new ToolStripMenuItem(MenuText.ShowPanels + " (Ctrl+Alt+D)", null, (s, e) => ToggleManual());
+            ToolStripMenuItem miSimulate = new ToolStripMenuItem(MenuText.Simulate, null, (s, e) => OpenFull("simulate"));
+            ToolStripMenuItem miDetection = new ToolStripMenuItem(MenuText.Detection);
+            miDetection.DropDownItems.Add(MenuText.TeachDraft, null, (s, e) => Teach(true));
+            miDetection.DropDownItems.Add(MenuText.TeachNotDraft, null, (s, e) => Teach(false));
+            miDetection.DropDownItems.Add(new ToolStripSeparator());
+            miDetection.DropDownItems.Add(MenuText.LcuDiagnostic, null, (s, e) => ShowLcuDiagnostic());
+            miUpdate = new ToolStripMenuItem(MenuText.CheckUpdate, null, (s, e) => CheckForUpdate(true));
             menu.Items.Add(miPhase);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(miOpen);
             menu.Items.Add(miShow);
-            menu.Items.Add("C'est une draft : retenir cet écran", null, (s, e) => Teach(true));
-            menu.Items.Add("Ce n'est pas une draft : retenir cet écran", null, (s, e) => Teach(false));
+            menu.Items.Add(miSimulate);
+            menu.Items.Add(miDetection);
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(miAutoDraft);
-            menu.Items.Add(miFollow);
-            menu.Items.Add(miCompact);
-            menu.Items.Add("Replacer les panneaux", null, (s, e) => { SetFollow(true); UpdatePlacement(true); });
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Analyse détaillée", null, (s, e) => OpenFull(""));
-            menu.Items.Add("Réglages", null, (s, e) => OpenFull("settings"));
-            menu.Items.Add("Diagnostic de connexion LoL...", null, (s, e) => ShowLcuDiagnostic());
-            menu.Items.Add("Importer mes statistiques (ancien format)...", null, (s, e) => ImportStats());
-            miRoles = new ToolStripMenuItem("Mettre à jour les rôles...", null, (s, e) => ToggleRiotUpdate(false));
-            miMatchups = new ToolStripMenuItem("Mettre à jour les matchups...", null, (s, e) => ToggleRiotUpdate(true));
-            menu.Items.Add(miRoles);
-            menu.Items.Add(miMatchups);
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(miAutostart);
-            miUpdate = new ToolStripMenuItem("Rechercher une mise à jour...", null, (s, e) => CheckForUpdate(true));
+            menu.Items.Add(MenuText.Settings, null, (s, e) => OpenFull("settings"));
             menu.Items.Add(miUpdate);
-            menu.Items.Add("Quitter", null, (s, e) => Quit());
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(MenuText.Quit, null, (s, e) => Quit());
             tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DRAFT", Visible = true, ContextMenuStrip = menu };
-            tray.DoubleClick += (s, e) => ToggleManual();
+            openFromTray = () => OpenFull("home");
+            // Double-clic : ouvrir DRAFT (décision de l'utilisateur). Les panneaux restent sur Ctrl+Alt+D et l'entrée « Afficher les panneaux ».
+            tray.DoubleClick += (s, e) => openFromTray();
 
             // Essai à côté d'une autre version : le raccourci reste à celle-ci, sans même tenter de l'enregistrer.
             if (!o.NoHotkey)
@@ -1264,14 +1279,10 @@ public static class Autostart
             string phase = PhaseText.Of(machine.Current);
             miPhase.Text = phase;
             miUpdate.Enabled = updateCts == null;
-            miUpdate.Text = updateCts != null ? "Mise à jour en cours..." : "Rechercher une mise à jour...";
-            miRoles.Text = rolesCts != null ? "Arrêter le calcul en cours" : "Mettre à jour les rôles...";
-            miMatchups.Visible = rolesCts == null;
+            miUpdate.Text = updateCts != null ? "Mise à jour en cours..." : MenuText.CheckUpdate;
+
             miShow.Text = (panelsShown ? "Masquer" : "Afficher") + " les panneaux" + (hotkey != null && hotkey.Registered ? " (Ctrl+Alt+D)" : "");
-            miCompact.Checked = settings.Compact;
-            miFollow.Checked = settings.Follow;
-            miAutoDraft.Checked = settings.AutoDraft;
-            miAutostart.Checked = Autostart.IsOn();
+
             string tip = "DRAFT : " + phase;
             tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
             BroadcastHost();
@@ -1913,8 +1924,11 @@ public static class Autostart
         public int FullReloads;
 
         // source "live" : ouvert depuis un panneau (« Détails », « Comparer ») : la fenêtre montre la vraie draft, simulation quittée.
-        async void OpenFull(string tab, string source = "")
+        // section : rubrique des Réglages (« display » depuis l'outil du panneau). Onglet et rubrique : lettres et tirets seulement.
+        async void OpenFull(string tab, string source = "", string section = null)
         {
+            if (tab == null || !Regex.IsMatch(tab, "^[a-z-]{0,20}$")) tab = "";
+            if (section != null && !Regex.IsMatch(section, "^[a-z]{1,20}$")) section = null;
             bool exists = panels.ContainsKey("full");
             PanelForm open;
             // Fenêtre déjà chargée, visible ou masquée : l'onglet s'ouvre sans recharger la page, donc sans perdre ni réinitialiser
@@ -1943,7 +1957,7 @@ public static class Autostart
             // Fenêtre principale déjà à l'écran : les réglages s'ouvrent par-dessus, sans la recharger.
             if (tab == "settings" && exists && panels.TryGetValue("full", out open) && open.Visible && open.Ready.IsCompleted && open.View.CoreWebView2 != null)
             {
-                open.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"openSettings\"}");
+                open.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"openSettings\"" + (section == null ? "" : ",\"section\":\"" + section + "\"") + "}");
                 if (opts.Script == null) open.Activate();
                 // Une page en plein rechargement (après un import, par exemple) perd ce message : on vérifie, puis on recharge sur les réglages.
                 for (int i = 0; i < 30; i++)
@@ -1953,11 +1967,11 @@ public static class Autostart
                     if (await open.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"settings\"]')") == "true") return;
                 }
                 // La fenêtre principale était déjà à l'écran : fermer les réglages doit y revenir, jamais la masquer (pas de solo=1).
-                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings");
+                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings" + (section == null ? "" : "&section=" + section));
                 return;
             }
             // Pendant une draft, la fenêtre ne doit pas rester devant le client une fois les réglages fermés.
-            string q = "panel=full" + (tab == "" ? "" : "&tab=" + tab) + (tab == "settings" && panelsShown ? "&solo=1" : "");
+            string q = "panel=full" + (tab == "" ? "" : "&tab=" + tab) + (section == null ? "" : "&section=" + section) + (tab == "settings" && panelsShown ? "&solo=1" : "");
             await EnsureEnv();
             if (env == null) return;
             PanelForm f = await Ensure("full", q);
@@ -2012,7 +2026,17 @@ public static class Autostart
             switch (cmdO as string)
             {
                 case "getHost": if (from.View.CoreWebView2 != null) from.View.CoreWebView2.PostWebMessageAsJson(HostJson()); break;
-                case "hideAll": ToggleManual(); break;
+                case "hideAll":
+                {
+                    bool wasShown = panelsShown;
+                    ToggleManual();
+                    // Premier masquage depuis l'outil du panneau dans la session : on dit comment les rappeler (une fois).
+                    if (wasShown && !panelsShown && !hideHintShown) { hideHintShown = true; Notify(hotkey != null && hotkey.Registered ? MenuText.HiddenHotkey : MenuText.HiddenMenu, ToolTipIcon.Info); }
+                    break;
+                }
+                case "replacePanels": SetFollow(true); UpdatePlacement(true); break;
+                case "importStats": ImportStats(); break;
+                case "lcuDiagnostic": ShowLcuDiagnostic(); break;
                 case "updateRoles": ToggleRiotUpdate(false); break;
                 case "updateMatchups": ToggleRiotUpdate(true); break;
                 case "checkUpdate": CheckForUpdate(false); break;
@@ -2043,7 +2067,13 @@ public static class Autostart
                 // Si la draft est finie entre-temps (plus aucun panneau), la fenêtre principale reste : sinon DRAFT semblerait fermé.
                 case "closeFull": { PanelForm full; if (panelsShown && panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
-                case "openFull": { string tab = m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""; OpenFull(tab, tab == "settings" ? "" : "live"); break; }
+                case "openFull":
+                {
+                    string tab = m.ContainsKey("tab") ? m["tab"] as string ?? "" : "";
+                    string section = m.ContainsKey("section") ? m["section"] as string : null;
+                    OpenFull(tab, tab == "settings" ? "" : "live", section);
+                    break;
+                }
                 case "setAutostart": Autostart.Set(val, exePath); RefreshUi(); break;
                 case "setFollow": SetFollow(val); break;
                 case "setAutoDraft": SetAutoDraft(val); break;
@@ -2099,11 +2129,84 @@ public static class Autostart
 
         // ---------- Retours visibles hors de la fenêtre (audit UX, problème 7) ----------
         // Textes regroupés ici pour l'extraction du catalogue (native.balloon.*).
-        public const string BalloonClosed = "DRAFT reste actif près de l'horloge. Pour rouvrir cette fenêtre : clic droit sur son icône, puis « Analyse détaillée ».";
+        public const string BalloonClosed = "DRAFT reste actif près de l'horloge. Pour rouvrir cette fenêtre : double-clic sur son icône, ou « Ouvrir DRAFT » dans son menu.";
         public const string BalloonStatsImported = "Statistiques importées : elles s'affichent dans l'onglet Parties de la fenêtre DRAFT.";
         public string LastBalloon = "";
         public int BalloonCount;
-        bool closeHintShown;
+        bool closeHintShown, hideHintShown;
+        Action openFromTray;
+
+        // Inventaire du menu de l'icône (tests, rendu de PR) : « entrée » ou « entrée > sous-entrée », séparateurs exclus.
+        public List<string> MenuInventory()
+        {
+            List<string> list = new List<string>();
+            foreach (ToolStripItem i in tray.ContextMenuStrip.Items)
+            {
+                if (i is ToolStripSeparator) continue;
+                list.Add(i.Text);
+                ToolStripMenuItem m = i as ToolStripMenuItem;
+                if (m != null) foreach (ToolStripItem s in m.DropDownItems) if (!(s is ToolStripSeparator)) list.Add(i.Text + " > " + s.Text);
+            }
+            return list;
+        }
+
+        // Menu et overlay (UX-6) : 8 entrées au plus, double-clic qui ouvre DRAFT, fonctions sorties du menu présentes dans la fenêtre,
+        // bulle au premier masquage depuis un panneau.
+        public async Task<string> TestMenuAndOverlay()
+        {
+            string problem = "";
+            List<string> inv = MenuInventory();
+            int top = inv.Count(x => !x.Contains(" > "));
+            if (top > 8) problem += top + " entrées au premier niveau du menu ; ";
+            foreach (string need in new[] { MenuText.Open, MenuText.Simulate, MenuText.Detection + " > " + MenuText.TeachDraft, MenuText.Detection + " > " + MenuText.TeachNotDraft, MenuText.Detection + " > " + MenuText.LcuDiagnostic, MenuText.Settings, MenuText.CheckUpdate, MenuText.Quit })
+                if (!inv.Contains(need)) problem += "menu sans « " + need + " » ; ";
+            if (!inv.Any(x => x.StartsWith(MenuText.ShowPanels) || x.StartsWith("Masquer les panneaux"))) problem += "menu sans « Afficher les panneaux » ; ";
+            MenuReport = string.Join(" | ", inv);
+            // Double-clic : la fenêtre principale s'ouvre, sur l'Accueil.
+            PanelForm f;
+            if (panels.TryGetValue("full", out f) && f.Visible) f.Hide();
+            openFromTray();
+            f = null;
+            for (int i = 0; i < 200 && !(OpenPending == 0 && panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50);
+            if (f == null || !f.Visible) return problem + "le double-clic n'ouvre pas la fenêtre principale ; ";
+            Func<string, Task<bool>> waitFor = async code => { for (int i = 0; i < 100; i++) { if (await f.View.CoreWebView2.ExecuteScriptAsync("!!(" + code + ")") == "true") return true; await Task.Delay(50); } return false; };
+            if (!await waitFor("document.querySelector('[data-test=\"view-home\"]')")) problem += "le double-clic n'ouvre pas l'Accueil ; ";
+            // Ce qui sort du menu reste dans la fenêtre.
+            string[][] homes = {
+                new[] { "settings", "display", "replace-panels" }, new[] { "settings", "display", "x" }, new[] { "settings", "general", "x" },
+                new[] { "settings", "data", "update-roles" }, new[] { "settings", "data", "update-matchups" }, new[] { "settings", "diag", "lcu-diagnostic" } };
+            foreach (string[] h in homes)
+            {
+                await f.View.CoreWebView2.ExecuteScriptAsync("goView('" + h[0] + "', '" + h[1] + "'); 1");
+                if (h[2] != "x" && !await waitFor("document.querySelector('[data-test=\"" + h[2] + "\"]')")) problem += h[2] + " absent de Réglages > " + h[1] + " ; ";
+            }
+            await f.View.CoreWebView2.ExecuteScriptAsync("goView('settings', 'display'); 1");
+            if (!await waitFor("/Afficher les panneaux automatiquement pendant la draft/.test(document.body.innerText) && /Coller les panneaux au client LoL/.test(document.body.innerText) && /Un seul panneau/.test(document.body.innerText)")) problem += "affichage automatique, collage ou panneau unique absents de Réglages > Affichage ; ";
+            await f.View.CoreWebView2.ExecuteScriptAsync("goView('settings', 'general'); 1");
+            if (!await waitFor("/Démarrer avec Windows/.test(document.body.innerText)")) problem += "« Démarrer avec Windows » absent de Réglages > Général ; ";
+            await f.View.CoreWebView2.ExecuteScriptAsync("goView('stats'); 1");
+            await waitFor("document.querySelector('[data-test=\"stats-tab-history\"]')");
+            await f.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-test=\"stats-tab-history\"]').click(); 1");
+            if (!await waitFor("document.querySelector('[data-test=\"import-stats\"]')")) problem += "import de draft-stats.js absent de Mes statistiques ; ";
+            await f.View.CoreWebView2.ExecuteScriptAsync("goView('sim'); 1");
+            f.Hide();
+            // Masquer depuis l'outil du panneau : une bulle la première fois dans la session, plus ensuite.
+            bool? manualBefore = visibility.Manual;
+            visibility.Manual = true; ApplyVisibility();
+            for (int i = 0; i < 100 && !panelsShown; i++) await Task.Delay(50);
+            PanelForm panel = panels.Values.FirstOrDefault(p => p.Id != "full" && p.Visible);
+            int balloons = BalloonCount;
+            if (panel != null) OnMessage(panel, "{\"cmd\":\"hideAll\"}");
+            if (panelsShown || BalloonCount != balloons + 1 || !LastBalloon.StartsWith("Panneaux masqués")) problem += "masquer depuis le panneau : pas de bulle « Panneaux masqués » (" + LastBalloon + ") ; ";
+            visibility.Manual = true; ApplyVisibility();
+            for (int i = 0; i < 100 && !panelsShown; i++) await Task.Delay(50);
+            panel = panels.Values.FirstOrDefault(p => p.Id != "full" && p.Visible);
+            if (panel != null) OnMessage(panel, "{\"cmd\":\"hideAll\"}");
+            if (BalloonCount != balloons + 1) problem += "la bulle de masquage revient à chaque fois ; ";
+            visibility.Manual = manualBefore; ApplyVisibility();
+            return problem;
+        }
+        public string MenuReport = "";
 
         // Une bulle près de l'horloge. Retenue pour les tests ; jamais affichée en mode silencieux.
         void Notify(string text, ToolTipIcon icon)
@@ -2475,6 +2578,8 @@ public static class Autostart
             string fullProblem = await app.TestFullWindow();
             s_keyReport = app.KeyStressReport;
             t(fullProblem == "", "Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture " + fullProblem);
+            string menuProblem = await app.TestMenuAndOverlay();
+            t(menuProblem == "", "Menu de l'icône (8 entrées au plus, rien de perdu), double-clic, bulle de masquage (" + app.MenuReport + ") " + menuProblem);
             string profileProblem = await app.TestProfilesAndRole();
             t(profileProblem == "", "Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre " + profileProblem);
             string historyProblem = await app.TestHistoryImport();
