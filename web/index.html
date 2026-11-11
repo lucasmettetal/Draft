@@ -715,7 +715,7 @@ function currentMid() {
   return identifiedOpponent(state.enemies, state.roleOf);
 }
 
-// Statistiques personnelles, importées par draft-import-stats.bat (facultatif)
+// Statistiques personnelles de l'ancien format (draft-stats.js), importées par le menu de l'icône (facultatif)
 const STATS = window.DRAFT_STATS || null;
 const RAW_NAMES = Object.assign(Object.fromEntries(NAMES.map(n => [norm(n), n])), { monkeyking:"Wukong", renata:"Renata Glasc" });
 const toName = raw => RAW_NAMES[norm(raw || "")] || raw || "";
@@ -1027,6 +1027,7 @@ function startRandomDraft() {
 // Retour à la draft en cours : la simulation est effacée, puis l'état des autres fenêtres est redemandé.
 function leaveSimulation() {
   if (!simulating) return;
+  clearUndo();
   resetDraft();
   simulating = false;
   rerender();
@@ -1078,6 +1079,34 @@ function resetDraft() {
   commit();
   focusAdd();
 }
+
+// Annuler (5 secondes) après une action qui retire des adversaires : Nouvelle draft, Retour arrière.
+// La draft exacte est rétablie. L'annonce reste locale à la fenêtre qui a agi.
+const UNDO_MS = 5000;
+const UNDO_KEYS = ["enemies", "manualMid", "held", "current", "roleOf", "targetRole", "selected", "notice"];
+let undoOffer = null;
+const copyOf = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+function withUndo(text, action) {
+  const snapshot = {};
+  UNDO_KEYS.forEach(k => { snapshot[k] = copyOf(state[k]); });
+  action();
+  if (undoOffer) clearTimeout(undoOffer.timer);
+  const offer = { id:Date.now(), text, snapshot };
+  offer.timer = setTimeout(() => { if (undoOffer === offer) { undoOffer = null; rerender(); } }, UNDO_MS);
+  undoOffer = offer;
+  rerender();
+}
+function clearUndo() { if (undoOffer) { clearTimeout(undoOffer.timer); undoOffer = null; } }
+function undoLast() {
+  if (!undoOffer) return;
+  const snapshot = undoOffer.snapshot;
+  clearUndo();
+  UNDO_KEYS.forEach(k => { state[k] = copyOf(snapshot[k]); });
+  state.lastAction = null;
+  commit();
+  focusAdd();
+}
+const removeLastEnemy = () => { const last = state.enemies[state.enemies.length - 1]; withUndo(`Retrait de ${last}.`, () => removeEnemy(last)); };
 
 function setMid(name) {
   const old = currentMid();
@@ -1236,7 +1265,7 @@ function SearchBox() {
       e.preventDefault();
       confirm(list[Math.min(sel, list.length - 1)]);
     } else if (e.key === "Backspace" && !value && state.enemies.length) {
-      removeEnemy(state.enemies[state.enemies.length - 1]);
+      removeLastEnemy();
     } else if (e.key === "Escape" && value) {
       e.stopPropagation();
       setValue("");
@@ -1393,6 +1422,11 @@ function DraftEffects() {
   <//>`;
 }
 
+function UndoNote() {
+  if (!undoOffer) return null;
+  return html`<p className="hint done" role="status" data-test="undo">${undoOffer.text} <button type="button" className="link-btn" data-test="undo-action" onClick=${undoLast}>Annuler</button></p>`;
+}
+
 function EnemyPanel() {
   const likely = likelyRoles(), slots = likely.slots;
   const c = V.res.counts;
@@ -1400,6 +1434,7 @@ function EnemyPanel() {
   return html`<aside className="col col-left" aria-label="Composition adverse">
     <h2 className="sec-title">Composition adverse <small>${V.n} sur 5</small></h2>
     <${SearchBox} />
+    <${UndoNote} />
     <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} data-test="draft-hint" initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
     <${LayoutGroup}>
       <div className="roles">
@@ -1910,7 +1945,7 @@ const StatsTable = ({ title, groups }) => html`<div>
 </div>`;
 
 function StatsTab() {
-  if (!STAT_ROWS.length) return html`<p className="small">Pas encore de statistiques. Lance <b>draft-import-stats.bat</b>, placé dans le même dossier que cette page, puis recharge-la.</p>`;
+  if (!STAT_ROWS.length) return html`<p className="small" data-test="stats-empty">Pas encore de statistiques importées ici. Ton historique Riot s'importe dans les réglages et s'affiche dans l'onglet Conseils. Un ancien fichier draft-stats.js s'importe depuis le menu de l'icône DRAFT.</p>`;
   return html`<div>
     <p className="small">Import du ${new Date(STATS.generated).toLocaleDateString("fr-FR")}, ${STAT_ROWS.length} parties classées solo/duo. Ces bilans décrivent le passé et ne changent pas le verdict.</p>
     ${groupRows(STAT_ROWS, r => r.acct).map(account => {
@@ -2159,8 +2194,11 @@ function saveMyProfile(role, names) {
   r.pool = pool;
   r.excluded = r.excluded.filter(p => pool.includes(p));
   if (!pool.includes(r.favorite)) r.favorite = null;
-  if (PROFILES.active !== role) { switchRole(role, "manual"); return; }
+  // Premier rôle configuré : il devient le rôle joué. Ensuite, modifier le pool d'un autre rôle ne change
+  // ni le rôle joué ni le conseil (audit UX, problème 4) : « Jouer ce rôle » le fait explicitement.
+  if (!PROFILES.active) { switchRole(role, "manual"); return; }
   storeProfiles();
+  if (PROFILES.active !== role) { publish(null); return; }
   useActiveRole();
   state.held = null;
   pool.forEach(p => preloadSplash(label(p)));
@@ -2216,10 +2254,30 @@ function ProfileCard() {
   const [pool, setPool] = useState(PROFILES.active ? PROFILES.roles[PROFILES.active].pool.map(label) : []);
   const [query, setQuery] = useState("");
   const searchRef = useRef(null);
+  const [saved, setSaved] = useState(null);
   const backToSearch = () => { if (searchRef.current) searchRef.current.focus(); };
-  // Changer de rôle charge son propre pool ; modifier le pool n'affecte que ce rôle.
-  const pickRole = r => { switchRole(r, "manual"); setRole(r); setPool(PROFILES.roles[r].pool.map(label)); };
+  // Choisir un rôle ici montre et modifie son pool, sans changer le rôle joué (sauf s'il n'y en a pas encore).
+  const pickRole = r => { if (!PROFILES.active) switchRole(r, "manual"); setRole(r); setPool(PROFILES.roles[r].pool.map(label)); setSaved(null); };
+  const playRole = () => { switchRole(role, "manual"); setSaved(null); };
   const apply = (r, list) => { if (!r) return; setPool(list); saveMyProfile(r, list); };
+  const addChampion = n => { apply(role, pool.concat(n)); setSaved({ text:`Enregistré : ${n} ajouté au pool ${ROLE_NAMES[role]}.` }); };
+  const removeChampion = n => {
+    const r = PROFILES.roles[role], back = { role, pool, excluded:r.excluded.slice(), favorite:r.favorite };
+    apply(role, pool.filter(x => x !== n));
+    setSaved({ text:`${n} retiré du pool ${ROLE_NAMES[role]}.`, back });
+  };
+  // Annuler un retrait : pool, exclusions et favori du rôle tels qu'ils étaient.
+  const undoRemove = () => {
+    const back = saved && saved.back;
+    if (!back) return;
+    PROFILES.roles[back.role].excluded = back.excluded;
+    PROFILES.roles[back.role].favorite = back.favorite;
+    apply(back.role, back.pool);
+    if (PROFILES.active === back.role) savePrefs({ excluded:back.excluded.slice(), favorite:back.favorite });
+    setSaved(null);
+    backToSearch();
+  };
+  const editingOther = role && PROFILES.active && role !== PROFILES.active;
   const key = norm(query);
   const choices = (key ? NAMES.filter(n => champKeys(n).some(k => k.includes(key))) : role ? championsForRole(role) : []).filter(n => !pool.includes(n)).slice(0, 12);
   return html`<div>
@@ -2230,17 +2288,20 @@ function ProfileCard() {
         ${ROLE_ORDER.map(r => html`<button key=${r} type="button" data-test=${`pool-role-${r}`} className=${`ghost-btn${role === r ? " on" : ""}`} aria-pressed=${role === r} onClick=${() => pickRole(r)}>${ROLE_NAMES[r]}${PROFILES.roles[r].pool.length ? html` <small>${PROFILES.roles[r].pool.length}</small>` : null}</button>`)}
       </div>
       <div className="pool-list" aria-label="Mes champions">
-        ${pool.map(n => html`<button key=${n} type="button" data-test="pool-remove" data-champion=${n} className="pool-chip on" title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { apply(role, pool.filter(x => x !== n)); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span><b aria-hidden="true">×</b></button>`)}
+        ${pool.map(n => html`<button key=${n} type="button" data-test="pool-remove" data-champion=${n} className="pool-chip on" title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { removeChampion(n); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span><b aria-hidden="true">×</b></button>`)}
         ${pool.length ? null : html`<span className="set-hint flush">Aucun champion pour l'instant.</span>`}
       </div>
-      <input ref=${searchRef} className="pool-search" data-test="pool-search" type="search" value=${query} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder="Ajouter un champion : ahri, tf, kata..."
-        onChange=${e => setQuery(e.target.value)} onKeyDown=${e => { if (e.key === "Enter") { e.preventDefault(); if (choices[0]) { apply(role, pool.concat(choices[0])); setQuery(""); } } }} />
+      ${editingOther ? html`<p className="set-hint flush" role="status" data-test="pool-editing">Tu modifies le pool ${ROLE_NAMES[role]}. Ton rôle joué reste ${ROLE_NAMES[PROFILES.active]}. <button type="button" className="link-btn" data-test="pool-play-role" onClick=${playRole}>Jouer ce rôle</button></p>` : null}
+      ${role ? null : html`<p className="set-hint flush" data-test="pool-need-role">Choisis d'abord ton rôle, puis ajoute tes champions.</p>`}
+      <input ref=${searchRef} className="pool-search" data-test="pool-search" type="search" value=${query} disabled=${!role} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder=${role ? "Ajouter un champion : ahri, tf, kata..." : "Choisis d'abord ton rôle"}
+        onChange=${e => setQuery(e.target.value)} onKeyDown=${e => { if (e.key === "Enter") { e.preventDefault(); if (choices[0]) { addChampion(choices[0]); setQuery(""); } } }} />
+      ${saved ? html`<p className="small" role="status" data-test="pool-saved">${saved.text}${saved.back ? html` <button type="button" className="link-btn" data-test="pool-undo" onClick=${undoRemove}>Annuler</button>` : null}</p>` : null}
       ${role || key ? html`<div className="pool-list">
-        ${choices.map(n => html`<button key=${n} type="button" data-test="pool-add" data-champion=${n} className="pool-chip" onClick=${() => { apply(role, pool.concat(n)); setQuery(""); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`)}
+        ${choices.map(n => html`<button key=${n} type="button" data-test="pool-add" data-champion=${n} className="pool-chip" onClick=${() => { addChampion(n); setQuery(""); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`)}
         ${key && !choices.length ? html`<span className="set-hint flush">Aucun champion trouvé.</span>` : null}
       </div>` : null}
       ${role && !pool.length ? html`<p className="set-hint flush">Aucun champion pour ce rôle : ajoute-en pour obtenir un conseil.</p>` : null}
-      <p className="set-hint flush">Chaque rôle garde son propre pool. Ils sont enregistrés automatiquement.</p>
+      <p className="set-hint flush">Chaque rôle garde son propre pool. Ils sont enregistrés automatiquement. Modifier un pool ne change pas ton rôle joué.</p>
       <${ProfileBackup} />
       <p className="set-hint flush">Sans statistiques calculées, le conseil repose sur des fiches écrites à la main : c'est un avis général.</p>
     </div>
@@ -2256,11 +2317,11 @@ function DataSources() {
   const missing = report.filter(r => !r.available).length;
   const dateOf = d => { const t = Date.parse(d || ""); return isNaN(t) ? "inconnue" : new Date(t).toLocaleDateString("fr-FR"); };
   return html`<details className="set-more" onToggle=${e => setOpen(e.currentTarget.open)}>
-    <summary>Sources de données${stale ? ` : ${stale} ancienne${stale > 1 ? "s" : ""}` : ""}${missing ? `${stale ? "," : " :"} ${missing} absente${missing > 1 ? "s" : ""}` : ""}</summary>
+    <summary>Sources de données${stale ? ` : ${stale} ancienne${stale > 1 ? "s" : ""}` : ""}${missing ? `${stale ? "," : " :"} ${missing} pas encore disponible${missing > 1 ? "s" : ""}` : ""}</summary>
     <ul className="data-list">${report.map(r => html`<li key=${r.id} className=${r.available ? "" : "off"}>
-      <b>${r.label}</b> <span className="data-kind">${r.kindLabel}</span>${r.stale ? html` <span className="data-old">Ancienne</span>` : null}${r.available ? null : html` <span className="data-old">Absente</span>`}
+      <b>${r.label}</b> <span className="data-kind">${r.kindLabel}</span>${r.stale ? html` <span className="data-old">Ancienne</span>` : null}${r.available ? null : html` <span className="data-old">Pas encore disponible</span>`}
       <p>${r.source}.${!r.available || r.kind === "heuristic" ? "" : ` Patch : ${r.patch || "inconnu"}${r.stale ? ` (${r.age} patchs d'écart)` : ""}.`}${r.collected ? ` Date : ${dateOf(r.collected)}.` : ""}${!r.available || r.kind === "official" || r.kind === "heuristic" ? "" : ` Observations : ${r.games === null ? "non mesurées" : `${r.games} ${r.unit}`}.`}${r.region ? ` Région : ${r.region}.` : ""}${r.rank ? ` Rang : ${r.rank}.` : ""}${r.uncertainty ? ` Incertitude ${r.uncertainty}.` : ""}</p>
-      <p>${r.note} ${r.terms}</p>
+      <p>${r.note}${r.available ? ` ${r.terms}` : ""}</p>
     </li>`)}</ul>
     ${changes.length ? html`<h3>Rôles à surveiller</h3>
     <ul className="data-list">${changes.slice(0, 8).map(c => html`<li key=${c.name}><b>${c.name}</b> : plus souvent ${ROLE_NAMES[c.role]} que dans ${c.confirmed ? "les patchs précédents" : "la référence, à confirmer"} (${c.games} parties).</li>`)}</ul>` : null}
@@ -2375,6 +2436,7 @@ function CompactEnemies() {
   const likely = likelyRoles(), slots = likely.slots;
   return html`<div className="p-compact-enemies">
     <${SearchBox} />
+    <${UndoNote} />
     <div className="roles compact-roles">
       ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
     </div>
@@ -2427,7 +2489,7 @@ function App() {
           handleAssignedRole(m.assignedRole || null);
         }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") { leaveSimulation(); resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
+        if (m.kind === "draftStart") { clearUndo(); leaveSimulation(); resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
         if (m.kind === "openSettings") setShowSettings(true);
@@ -2441,10 +2503,10 @@ function App() {
       const active = document.activeElement;
       const add = document.getElementById("add");
       const inField = isTextEntry(active);
-      if (e.key === "Escape") {
-        if (!inField || active.id === "add") resetDraft();
-      } else if (!inField) {
-        if (e.key === "Backspace" && state.enemies.length) { e.preventDefault(); removeEnemy(state.enemies[state.enemies.length - 1]); }
+      // Échap ne retire aucun adversaire : dans la recherche, il vide seulement le texte saisi (SearchBox).
+      if (e.key === "Escape") return;
+      if (!inField) {
+        if (e.key === "Backspace" && state.enemies.length) { e.preventDefault(); removeLastEnemy(); }
         else if (e.key.length === 1 && e.key !== " " && !e.ctrlKey && !e.metaKey && !e.altKey && add && !add.disabled) add.focus();
       }
     };
@@ -2455,9 +2517,10 @@ function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
+  // Réglages ouverts : la fenêtre derrière est inerte (inert), aucun de ses champs ne reçoit le focus ni la saisie.
   return html`<${MotionConfig} reducedMotion="user">
     ${showSettings ? html`<${Settings} onClose=${closeSettings} />` : null}
-    <div className="app" data-test="app">
+    <div className="app" data-test="app" inert=${showSettings ? "" : undefined}>
       <header className="top">
         <span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span>
         <${RoleSwitch} />
@@ -2465,7 +2528,7 @@ function App() {
         <span className="grow"></span>
         <button type="button" className="ghost-btn" data-test="open-settings" onClick=${() => setShowSettings(true)}>Réglages</button>
         <button type="button" className="ghost-btn" data-test="random-draft" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
-        <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${resetDraft}>Nouvelle draft</button>
+        <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${() => withUndo("Draft effacée.", resetDraft)}>Nouvelle draft</button>
       </header>
       ${simulating ? html`<p className="small" role="status" data-test="simulation" data-simulation=${true}>Simulation : ta draft en cours n'est pas modifiée. <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>Revenir à la draft en cours</button></p>` : null}
       <div className="desk">
