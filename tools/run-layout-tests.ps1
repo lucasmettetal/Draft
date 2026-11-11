@@ -36,7 +36,11 @@ $Runs += , @('onglet conseils avec historique', 'state=played&set=full&tabclick=
 $Runs += , @('uncertain', 'state=uncertain&frozen=1', $false)
 $Runs += , @('partial', 'state=partial&frozen=1', $false)
 $Runs += , @('sans profil', 'state=full&set=full&profile=none&frozen=1', $false)
-$Runs += , @('sources de donnees ouvertes', 'state=full&set=full&tab=settings&host=on&open=1', $false)
+$Runs += , @('sources de donnees ouvertes', 'state=full&set=full&page=settings&section=data&host=on&open=1', $false)
+# UX-3 : chaque section de la fenetre principale, et chaque rubrique des reglages, dans l'application et hors application.
+foreach ($v in 'home', 'pool', 'stats') { $Runs += , @("section $v", "state=history&set=full&page=$v&host=on", $false); $Runs += , @("section $v hors application", "state=empty&set=full&page=$v", $false) }
+foreach ($s in 'general', 'league', 'display', 'data', 'updates', 'diag') { $Runs += , @("reglages $s", "state=full&set=full&page=settings&section=$s&host=on", $false) }
+$Runs += , @('mon pool sans profil', 'state=full&set=full&page=pool&profile=none', $false)
 $Runs += , @('sans reseau', 'state=full', $true)
 
 $failures = 0

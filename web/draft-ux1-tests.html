@@ -30,7 +30,7 @@ const FOUR=["Ornn","Sion","Ahri","Jinx"];
  close(x);}
 
 // ---------- F5 : modifier le pool d'un autre rôle ne change pas le rôle joué ----------
-{const x=await open("mid",null,1280,900,"&tab=settings");await settle();const shown=x.$.V.shown;
+{const x=await open("mid",null,1280,900,"&view=pool");await settle();const shown=x.$.V.shown;
  q(x,"pool-role-top").click();await settle();t(x.$.myRole()==="mid","F5 voir le pool Top laisse Mid joué ("+x.$.myRole()+")");
  const note=q(x,"pool-editing");t(!!note&&/Ton rôle joué reste Mid/.test(text(note)),"F5 la page dit quel pool est modifié et quel rôle reste joué ("+text(note)+")");
  const chip=x.d.querySelector('[data-test="pool-add"]');const name=chip&&chip.dataset.champion;if(chip)chip.click();await settle();
@@ -40,25 +40,26 @@ const FOUR=["Ornn","Sion","Ahri","Jinx"];
  close(x);}
 
 // ---------- F6 : aucune saisie perdue sans message, sans rôle ----------
-{const x=await open("none",null,1280,900,"&tab=settings");await settle();const s=q(x,"pool-search");
- t(!!s&&s.disabled,"F6 sans rôle : la recherche du pool est désactivée");t(/Choisis d'abord ton rôle/.test(text(q(x,"settings"))+" "+(s?s.placeholder:"")),"F6 sans rôle : la consigne le dit");
+{const x=await open("none",null,1280,900,"&view=pool");await settle();const s=q(x,"pool-search");
+ t(!!s&&s.disabled,"F6 sans rôle : la recherche du pool est désactivée");t(/Choisis d'abord ton rôle/.test(text(q(x,"view-pool"))+" "+(s?s.placeholder:"")),"F6 sans rôle : la consigne le dit");
  q(x,"pool-role-mid").click();await settle();t(!q(x,"pool-search").disabled&&x.$.myRole()==="mid","F6 premier rôle choisi : il devient le rôle joué, la recherche s'ouvre");close(x);}
 
 // ---------- Retours visibles : pool enregistré, retrait annulable ----------
-{const x=await open("mid",null,1280,900,"&tab=settings");await settle();const chip=x.d.querySelector('[data-test="pool-add"]');const name=chip.dataset.champion;chip.click();await settle();
+{const x=await open("mid",null,1280,900,"&view=pool");await settle();const chip=x.d.querySelector('[data-test="pool-add"]');const name=chip.dataset.champion;chip.click();await settle();
  t(new RegExp("Enregistré : "+name+" ajouté au pool Mid\\.").test(text(q(x,"pool-saved"))),"retour : ajout enregistré ("+text(q(x,"pool-saved"))+")");
  x.d.querySelector(`[data-test="pool-remove"][data-champion="${name}"]`).click();await settle();
  t(new RegExp(name+" retiré du pool Mid\\.").test(text(q(x,"pool-saved")))&&!!q(x,"pool-undo"),"retour : retrait annoncé avec « Annuler »");
  const pu=q(x,"pool-undo");if(pu){pu.click();await settle();}t(!!pu&&x.$.PROFILES.roles.mid.pool.includes(x.w.eval("pickId")(name)),"retour : Annuler remet le champion dans le pool");close(x);}
 
 // ---------- Modale : aucun champ derrière les réglages ----------
-{const x=await open("mid",null,1280,720);q(x,"open-settings").click();await settle();const add=x.d.getElementById("add");add.focus();
- t(x.d.activeElement!==add,"modale : la recherche d'adversaire derrière les réglages ne prend pas le focus");
- t(q(x,"app").hasAttribute("inert"),"modale : la fenêtre derrière est inerte");q(x,"settings-close").click();await settle();t(!q(x,"app").hasAttribute("inert"),"modale fermée : la fenêtre redevient active");close(x);}
+// UX-3 : les réglages sont une section, plus une modale. Aucun champ de recherche d'adversaire ne reste derrière eux.
+{const x=await open("mid",null,1280,720);q(x,"nav-settings").click();await settle();const add=x.d.getElementById("add");if(add)add.focus();
+ t(!add||x.d.activeElement!==add,"réglages : aucune recherche d'adversaire derrière eux ne prend le focus");
+ t(!!q(x,"settings")&&!x.d.getElementById("add"),"réglages : la recherche d'adversaire n'est pas présente derrière");q(x,"settings-close").click();await settle();t(!!x.d.getElementById("add"),"réglages fermés : retour au Simulateur et à sa recherche");close(x);}
 
 // ---------- États vides et messages internes ----------
 {const x=await open("mid",null,1280,720,"&tab=parties");await settle();const body=text(x.d.body);t(!/draft-import-stats\.bat/.test(body),"Parties vide : plus de consigne « draft-import-stats.bat »");t(/historique Riot/.test(text(q(x,"stats-empty"))),"Parties vide : la consigne dit où importer ("+text(q(x,"stats-empty"))+")");close(x);}
-{const x=await open("mid",null,1280,900,"&tab=settings");await settle();x.d.querySelectorAll("details").forEach(d=>d.open=true);await settle();const body=text(x.d.body);
+{const x=await open("mid",null,1280,900,"&view=settings&section=data");await settle();x.d.querySelectorAll("details").forEach(d=>d.open=true);await settle();const body=text(x.d.body);
  t(!/Licence non confirmée/.test(body),"Sources : plus de « Licence non confirmée »");t(!/absente/i.test(body),"Sources : plus de « absente » dès le premier lancement");close(x);}
 
 document.getElementById("out").textContent=JSON.stringify(res);document.title="done";

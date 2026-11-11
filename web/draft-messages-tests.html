@@ -282,6 +282,18 @@ UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 
 UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-273 | index.html:UndoNote | UX-1, annonce après Nouvelle draft ou Retour arrière, avec « Annuler » 5 s (UX-2 : simulation) | re:^((Draft effacée\.|Simulation effacée\.|Draft en cours copiée dans la simulation\.|Retrait de .+\.)( Annuler)?|Annuler)$
 UI-279 | index.html:App | UX-2, bascule de source de la fenêtre principale | re:^(Draft en cours|Simulation|Draft affichée|Draft en cours Simulation)$
+UI-280 | index.html:MainNav (fr.js nav.*) | UX-3, navigation principale | re:^(Accueil|Mon pool|Simulateur|Mes statistiques|Réglages|Navigation principale|bêta)$
+UI-281 | index.html:MainNav (fr.js nav.state.*) | UX-3, état sous la navigation | re:^(League|Rôle joué|aucun|Connecté|En attente|Erreur|Désactivée|Hors application)$
+UI-282 | index.html:MainNav (fr.js nav.legal) | UX-3, mention de la navigation | re:^Version \d+\.\d+\.\d+ bêta\. Non approuvé par Riot Games\.$
+UI-283 | index.html:HomeView (fr.js home.*) | UX-3, Accueil : titres | re:^(Ce qu'il faut savoir avant ta prochaine draft\.|Tout est prêt pour ta prochaine draft|Aucune draft en cours\. Les panneaux s'ouvriront à côté du client dès la sélection des champions\.|Il reste une étape avant ta prochaine draft|Choisis ton rôle et tes champions : DRAFT s'en sert pour chaque conseil\.)$
+UI-284 | index.html:HomeView (fr.js home.check.*) | UX-3, Accueil : vérifications | re:^(Client League connecté|Lecture du client désactivée|Disponible dans l'application DRAFT\.|Rôle joué : (Top|Jungle|Mid|ADC|Support), \d+ champions?|Aucun champion dans ce pool pour l'instant\.|Aucun rôle choisi|Choisis ton rôle, puis ajoute tes champions\.|Panneaux automatiques|Panneaux à afficher toi-même|Pour les afficher ou les masquer à tout moment : Ctrl\+Alt\+D\.|Pour les afficher ou les masquer : menu de l'icône DRAFT\.)$
+UI-285 | index.html:HomeView (fr.js home.action.*) | UX-3, Accueil : boutons | re:^(Connexion League|Modifier mon pool|Affichage|Simuler une draft)$
+UI-287 | index.html:PoolView (fr.js pool.*) | UX-3, Mon pool | re:^(Chaque rôle garde ses champions\. Modifier un pool ne change pas ton rôle joué\.|Rôle joué : (Top|Jungle|Mid|ADC|Support|aucun)|Ajoute des champions au pool de ton rôle joué pour en exclure ou choisir un favori\.)$
+UI-288 | index.html:StatsView (fr.js stats.*) | UX-3, Mes statistiques | re:^(Ton journal DRAFT et ton historique Riot, au même endroit\.|Journal des drafts|Historique Riot|L'import se fait dans Réglages, rubrique Données et confidentialité\.|Gérer l'import|Statistiques importées|Importer un ancien fichier)$
+UI-289 | index.html:StatsView | UX-3, Mes statistiques : historique (texte existant + renvoi) | re:^(\d+ parties importées( le \d\d/\d\d/\d{4})?\.|Rien d'importé pour l'instant\.) L'import se fait dans Réglages, rubrique Données et confidentialité\.$
+UI-290 | index.html:SettingsPage (fr.js settings.*) | UX-3, Réglages : rubriques | re:^(Six rubriques\. Chaque changement est enregistré tout de suite\.|Rubriques des réglages|Ce réglage n'existe que dans l'application DRAFT\.|Général|Connexion League|Affichage et fenêtres|Données et confidentialité|Mises à jour|Diagnostic et informations)$
+UI-291 | index.html:SettingsPage (fr.js settings.*.sub) | UX-3, Réglages : phrase de chaque rubrique | re:^(Ce qui vaut partout dans DRAFT\.|Lecture de la draft dans le client, rôle attribué par League\.|Les panneaux pendant la draft, et leur place à l'écran\.|Rôles, matchups, historique et sources\. Rien ne quitte ton PC sans ton action\.|La version installée, et la recherche d'une nouvelle version\.|Pour comprendre la détection et signaler un problème\.)$
+UI-292 | index.html:SimView | UX-3, titre de la barre du Simulateur | Simulateur
 UI-274 | index.html:ProfileCard | UX-1, pool d'un autre rôle que le rôle joué | re:^((Tu modifies le pool (Top|Jungle|Mid|ADC|Support)\. Ton rôle joué reste (Top|Jungle|Mid|ADC|Support)\.)( Jouer ce rôle)?|Jouer ce rôle)$
 UI-275 | index.html:ProfileCard | UX-1, pool enregistré ou retrait annulable | re:^((Enregistré : .+ ajouté au pool (Top|Jungle|Mid|ADC|Support)\.)|(.+ retiré du pool (Top|Jungle|Mid|ADC|Support)\.)( Annuler)?|Annuler)$
 UI-276 | index.html:ProfileCard | UX-1, aucun rôle choisi : recherche désactivée | re:^Choisis d'abord ton rôle(, puis ajoute tes champions\.)?$
@@ -866,6 +878,10 @@ async function clickTab(x, tab, view) {
   if (view) { const v = x.d.querySelector(`[data-view="${view}"]`); if (v) { v.click(); await settle(); } }
 }
 
+// UX-3 : sections de la fenêtre et rubriques des réglages.
+async function showView(x, view, section) { x.w.eval(`goView(${JSON.stringify(view)}, ${JSON.stringify(section || "")})`); await settle(); }
+async function eachSettings(x, where) { for (const s of ["general", "league", "display", "data", "updates", "diag"]) { await showView(x, "settings", s); collect(x.d, where); } }
+
 async function fullTour(x, where, deep) {
   collect(x.d, where);
   await clickTab(x, "analyse", "criteria"); collect(x.d, where + " analyse");
@@ -878,7 +894,7 @@ async function fullTour(x, where, deep) {
     await clickTab(x, "plan");
     for (const phase of ["mid", "fight"]) { const b = x.d.querySelector(`[data-test="plan-phase-${phase}"]`); if (b) { b.click(); await settle(); collect(x.d, where + " plan"); } }
     await clickTab(x, "matchups"); collect(x.d, where + " duel");
-    await clickTab(x, "parties"); collect(x.d, where + " parties");
+    await showView(x, "stats"); collect(x.d, where + " parties"); await showView(x, "sim");
     for (const level of ["intermediate", "advanced"]) { x.$.savePrefs({ coachLevel:level }); await settle(); await clickTab(x, "coach"); collect(x.d, where + " conseils " + level); }
     x.$.savePrefs({ coachLevel:"beginner" }); await settle();
   }
@@ -959,7 +975,7 @@ async function special() {
     x.$.choosePick(x.$.V.shown); await settle(); collect(x.d, "journal");
     x.$.setResult(x.$.state.current, "win"); await settle(); collect(x.d, "journal");
     x.$.reset(); await settle(); ["Ahri"].forEach(n => x.$.addEnemy(n)); x.$.choosePick("Fizz"); await settle(); x.$.reset(); await settle(); collect(x.d, "journal en attente");
-    await clickTab(x, "parties"); collect(x.d, "journal parties");
+    await showView(x, "stats"); collect(x.d, "journal parties"); await showView(x, "sim");
     // Duel avec tableau : recherche.
     await clickTab(x, "matchups"); const q = x.d.getElementById("q"); if (q) { await type(q, "ahri"); await type(q, "zzzz"); }
     // Tous exclus.
@@ -977,7 +993,7 @@ async function special() {
   }
   // UX-1 : pool d'un autre rôle, retours d'enregistrement, « Annuler » après Nouvelle draft.
   {
-    const x = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&tab=settings"); current = "ux1 pool";
+    const x = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&view=pool"); current = "ux1 pool";
     const q = s => x.d.querySelector(`[data-test="${s}"]`);
     for (const s of ["pool-role-top", "pool-add", "pool-remove"]) { const b = q(s); if (b) { b.click(); await settle(); collect(x.d, current); } }
     close(x);
@@ -996,14 +1012,15 @@ async function special() {
     const x = await open(null, null, 1280, 720); current = "sans profil"; await settle(); collect(x.d, "sans profil");
     const r = await open(null, "right", 320, 720); await settle(); collect(r.d, "sans profil panneau"); close(r);
     x.w.eval("switchRole('top','manual')"); await settle(); collect(x.d, "rôle vide"); close(x);
-    const s = await open(null, null, 1280, 900, "&tab=settings"); current = "réglages sans profil"; await settle(); collect(s.d, current);
+    const s = await open(null, null, 1280, 900, "&view=pool"); current = "réglages sans profil"; await settle(); collect(s.d, current);
+    await showView(s, "home"); collect(s.d, "accueil sans profil"); await showView(s, "pool");
     const role = s.d.querySelector('[data-test="pool-role-support"]'); if (role) { role.click(); await settle(); collect(s.d, current); }
     const search = s.d.querySelector('[data-test="pool-search"]'); if (search) { const set = Object.getOwnPropertyDescriptor(s.w.HTMLInputElement.prototype, "value").set; set.call(search, "zzzz"); search.dispatchEvent(new s.w.Event("input", { bubbles:true })); await settle(); collect(s.d, current); }
     close(s);
   }
   // Import de profils et de journal : fichiers fictifs, déposés dans les champs de fichier de la page.
   {
-    const x = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&tab=settings"); current = "imports";
+    const x = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&view=pool"); current = "imports";
     // La lecture du fichier est asynchrone : on attend que le message change (au plus 4 s), sinon le relevé lirait le message précédent.
     const notes = () => [...x.d.querySelectorAll('[role="status"], .small')].map(text).join("|");
     const drop = async (input, name, content) => { if (!input) { res.errors.push("imports : champ absent"); return; } const before = notes(); const dt = new x.w.DataTransfer(); dt.items.add(new x.w.File([content], name, { type:"application/json" })); input.files = dt.files; input.dispatchEvent(new x.w.Event("change", { bubbles:true })); for (let i = 0; i < 80 && notes() === before; i++) await wait(50); await settle(); collect(x.d, current); };
@@ -1022,6 +1039,7 @@ async function special() {
     const parsed = JSON.parse(config); if (parsed.roles) { parsed.roles.top = { pool:["Darius", "Garen"], excluded:[], favorite:"Ornn" }; delete parsed.roles.support; }
     await drop(profileInput(), "profils.json", JSON.stringify(parsed));
     const undo = x.d.querySelector('[data-test="undo-profiles-import"]'); if (undo) { undo.click(); await settle(); collect(x.d, current); }
+    await showView(x, "stats");
     await drop(journalInput(), "journal.json", "{}");
     await drop(journalInput(), "journal.json", JSON.stringify([{ id:1, date:"2026-10-01T10:00:00Z", picked:"Fizz", suggested:"TF", enemies:["Ahri"], mid:"Ahri", result:"win" }]));
     close(x);
@@ -1038,13 +1056,15 @@ async function special() {
   } catch (e) { res.errors.push("statistiques : " + e.message); }
   // Réglages, avec les sections de l'application.
   {
-    const x = await open({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] }, null, 1280, 900, "&tab=settings"); current = "réglages";
-    collect(x.d, "réglages");
+    const x = await open({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] }, null, 1280, 900, "&view=settings"); current = "réglages";
+    await eachSettings(x, "réglages");
+    for (const v of ["home", "pool", "stats"]) { await showView(x, v); collect(x.d, "section " + v); }
     Object.assign(x.$.hostState, { available:true, lcuConfirmed:true, lcuEnabled:true, lcuStatus:"waiting", hotkey:true, updateStatus:"", phase:"Client LoL fermé", placement:"Panneaux placés de chaque côté du client." });
-    x.$.rerender(); await settle(); collect(x.d, "réglages application");
-    for (const s of ["connected", "failed", "off"]) { x.$.hostState.lcuStatus = s; x.$.rerender(); await settle(); collect(x.d, "réglages lcu"); }
-    Object.assign(x.$.hostState, { rolesRunning:true, historyRunning:true, updateRunning:true }); x.$.rerender(); await settle(); collect(x.d, "réglages calcul");
-    x.$.hostState.historyRunning = false; x.$.hostState.historyHasMore = true; x.$.hostState.hotkey = false; x.$.rerender(); await settle(); collect(x.d, "réglages");
+    x.$.rerender(); await settle(); await eachSettings(x, "réglages application");
+    for (const v of ["home", "stats"]) { await showView(x, v); collect(x.d, "section application " + v); }
+    for (const s of ["connected", "failed", "off"]) { x.$.hostState.lcuStatus = s; x.$.rerender(); await settle(); await showView(x, "settings", "league"); collect(x.d, "réglages lcu"); await showView(x, "home"); collect(x.d, "accueil lcu"); }
+    Object.assign(x.$.hostState, { rolesRunning:true, historyRunning:true, updateRunning:true }); x.$.rerender(); await settle(); await eachSettings(x, "réglages calcul");
+    x.$.hostState.historyRunning = false; x.$.hostState.historyHasMore = true; x.$.hostState.hotkey = false; x.$.hostState.autoDraft = false; x.$.rerender(); await settle(); await eachSettings(x, "réglages"); await showView(x, "home"); collect(x.d, "accueil manuel"); await showView(x, "sim");
     x.w.eval("handleAssignedRole('jungle')"); await settle(); collect(x.d, "rôle attribué");
     close(x);
     const r = await open({ role:"mid", pool:["TF", "Fizz"] }, "right", 320, 720); current = "panneau";
@@ -1069,7 +1089,7 @@ async function special() {
     const roles = JSON.stringify(x.w.ROLE_RATES_LIVE), topLive = JSON.stringify(live("top")), midLive = JSON.stringify(live("mid"));
     close(x);
     for (const [label, data] of [["réglages données", topLive], ["réglages données mid", midLive]]) {
-      const s = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&tab=settings"); current = label;
+      const s = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&view=settings&section=data"); current = label;
       s.w.ROLE_RATES_LIVE = s.w.JSON.parse(roles); s.w.MATCHUPS_LIVE = s.w.JSON.parse(data); s.$.hostState.available = true; s.$.commit(); s.$.rerender(); await settle(); collect(s.d, label); if (PARAMS.get("debug")) res.errors.push(label + " : " + s.d.body.innerText.slice(0, 3000)); close(s);
     }
   }

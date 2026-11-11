@@ -1533,6 +1533,8 @@ public static class Autostart
             PanelForm f = null;
             for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50);
             if (f == null || f.View.CoreWebView2 == null) return "(réglages absents)";
+            for (int i = 0; i < 120 && await f.View.CoreWebView2.ExecuteScriptAsync("typeof goView === 'function' && !!document.querySelector('[data-test=\"settings\"]')") != "true"; i++) await Task.Delay(50);
+            await f.View.CoreWebView2.ExecuteScriptAsync("goView('settings', 'data'); 1");
             const string Find = "document.querySelector('[data-test=\"import-history\"]')";
             bool found = false;
             for (int i = 0; i < 120 && !found; i++) { found = await f.View.CoreWebView2.ExecuteScriptAsync("!!(" + Find + ")") == "true"; if (!found) await Task.Delay(50); }
@@ -1638,7 +1640,11 @@ public static class Autostart
             OpenFull("settings");
             if (!await waitFor(Close)) return "réglages absents ; ";
             if (await run("window.keepMark === 1") != "true") problem += "la page principale est rechargée à l'ouverture ; ";
-            if (await run("!!document.querySelector('[data-test=\"check-update\"]')") != "true") problem += "bouton de mise à jour absent ; ";
+            // UX-3 : les réglages sont une section à six rubriques ; la mise à jour est dans « Mises à jour », le pool dans Mon pool.
+            await run("goView('settings', 'updates'); 1");
+            if (!await waitFor("!!document.querySelector('[data-test=\"check-update\"]')")) problem += "bouton de mise à jour absent ; ";
+            await run("goView('pool'); 1");
+            if (!await waitFor(Search)) problem += "Mon pool ne s'ouvre pas depuis la navigation ; ";
 
             // 2. Les frappes vont au champ actif, et nulle part ailleurs.
             await waitFor("state.enemies.length > 0 || addEnemy('Sett') || true");
@@ -1684,7 +1690,10 @@ public static class Autostart
             await Task.Delay(150);
             if (await run("localStorage.getItem('draftProfile')") != profileBefore) problem += "le profil n'est pas rétabli après retrait ; ";
 
-            // 4. Échap et Fermer ne ferment que les réglages, et le focus revient à la fenêtre principale.
+            // 4. Échap et Fermer ne ferment que les réglages, et le focus revient à la fenêtre principale (le Simulateur).
+            await run("goView('sim'); 1");
+            OpenFull("settings");
+            await waitFor(Close);
             await run(Close + ".focus(); 1");
             await press("Escape", "Escape", 27, "");
             if (!await waitFor("!document.querySelector('[data-test=\"settings\"]')")) problem += "Échap ne ferme pas les réglages ; ";
