@@ -76,6 +76,48 @@
   const pk = b => b.candidates.find(c => c.name === "Kog'Maw").p;
   t(pk(after) > pk(before) && after.candidates[0].name === "Kog'Maw", "corriger « Jinx = ADC » fait monter Kog'Maw comme mid adverse");
 
+  // ---------- Rôles affichés (likelyAssignment, PR E) : la répartition la plus probable, sans rien changer au calcul ----------
+  // Recherche exhaustive indépendante : produit des parts maximal, corrections respectées.
+  const bestProduct = (team, fixed) => {
+    const b = roleBelief(team, fixed), f = fixed || {};
+    let best = 0;
+    const walk = (i, used, w) => {
+      if (i === team.length) { best = Math.max(best, w); return; }
+      R.forEach((role, r) => { if (!(used & (1 << r)) && (!f[team[i]] || f[team[i]] === role)) walk(i + 1, used | (1 << r), w * b.evidence[i].shares[r]); });
+    };
+    walk(0, 0, 1);
+    return best;
+  };
+  const productOf = (team, slotsByName) => { const b = roleBelief(team); return team.reduce((w, n, i) => w * b.evidence[i].shares[R.indexOf(slotsByName[n])], 1); };
+  let mapBad = 0, orderBad = 0, untouched = 0, fixBad = 0, fullBad = 0;
+  for (let i = 0; i < 160; i++) {
+    const size = 1 + (i % 5), team = pickTeam(size);
+    const before = JSON.stringify(roleBelief(team));
+    const la = likelyAssignment(team, {}), roles = Object.fromEntries(team.map(n => [n, la.byName[n].role]));
+    if (new Set(Object.values(roles)).size !== team.length || Object.keys(la.slots).length !== team.length) fullBad++;
+    if (Math.abs(productOf(team, roles) - bestProduct(team, {})) > 1e-12) mapBad++;
+    if (JSON.stringify(likelyAssignment(team.slice().reverse(), {}).slots) !== JSON.stringify(la.slots) && JSON.stringify(Object.entries(likelyAssignment(team.slice().reverse(), {}).slots).sort()) !== JSON.stringify(Object.entries(la.slots).sort())) orderBad++;
+    if (JSON.stringify(roleBelief(team)) !== before) untouched++;
+    const who = team[0], role = R[i % 5], lf = likelyAssignment(team, { [who]:role });
+    if (lf.byName[who].role !== role || lf.byName[who].uncertain) fixBad++;
+  }
+  t(!fullBad, "rôles affichés : chaque champion révélé a un rôle, jamais deux sur le même rôle");
+  t(!mapBad, "rôles affichés = répartition la plus probable (produit des parts maximal, recherche exhaustive indépendante)");
+  t(!orderBad, "rôles affichés : l'ordre de saisie ne change rien, même à égalité exacte");
+  t(!untouched, "likelyAssignment ne modifie aucune probabilité de roleBelief");
+  t(!fixBad, "rôles affichés : une correction est respectée et n'est pas marquée incertaine");
+  // Flex : égalité exacte Kog'Maw / Jinx avec mid et ADC libres.
+  const kj = likelyAssignment(["Garen", "Vi", "Kog'Maw", "Jinx", "Nami"], {});
+  const kog = kj.byName["Kog'Maw"], jinx = kj.byName["Jinx"];
+  t(kog.uncertain && jinx.uncertain && [kog.role].concat(kog.close.slice(0, 1)).sort().join() === "adc,mid" && [jinx.role].concat(jinx.close.slice(0, 1)).sort().join() === "adc,mid", `flex Kog'Maw / Jinx : affichés « ADC ou Mid » (${kog.role}/${kog.close}, ${jinx.role}/${jinx.close})`);
+  t(!kj.byName["Garen"].uncertain && kj.byName["Garen"].role === "top", "rôle net (Garen top) : pas de marque d'incertitude");
+  const xl = likelyAssignment(["Xerath", "Lux"], {});
+  t(xl.byName.Xerath.uncertain && xl.byName.Lux.uncertain, "flex Xerath / Lux (égalité exacte) : les deux restent incertains");
+  // Relevé de validation : roles_predits bien formée, rôle le plus probable de chaque adversaire.
+  const pr = predictedRolesText(["Garen", "Kog'Maw", "Jinx"], {});
+  t(/^[^=,;]+=(top|jungle|mid|adc|support):[01]\.\d\d(,[^=,;]+=(top|jungle|mid|adc|support):[01]\.\d\d)*$/.test(pr) && pr.split(",").length === 3 && pr.startsWith("Garen=top:"), `roles_predits bien formée (${pr})`);
+  t(predictedRolesText([], {}) === "", "roles_predits vide sans adversaire");
+
   // ---------- Instantané du comportement actuel ----------
   const r4 = v => Math.round(v * 1e4) / 1e4;
   const snapshot = {};

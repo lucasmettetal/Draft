@@ -96,6 +96,10 @@ function coachRangeDuel(c) {
   return { mine, theirs, longer };
 }
 
+// Même échelle que l'interface pour ton vis-à-vis nommé : presque sûr, probable, ou hypothèse avec 1 ou 2 champions vus.
+// Seul le mot change : le seuil pour nommer l'adversaire reste celui du moteur.
+const coachOpponentWord = c => c.manual || !c.opponent ? null : c.n <= 2 ? "hypothèse" : c.belief.confidence === "élevée" ? "presque sûr" : "probable";
+
 // Prépare tout ce que les règles lisent. Un champion inconnu du moteur reste à part, sans chiffre inventé.
 function coachingContext(input) {
   const raw = input.enemies || [];
@@ -221,7 +225,7 @@ const COACH_RULES = [
       const cr = c.crit("matchup");
       return cr && cr.impact !== 0 ? { cr } : null;
     },
-    build: (c, d) => { const good = d.cr.impact > 0; return { title:`${c.pick} contre ${c.opponent}${!c.manual && c.belief.confidence !== "élevée" ? " (supposé)" : ""} : ${good ? "plutôt un bon choix" : "un matchup difficile"}`,
+    build: (c, d) => { const good = d.cr.impact > 0, word = coachOpponentWord(c); return { title:`${c.pick} contre ${c.opponent}${word && word !== "presque sûr" ? ` (${word})` : ""} : ${good ? "plutôt un bon choix" : "un matchup difficile"}`,
       text:[good ? `Le tableau de DRAFT place ${c.pick} parmi les bons choix contre ${c.opponent}.` : `Le tableau de DRAFT déconseille ${c.pick} contre ${c.opponent}. Si ce choix reste devant, c'est pour le reste de la draft.`,
         `${d.cr.text}, selon un tableau écrit à la main. C'est le critère au plus gros poids du calcul.`,
         `${d.cr.text} : avis écrit à la main (${coachNum(d.cr.impact)} points), sans statistiques ni patch. Un bilan calculé le remplacera dès ${MATCHUP_MIN_GAMES} parties utiles.`],
@@ -262,18 +266,21 @@ const COACH_RULES = [
   { id:"matchup.unknown", category:"matchup", priority:72, basis:"estimate",
     when: c => {
       if (c.opponent || !c.pick || !c.n) return null;
-      const names = c.belief.candidates.filter(x => x.known && x.p >= .2).map(x => x.name).slice(0, 2);
-      return { names, hidden:c.belief.unrevealed >= .2 };
+      // Candidats cités : ceux du texte d'hypothèses (p ≥ 0,2), sinon ceux que le calcul pèse vraiment (hypothèses gardées).
+      let names = c.belief.candidates.filter(x => x.known && x.p >= .2).map(x => x.name).slice(0, 2);
+      if (!names.length && c.scenarios) names = c.scenarios.filter(s => s.mid).map(s => s.mid).slice(0, 2);
+      const weighted = !!(c.scenarios && c.scenarios.length > 1 && c.entry && c.entry.byScenario);
+      return { names, hidden:c.belief.unrevealed >= .2, weighted, matchup:!!c.crit("matchup"), blind:!!c.crit("blind") };
     },
-    build: (c, d) => ({ title:d.names.length ? `${c.opp} pas encore identifié : prépare les deux cas` : `${c.opp} pas encore visible`, terms:["portée"],
+    build: (c, d) => ({ title:d.names.length === 2 ? `${c.opp} pas identifié : ${d.names.join(" ou ")}` : d.names.length ? `${c.opp} pas identifié : peut-être ${d.names[0]}` : `${c.opp} ${d.hidden ? "pas encore choisi" : "pas identifié"}`, terms:["portée"],
       text: d.names.length ? [
         `Ce peut être ${d.names.join(" ou ")}. ${coachRangeWords(d.names)}. Regarde les sorts d'invocateur et le placement au début de la partie.`,
-        `Hypothèses : ${d.names.join(", ")}. Le conseil tient compte des deux. ${coachRangeWords(d.names)}.`,
-        `Classement pondéré entre ${d.names.join(" et ")}${d.hidden ? ", et un adversaire pas encore révélé" : ""}. Si tu connais le vrai rôle, corrige-le : le calcul redevient exact pour ce matchup.`
+        `Hypothèses : ${d.names.join(", ")}. ${d.weighted && d.matchup ? "Le conseil tient compte de ces hypothèses." : d.blind ? "Le matchup ne compte pas encore : le conseil repose sur la comp adverse et sur la sécurité du pick en blind." : "Le matchup ne compte pas encore : le conseil repose sur la comp adverse."} ${coachRangeWords(d.names)}.`,
+        `${d.weighted ? `Classement pondéré entre les hypothèses : ${d.names.join(", ")}${d.hidden ? ", et un adversaire pas encore choisi" : ""}.${d.matchup ? "" : " Le critère matchup n'intervient pas pour ce pick."}` : "Le matchup ne compte pas encore dans le classement."} Si tu connais le vrai rôle, corrige-le : le calcul redevient exact pour ce matchup.`
       ] : [
-        `Tant qu'il n'est pas visible, le conseil ne porte pas sur ton duel. Si tu peux, choisis après l'avoir vu.`,
-        `Le critère de matchup ne s'applique pas encore : le conseil repose sur le reste de la composition et sur la sécurité générale du pick.`,
-        `Sans candidat plausible, seul le critère « sans adversaire connu » intervient pour ce rôle.`
+        `Tant qu'il n'est pas identifié, le conseil ne porte pas sur ton matchup. Si tu peux, choisis après l'avoir vu.`,
+        d.blind ? `Le matchup ne compte pas encore : le conseil repose sur la comp adverse et sur la sécurité du pick en blind.` : `Le matchup ne compte pas encore : le conseil repose sur la comp adverse.`,
+        d.blind ? `Sans candidat plausible, le critère « Sécurité sans adversaire connu » remplace le matchup.` : `Le matchup ne compte pas encore : le conseil repose sur la comp adverse.`
       ], limits:"Déduction d'après les rôles habituels : ce n'est pas une information du client." }) },
 
   // ----- Composition -----
@@ -409,11 +416,11 @@ const COACH_RULES = [
 
   // ----- Données et limites -----
   { id:"limits.opponent-assumed", category:"limits", priority:58, basis:"estimate",
-    when: c => !c.manual && c.opponent && c.belief.confidence !== "élevée" ? {} : null,
-    build: c => ({ title:`${c.opp} supposé, à vérifier`,
+    when: c => !c.manual && c.opponent && coachOpponentWord(c) !== "presque sûr" ? {} : null,
+    build: c => { const word = coachOpponentWord(c), thin = word === "hypothèse"; return { title:thin ? `${c.opp} ? ${c.opponent}, hypothèse à vérifier` : `${c.opp} d'en face : ${c.opponent} (probable), à vérifier`,
       text:[`DRAFT pense que c'est ${c.opponent}, sans certitude. Si tu sais que c'est un autre champion, corrige-le.`,
-        `Confiance ${c.belief.confidence} : déduit des rôles habituels. Une correction change le matchup pris en compte.`,
-        `Déduction probabiliste sur les rôles habituels (confiance ${c.belief.confidence}), jamais une donnée du client. Sa qualité dépend de l'âge des données de rôles.`] }) },
+        `${thin ? `Hypothèse avec ${c.n} champion${c.n > 1 ? "s" : ""} vu${c.n > 1 ? "s" : ""}` : "Probable"} : déduit des rôles habituels. Une correction change le matchup pris en compte.`,
+        `Déduction probabiliste sur les rôles habituels (${thin ? `hypothèse, ${c.n} champion${c.n > 1 ? "s" : ""} vu${c.n > 1 ? "s" : ""}` : "probable"}), jamais une donnée du client. Sa qualité dépend de l'âge des données de rôles.`] }; } },
   { id:"limits.unknown-champion", category:"limits", priority:92, basis:"general",
     when: c => c.unknown.length ? {} : null,
     build: c => ({ title:`${coachList(c.unknown)} : champion inconnu de DRAFT`,

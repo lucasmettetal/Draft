@@ -267,8 +267,13 @@ function uncertaintySection(x) {
   if (!profile || !profile.available) out.push(masteryItem("uncertainty.no-history", "uncertainty", "general", "Aucun historique importé", byLevel(level, [
     "DRAFT ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft.", "Sans import, aucune expérience n'est connue.", "L'absence d'historique n'est pas lue comme un manque d'expérience."]), null));
   if (enemiesCount > 0 && enemiesCount < 5) out.push(masteryItem("uncertainty.incomplete", "uncertainty", "general", `Il reste ${5 - enemiesCount} adversaire${5 - enemiesCount > 1 ? "s" : ""} à voir`, "Ce conseil peut encore changer.", null));
-  if (opponent && !result.manual && result.belief.confidence !== "élevée") out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", `Adversaire supposé : ${opponent}`, "DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.", "Ce n'est pas une information du client."));
-  if (enemiesCount > 0 && !opponent) out.push(masteryItem("uncertainty.no-opponent", "uncertainty", "estimate", "Adversaire direct inconnu", "Le conseil ne peut pas encore porter sur un duel précis.", null));
+  // Même échelle que l'interface : probable, ou hypothèse avec 1 ou 2 champions vus ; pas identifié, pas encore choisi.
+  const thin = enemiesCount <= 2;
+  if (opponent && !result.manual && (thin || result.belief.confidence !== "élevée")) out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", thin ? `${oppName()} ? ${opponent}, hypothèse` : `${oppName()} d'en face : ${opponent} (probable)`, "DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.", "Ce n'est pas une information du client."));
+  if (enemiesCount > 0 && !opponent) {
+    const named = result.belief.candidates.some(c => c.known && c.p >= .2);
+    out.push(masteryItem("uncertainty.no-opponent", "uncertainty", "estimate", `${oppName()} d'en face : ${!named && result.belief.unrevealed >= .2 ? "pas encore choisi" : "pas identifié"}`, "Le conseil ne peut pas encore porter sur un matchup précis.", null));
+  }
   if (opponent && !liveMatchup(top.pick, opponent) && !matchupOf(opponent) && !providedMatchup(top.name, opponent, x.role)) out.push(masteryItem("uncertainty.no-matchup", "uncertainty", "general", `${top.name} contre ${opponent} : aucune donnée`, "Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.", null));
   const e = top.familiarity;
   if (e && e.count < RESULT_MIN_GAMES) out.push(masteryItem("uncertainty.small-sample", "uncertainty", "smallSample", `${pluralGames(e.count)} sur ${top.name} : trop peu pour conclure`, byLevel(level, [

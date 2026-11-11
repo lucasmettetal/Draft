@@ -11,7 +11,7 @@ Ce protocole complète [VALIDATION-REELLE.md](VALIDATION-REELLE.md), qui décrit
 | L'adversaire direct est-il bien reconnu ? | Nommé juste, nommé à tort, vrai adversaire cité parmi les hypothèses, par confiance et par rôle | `mid_affiche`, `hypotheses`, `confiance`, `role`, `mid_reel` |
 | Quels champions flex sont mal reconnus ? | Champions vus sur plusieurs rôles ; erreurs « affiché → réel » les plus fréquentes | `roles_reels`, `mid_affiche`, `mid_reel` |
 | Que conseille DRAFT dans de vraies situations ? | Conseil, alternative, « provisoire », corrections manuelles | `recommande`, `alternative`, `provisoire`, `corrections` |
-| Où les prédictions s'écartent-elles des observations ? | Rôles prédits pour les 5 adversaires comparés aux rôles réels | `roles_predits` (**à ajouter**, §5), `roles_reels` |
+| Où les prédictions s'écartent-elles des observations ? | Rôles prédits pour les 5 adversaires comparés aux rôles réels | `roles_predits` (depuis la 2.17, §5), `roles_reels` |
 
 Ce que la collecte **ne mesure pas** : si un autre pick aurait gagné. Une victoire dépend de trop d'autres choses ; aucun taux de victoire ne sera tiré de ce relevé.
 
@@ -56,12 +56,13 @@ Remplir, sur la dernière ligne du fichier :
 ```
 Le script ne modifie pas le fichier. Il donne l'adversaire direct par confiance et par rôle, les erreurs « affiché → réel » les plus fréquentes, et les champions vus sur plusieurs rôles.
 
-## 5. Ce qu'il faut ajouter au relevé (PR E, avec l'affichage des rôles)
+## 5. Rôles prédits dans le relevé (ajouté en V2.17, PR E)
 
-Aujourd'hui le relevé ne garde pas les rôles prédits pour les 5 adversaires : on ne peut comparer que l'adversaire direct. Ajout proposé, à faire **dans la PR E** (cohérence des rôles affichés), car il touche `web/index.html` (`sendValidationRow`) et l'en-tête de `src/DraftMid.cs` (`ValidationHeader`) :
-- colonne `roles_predits` : rôle le plus probable de chaque adversaire et sa probabilité, par exemple `Garen=top:0.92,Kog'Maw=mid:0.41` ;
-- ajoutée **en fin de ligne**, pour que les anciens fichiers restent lisibles ;
-- le script de rapport calculera alors la précision par rôle, la calibration et les flex mal reconnus, comme le banc synthétique.
+Depuis la 2.17, chaque ligne du relevé se termine par la colonne `roles_predits` : rôle le plus probable de chaque adversaire et sa probabilité, par exemple `Garen=top:0.92,Kog'Maw=mid:0.41`.
+- C'est la prédiction du modèle seul (`roleBelief`), sans les corrections faites à la main : elles restent dans `corrections`.
+- Elle est ajoutée **en fin de ligne** : les anciens fichiers restent lisibles, la colonne y est vide.
+- `tools/validation-report.ps1` la compare à `roles_reels` : précision par rôle réel, calibration selon la probabilité, rôles mal reconnus (souvent des flex). Les champions corrigés à la main ne comptent pas.
+- Aucune donnée de joueur : seulement des noms de champions et des rôles.
 
 ## 6. Seuils de décision
 
