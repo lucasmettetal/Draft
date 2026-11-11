@@ -28,7 +28,7 @@ UI-017 | index.html:983 | Notice début / fin de sélection (lecture du client) 
 UI-018 | index.html:1232 | Champ de recherche, rôle visé | Prochain champion : {Rôle}
 UI-019 | index.html:1235 | Champ de recherche (aria) | Ajouter un champion adverse
 UI-020 | index.html:1236 | Champ de recherche plein | Draft complète
-UI-021 | index.html:1236 | Champ de recherche (placeholder) | Ajouter un adversaire : ahri, tf, kata...
+UI-021 | index.html:SearchBox | Champ de recherche (placeholder, UX-7 : plus court pour la colonne étroite) | Adversaire : ahri, tf, kata...
 UI-022 | index.html:1244 | Recherche sans résultat | Aucun champion ne correspond à « {q} ».
 UI-023 | index.html:1262 | Infobulle « Je joue » (CTA_HELP) | Note ce choix dans ton journal. Rien n'est envoyé au client LoL : tu verrouilles toi-même ton champion.
 UI-024 | index.html:1263 | Infobulle « Choix serré » (CLOSE_HELP) | Deux de tes champions ont des scores proches : les deux se défendent.
@@ -196,8 +196,8 @@ UI-185 | index.html:1934 | Règles, titre | Fiabilité
 UI-186 | index.html:1935 | Règles, fiabilité selon le réglage (PR D) | re:(L'outil compte sur une frontline dans ton équipe \(réglage\)|Réglage actuel : pas de frontline alliée supposée\.).*Pendant la draft, le nom affiché ne change que si un autre pick mène d'au moins \d points\.
 UI-187 | index.html:1935 | Règles, fiabilité (suite, PR D) | Le ban conseillé vient de tes bilans calculés s'il y en a, sinon du tableau de matchups (mid), sinon des fiches de champions. La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch en cours.
 UI-188 | index.html:1936 | Mention légale | Outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games.
-UI-189 | index.html:1941,1947 | Vues d'Analyse | re:^(Critères|Comparer|Règles|Vue de l'analyse)$
-UI-190 | index.html:1953,1960 | Onglets | re:^(Plan|Analyse|Conseils|Duel|Parties|Détails et statistiques)$
+UI-189 | index.html:SidePanel | Onglets Critères et Comparer, aide des règles (UX-7 : un seul niveau) | re:^(Critères|Comparer)$
+UI-190 | index.html:SidePanel | Onglets du Simulateur (UX-7 : un seul niveau) | re:^(Plan|Critères|Comparer|Conseils|Duel|Détails et statistiques)$
 UI-191 | index.html:1974 | Barre mobile, égalité | Égalité : {liste}
 UI-192 | index.html:1977 | Barre mobile, bouton (PR C) | re:^(Enregistré|Je joue)$
 UI-193 | index.html:noPickText (fr.js panel.empty.noProfile) | Aucun profil (UX-6 : Mon pool) | Choisis ton rôle et tes champions dans Mon pool.
@@ -253,7 +253,8 @@ UI-240 | index.html:2206 | Réglages, sources, détail | re:(Patch : |Observatio
 UI-241 | index.html:2209-2210 | Réglages, rôles à surveiller | re:(Rôles à surveiller|plus souvent (Top|Jungle|Mid|ADC|Support) que dans)
 UI-242 | index.html:2226 | Réglages, import du journal (PR C) | re:^\d+ parties? ajoutées? à ton journal\.$
 UI-243 | index.html:2228 | Réglages, journal invalide | Ce fichier n'est pas un journal DRAFT : rien n'a été modifié.
-UI-244 | index.html:2238,2240 | Réglages, titre | re:^(Réglages|Fermer|Réglages Fermer)$
+UI-244 | index.html:SettingsPage | Réglages, titre (UX-7 : « Fermer » seulement ouverts seuls pendant une draft) | re:^(Réglages|Fermer les réglages)$
+UI-301 | index.html:SidePanel, CoachTab, SettingsSection (fr.js sim.*, settings.closeSolo, settings.diag.phase/placement) | UX-7, aide des règles, niveau des conseils rappelé, diagnostic sans phrase répétée | re:^(Comment DRAFT classe tes picks|Niveau des conseils : (Débutant|Intermédiaire|Avancé)\.|Niveau des conseils : (Débutant|Intermédiaire|Avancé)\. Changer dans Réglages|Changer dans Réglages|Fermer les réglages|État|Panneaux)$
 UI-245 | index.html:2239 | Réglages, en-tête | bêta : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.
 UI-246 | index.html:2244-2247 | Réglages, mise à jour | re:^(Mise à jour|Mise à jour en cours\.\.\.|Rechercher une mise à jour|Version .+\. DRAFT ne contacte GitHub que lorsque tu cliques\.)$
 UI-247 | index.html:2250-2254 | Réglages, historique | re:(Mon historique Riot|Rien d'importé pour l'instant\.|Sert à afficher ton expérience, jamais à changer le classement\. Tu saisis ta clé toi-même : elle n'est pas enregistrée\.|Arrêter l'import|Importer plus de parties|Importer mon historique Riot)
@@ -278,7 +279,7 @@ UI-265 | index.html:788,1303,2000,2174 | Noms des rôles (lignes adverses, séle
 UI-266 | index.html:2014,2406 | Marque | DRAFT
 UI-267 | index.html:1835 | Barre de victoires (aria) | re:^.+ : \d+V \d+D$
 UI-269 | index.html:1866,1869 | Statistiques : nom du compte importé (donnée) | re:^[^ ]+#[^ ]+$
-UI-268 | index.html:2311 | Réglages avancés : phase et placement transmis par le programme (src/DraftDetection.cs PhaseText) | re:^(Client LoL fermé|Client ouvert, hors draft \(estimation\)|Draft en cours \(estimation\)|Partie en cours|Phase incertaine)\.
+UI-268 | index.html:SettingsSection diag | Réglages > Diagnostic : phase et placement transmis par le programme (src/DraftDetection.cs PhaseText, placementNote), en deux lignes (UX-7) | re:^((Client LoL fermé|Client ouvert, hors draft \(estimation\)|Draft en cours \(estimation\)|Partie en cours|Phase incertaine)|Panneaux .+\.|Panneau .+\.|Pas de place .+\.|Position manuelle conservée\..+|.+panneau étroit .+\.)$
 UI-270 | index.html:App | Simulateur, bandeau (2.16.2, boutons UX-2) | re:^(Simulation : ta draft en cours n'est pas modifiée\.|Simulation|Reprendre la draft en cours|Quitter la simulation|Copie la draft en cours dans la simulation, sans lien avec elle\.)$
 UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 champions vus (PR E, B-05) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) \? hypothèse \(\d champions? vus?\)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$

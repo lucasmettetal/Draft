@@ -55,7 +55,7 @@ const FOUR=["Ornn","Sion","Ahri","Jinx"];
 // UX-3 : les réglages sont une section, plus une modale. Aucun champ de recherche d'adversaire ne reste derrière eux.
 {const x=await open("mid",null,1280,720);q(x,"nav-settings").click();await settle();const add=x.d.getElementById("add");if(add)add.focus();
  t(!add||x.d.activeElement!==add,"réglages : aucune recherche d'adversaire derrière eux ne prend le focus");
- t(!!q(x,"settings")&&!x.d.getElementById("add"),"réglages : la recherche d'adversaire n'est pas présente derrière");q(x,"settings-close").click();await settle();t(!!x.d.getElementById("add"),"réglages fermés : retour au Simulateur et à sa recherche");close(x);}
+ t(!!q(x,"settings")&&!x.d.getElementById("add"),"réglages : la recherche d'adversaire n'est pas présente derrière");q(x,"nav-sim").click();await settle();t(!!x.d.getElementById("add"),"réglages quittés par la navigation : retour au Simulateur et à sa recherche");close(x);}
 
 // ---------- États vides et messages internes ----------
 {const x=await open("mid",null,1280,720,"&tab=parties");await settle();{const h=q(x,"stats-tab-history");if(h){h.click();await settle();}}const body=text(x.d.body);t(!/draft-import-stats\.bat/.test(body),"Parties vide : plus de consigne « draft-import-stats.bat »");t(/historique Riot/.test(text(q(x,"stats-empty"))),"Parties vide : la consigne dit où importer ("+text(q(x,"stats-empty"))+")");close(x);}

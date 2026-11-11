@@ -37,6 +37,18 @@ namespace DraftMid
         [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
         [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
+        [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+        [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
+
+        // Barre de titre sombre (UX-7) : DWMWA_USE_IMMERSIVE_DARK_MODE = 20 (Windows 10 20H1 et 11), 19 avant. Repli silencieux :
+        // sur un Windows qui ne le connaît pas, la barre reste claire, rien d'autre ne change. Vrai si Windows a accepté.
+        public static bool DarkTitleBar(IntPtr hwnd)
+        {
+            int on = 1;
+            try { return DwmSetWindowAttribute(hwnd, 20, ref on, 4) == 0 || DwmSetWindowAttribute(hwnd, 19, ref on, 4) == 0; }
+            catch (DllNotFoundException) { return false; }
+            catch (EntryPointNotFoundException) { return false; }
+        }
         [DllImport("user32.dll")] public static extern IntPtr MonitorFromRect(ref RECT r, uint flags);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool GetMonitorInfo(IntPtr m, ref MONITORINFO i);
         [DllImport("user32.dll")] public static extern bool EnumDisplayMonitors(IntPtr d, IntPtr c, MonitorProc f, IntPtr l);
@@ -284,6 +296,13 @@ public static class Autostart
         }
 
         protected override bool ShowWithoutActivation { get { return true; } }
+
+        public bool DarkTitle;
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            if (Id == "full") DarkTitle = Native.DarkTitleBar(Handle);
+        }
 
         protected override void WndProc(ref Message m)
         {
@@ -1292,7 +1311,7 @@ public static class Autostart
         {
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
-                { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "phase", PhaseText.Of(machine.Current) },
+                { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current) },
                 { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", updateStatus } });
         }
 
@@ -1417,7 +1436,7 @@ public static class Autostart
             // Après un rechargement, les réglages doivent toujours s'ouvrir par le bouton du panneau.
             OpenFull("settings");
             if (!await wait("document.querySelector('[data-test=\"settings\"]')")) return "(réglages impossibles à ouvrir après rechargement : " + await run("location.search + ' ' + document.readyState") + ")";
-            await run("document.querySelector('[data-test=\"settings-close\"]').click(); 1");
+            await run("(document.querySelector('[data-test=\"settings-close\"]') || document.querySelector('[data-test=\"nav-sim\"]')).click(); 1");
             return "";
         }
 
@@ -1689,7 +1708,7 @@ public static class Autostart
         }
 
         // Ouvre les réglages comme le bouton du panneau, puis vérifie qu'ils se ferment des deux façons.
-        public string KeyStressReport = "non mesuré";
+        public string KeyStressReport = "non mesuré", DpiReport = "non mesuré";
 
         static class CloseProbe
         {
@@ -1721,7 +1740,9 @@ public static class Autostart
                 await Task.Delay(keyPause);
             };
             Func<string, Task> type = async word => { foreach (char c in word) await press(c.ToString(), "Key" + char.ToUpperInvariant(c), char.ToUpperInvariant(c), c.ToString()); };
-            const string Search = "document.querySelector('[data-test=\"pool-search\"]')", Close = "document.querySelector('[data-test=\"settings-close\"]')";
+            const string Search = "document.querySelector('[data-test=\"pool-search\"]')", Shown = "document.querySelector('[data-test=\"settings\"]')";
+            // UX-7 : plus de bouton « Fermer » dans les Réglages, sauf ouverts seuls pendant une draft (solo). Sinon, on revient par la navigation.
+            const string Leave = "(document.querySelector('[data-test=\"settings-close\"]') || document.querySelector('[data-test=\"nav-sim\"]'))";
 
             // 1. Fenêtre principale ouverte, puis Réglages : elle n'est ni rechargée, ni masquée.
             OpenFull("");
@@ -1731,7 +1752,15 @@ public static class Autostart
             await run("window.keepMark = 1; state.enemies.length || addEnemy('Sett'); 1");
             await waitFor("state.enemies.length > 0");
             OpenFull("settings");
-            if (!await waitFor(Close)) return "réglages absents ; ";
+            if (!await waitFor(Shown)) return "réglages absents ; ";
+            // UX-7 : la page suit l'échelle Windows de son écran (devicePixelRatio = DPI de la fenêtre / 96). Barre de titre sombre si Windows l'accepte.
+            {
+                string dpr = (await run("devicePixelRatio")).Trim('"');
+                double page, scale = Native.GetDpiForWindow(f.Handle) / 96.0;
+                bool read = double.TryParse(dpr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out page);
+                DpiReport = "page à " + dpr + ", fenêtre à " + scale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ", barre de titre " + (f.DarkTitle ? "sombre" : "claire (Windows ne le permet pas)");
+                if (!read || Math.Abs(page - scale) > 0.01) problem += "la page ne suit pas l'échelle Windows (" + DpiReport + ") ; ";
+            }
             if (await run("window.keepMark === 1") != "true") problem += "la page principale est rechargée à l'ouverture ; ";
             // UX-3 : les réglages sont une section à six rubriques ; la mise à jour est dans « Mises à jour », le pool dans Mon pool.
             await run("goView('settings', 'updates'); 1");
@@ -1786,14 +1815,14 @@ public static class Autostart
             // 4. Échap et Fermer ne ferment que les réglages, et le focus revient à la fenêtre principale (le Simulateur).
             await run("goView('sim'); 1");
             OpenFull("settings");
-            await waitFor(Close);
-            await run(Close + ".focus(); 1");
+            await waitFor(Shown);
+            await run("document.querySelector('[data-test=\"settings-section-general\"]').focus(); 1");
             await press("Escape", "Escape", 27, "");
             if (!await waitFor("!document.querySelector('[data-test=\"settings\"]')")) problem += "Échap ne ferme pas les réglages ; ";
             if (await run("state.enemies.join()") != enemiesBefore) problem += "Échap efface la draft ; ";
             OpenFull("settings");
-            await waitFor(Close);
-            await run(Close + ".click(); 1");
+            await waitFor(Shown);
+            await run(Leave + ".click(); 1");
             if (!await waitFor("!document.querySelector('[data-test=\"settings\"]')")) problem += "Fermer ne ferme pas les réglages ; ";
             await Task.Delay(200);
             if (!f.Visible) problem += "Fermer masque la fenêtre principale ; ";
@@ -1805,8 +1834,8 @@ public static class Autostart
             f.Hide();
             OpenFull("settings");
             await findWindow();
-            await waitFor(Close);
-            await run(Close + ".click(); 1");
+            await waitFor(Shown);
+            await run(Leave + ".click(); 1");
             await waitFor("!document.querySelector('[data-test=\"settings\"]')");
             await Task.Delay(300);
             if (!f.Visible) problem += "depuis le menu, Fermer masque toute la fenêtre ; ";
@@ -1819,8 +1848,8 @@ public static class Autostart
             await showPanels(true);
             OpenFull("settings");
             await findWindow();
-            await waitFor(Close);
-            await run(Close + ".click(); 1");
+            await waitFor(Shown);
+            await run(Leave + ".click(); 1");
             for (int i = 0; i < 60 && f.Visible; i++) await Task.Delay(50);
             if (!panelsShown) problem += "les panneaux de test ne sont pas restés affichés ; ";
             if (f.Visible) problem += "pendant une draft, Fermer laisse la grande fenêtre ouverte ; ";
@@ -1832,10 +1861,10 @@ public static class Autostart
             await waitFor("document.querySelector('[data-test=\"app\"]')");
             f.View.CoreWebView2.Reload();
             OpenFull("settings");
-            await waitFor(Close);
+            await waitFor(Shown);
             await Task.Delay(300);
-            await waitFor(Close);
-            await run(Close + ".click(); 1");
+            await waitFor(Shown);
+            await run(Leave + ".click(); 1");
             await waitFor("!document.querySelector('[data-test=\"settings\"]')");
             await Task.Delay(300);
             if (!f.Visible) problem += "fenêtre principale ouverte, page en rechargement : Fermer fait disparaître la fenêtre principale ; ";
@@ -1845,9 +1874,9 @@ public static class Autostart
             f.Hide();
             OpenFull("settings");
             await findWindow();
-            await waitFor(Close);
+            await waitFor(Shown);
             await showPanels(false);
-            await run(Close + ".click(); 1");
+            await run(Leave + ".click(); 1");
             for (int i = 0; i < 20; i++) await Task.Delay(50);
             if (!panels.Values.Any(p => p.Visible)) problem += "draft terminée pendant les réglages : Fermer ne laisse plus aucune fenêtre DRAFT ; ";
             visibility.Manual = manualBefore;
@@ -1911,8 +1940,8 @@ public static class Autostart
             if (f == null || f.IsDisposed || !f.Visible) problem += "après une fermeture par WM_CLOSE, les réglages ne se rouvrent plus ; ";
             else
             {
-                if (!await waitFor(Close)) problem += "fenêtre recréée sans les réglages ; ";
-                else { await run(Close + ".click(); 1"); await waitFor("!document.querySelector('[data-test=\"settings\"]')"); }
+                if (!await waitFor(Shown)) problem += "fenêtre recréée sans les réglages ; ";
+                else { await run(Leave + ".click(); 1"); await waitFor("!document.querySelector('[data-test=\"settings\"]')"); }
                 f.Hide();
             }
             return problem;
@@ -2577,7 +2606,7 @@ public static class Autostart
             t(await app.TestReleaseAndReopen(), "Client fermé puis rouvert : l'application reste ouverte et recrée ses panneaux");
             string fullProblem = await app.TestFullWindow();
             s_keyReport = app.KeyStressReport;
-            t(fullProblem == "", "Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture " + fullProblem);
+            t(fullProblem == "", "Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture ; échelle (" + app.DpiReport + ") " + fullProblem);
             string menuProblem = await app.TestMenuAndOverlay();
             t(menuProblem == "", "Menu de l'icône (8 entrées au plus, rien de perdu), double-clic, bulle de masquage (" + app.MenuReport + ") " + menuProblem);
             string profileProblem = await app.TestProfilesAndRole();
