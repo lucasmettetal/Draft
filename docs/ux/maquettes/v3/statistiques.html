@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Mes statistiques</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<div class="app">
+<nav class="nav" aria-label="Navigation principale">
+  <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg><span>DRAFT</span><small>bêta</small></div>
+  <div class="nav-list"><a class="nav-link" href="accueil.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg><span>Accueil</span></a><a class="nav-link" href="mon-pool.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z"/></svg><span>Mon pool</span></a><a class="nav-link" href="simulateur.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l13 8-13 8z"/></svg><span>Simulateur</span></a><a class="nav-link" href="statistiques.html" aria-current="page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10 M12 20V4 M19 20v-7"/></svg><span>Mes statistiques</span></a></div>
+  <div class="nav-grow"></div>
+  <div class="nav-list"><a class="nav-link" href="reglages.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg><span>Réglages</span></a></div>
+  <div class="nav-state" aria-label="État">
+    <p class="line"><i class="dot good"></i><span class="lbl">League</span><span>Connecté</span></p>
+    <p class="line"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><span class="lbl">Rôle joué</span><span>Mid</span></p>
+  </div>
+  <p class="nav-legal">Version 3.0.0 bêta. Non approuvé par Riot Games.</p>
+</nav>
+<div class="main"><main class="page">
+<header class="page-head">
+  <div><h1>Mes statistiques</h1><p>Ton journal DRAFT et ton historique Riot, au même endroit.</p></div>
+  <span class="example">Exemple</span>
+</header>
+<div class="tabs" role="tablist" aria-label="Statistiques" style="margin-bottom:20px"><a role="tab" aria-selected="true" href="#">Vue d'ensemble</a><a role="tab" aria-selected="false" href="#">Journal des drafts</a><a role="tab" aria-selected="false" href="#">Historique Riot</a></div>
+<dl class="kpis">
+  <div><dt>Drafts notées</dt><dd class="num">24</dd></div>
+  <div><dt>Victoires</dt><dd class="num">13 <small>sur 22 parties terminées</small></dd></div>
+  <div><dt>Conseil suivi</dt><dd class="num">19 <small>sur 24</small></dd></div>
+  <div><dt>Historique Riot</dt><dd class="num">100 <small>parties, 08/11/2026</small></dd></div>
+</dl>
+<div class="grid-2" style="margin-top:16px">
+  <section class="box" aria-labelledby="vc">
+    <div class="box-head"><h2 id="vc">Victoires par champion joué</h2><p>Journal DRAFT</p></div>
+    <div style="padding:8px 24px 16px"><div class="winbar"><span>Fizz</span><span class="track" role="img" aria-label="Fizz : 6 victoires, 3 défaites"><i class="w" style="width:67%"></i><i class="l" style="width:33%"></i></span><span class="r num">6 V, 3 D</span></div><div class="winbar"><span>Ahri</span><span class="track" role="img" aria-label="Ahri : 5 victoires, 4 défaites"><i class="w" style="width:56%"></i><i class="l" style="width:44%"></i></span><span class="r num">5 V, 4 D</span></div><div class="winbar"><span>Kog'Maw</span><span class="track" role="img" aria-label="Kog'Maw : 2 victoires, 2 défaites"><i class="w" style="width:50%"></i><i class="l" style="width:50%"></i></span><span class="r num">2 V, 2 D</span></div></div>
+    <div class="box-head" style="padding-top:0"><h2>Selon le type de mid adverse</h2></div>
+    <div style="padding:8px 24px 20px"><div class="winbar"><span>Contrôle</span><span class="track" role="img" aria-label="Contrôle : 5 victoires, 2 défaites"><i class="w" style="width:71%"></i><i class="l" style="width:29%"></i></span><span class="r num">5 V, 2 D</span></div><div class="winbar"><span>Assassin</span><span class="track" role="img" aria-label="Assassin : 3 victoires, 5 défaites"><i class="w" style="width:38%"></i><i class="l" style="width:62%"></i></span><span class="r num">3 V, 5 D</span></div><div class="winbar"><span>Mage de poke</span><span class="track" role="img" aria-label="Mage de poke : 5 victoires, 2 défaites"><i class="w" style="width:71%"></i><i class="l" style="width:29%"></i></span><span class="r num">5 V, 2 D</span></div></div>
+  </section>
+  <section class="box" aria-labelledby="hr">
+    <div class="box-head"><h2 id="hr">Historique Riot</h2><p>Ton expérience, jamais le classement.</p></div>
+    <ul class="rows" style="margin-top:8px">
+      <li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><span>100 parties importées</span><span class="meta">le 08/11/2026, compte Exemple#EUW</span></li>
+      <li><span class="small muted">Tu saisis ta clé Riot dans une fenêtre DRAFT. Elle sert à un seul import et n'est jamais enregistrée.</span></li>
+      <li><button class="btn btn-secondary" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 14a4 4 0 1 1 0-8a4 4 0 0 1 0 8z M11.5 11.5L21 21 M17 17l2-2 M15 15l2-2"/></svg>Importer plus de parties</button><span class="meta">Environ 3 minutes pour 100 parties</span></li>
+    </ul>
+    <div class="box-head" style="padding-top:8px"><h2>Le plus joué en Mid</h2></div>
+    <div style="padding:8px 24px 20px"><div class="winbar"><span>Ahri</span><span class="track" role="img" aria-label="Ahri : 18 victoires, 14 défaites"><i class="w" style="width:56%"></i><i class="l" style="width:44%"></i></span><span class="r num">18 V, 14 D</span></div><div class="winbar"><span>Fizz</span><span class="track" role="img" aria-label="Fizz : 12 victoires, 9 défaites"><i class="w" style="width:57%"></i><i class="l" style="width:43%"></i></span><span class="r num">12 V, 9 D</span></div><div class="winbar"><span>Syndra (hors pool)</span><span class="track" role="img" aria-label="Syndra (hors pool) : 4 victoires, 6 défaites"><i class="w" style="width:40%"></i><i class="l" style="width:60%"></i></span><span class="r num">4 V, 6 D</span></div></div>
+  </section>
+</div>
+<section class="box" style="margin-top:16px" aria-labelledby="jd">
+  <div class="box-head"><h2 id="jd">Dernières drafts</h2><p>Notées avec « Je joue ». DRAFT garde le pick, le mid adverse et le résultat, rien d'autre.</p><div class="tools"><button class="btn btn-sm btn-secondary" type="button">Voir tout le journal</button></div></div>
+  <table class="table" style="margin-top:8px"><thead><tr><th>Ton pick</th><th>Mid adverse</th><th>Conseil</th><th>Résultat</th><th>Date</th></tr></thead><tbody><tr><td><span class="name" style="display:flex;align-items:center;gap:10px"><span class="mono s24 t1" aria-hidden="true">Fi</span>Fizz</span></td><td>Syndra</td><td>Suivi</td><td><span class="res win">Victoire</span></td><td class="muted num">10/11</td></tr><tr><td><span class="name" style="display:flex;align-items:center;gap:10px"><span class="mono s24 t2" aria-hidden="true">Ah</span>Ahri</span></td><td>Zed</td><td>Alternative</td><td><span class="res loss">Défaite</span></td><td class="muted num">10/11</td></tr><tr><td><span class="name" style="display:flex;align-items:center;gap:10px"><span class="mono s24 t3" aria-hidden="true">Fi</span>Fizz</span></td><td>Orianna</td><td>Suivi</td><td><span class="res win">Victoire</span></td><td class="muted num">09/11</td></tr><tr><td><span class="name" style="display:flex;align-items:center;gap:10px"><span class="mono s24 t4" aria-hidden="true">KM</span>Kog'Maw</span></td><td>Yasuo</td><td>Suivi</td><td><span class="res none">Non noté</span></td><td class="muted num">09/11</td></tr><tr><td><span class="name" style="display:flex;align-items:center;gap:10px"><span class="mono s24 t5" aria-hidden="true">Ah</span>Ahri</span></td><td>Viktor</td><td>Suivi</td><td><span class="res win">Victoire</span></td><td class="muted num">08/11</td></tr></tbody></table>
+</section>
+<details class="box box-pad" style="margin-top:16px"><summary class="small">Importer un ancien fichier (journal DRAFT ou statistiques exportées)</summary><p class="hint" style="margin-top:8px">Rien n'est supprimé. Un fichier invalide ne modifie rien.</p></details>
+</main></div>
+</div>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

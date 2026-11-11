@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Menu de l'icône</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<main style="position:relative;min-height:100vh;padding:24px;background:#05080c">
+<div class="box" role="menu" aria-label="Menu de DRAFT" style="position:absolute;left:24px;top:24px;width:300px;padding:6px;box-shadow:var(--shadow-float);border-color:var(--line-strong)">
+  <p class="small muted" style="display:flex;align-items:center;gap:8px;padding:8px 10px"><i class="dot good"></i>DRAFT : connecté, aucune draft</p>
+  <div class="nav-sep" style="margin:4px 0"></div>
+  <a class="menu-item" role="menuitem" href="accueil.html"><b style="font-weight:600">Ouvrir DRAFT</b></a>
+  <a class="menu-item" role="menuitem" href="#">Afficher les panneaux<span class="count">Ctrl+Alt+D</span></a>
+  <a class="menu-item" role="menuitem" href="simulateur.html">Simuler une draft</a>
+  <a class="menu-item" role="menuitem" href="#" style="background:var(--hover)">Détection de la draft<span class="count"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></a>
+  <div class="nav-sep" style="margin:4px 0"></div>
+  <a class="menu-item" role="menuitem" href="reglages.html">Réglages</a>
+  <a class="menu-item" role="menuitem" href="#">Rechercher une mise à jour</a>
+  <div class="nav-sep" style="margin:4px 0"></div>
+  <a class="menu-item" role="menuitem" href="#">Quitter</a>
+</div>
+<div class="box" role="menu" aria-label="Détection de la draft" style="position:absolute;left:316px;top:150px;width:300px;padding:6px;box-shadow:var(--shadow-float);border-color:var(--line-strong)">
+  <a class="menu-item" role="menuitem" href="#">C'est une draft : retenir cet écran</a>
+  <a class="menu-item" role="menuitem" href="#">Ce n'est pas une draft : retenir cet écran</a>
+  <div class="nav-sep" style="margin:4px 0"></div>
+  <a class="menu-item" role="menuitem" href="#">Copier le diagnostic de connexion</a>
+</div>
+<div class="toast" role="status" style="position:absolute;left:24px;top:400px;width:592px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><span class="grow"><b style="display:block">DRAFT est à jour</b><span class="muted">Version 3.0.0 bêta. Résultat aussi visible sur l'Accueil.</span></span></div>
+<p class="small muted" style="position:absolute;left:24px;top:490px;max-width:592px">Huit entrées, état compris. Double-clic sur l'icône : ouvrir DRAFT. Le menu natif garde le thème de Windows ; la maquette montre l'ordre et les libellés, pas le rendu exact.</p>
+</main>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Dialogue de clé Riot</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<main style="min-height:100vh;padding:24px;background:#05080c">
+<div class="box" style="width:520px;box-shadow:var(--shadow-float);border-color:var(--line-strong);overflow:hidden">
+  <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;background:#0d131b;border-bottom:1px solid var(--line);font-size:var(--fs-sm)"><svg style="width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:2.2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg>DRAFT : clé Riot<span style="margin-left:auto" class="muted"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></span></div>
+  <div style="padding:20px 24px" class="stack-4">
+    <div><p class="h2">Importer mon historique Riot</p><p class="small muted" style="margin-top:4px">DRAFT lit tes dernières parties pour afficher ton expérience. Le classement ne change pas.</p></div>
+    <div class="band band-info small"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 7v5l3 3"/></svg><span>100 parties, environ 3 minutes. Tu peux continuer à utiliser DRAFT.</span></div>
+    <label class="field"><span>Comptes (Nom#TAG, un par ligne)</span><input class="input" value="Exemple#EUW"></label>
+    <label class="field"><span>Clé Riot <a class="btn-link btn xs" href="#">Obtenir une clé</a></span><input class="input is-focus" value="••••••••••••••••••••••••"><span class="hint">Utilisée pour cet import, puis oubliée. Jamais enregistrée, jamais envoyée ailleurs qu'à Riot.</span></label>
+    <div class="grid-2"><label class="field"><span>Région</span><select class="select" aria-label="Région"><option>Europe de l'Ouest</option><option>Europe du Nord et de l'Est</option><option>Amérique du Nord</option><option>Corée</option></select></label><label class="field"><span>Parties</span><select class="select" aria-label="Parties"><option>100</option><option>200</option><option>50</option></select></label></div>
+    <label class="toggle" style="padding:0"><span class="check on" aria-hidden="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="txt"><b>J'accepte que DRAFT lise ces parties avec ma clé</b><span>Rien n'est écrit chez Riot. Tu peux arrêter l'import à tout moment.</span></span></label>
+  </div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 24px;border-top:1px solid var(--line);background:#0d131b"><button class="btn btn-secondary" type="button">Annuler</button><button class="btn btn-primary" type="button">Importer</button></div>
+</div>
+<p class="small muted" style="margin-top:12px;max-width:520px">Même dialogue pour les trois usages : historique, rôles, matchups. Seuls le titre, la phrase « ce qui sera lancé » et la durée changent. Fenêtre native (la clé ne passe jamais par la page), barre de titre sombre.</p>
+</main>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Réglages</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<div class="app">
+<nav class="nav" aria-label="Navigation principale">
+  <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg><span>DRAFT</span><small>bêta</small></div>
+  <div class="nav-list"><a class="nav-link" href="accueil.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg><span>Accueil</span></a><a class="nav-link" href="mon-pool.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z"/></svg><span>Mon pool</span></a><a class="nav-link" href="simulateur.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l13 8-13 8z"/></svg><span>Simulateur</span></a><a class="nav-link" href="statistiques.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10 M12 20V4 M19 20v-7"/></svg><span>Mes statistiques</span></a></div>
+  <div class="nav-grow"></div>
+  <div class="nav-list"><a class="nav-link" href="reglages.html" aria-current="page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg><span>Réglages</span></a></div>
+  <div class="nav-state" aria-label="État">
+    <p class="line"><i class="dot good"></i><span class="lbl">League</span><span>Connecté</span></p>
+    <p class="line"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><span class="lbl">Rôle joué</span><span>Mid</span></p>
+  </div>
+  <p class="nav-legal">Version 3.0.0 bêta. Non approuvé par Riot Games.</p>
+</nav>
+<div class="main"><main class="page">
+<header class="page-head"><div><h1>Réglages</h1><p>Six rubriques. Chaque changement est enregistré tout de suite.</p></div></header>
+<div class="settings">
+  <nav class="subnav" aria-label="Rubriques des réglages"><a href="#general" class="on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg>Général</a><a href="#connexion"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5 M15 3v5 M6 8h12v3a6 6 0 0 1-12 0z M12 17v4"/></svg>Connexion League</a><a href="#affichage"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v12H3z M8 20h8 M12 16v4"/></svg>Affichage et fenêtres</a><a href="#donnees"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Données et confidentialité</a><a href="#mises-a-jour"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7 M20 4v5h-5"/></svg>Mises à jour</a><a href="#diagnostic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Diagnostic et informations</a></nav>
+  <div>
+<section class="set-section default" id="general" aria-labelledby="h-gen">
+  <h2 id="h-gen">Général</h2><p class="lede">Ce qui vaut partout dans DRAFT.</p>
+  <div class="box set-group">
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Langue</b><span>Plus tard : français ou anglais. Automatique suit la langue de Windows.</span></span><select class="select" aria-label="Langue"><option>Automatique (Windows)</option><option>Français</option><option>English</option></select></div>
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Niveau des conseils</b><span>Change la quantité d'explications, jamais le classement.</span></span><select class="select" aria-label="Niveau des conseils"><option>Intermédiaire</option><option>Débutant</option><option>Avancé</option></select></div>
+  </div>
+  <div class="box set-group">
+    <label class="toggle on"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Supposer une frontline dans mon équipe</b><span>Le calcul compte sur un tank ou un bruiser allié. Désactive-le si ton équipe en manque souvent.</span></span></label>
+    <label class="toggle on"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Démarrer avec Windows</b><span>DRAFT se lance discrètement près de l'horloge, sans ouvrir de fenêtre.</span></span></label>
+  </div>
+</section>
+<section class="set-section" id="connexion" aria-labelledby="h-con">
+  <h2 id="h-con">Connexion League</h2><p class="lede">Comment DRAFT sait qu'une draft commence et qui est en face.</p>
+  <div class="band band-live" role="status" style="margin-bottom:16px"><i class="dot good"></i><b>Connecté au client League</b><span class="muted">Dernière lecture il y a 2 secondes.</span></div>
+  <div class="box set-group">
+    <label class="toggle on"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Lire la draft depuis le client League</b><span>Les panneaux s'ouvrent au bon moment et les adversaires se remplissent seuls. Lecture seule : rien n'est modifié dans le client. Riot n'a pas confirmé que c'est autorisé : c'est ton choix.</span></span></label>
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Quand League t'attribue un autre rôle</b><span>Seulement avec la lecture du client. Rien n'est déduit de ton champion.</span></span><select class="select" aria-label="Quand League t'attribue un autre rôle"><option>Me proposer de changer</option><option>Changer de rôle joué</option><option>Ne rien faire</option></select></div>
+  </div>
+  <div class="box set-group">
+    <h3>Sans lecture du client</h3>
+    <p class="small muted" style="padding-bottom:8px">DRAFT estime la draft à partir de l'image. Si les panneaux ne viennent pas, ou viennent à tort, apprends-lui l'écran depuis le menu de l'icône, pendant que le client est visible : « Détection de la draft », puis « C'est une draft » ou « Ce n'est pas une draft ».</p>
+  </div>
+  <div class="box set-group">
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Diagnostic de connexion</b><span>Un texte à copier dans un message d'aide. Aucune donnée personnelle.</span></span><a class="btn btn-secondary" href="#diagnostic">Ouvrir le diagnostic</a></div>
+  </div>
+</section>
+<section class="set-section" id="affichage" aria-labelledby="h-aff">
+  <h2 id="h-aff">Affichage et fenêtres</h2><p class="lede">Où et quand les panneaux de draft s'affichent.</p>
+  <div class="box set-group">
+    <label class="toggle on"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Afficher les panneaux automatiquement pendant la draft</b><span>Sinon, Ctrl+Alt+D ou le menu de l'icône les affiche.</span></span></label>
+    <label class="toggle on"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Coller les panneaux au client League</b><span>Ils suivent le client quand tu le déplaces. Sans place autour, ils vont sur un autre écran.</span></span></label>
+    <label class="toggle"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Un seul panneau</b><span>Composition adverse et conseil réunis. DRAFT y passe seul quand la place manque.</span></span></label>
+    <label class="toggle on"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Toujours au premier plan</b><span>Les panneaux restent visibles au-dessus des autres fenêtres.</span></span></label>
+  </div>
+  <div class="box set-group">
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Replacer les panneaux</b><span>Les remet à côté du client et réactive le collage.</span></span><button class="btn btn-secondary" type="button">Replacer</button></div>
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Raccourci clavier</b><span>Affiche ou masque les panneaux, partout dans Windows.</span></span><span><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>D</kbd></span></div>
+  </div>
+</section>
+<section class="set-section" id="donnees" aria-labelledby="h-don">
+  <h2 id="h-don">Données et confidentialité</h2><p class="lede">Ce que DRAFT calcule, ce qu'il garde, et ce qu'il ne garde jamais.</p>
+  <div class="box set-group">
+    <h3>Calculs avec ta clé Riot</h3>
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Rôles des champions</b><span>Calculés le 03/11/2026 sur 2 000 parties récentes. Servent à deviner le mid adverse. Environ 40 minutes.</span></span><button class="btn btn-secondary" type="button">Mettre à jour</button></div>
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Matchups du rôle Mid</b><span>Calculés le 03/11/2026. Ahri : 1 640 parties, Fizz : 1 210, Kog'Maw : 85. Sous 100 parties, le matchup n'utilise pas le bilan. Environ 65 minutes.</span></span><button class="btn btn-secondary" type="button">Mettre à jour</button></div>
+  </div>
+  <div class="box set-group">
+    <h3>Ce que DRAFT garde sur ce PC</h3>
+    <ul class="small" style="padding-bottom:12px;display:grid;gap:6px">
+      <li>Tes profils, ton journal de drafts et tes réglages, dans ton dossier Windows.</li>
+      <li>Ta clé Riot : jamais. Tu la saisis pour un calcul ou un import, puis elle est oubliée.</li>
+      <li>Aucun envoi automatique : DRAFT ne contacte Riot ou GitHub que lorsque tu le demandes. Les illustrations viennent de Data Dragon.</li>
+    </ul>
+  </div>
+  <details class="box set-group"><summary style="padding:12px 0">Sources de données (6)</summary><p class="small muted" style="padding-bottom:12px">Fiches des champions écrites à la main, rôles, matchups, historique, illustrations. Pour chacune : date, patch, nombre de parties.</p></details>
+</section>
+<section class="set-section" id="mises-a-jour" aria-labelledby="h-maj">
+  <h2 id="h-maj">Mises à jour</h2><p class="lede">DRAFT ne contacte GitHub que lorsque tu cliques.</p>
+  <div class="box set-group">
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Version 3.0.0 bêta</b><span>Vérifié aujourd'hui à 10:42 : DRAFT est à jour.</span></span><button class="btn btn-secondary" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7 M20 4v5h-5"/></svg>Rechercher une mise à jour</button></div>
+    <p class="small muted" style="padding:0 0 12px">Pendant une draft, une partie, un import ou un calcul, l'installation attend. Si la nouvelle version ne démarre pas, DRAFT revient seul à la précédente. Tes données sont conservées.</p>
+  </div>
+</section>
+<section class="set-section" id="diagnostic" aria-labelledby="h-dia">
+  <h2 id="h-dia">Diagnostic et informations</h2><p class="lede">Pour comprendre un problème ou demander de l'aide.</p>
+  <div class="box set-group">
+    <div class="set-line"><span class="txt"><b style="font-weight:400">Diagnostic de connexion League</b><span>Copie un texte court à coller dans ton message.</span></span><button class="btn btn-secondary" type="button">Copier le diagnostic</button></div>
+    <label class="toggle"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Journal de diagnostic de la détection</b><span>Chiffres seulement, aucune image ni nom de joueur.</span></span></label>
+    <p class="small muted" style="padding:0 0 12px">État : client fermé. Placement : panneaux de chaque côté du client.</p>
+  </div>
+  <div class="box set-group">
+    <h3>À propos</h3>
+    <p class="small muted" style="padding-bottom:12px">DRAFT 3.0.0 bêta, ton assistant stratégique pour League of Legends. DRAFT n'est pas approuvé par Riot Games et ne reflète pas les opinions de Riot Games.</p>
+  </div>
+</section></div>
+</div>
+</main></div>
+</div>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

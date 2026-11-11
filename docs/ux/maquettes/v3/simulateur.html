@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Simulateur</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<div class="app">
+<nav class="nav" aria-label="Navigation principale">
+  <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg><span>DRAFT</span><small>bêta</small></div>
+  <div class="nav-list"><a class="nav-link" href="accueil.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg><span>Accueil</span></a><a class="nav-link" href="mon-pool.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z"/></svg><span>Mon pool</span></a><a class="nav-link" href="simulateur.html" aria-current="page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l13 8-13 8z"/></svg><span>Simulateur</span></a><a class="nav-link" href="statistiques.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10 M12 20V4 M19 20v-7"/></svg><span>Mes statistiques</span></a></div>
+  <div class="nav-grow"></div>
+  <div class="nav-list"><a class="nav-link" href="reglages.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg><span>Réglages</span></a></div>
+  <div class="nav-state" aria-label="État">
+    <p class="line"><i class="dot good"></i><span class="lbl">League</span><span>Connecté</span></p>
+    <p class="line"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><span class="lbl">Rôle joué</span><span>Mid</span></p>
+  </div>
+  <p class="nav-legal">Version 3.0.0 bêta. Non approuvé par Riot Games.</p>
+</nav>
+<div class="main"><main class="page wide">
+<header class="page-head">
+  <div><h1>Simulateur</h1><p>Prépare une draft à l'avance. Rien n'est envoyé aux panneaux. <span class="example">Exemple</span></p></div>
+  <div class="tools"><div class="seg gold" role="group" aria-label="Source de la vue"><button type="button" aria-pressed="true">Simulation</button><button type="button" aria-pressed="false">Draft en cours</button></div></div>
+</header>
+<div class="band band-sim" role="status" style="margin-bottom:16px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 11v6 M12 7.5v.5"/></svg><b>Simulation</b><span>Ta draft en cours n'est pas modifiée.</span><span class="grow"></span>
+  <button class="btn btn-sm btn-secondary" type="button">Draft aléatoire</button>
+  <button class="btn btn-sm btn-secondary" type="button">Nouvelle simulation</button>
+  <button class="btn btn-sm btn-secondary is-disabled" type="button" disabled title="Aucune sélection en cours">Reprendre la draft en cours</button>
+</div>
+<div class="desk">
+  <section class="box box-pad" aria-labelledby="ca">
+    <h2 class="h2" id="ca" style="display:flex">Composition adverse <span class="muted small" style="margin-left:auto">4 sur 5</span></h2>
+    <label class="search" style="display:block;margin:12px 0 6px"><span class="sr">Ajouter un adversaire</span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z M20 20l-4.8-4.8"/></svg><input class="input" type="search" placeholder="Adversaire : ahri, tf, kata..."></label>
+    <p class="hint" style="margin-bottom:12px">Entrée ajoute. Échap vide le champ, jamais la draft.</p>
+    <div class="slot"><span class="lane"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h14v4H7v10H3z M11 11h6v6h-6z"/></svg>Top</span><span class="mono  t3" aria-hidden="true">Or</span><span class="who"><b>Ornn</b><span>Tank, Engage</span></span><button class="btn btn-icon" type="button" aria-label="Retirer Ornn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></div><div class="slot"><span class="lane"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2c1 5 5 6 5 11a5 5 0 0 1-10 0c0-5 4-6 5-11z"/></svg>Jungle</span><span class="mono  t5" aria-hidden="true">LS</span><span class="who"><b>Lee Sin</b><span>Bruiser, Plongeur</span></span><button class="btn btn-icon" type="button" aria-label="Retirer Lee Sin"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></div><div class="slot mine"><span class="lane"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg>Mid</span><span class="mono  t2" aria-hidden="true">Sy</span><span class="who"><b>Syndra</b><span><em>Mid probable</em>, Carry, Contrôle</span></span><button class="btn btn-icon" type="button" aria-label="Retirer Syndra"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></div><div class="slot"><span class="lane"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M17 17H3v-4h10V3h4z M3 3h6v6H3z"/></svg>ADC</span><span class="mono  t1" aria-hidden="true">Ji</span><span class="who"><b>Jinx</b><span>Carry</span></span><button class="btn btn-icon" type="button" aria-label="Retirer Jinx"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></div><div class="slot empty"><span class="lane"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5z"/></svg>Support</span><span class="ghost"></span><span class="who">Ajouter le Support</span><span></span></div>
+    <h3 class="h2" style="margin:20px 0 10px">Profil de l'équipe</h3>
+    <div class="meter"><span>Frontline</span><span class="pips" role="img" aria-label="Frontline : 2 sur 5"><i class="f"></i><i class="f"></i><i></i><i></i><i></i></span></div><div class="meter"><span>Carrys fragiles</span><span class="pips" role="img" aria-label="Carrys fragiles : 2 sur 5"><i class="f"></i><i class="f"></i><i></i><i></i><i></i></span></div><div class="meter hot"><span>Plongeurs</span><span class="pips" role="img" aria-label="Plongeurs : 1 sur 5"><i class="f"></i><i></i><i></i><i></i><i></i></span></div><div class="meter hot"><span>Contrôles ciblés</span><span class="pips" role="img" aria-label="Contrôles ciblés : 1 sur 5"><i class="f"></i><i></i><i></i><i></i><i></i></span></div><div class="meter"><span>Engage</span><span class="pips" role="img" aria-label="Engage : 1 sur 5"><i class="f"></i><i></i><i></i><i></i><i></i></span></div>
+    <p class="small" style="margin-top:10px"><span style="color:var(--threat)">Leurs forces : frontline.</span> <span style="color:var(--accent)">Leurs failles : plusieurs cibles fragiles.</span></p>
+  </section>
+  <div class="stack-4">
+    <section class="box stage" aria-label="Recommandation">
+      <div class="art" data-label="Illustration du champion"></div><div class="art-fade"></div>
+      <div class="cluster"><span class="tag net">Choix net</span><span class="tag">4/5 adversaires</span></div>
+      <p class="verdict-name">Fizz</p>
+      <p class="small"><span class="muted">Sinon</span> <b>Ahri</b></p>
+      <ul class="reasons" style="margin-top:10px"><li>1er choix contre Syndra</li><li>2 cibles fragiles : Syndra, Jinx</li></ul>
+      <div class="danger" style="margin-top:12px"><span class="mono s32 t2" aria-hidden="true">Sy</span><div><b>Danger : Syndra</b><p>Son contrôle ciblé peut stopper ton plongeon.</p></div></div>
+      <div class="cluster" style="margin-top:16px"><button class="btn btn-primary" type="button">Je joue Fizz</button><span class="hint">Note ton pick dans ton journal.</span></div>
+    </section>
+    <section class="box box-pad" aria-labelledby="tp">
+      <h2 class="h2" id="tp" style="display:flex">Ton pool <span class="muted small" style="margin-left:auto">Clique sur le champion que tu joues</span></h2>
+      <div style="margin-top:12px">
+        <div class="rank first"><span class="mono  t1" aria-hidden="true">Fi</span><span class="who"><b>Fizz</b><span class="bar"><i style="width:92%"></i></span></span><span class="tag solid">Recommandé</span></div>
+        <div class="rank"><span class="mono  t2" aria-hidden="true">Ah</span><span class="who"><b>Ahri</b><span class="bar"><i style="width:70%"></i></span></span><span class="tag">Alternative</span></div>
+        <div class="rank"><span class="mono  t4" aria-hidden="true">KM</span><span class="who"><b>Kog'Maw</b><span class="bar"><i style="width:38%"></i></span></span><span class="tag">Possible</span></div>
+      </div>
+    </section>
+  </div>
+  <section class="box side" aria-labelledby="dt">
+    <div class="box-head"><h2 id="dt">Plan de jeu</h2><p>avec Fizz</p></div>
+    <div style="padding:12px 24px 0"><p class="small" style="color:var(--accent)">Gagne si</p><p>Pousse ta vague, roam, et tue Syndra avant l'objectif.</p></div>
+    <div class="tabs" role="tablist" aria-label="Détails" style="margin-top:16px">
+      <button role="tab" aria-selected="true" type="button">Plan</button><button role="tab" aria-selected="false" type="button">Critères</button><button role="tab" aria-selected="false" type="button">Comparer</button><button role="tab" aria-selected="false" type="button">Conseils</button><button role="tab" aria-selected="false" type="button">Duel</button>
+    </div>
+    <div style="padding:16px 24px 20px">
+      <div class="seg" role="group" aria-label="Phase de jeu"><button type="button" aria-pressed="true">Lane</button><button type="button" aria-pressed="false">Mid game</button><button type="button" aria-pressed="false">Teamfights</button></div>
+      <ul class="tips" style="margin-top:12px"><li>Syndra a un contrôle ciblé : attends de le voir partir avant de lancer ton all-in.</li><li>Contre Syndra, cherche des échanges courts, puis ressors avec ton E.</li><li>Lee Sin peut venir en gank : place une ward avant de pousser ta vague.</li></ul>
+      <p class="hint" style="margin-top:12px">Avis général basé sur les 4 champions adverses visibles. <a class="btn-link btn" href="#">Comment DRAFT classe tes picks</a></p>
+    </div>
+  </section>
+</div>
+</main></div>
+</div>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

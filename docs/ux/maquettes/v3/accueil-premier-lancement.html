@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Accueil, premier lancement</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<div class="app">
+<nav class="nav" aria-label="Navigation principale">
+  <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg><span>DRAFT</span><small>bêta</small></div>
+  <div class="nav-list"><a class="nav-link" href="accueil.html" aria-current="page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg><span>Accueil</span></a><a class="nav-link" href="mon-pool.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z"/></svg><span>Mon pool</span></a><a class="nav-link" href="simulateur.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l13 8-13 8z"/></svg><span>Simulateur</span></a><a class="nav-link" href="statistiques.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10 M12 20V4 M19 20v-7"/></svg><span>Mes statistiques</span></a></div>
+  <div class="nav-grow"></div>
+  <div class="nav-list"><a class="nav-link" href="reglages.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg><span>Réglages</span></a></div>
+  <div class="nav-state" aria-label="État">
+    <p class="line"><i class="dot wait"></i><span class="lbl">League</span><span>À choisir</span></p>
+    <p class="line"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><span class="lbl">Rôle joué</span><span>Mid</span></p>
+  </div>
+  <p class="nav-legal">Version 3.0.0 bêta. Non approuvé par Riot Games.</p>
+</nav>
+<div class="main"><main class="page">
+<header class="page-head">
+  <div><h1>Bienvenue dans DRAFT</h1><p>Trois étapes, environ deux minutes. Tu peux les faire dans l'ordre que tu veux.</p></div>
+</header>
+<section class="ready">
+  <div class="box ready-main" aria-labelledby="pret">
+    <h2 class="ready-title" id="pret">Prépare ta première draft</h2>
+    <p class="ready-sub">DRAFT t'aide à choisir ton champion pendant la sélection. Des panneaux s'ouvrent à côté du client League, puis se masquent au lancement de la partie.</p>
+    <ol class="checks">
+      <li><span class="ico ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="what"><b>Ton rôle et tes champions</b><span>Mid : Ahri, Fizz, Kog'Maw. <span class="saved"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Enregistré</span></span></span><a class="btn btn-sm btn-secondary" href="mon-pool.html">Modifier</a></li>
+      <li><span class="ico todo">2</span><span class="what"><b>La lecture du client League</b><span>Les adversaires se remplissent seuls. Lecture seule, rien n'est modifié dans le client. Riot ne l'a pas confirmée : c'est ton choix.</span></span><a class="btn btn-sm btn-primary" href="reglages.html#connexion" style="font-size:var(--fs-md)">Choisir</a></li>
+      <li><span class="ico">3</span><span class="what"><b>Un essai des panneaux</b><span>Une fausse draft, pour voir où ils s'affichent. Ta vraie draft n'est jamais touchée.</span></span><button class="btn btn-sm btn-secondary" type="button">Essayer</button></li>
+    </ol>
+    <p class="small muted" style="margin-top:16px">Fenêtre fermée, DRAFT reste actif près de l'horloge. Pour revenir ici : menu Démarrer, ou clic sur son icône.</p>
+  </div>
+  <div class="box preview" aria-labelledby="sans">
+    <h2 class="h2" id="sans">Ton conseil sans adversaire</h2>
+    <p class="small muted">Il apparaît dès que ton pool contient un champion.</p>
+    <div class="big"><span class="mono s44 t2" aria-hidden="true">Ah</span><b>Ahri</b><span class="tag net">Recommandé</span></div>
+    <ul class="reasons small"><li>Sûre en lane contre la plupart des mids.</li></ul>
+    <div class="nav-grow"></div>
+    <p class="small muted" style="margin-top:16px">Sans statistiques calculées, le conseil repose sur des fiches écrites à la main : c'est un avis général.</p>
+  </div>
+</section>
+</main></div>
+</div>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

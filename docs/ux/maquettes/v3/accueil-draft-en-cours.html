@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Accueil, draft en cours</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<div class="app">
+<nav class="nav" aria-label="Navigation principale">
+  <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg><span>DRAFT</span><small>bêta</small></div>
+  <div class="nav-list"><a class="nav-link" href="accueil.html" aria-current="page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg><span>Accueil</span></a><a class="nav-link" href="mon-pool.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z"/></svg><span>Mon pool</span></a><a class="nav-link" href="simulateur.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l13 8-13 8z"/></svg><span>Simulateur</span></a><a class="nav-link" href="statistiques.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10 M12 20V4 M19 20v-7"/></svg><span>Mes statistiques</span></a></div>
+  <div class="nav-grow"></div>
+  <div class="nav-list"><a class="nav-link" href="reglages.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg><span>Réglages</span></a></div>
+  <div class="nav-state" aria-label="État">
+    <p class="line"><i class="dot good"></i><span class="lbl">League</span><span>Connecté</span></p>
+    <p class="line"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><span class="lbl">Rôle joué</span><span>Mid</span></p>
+  </div>
+  <p class="nav-legal">Version 3.0.0 bêta. Non approuvé par Riot Games.</p>
+</nav>
+<div class="main"><main class="page">
+<header class="page-head">
+  <div><h1>Accueil</h1><p>Ce qu'il faut savoir avant ta prochaine draft.</p></div>
+  <span class="example">Exemple</span>
+</header>
+<div class="band band-live" role="status" style="margin-bottom:16px"><i class="dot good"></i><b>Draft en cours</b><span>3 adversaires lus dans le client. Conseil actuel : Fizz.</span><span class="grow"></span><button class="btn btn-sm btn-secondary" type="button">Afficher les panneaux</button><a class="btn btn-sm btn-secondary" href="simulateur.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6 M10 20H4v-6 M20 4l-7 7 M4 20l7-7"/></svg>Détails</a></div>
+<section class="ready">
+  <div class="box ready-main" aria-labelledby="pret">
+    <h2 class="ready-title" id="pret">Ta draft est suivie</h2>
+    <p class="ready-sub">Sélection en cours. Les panneaux sont affichés à côté du client et se masqueront au lancement de la partie.</p>
+    <ul class="checks">
+      <li><span class="ico ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="what"><b>Client League connecté</b><span>Lecture du client active. Les adversaires se remplissent seuls.</span></span><a class="btn btn-sm btn-secondary" href="reglages.html#connexion">Connexion League</a></li>
+      <li><span class="ico ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="what"><b>Rôle joué : Mid, 3 champions</b><span>Ahri, Fizz, Kog'Maw.</span></span><a class="btn btn-sm btn-secondary" href="mon-pool.html">Modifier mon pool</a></li>
+      <li><span class="ico ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="what"><b>Panneaux automatiques</b><span>Pour les afficher ou les masquer à tout moment : <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>D</kbd></span></span><a class="btn btn-sm btn-secondary" href="reglages.html#affichage">Affichage</a></li>
+    </ul>
+    <div class="ready-actions">
+      <a class="btn btn-primary" href="simulateur.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l13 8-13 8z"/></svg>Simuler une draft</a>
+      <button class="btn btn-secondary" type="button">Afficher les panneaux</button>
+    </div>
+  </div>
+  <div class="box preview" aria-labelledby="sans">
+    <h2 class="h2" id="sans">Ton conseil sans adversaire</h2>
+    <p class="small muted">Ce que DRAFT te proposera en début de draft, avant le premier pick adverse.</p>
+    <div class="big"><span class="mono s44 t2" aria-hidden="true">Ah</span><b>Ahri</b><span class="tag net">Recommandé</span></div>
+    <ul class="reasons small"><li>Sûre en lane contre la plupart des mids.</li><li>Fizz et Kog'Maw restent proches : la draft adverse départagera.</li></ul>
+    <div class="nav-grow"></div>
+    <p class="small muted" style="margin-top:16px">Ban conseillé : <b>Zed</b>, le plus gênant pour ton pool.</p>
+  </div>
+</section>
+<section class="ready" style="margin-top:16px">
+  <div class="box">
+    <div class="box-head"><h2>Mise à jour</h2><p>Version 3.0.0 bêta</p></div>
+    <ul class="rows" style="margin-top:8px">
+      <li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><span>DRAFT est à jour.</span><span class="meta">Vérifié aujourd'hui à 10:42</span></li>
+      <li><span class="small muted">DRAFT ne contacte GitHub que lorsque tu le demandes.</span><button class="btn btn-sm btn-secondary" type="button" style="margin-left:auto">Rechercher</button></li>
+    </ul>
+  </div>
+  <div class="box">
+    <div class="box-head"><h2>Données</h2><p>Ce qui affine tes conseils</p><div class="tools"><a class="btn-link btn small" href="reglages.html#donnees">Gérer</a></div></div>
+    <ul class="rows" style="margin-top:8px">
+      <li><span>Rôles des champions</span><span class="meta">Calculés le 03/11/2026</span></li>
+      <li><span>Matchups du rôle Mid</span><span class="meta">Calculés le 03/11/2026, 4 820 parties</span></li>
+      <li><span>Mon historique Riot</span><span class="meta">100 parties, importées le 08/11/2026</span></li>
+    </ul>
+  </div>
+</section>
+</main></div>
+</div>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

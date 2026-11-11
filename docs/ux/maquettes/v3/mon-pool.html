@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Mon pool</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<div class="app">
+<nav class="nav" aria-label="Navigation principale">
+  <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg><span>DRAFT</span><small>bêta</small></div>
+  <div class="nav-list"><a class="nav-link" href="accueil.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg><span>Accueil</span></a><a class="nav-link" href="mon-pool.html" aria-current="page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z"/></svg><span>Mon pool</span></a><a class="nav-link" href="simulateur.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l13 8-13 8z"/></svg><span>Simulateur</span></a><a class="nav-link" href="statistiques.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10 M12 20V4 M19 20v-7"/></svg><span>Mes statistiques</span></a></div>
+  <div class="nav-grow"></div>
+  <div class="nav-list"><a class="nav-link" href="reglages.html"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg><span>Réglages</span></a></div>
+  <div class="nav-state" aria-label="État">
+    <p class="line"><i class="dot good"></i><span class="lbl">League</span><span>Connecté</span></p>
+    <p class="line"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><span class="lbl">Rôle joué</span><span>Mid</span></p>
+  </div>
+  <p class="nav-legal">Version 3.0.0 bêta. Non approuvé par Riot Games.</p>
+</nav>
+<div class="main"><main class="page">
+<header class="page-head">
+  <div><h1>Mon pool</h1><p>Chaque rôle garde ses champions. Modifier un pool ne change pas ton rôle joué.</p></div>
+  <span class="example">Exemple</span>
+</header>
+<div class="band band-info" style="margin-bottom:16px"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><b>Rôle joué</b><span class="muted">Utilisé pour tes conseils et dans les panneaux.</span><span class="grow"></span>
+  <div class="seg" role="group" aria-label="Rôle joué"><button type="button" aria-pressed="false"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h14v4H7v10H3z M11 11h6v6h-6z"/></svg>Top</button><button type="button" aria-pressed="false"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2c1 5 5 6 5 11a5 5 0 0 1-10 0c0-5 4-6 5-11z"/></svg>Jungle</button><button type="button" aria-pressed="true"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg>Mid</button><button type="button" aria-pressed="false"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M17 17H3v-4h10V3h4z M3 3h6v6H3z"/></svg>ADC</button><button type="button" aria-pressed="false"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5z"/></svg>Support</button></div>
+</div>
+<div class="pool-layout">
+  <nav class="box role-list" aria-label="Pool à modifier">
+    <a class="role-item" href="#" aria-current="true"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h14v4H7v10H3z M11 11h6v6h-6z"/></svg><span>Top</span><span class="n num">4</span></a><a class="role-item" href="#"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2c1 5 5 6 5 11a5 5 0 0 1-10 0c0-5 4-6 5-11z"/></svg><span>Jungle</span><span class="n num">0</span></a><a class="role-item" href="#"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 15 3h2v2L5 17z M3 3h6v3H6v3H3z M17 17h-6v-3h3v-3h3z"/></svg><span>Mid <span class="played">Joué</span></span><span class="n num">3</span></a><a class="role-item" href="#"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M17 17H3v-4h10V3h4z M3 3h6v6H3z"/></svg><span>ADC</span><span class="n num">2</span></a><a class="role-item" href="#"><svg class="role" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5z"/></svg><span>Support</span><span class="n num">0</span></a>
+  </nav>
+  <div class="stack-4">
+    <section class="box" aria-labelledby="pt">
+      <div class="box-head"><h2 id="pt">Pool Top</h2><p>4 champions</p><div class="tools"><span class="saved" role="status"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Enregistré : Sett ajouté au pool Top.</span><button class="btn btn-sm btn-secondary" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7L4 12l5 5 M4 12h11a5 5 0 0 1 0 10h-3"/></svg>Annuler</button></div></div>
+      <p class="hint" style="padding:4px 24px 0">Tu modifies le pool Top. Ton rôle joué reste Mid.</p>
+      <div style="padding:16px 24px 8px">
+        <label class="search"><span class="sr">Ajouter un champion au pool Top</span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z M20 20l-4.8-4.8"/></svg><input class="input is-focus" type="search" value="mor" aria-describedby="aide-recherche"><kbd>Entrée</kbd></label>
+        <p class="hint" id="aide-recherche" style="margin-top:6px">Nom ou surnom : « tf », « kata », « mf ». Entrée ajoute le premier résultat.</p>
+        <div class="suggest" style="margin-top:10px"><button class="chip sel" type="button"><span class="mono s24 t5" aria-hidden="true">Mo</span>Mordekaiser <span class="muted xs">déjà dans le pool</span></button><button class="chip add" type="button"><span class="mono s24 t2" aria-hidden="true">Mo</span>Morgana</button></div>
+      </div>
+      <table class="champ-table" aria-label="Champions du pool Top">
+        <thead><tr><th>Champion</th><th class="c">Préféré à égalité</th><th class="c">Exclu pour l'instant</th><th class="c"><span class="sr">Retirer</span></th></tr></thead>
+        <tbody><tr><td><span class="name"><span class="mono s32 t3" aria-hidden="true">Da</span>Darius</span></td><td class="c"><span class="radio on" role="img" aria-label="Préféré à égalité"></span></td><td class="c"><span class="check" role="img" aria-label="Disponible"></span></td><td class="c"><button class="btn btn-icon" type="button" aria-label="Retirer Darius du pool Top"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></td></tr><tr><td><span class="name"><span class="mono s32 t1" aria-hidden="true">Ga</span>Garen</span></td><td class="c"><span class="radio" role="img" aria-label="Non préféré"></span></td><td class="c"><span class="check" role="img" aria-label="Disponible"></span></td><td class="c"><button class="btn btn-icon" type="button" aria-label="Retirer Garen du pool Top"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></td></tr><tr><td><span class="name"><span class="mono s32 t5" aria-hidden="true">Mo</span>Mordekaiser</span></td><td class="c"><span class="radio" role="img" aria-label="Non préféré"></span></td><td class="c"><span class="check on" role="img" aria-label="Exclu"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span></td><td class="c"><button class="btn btn-icon" type="button" aria-label="Retirer Mordekaiser du pool Top"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></td></tr><tr><td><span class="name"><span class="mono s32 t4" aria-hidden="true">Se</span>Sett</span></td><td class="c"><span class="radio" role="img" aria-label="Non préféré"></span></td><td class="c"><span class="check" role="img" aria-label="Disponible"></span></td><td class="c"><button class="btn btn-icon" type="button" aria-label="Retirer Sett du pool Top"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button></td></tr></tbody>
+      </table>
+    </section>
+    <section class="box" aria-labelledby="sg">
+      <div class="box-head"><h2 id="sg">Souvent joués en Top</h2><p>Un clic les ajoute au pool Top.</p></div>
+      <div class="suggest" style="padding:12px 24px 20px"><button class="chip add" type="button"><span class="mono s24 t1" aria-hidden="true">Aa</span>Aatrox</button><button class="chip add" type="button"><span class="mono s24 t2" aria-hidden="true">Ca</span>Camille</button><button class="chip add" type="button"><span class="mono s24 t3" aria-hidden="true">Fi</span>Fiora</button><button class="chip add" type="button"><span class="mono s24 t4" aria-hidden="true">Ja</span>Jax</button><button class="chip add" type="button"><span class="mono s24 t5" aria-hidden="true">KS</span>K'Sante</button><button class="chip add" type="button"><span class="mono s24 t1" aria-hidden="true">Ma</span>Malphite</button><button class="chip add" type="button"><span class="mono s24 t2" aria-hidden="true">Or</span>Ornn</button><button class="chip add" type="button"><span class="mono s24 t3" aria-hidden="true">Re</span>Renekton</button><button class="chip add" type="button"><span class="mono s24 t4" aria-hidden="true">Sh</span>Shen</button><button class="chip add" type="button"><span class="mono s24 t5" aria-hidden="true">Vo</span>Volibear</button></div>
+    </section>
+    <section class="box" aria-labelledby="sv">
+      <div class="box-head"><h2 id="sv">Sauvegarde des profils</h2><p>Rôles, champions et préférences. Sans historique ni clé.</p></div>
+      <div class="cluster" style="padding:12px 24px 20px"><button class="btn btn-secondary" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11 M7 10l5 5 5-5 M5 20h14"/></svg>Exporter mes profils</button><button class="btn btn-secondary" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V9 M7 14l5-5 5 5 M5 4h14"/></svg>Importer des profils</button><button class="btn btn-secondary" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7L4 12l5 5 M4 12h11a5 5 0 0 1 0 10h-3"/></svg>Annuler le dernier import</button></div>
+    </section>
+  </div>
+</div>
+</main></div>
+</div>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette non validée : Composants</title>
+<!-- MAQUETTE NON VALIDÉE. DRAFT 3.0 bêta, option B. Statique : aucun script, aucune ressource externe. Données d'exemple, aucune donnée personnelle. -->
+<link rel="stylesheet" href="v3.css">
+</head>
+<body>
+<main class="page wide stack-5" style="margin:0">
+<header class="page-head"><div><h1>Composants DRAFT 3.0</h1><p>États au repos, survol, focus, désactivé. Voir docs/ux/COMPOSANTS-V3.md.</p></div></header>
+<section class="box box-pad stack-3"><h2 class="h2">Boutons</h2>
+  <div class="cluster"><button class="btn btn-primary" type="button">Je joue Fizz</button><button class="btn btn-primary is-hover" type="button">Survol</button><button class="btn btn-primary is-focus" type="button">Focus</button><button class="btn btn-primary is-disabled" type="button" disabled>Désactivé</button><button class="btn is-done" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Fizz noté</button></div>
+  <div class="cluster"><button class="btn btn-secondary" type="button">Exporter mes profils</button><button class="btn btn-secondary is-hover" type="button">Survol</button><button class="btn btn-secondary is-focus" type="button">Focus</button><button class="btn btn-secondary is-disabled" type="button" disabled>Désactivé</button><button class="btn btn-danger" type="button">Effacer la simulation</button><button class="btn btn-sm btn-secondary" type="button">Petit</button></div>
+  <div class="cluster"><a class="btn btn-link" href="#">Comment DRAFT classe tes picks</a><button class="btn btn-icon" type="button" aria-label="Réglages d'affichage"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1"/></svg></button><button class="btn btn-icon is-hover" type="button" aria-label="Masquer"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button><button class="btn btn-icon is-focus" type="button" aria-label="Deux panneaux"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h7v14H3z M14 5h7v14h-7z"/></svg></button></div>
+</section>
+<section class="grid-2">
+  <div class="box box-pad stack-3"><h2 class="h2">Champs</h2>
+    <label class="search"><span class="sr">Recherche</span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z M20 20l-4.8-4.8"/></svg><input class="input" type="search" placeholder="Ajouter un champion : ahri, tf, kata..."></label>
+    <label class="search"><span class="sr">Recherche active</span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z M20 20l-4.8-4.8"/></svg><input class="input is-focus" type="search" value="kog"><kbd>Entrée</kbd></label>
+    <label class="field"><span>Désactivé, avec la raison</span><input class="input is-disabled" disabled placeholder="Choisis d'abord un rôle"></label>
+    <p class="hint err"><svg class="i" style="width:14px;height:14px;vertical-align:-2px" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2z M12 10v5 M12 18v.5"/></svg> Aucun champion trouvé pour « zzz ». Vérifie l'orthographe.</p>
+    <div class="cluster"><div class="seg" role="group" aria-label="Exemple"><button type="button" aria-pressed="true">Lane</button><button type="button" aria-pressed="false">Mid game</button></div><div class="seg gold" role="group" aria-label="Source"><button type="button" aria-pressed="true">Simulation</button><button type="button" aria-pressed="false">Draft en cours</button></div></div>
+    <label class="toggle on"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Interrupteur actif</b><span>Texte d'aide en dessous.</span></span></label><label class="toggle"><span class="sw" aria-hidden="true"></span><span class="txt"><b>Interrupteur inactif</b><span>Même structure.</span></span></label>
+  </div>
+  <div class="box box-pad stack-3"><h2 class="h2">Navigation</h2>
+    <div style="width:220px;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px"><a class="nav-link" href="#" aria-current="page" style="margin-left:4px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg>Accueil</a><a class="nav-link" href="#" style="margin-left:4px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z"/></svg>Mon pool</a></div>
+    <div class="tabs" role="tablist" aria-label="Exemple"><button role="tab" aria-selected="true" type="button">Plan</button><button role="tab" aria-selected="false" type="button">Critères</button><button role="tab" aria-selected="false" type="button">Comparer</button></div>
+    <div class="cluster"><span class="tag net">Choix net</span><span class="tag close">Choix serré</span><span class="tag bad">À éviter</span><span class="tag">4/5 adversaires</span><span class="tag solid">Recommandé</span><span class="played">Joué</span></div>
+    <div class="cluster"><span class="chip"><span class="mono s24 t2" aria-hidden="true">Ah</span>Ahri<span class="x"><svg class="i" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></span></span><span class="chip sel"><span class="mono s24 t1" aria-hidden="true">Fi</span>Fizz</span><span class="chip add"><span class="mono s24 t4" aria-hidden="true">KM</span>Kog'Maw</span></div>
+  </div>
+</section>
+<section class="grid-3">
+  <div class="stack-3"><h2 class="h2">Bandeaux d'état</h2>
+    <div class="band band-live"><i class="dot good"></i><b>Draft en cours</b><span>3 adversaires lus.</span></div>
+    <div class="band band-sim"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 11v6 M12 7.5v.5"/></svg><b>Simulation</b><span>Ta draft n'est pas modifiée.</span></div>
+    <div class="band band-warn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2z M12 10v5 M12 18v.5"/></svg><b>Connexion impossible</b><span>Client ouvert, lecture refusée.</span></div>
+  </div>
+  <div class="stack-3"><h2 class="h2">Retours</h2>
+    <div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><span class="grow">Draft effacée.</span><button class="btn btn-link" type="button">Annuler</button></div>
+    <div class="toast err" role="alert"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2z M12 10v5 M12 18v.5"/></svg><span class="grow">Ce fichier n'est pas un import DRAFT valide : rien n'a été modifié.</span></div>
+    <p class="saved"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Enregistré</p>
+  </div>
+  <div class="stack-3"><h2 class="h2">Chargement</h2>
+    <div class="box box-pad stack-2"><p class="small">Import de l'historique : 46 sur 100 parties</p><div class="progress" role="progressbar" aria-valuenow="46" aria-valuemin="0" aria-valuemax="100" aria-label="Import"><i style="width:46%"></i></div><button class="btn btn-sm btn-secondary" type="button">Arrêter l'import</button></div>
+    <div class="box box-pad stack-2" aria-hidden="true"><span class="skel" style="width:60%"></span><span class="skel" style="width:90%"></span><span class="skel" style="width:40%"></span></div>
+  </div>
+</section>
+<section class="grid-3">
+  <div class="stack-3"><h2 class="h2">État vide</h2><div class="empty"><h3>Aucune partie importée</h3><p>Importe ton historique Riot pour voir ton expérience par champion.</p><button class="btn btn-secondary" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 14a4 4 0 1 1 0-8a4 4 0 0 1 0 8z M11.5 11.5L21 21 M17 17l2-2 M15 15l2-2"/></svg>Importer mon historique Riot</button></div></div>
+  <div class="stack-3"><h2 class="h2">Erreur</h2><div class="error" role="alert"><b>L'import s'est arrêté</b><span>Riot a refusé la clé : elle a peut-être expiré (24 heures). Les 46 parties déjà lues sont conservées.</span><span><button class="btn btn-sm btn-secondary" type="button">Réessayer avec une autre clé</button></span></div></div>
+  <div class="stack-3"><h2 class="h2">Classement</h2><div><div class="rank first"><span class="mono  t1" aria-hidden="true">Fi</span><span class="who"><b>Fizz</b><span class="bar"><i style="width:92%"></i></span></span><span class="tag solid">Recommandé</span></div><div class="rank picked"><span class="mono  t2" aria-hidden="true">Ah</span><span class="who"><b>Ahri</b><span class="bar"><i style="width:70%"></i></span></span><span class="tag">Choisi</span></div></div></div>
+</section>
+<section class="box box-pad" style="position:relative;min-height:240px"><h2 class="h2">Modale de confirmation</h2>
+  <div style="position:absolute;inset:48px 0 0;display:grid;place-items:center;background:rgba(5,8,12,.72);border-radius:0 0 10px 10px"><div class="modal" role="alertdialog" aria-labelledby="mt"><h2 id="mt">Retirer Fizz du pool Mid ?</h2><p>Ton journal garde ses parties. Tu pourras l'ajouter de nouveau.</p><div class="actions"><button class="btn btn-secondary" type="button">Garder</button><button class="btn btn-danger" type="button">Retirer Fizz</button></div></div></div>
+</section>
+</main>
+<p class="mock-flag">Maquette non validée. Données d'exemple.</p>
+</body>
+</html>
