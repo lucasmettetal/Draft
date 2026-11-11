@@ -27,7 +27,7 @@ foreach ($l in 'beginner', 'intermediate', 'advanced') {
     [void]$b.AppendLine("- **Rôle et pool :** $($r.role), $(@($r.pool) -join ', ')")
     [void]$b.AppendLine("- **Adversaires visibles :** $(@($r.enemies) -join ', ')")
     [void]$b.AppendLine("- **Conseil du moteur :** $($r.pick)$(if ($r.rival) { ", sinon $($r.rival)" }) ; scores : $(@($r.scores) -join ', ')")
-    [void]$b.AppendLine("- **Adversaire direct :** $(if ($r.opp) { $r.opp } else { 'non identifié' }), confiance $($r.conf)")
+    [void]$b.AppendLine("- **Adversaire direct :** $(if ($r.opp) { $r.opp } else { 'pas identifié' }), confiance $($r.conf)")
     [void]$b.AppendLine("- **Raisons du moteur :** $(if (@($r.raisons).Count) { @($r.raisons) -join ' ; ' } else { 'aucune' })")
     [void]$b.AppendLine("- **Ligne courte :** $($r.headline)"); [void]$b.AppendLine('')
     foreach ($i in $r.items) {

@@ -678,8 +678,9 @@ public static class Autostart
 
         public int ShowCount;
 
-        // Relevé de validation : une ligne par sélection, dans un fichier local. Les trois dernières colonnes se remplissent à la main.
-        const string ValidationHeader = "date;version;role;pool;adversaires;mid_affiche;confiance;hypotheses;recommande;alternative;provisoire;corrections;joue;phase_suivante;mid_reel;roles_reels;remarques";
+        // Relevé de validation : une ligne par sélection, dans un fichier local. mid_reel, roles_reels et remarques se remplissent à la main.
+        // roles_predits vient en dernier (ajout 2.17) : les anciens fichiers, sans cette colonne, restent lisibles.
+        const string ValidationHeader = "date;version;role;pool;adversaires;mid_affiche;confiance;hypotheses;recommande;alternative;provisoire;corrections;joue;phase_suivante;mid_reel;roles_reels;remarques;roles_predits";
         bool validationPending;
         public string ValidationPath { get { return Path.Combine(dataDir, "validation-drafts.csv"); } }
         public void TestSetDiagnostics(bool on) { settings.Diagnostics = on; RefreshUi(); }
@@ -687,12 +688,12 @@ public static class Autostart
         // Un tableur exécuterait une cellule commençant par = + - @ comme une formule.
         public static string CsvCell(string v) { return v.Length > 0 && "=+-@\t".IndexOf(v[0]) >= 0 ? "'" + v : v; }
 
-        void WriteValidationRow(System.Collections.IEnumerable values)
+        void WriteValidationRow(System.Collections.IEnumerable values, string predicted)
         {
             List<string> cells = new List<string> { DateTime.Now.ToString("yyyy-MM-dd HH:mm"), typeof(CompanionApp).Assembly.GetName().Version.ToString(3) };
             foreach (object v in values) cells.Add(CsvCell(Regex.Replace(Convert.ToString(v), "[;\\r\\n\"]", " ")));
             cells.Add(machine.Current.ToString());
-            string line = string.Join(";", cells) + ";;;\r\n";
+            string line = string.Join(";", cells) + ";;;;" + CsvCell(Regex.Replace(predicted ?? "", "[;\\r\\n\"]", " ")) + "\r\n";
             // Fichier ouvert dans Excel : la ligne part dans un fichier voisin plutôt que d'être perdue.
             foreach (string path in new[] { ValidationPath, Path.Combine(dataDir, "validation-drafts-attente.csv") })
                 try
@@ -1845,7 +1846,8 @@ public static class Autostart
                     object rowO;
                     if (!validationPending || !settings.Diagnostics || !m.TryGetValue("row", out rowO) || !(rowO is System.Collections.IEnumerable)) break;
                     validationPending = false;
-                    WriteValidationRow((System.Collections.IEnumerable)rowO);
+                    object predO; m.TryGetValue("predicted", out predO);
+                    WriteValidationRow((System.Collections.IEnumerable)rowO, predO as string);
                     break;
                 }
                 case "profileAdopted": legacyProfile = false; settings.ProfileKnown = true; Persist(); break;
@@ -2158,7 +2160,7 @@ public static class Autostart
             // Les deux sont 100 % mid dans Meraki : personne n'est désigné. Les rôles écrits à la main, eux, les départagent.
             bool withMeraki = (await js("typeof ROLE_RATES !== 'undefined'")) == "true";
             t(withMeraki
-                ? midGuess == "null" && (await js("V.confidence === 'faible' && V.res.ranking[0].byScenario.length >= 2 && hypothesisText().includes('non identifié')")) == "true"
+                ? midGuess == "null" && (await js("V.confidence === 'faible' && V.res.ranking[0].byScenario.length >= 2 && hypothesisText().includes('pas identifié')")) == "true"
                 : midGuess.Contains("Ahri") && (await js("V.confidence !== 'élevée'")) == "true", "Scénario 7. Sett, Galio, Ahri : aucune certitude affichée (" + midGuess + ")");
             t((await js("state.manualMid === null")) == "true", "Scénario 7. Aucune correction manuelle inventée");
             t((await js("V.reasons.length > 0")) == "true", "Le verdict affiche ses raisons (d'abord " + shownBefore + ")");
@@ -2219,7 +2221,7 @@ public static class Autostart
             await phase("GameStart");
             await Task.Delay(300);
             string[] rows = File.Exists(app.ValidationPath) ? File.ReadAllLines(app.ValidationPath) : new string[0];
-            t(rows.Length == 2 && rows[0].StartsWith("date;version;role") && rows[1].Contains("Sett,Vi,Galio,Jinx,Janna") && rows[1].Contains(";InGame;;;"), "Relevé : une ligne par sélection, colonnes réelles à remplir (" + rows.Length + " lignes)");
+            t(rows.Length == 2 && rows[0].StartsWith("date;version;role") && rows[1].Contains("Sett,Vi,Galio,Jinx,Janna") && rows[1].Contains(";InGame;;;;") && rows[0].EndsWith(";remarques;roles_predits") && Regex.IsMatch(rows[1], ";;;;Sett=[a-z]+:[01]\\.\\d\\d(,[^=,;]+=[a-z]+:[01]\\.\\d\\d){4}$"), "Relevé : une ligne par sélection, colonnes réelles à remplir, rôles prédits en fin de ligne (" + rows.Length + " lignes)");
             app.TestSetDiagnostics(false);
             await phase("None");
             showsBefore = app.ShowCount;

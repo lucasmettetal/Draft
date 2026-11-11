@@ -33,12 +33,12 @@ UI-022 | index.html:1244 | Recherche sans résultat | Aucun champion ne correspo
 UI-023 | index.html:1262 | Infobulle « Je joue » (CTA_HELP) | Note ce choix dans ton journal. Rien n'est envoyé au client LoL : tu verrouilles toi-même ton champion.
 UI-024 | index.html:1263 | Infobulle « Choix serré » (CLOSE_HELP) | Deux de tes champions ont des scores proches : les deux se défendent.
 UI-025 | index.html:1264 | Infobulle ligne adversaire (OPPONENT_HELP) | Le client ne donne pas les rôles adverses : cet adversaire est déduit, et se corrige dans la composition.
-UI-026 | index.html:1266,1308 | Étiquette de l'adversaire direct, confiance élevée | re:^(Top|Jungle|Mid|ADC|Support) très probable( |$)
-UI-027 | index.html:1266,1308 | Étiquette de l'adversaire direct, confiance moyenne | re:^(Top|Jungle|Mid|ADC|Support) probable( |$)
-UI-028 | index.html:1266,1308 | Étiquette de l'adversaire direct, confiance faible (champion placé par deriveSlots) | re:^(Top|Jungle|Mid|ADC|Support) non identifié( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
-UI-029 | index.html:1274 | Ligne adversaire (hypothesisText), personne de plausible | re:^(Top|Jungle|Mid|ADC|Support) pas encore visible\.$
-UI-030 | index.html:1275 | Ligne adversaire, confiance faible | re:^(Top|Jungle|Mid|ADC|Support) non identifié :
-UI-031 | index.html:1276 | Ligne adversaire, adversaire nommé | re:(Top|Jungle|Mid|ADC|Support) supposé :
+UI-026 | index.html:1297,1346 | Étiquette de ton vis-à-vis, confiance élevée, 3 champions vus ou plus (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face \(presque sûr\)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
+UI-027 | index.html:1297,1346 | Étiquette de ton vis-à-vis, confiance moyenne, 3 champions vus ou plus (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face \(probable\)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
+UI-028 | index.html:1297,1346 | Étiquette de la ligne du joueur, personne d'identifié (champion placé par la répartition la plus probable, PR E) | re:^(Top|Jungle|Mid|ADC|Support) \? pas identifié( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
+UI-029 | index.html:1309 | Ligne adversaire (hypothesisText), aucun candidat (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face : (pas encore choisi|pas identifié)\.$
+UI-030 | index.html:1310 | Ligne adversaire, personne de nommé (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face : pas identifié \(
+UI-031 | index.html:1313-1314 | Ligne adversaire, adversaire nommé (PR E) | re:(Top|Jungle|Mid|ADC|Support) (d'en face : .+ \((probable|presque sûr)\)|\? .+, hypothèse \(\d champions? vus?\))
 UI-032 | index.html:1284 | Ligne adversaire, midSwapEffect | Si c'est {C} : {C}.
 UI-033 | index.html:1298 | Rôle adverse rempli (aria) | re:^(Top|Jungle|Mid|ADC|Support) : .+\. (Échanger avec .+|Sélectionner pour changer de rôle)$
 UI-034 | index.html:1299 | Rôle adverse vide (aria) | re:^(Top|Jungle|Mid|ADC|Support) vide\. (Y placer .+|Choisir ce rôle pour le prochain champion)$
@@ -124,9 +124,9 @@ UI-113 | index.html:1666 | Plan sans pick | Aucun pick disponible.
 UI-114 | index.html:1670 | Phases (aria) | Phase de jeu
 UI-115 | index.html:1676 | Plan, limite (nombre réel d'adversaires, PR D) | re:^Avis général basé sur (les \d champions adverses visibles|1 champion adverse visible|aucun champion adverse pour l'instant), sans tenir compte des cooldowns ni des builds\.$
 UI-116 | index.html:1681,1705 | Matrice (aria) | re:: (avantage|désavantage|neutre)$
-UI-117 | index.html:1687 | Analyse, confiance | re:Confiance (faible|moyenne|élevée)\.
+UI-117 | index.html:1726 | Analyse, confiance [non affiché] (PR E : le mot de l'échelle suffit) | re:Confiance (faible|moyenne|élevée)\.
 UI-118 | index.html:1688 | Analyse, scénarios | Classement pondéré entre ces hypothèses, avec les mêmes règles.
-UI-119 | index.html:1689 | Analyse, adversaire inconnu | re:(Top|Jungle|Mid|ADC|Support) inconnu : le matchup direct n'est pas évalué\.
+UI-119 | index.html:1729-1732 | Analyse, ton vis-à-vis pas nommé, fidèle au calcul (PR E) | re:(Top|Jungle|Mid|ADC|Support) (pas identifié|pas encore choisi) : le matchup (est une moyenne des hypothèses|ne compte pas encore)\.
 UI-120 | index.html:1690 | Analyse, pas de données de matchup | Pas de données de matchup contre {C} : ce critère n'est pas évalué.
 UI-121 | index.html:1691 | Analyse, égalité (PR D) | re:ont le même score\. 
 UI-122 | index.html:1692 | Analyse, nom maintenu (holdPick) | reste affiché : {C} mène de trop peu pour changer de nom en cours de draft.
@@ -265,7 +265,7 @@ UI-254 | index.html:2271 | Réglages, raccourci | affiche ou masque les panneaux
 UI-255 | index.html:2278-2279 | Réglages, picks | re:^(Mes picks|Exclure pour l'instant :)$
 UI-256 | index.html:2281 | Réglages, favori | À égalité exacte, préférer
 UI-257 | index.html:2287 | Réglages, frontline allié | Supposer un frontline dans mon équipe
-UI-258 | index.html:2290-2291 | Réglages, rôles | re:(Rôles des champions|Ils servent à deviner le mid adverse\.)
+UI-258 | index.html:2338-2339 | Réglages, rôles (PR E) | re:(Rôles des champions|Ils servent à deviner ton vis-à-vis et à placer les adversaires dans leurs rôles\.)
 UI-259 | index.html:2291 | Réglages, rôles non calculés | Pas encore calculés : les rôles habituels écrits à la main servent de repère.
 UI-260 | index.html:2292-2293 | Réglages, matchups | re:(^Matchups$|Sous \d+ parties, le matchup n'utilise pas le bilan\.|relance le calcul pour ton rôle actuel|Pas encore de bilans calculés\.)
 UI-261 | index.html:2297-2299 | Réglages, boutons Riot | re:^(Arrêter le calcul|Mettre à jour les rôles|Mettre à jour les matchups)$
@@ -277,6 +277,9 @@ UI-266 | index.html:2014,2406 | Marque | DRAFT
 UI-267 | index.html:1835 | Barre de victoires (aria) | re:^.+ : \d+V \d+D$
 UI-269 | index.html:1866,1869 | Statistiques : nom du compte importé (donnée) | re:^[^ ]+#[^ ]+$
 UI-268 | index.html:2311 | Réglages avancés : phase et placement transmis par le programme (src/DraftDetection.cs PhaseText) | re:^(Client LoL fermé|Client ouvert, hors draft \(estimation\)|Draft en cours \(estimation\)|Partie en cours|Phase incertaine)\.
+UI-270 | index.html:2440 | Simulateur, bandeau (2.16.2) | re:^(Simulation : ta draft en cours n'est pas modifiée\.( Revenir à la draft en cours)?|Revenir à la draft en cours)$
+UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 champions vus (PR E, B-05) | re:^(Top|Jungle|Mid|ADC|Support) \? hypothèse \(\d champions? vus?\)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
+UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
 
 ## web/draft-engine.js : critères, raisons, plan
 EN-001 | draft-engine.js:122-130 | Libellés des critères (matrice, comparer, règles, conseils) | re:^(Matchup direct|Sécurité sans adversaire connu|Cibles exploitables|Tanks et bruisers|Survie aux plongeurs|Engages et contrôles|Poke et longue portée|Protection nécessaire|Pression sur la carte)$
@@ -365,7 +368,7 @@ EN-083 | draft-engine.js:594 | Plan lane Xerath | Touche {C} de loin dès qu'il 
 EN-084 | draft-engine.js:595 | Plan lane Kog'Maw | Contre {C}, farme à portée maximale et échange seulement quand ta vague te couvre.
 EN-085 | draft-engine.js:596 | Plan lane TF | Contre {C}, garde ta carte dorée pour répondre à un engage ou préparer un gank.
 EN-086 | draft-engine.js:597 | Plan lane, jungler | peut venir en gank : place une ward avant de pousser ta vague.
-EN-087 | draft-engine.js:598 | Plan lane, adversaire inconnu | re:^Ton adversaire (au top|à la jungle|au mid|à l'ADC|au support) n'est pas connu : joue d'abord la sécurité et observe son style\.$
+EN-087 | draft-engine.js:624 | Plan lane, vis-à-vis pas identifié (PR E) | re:^Ton vis-à-vis (au top|à la jungle|au mid|à l'ADC|au support) n'est pas encore identifié : joue d'abord la sécurité et observe son style\.$
 EN-088 | draft-engine.js:599 | Plan lane jungle | Prépare ton chemin vers la lane qui peut le mieux profiter de ton aide.
 EN-089 | draft-engine.js:599 | Plan lane support | Garde la vision de ton côté avant de chercher un engage.
 EN-090 | draft-engine.js:599 | Plan lane top, mid, ADC | Pousse ta vague avant de bouger, pour ne pas perdre de farm.
@@ -447,14 +450,14 @@ CO-054 | draft-coaching.js:223 | matchup.assassin, titre | {C} peut te sauter de
 CO-055 | draft-coaching.js:224 | matchup.assassin, débutant | cherche à te surprendre et à te tuer vite. Garde de quoi te défendre tant que ses sorts pour s'approcher sont disponibles.
 CO-056 | draft-coaching.js:225 | matchup.assassin, intermédiaire | Sa menace dépend de sa capacité à arriver sur toi. Quand ses sorts de déplacement sont utilisés, c'est ta fenêtre pour échanger.
 CO-057 | draft-coaching.js:226 | matchup.assassin, avancé | Menace d'accès rapide : la zone dangereuse dépend de ses sorts de déplacement, pas de sa portée d'attaque. Le niveau d'objets de chacun change vite ce rapport.
-CO-058 | draft-coaching.js:234 | matchup.unknown, titre, candidats | re:^(Top|Jungle|Mid|ADC|Support) pas encore identifié : prépare les deux cas$
-CO-059 | draft-coaching.js:234 | matchup.unknown, titre, aucun candidat | re:^(Top|Jungle|Mid|ADC|Support) pas encore visible$
+CO-058 | draft-coaching.js:275 | matchup.unknown, titre, candidats (PR E) | re:^(Top|Jungle|Mid|ADC|Support) pas identifié : (.+ ou .+|peut-être .+)$
+CO-059 | draft-coaching.js:275 | matchup.unknown, titre, aucun candidat (PR E) | re:^(Top|Jungle|Mid|ADC|Support) (pas encore choisi|pas identifié)$
 CO-060 | draft-coaching.js:236 | matchup.unknown, débutant | Regarde les sorts d'invocateur et le placement au début de la partie.
-CO-061 | draft-coaching.js:237 | matchup.unknown, intermédiaire | Le conseil tient compte des deux.
-CO-062 | draft-coaching.js:238 | matchup.unknown, avancé | Si tu connais le vrai rôle, corrige-le : le calcul redevient exact pour ce matchup.
-CO-063 | draft-coaching.js:240 | matchup.unknown, débutant, aucun candidat | Tant qu'il n'est pas visible, le conseil ne porte pas sur ton duel. Si tu peux, choisis après l'avoir vu.
-CO-064 | draft-coaching.js:241 | matchup.unknown, intermédiaire, aucun candidat | Le critère de matchup ne s'applique pas encore : le conseil repose sur le reste de la composition et sur la sécurité générale du pick.
-CO-065 | draft-coaching.js:242 | matchup.unknown, avancé, aucun candidat | Sans candidat plausible, seul le critère « sans adversaire connu » intervient pour ce rôle.
+CO-061 | draft-coaching.js:278 | matchup.unknown, intermédiaire (PR E) | re:(Le conseil tient compte de ces hypothèses\.|Le matchup ne compte pas encore : le conseil repose sur la comp adverse( et sur la sécurité du pick en blind)?\.)
+CO-062 | draft-coaching.js:279 | matchup.unknown, avancé (PR E) | re:(Classement pondéré entre les hypothèses : |Le critère matchup n'intervient pas pour ce pick\.|Le matchup ne compte pas encore dans le classement\.|Si tu connais le vrai rôle, corrige-le : le calcul redevient exact pour ce matchup\.)
+CO-063 | draft-coaching.js:281 | matchup.unknown, débutant, aucun candidat (PR E) | Tant qu'il n'est pas identifié, le conseil ne porte pas sur ton matchup. Si tu peux, choisis après l'avoir vu.
+CO-064 | draft-coaching.js:282 | matchup.unknown, intermédiaire, aucun candidat (PR E, B-12) | re:Le matchup ne compte pas encore : le conseil repose sur la comp adverse( et sur la sécurité du pick en blind)?\.
+CO-065 | draft-coaching.js:283 | matchup.unknown, avancé, aucun candidat, critère blind présent (PR E, B-12) | Sans candidat plausible, le critère « Sécurité sans adversaire connu » remplace le matchup.
 CO-066 | draft-coaching.js:243 | matchup.unknown, limite | Déduction d'après les rôles habituels : ce n'est pas une information du client.
 CO-067 | draft-coaching.js:61,64 | Portées (coachRangeWords) | re:(Les deux : |: )(longue portée|portée moyenne|corps à corps|portée inconnue)
 CO-068 | draft-coaching.js:250 | comp.assassins, titres | re:^(.+ peuvent atteindre .+|\d adversaires sautent sur leurs cibles)$
@@ -519,10 +522,10 @@ CO-126 | draft-coaching.js:366 | champ.alternative, intermédiaire | Si ce point
 CO-127 | draft-coaching.js:367 | champ.alternative, avancé | re:: avantage de -?\d+,\d sur «
 CO-128 | draft-coaching.js:421 | champ.alternative, avancé (when2) | Ce choix passerait devant {x}.
 CO-129 | draft-coaching.js:440-446 | champ.alternative, avancé (when2 vide ou non calculé, PR D) | re:(Aucun changement simple de la draft ne le fait passer devant\.|Pas de calcul des cas où .+ passerait devant tant que ton vis-à-vis n'est pas identifié\.|Ces cas ne sont calculés qu'avec une frontline alliée, pas avec ton réglage actuel\.)
-CO-130 | draft-coaching.js:373 | limits.opponent-assumed, titre | re:^(Top|Jungle|Mid|ADC|Support) supposé, à vérifier$
+CO-130 | draft-coaching.js:419 | limits.opponent-assumed, titre (PR E) | re:^(Top|Jungle|Mid|ADC|Support) (d'en face : .+ \(probable\), à vérifier|\? .+, hypothèse à vérifier)$
 CO-131 | draft-coaching.js:374 | limits.opponent-assumed, débutant | DRAFT pense que c'est {C}, sans certitude. Si tu sais que c'est un autre champion, corrige-le.
-CO-132 | draft-coaching.js:375 | limits.opponent-assumed, intermédiaire | déduit des rôles habituels. Une correction change le matchup pris en compte.
-CO-133 | draft-coaching.js:376 | limits.opponent-assumed, avancé | Déduction probabiliste sur les rôles habituels (confiance {x}), jamais une donnée du client. Sa qualité dépend de l'âge des données de rôles.
+CO-132 | draft-coaching.js:421 | limits.opponent-assumed, intermédiaire (PR E) | re:^(Probable|Hypothèse avec \d champions? vus?) : déduit des rôles habituels\. Une correction change le matchup pris en compte\.$
+CO-133 | draft-coaching.js:422 | limits.opponent-assumed, avancé (PR E) | Déduction probabiliste sur les rôles habituels ({x}), jamais une donnée du client. Sa qualité dépend de l'âge des données de rôles.
 CO-134 | draft-coaching.js:379 | limits.unknown-champion, titre | {C} : champion inconnu de DRAFT
 CO-135 | draft-coaching.js:380 | limits.unknown-champion | Aucune fiche pour ce champion : il n'entre pas dans ce conseil. Regarde ses sorts en jeu.
 CO-136 | draft-coaching.js:381 | limits.unknown-champion, limite | Rien n'est inventé pour un champion sans fiche.
@@ -578,10 +581,10 @@ MA-012 | draft-mastery.js:307 | Compromis, avancé (PR D) | re:^Écart de score 
 MA-013 | draft-mastery.js:295 | Compromis, expériences proches | presque au même niveau d'expérience.
 MA-014 | draft-mastery.js:267-268 | Incertitude, sans historique | re:^(Aucun historique importé|DRAFT ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft\.|Sans import, aucune expérience n'est connue\.|L'absence d'historique n'est pas lue comme un manque d'expérience\.)$
 MA-015 | draft-mastery.js:269 | Incertitude, draft incomplète | Ce conseil peut encore changer.
-MA-016 | draft-mastery.js:270 | Incertitude, adversaire supposé | Adversaire supposé : {C}
+MA-016 | draft-mastery.js:272 | Incertitude, vis-à-vis nommé sans certitude (PR E) | re:^(Top|Jungle|Mid|ADC|Support) (d'en face : .+ \(probable\)|\? .+, hypothèse)$
 MA-017 | draft-mastery.js:270 | Incertitude, adversaire supposé, texte | DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.
 MA-018 | draft-mastery.js:270 | Incertitude, limite | Ce n'est pas une information du client.
-MA-019 | draft-mastery.js:271 | Incertitude, adversaire inconnu | re:^(Adversaire direct inconnu|Le conseil ne peut pas encore porter sur un duel précis\.)$
+MA-019 | draft-mastery.js:275 | Incertitude, vis-à-vis pas nommé (PR E) | re:^((Top|Jungle|Mid|ADC|Support) d'en face : (pas identifié|pas encore choisi)|Le conseil ne peut pas encore porter sur un matchup précis\.)$
 MA-020 | draft-mastery.js:272 | Incertitude, matchup sans donnée | re:^(.+ contre .+ : aucune donnée|Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil\. Rien n'est estimé à sa place\.)$
 MA-021 | draft-mastery.js:274-275 | Incertitude, petit échantillon | re:(: trop peu pour conclure$|trop peu pour savoir si ce champion te réussit\.|^Intervalle à 95 % : )
 MA-022 | draft-mastery.js:278 | Incertitude, pas de partie récente | re:^(Pas de partie récente sur .+|Ta dernière partie importée dans ce rôle date de \d+ jours\. Le jeu a pu changer entre-temps\.)$
@@ -640,6 +643,8 @@ const CATALOG = document.getElementById("catalog").textContent.split("\n").map(l
   }
   return { id, loc, ctx, tpl, rx, hidden:/\[non affiché\]/.test(ctx) };
 }).filter(x => x.id);
+// Un identifiant en double fausserait le rattachement : il est signalé comme une erreur du relevé.
+CATALOG.map(x => x.id).filter((id, i, all) => all.indexOf(id) !== i).forEach(id => res.errors.push(`catalogue : identifiant en double ${id}`));
 
 // ---------- Constats : l'explication affichée contredit-elle le calcul ? ----------
 function constat(key, example) {
@@ -711,7 +716,7 @@ async function useProfile(x, role, pool) {
 function checks(x, where) {
   const $ = x.$, V = $.V, w = x.w, d = x.d;
   if (!V || V.none || !V.n) return;
-  res.checked = res.checked || { steps:0, incomplete:0, ties:0, noFront:0, assumedShown:0, assumedThin:0 };
+  res.checked = res.checked || { steps:0, incomplete:0, ties:0, noFront:0, assumedShown:0, assumedThin:0, matchupLine:0, flexShown:0 };
   res.checked.steps++;
   if (V.n < 5) res.checked.incomplete++;
   if (V.tied) res.checked.ties++;
@@ -743,20 +748,47 @@ function checks(x, where) {
   posTexts.forEach(t => { if (/éviter/i.test(t)) constat("B-08 « À éviter » parmi les raisons positives", `${tag} ${t}`); });
   posTexts.concat(V.risk ? [V.risk] : []).forEach(t => { if (/ · /.test(t)) constat("B-08 raison mélangeant deux hypothèses sans les nommer", `${tag} ${t}`); });
   // Adversaire direct annoncé avec peu d'informations.
+  // B-05 : avec 1 ou 2 champions révélés, l'adversaire nommé est une hypothèse, jamais « probable » ni « presque sûr » (étiquette, ligne d'adversaire).
   const assumed = d.querySelector(".assumed");
-  if (assumed && / (très )?probable$/.test(text(assumed)) && V.n <= 2) constat(`B-05 « ${text(assumed)} » avec ${V.n} champion(s) révélé(s)`, `${tag} ${$.state.enemies.join(", ")} → ${V.mid}`);
-  if (assumed && /non identifié$/.test(text(assumed))) constat("B-06 champion placé dans le rôle du joueur sous « non identifié »", `${tag} ${$.state.enemies.join(", ")}`);
-  // Rôles affichés (deriveSlots) contre la répartition probabiliste (roleBelief).
+  const levelWord = /(très probable|presque sûr|\(probable\)| probable$)/;
+  if (assumed && levelWord.test(text(assumed)) && V.n <= 2) constat(`B-05 « ${text(assumed)} » avec ${V.n} champion(s) révélé(s)`, `${tag} ${$.state.enemies.join(", ")} → ${V.mid}`);
+  d.querySelectorAll(".opp-line, .hint.warn").forEach(e => { if (V.mid && V.n <= 2 && levelWord.test(text(e))) constat(`B-05 ligne d'adversaire « probable » avec ${V.n} champion(s) révélé(s)`, `${tag} ${text(e)}`); });
+  // B-06 : personne d'identifié, la ligne du joueur montre un champion sans « ? » (ou l'ancien « non identifié »).
+  d.querySelectorAll(".role.is-mid").forEach(row => {
+    const who = text(row.querySelector(".role-name")), lab = text(row.querySelector(".assumed"));
+    if (who && !V.mid && (!/\?/.test(lab) || /non identifié$/.test(lab))) constat("B-06 champion placé dans le rôle du joueur sans « ? » alors que personne n'est identifié", `${tag} ${who} : « ${lab} »`);
+  });
+  // B-06 : rôles affichés contre la répartition la plus probable, recalculée ici indépendamment (produit des parts de roleBelief).
   try {
-    const slots = $.deriveSlots(), belief = $.roleBelief($.state.enemies, $.state.roleOf), order = ["top", "jungle", "mid", "adc", "support"];
-    belief.team.forEach((name, i) => {
-      if ($.state.roleOf[name] || $.state.manualMid === name) return;
-      const shown = Object.keys(slots).find(r => slots[r] === name);
-      const m = belief.marginals[i], best = order[m.indexOf(Math.max(...m))];
-      if (shown && shown !== best && m[order.indexOf(best)] - m[order.indexOf(shown)] >= .1) constat("B-06 rôle affiché différent du rôle le plus probable du calcul", `${tag} ${name} affiché ${shown}, calcul ${best} (${(m[order.indexOf(best)] * 100).toFixed(0)} % contre ${(m[order.indexOf(shown)] * 100).toFixed(0)} %)`);
+    const slots = $.deriveSlots(), order = ["top", "jungle", "mid", "adc", "support"];
+    const fixed = Object.assign({}, $.state.roleOf || {}); if (V.mid) fixed[V.mid] = $.myRole();
+    const belief = $.roleBelief($.state.enemies, fixed), team = belief.team;
+    const share = (i, r) => belief.evidence[i].shares[r];
+    let best = 0;
+    const walk = (i, used, w, lock) => { if (i === team.length) { best = Math.max(best, w); return; } order.forEach((role, r) => { if (!(used & (1 << r)) && (!lock || !fixed[team[i]] || fixed[team[i]] === role)) walk(i + 1, used | (1 << r), w * share(i, r), lock); }); };
+    walk(0, 0, 1, true); if (!best) walk(0, 0, 1, false);
+    const shownRole = n => Object.keys(slots).find(r => slots[r] === n);
+    const product = team.reduce((w, n, i) => w * (shownRole(n) ? share(i, order.indexOf(shownRole(n))) : 0), 1);
+    if (Math.abs(product - best) > 1e-9 * Math.max(best, 1e-12)) constat("B-06 rôles affichés différents de la répartition la plus probable du calcul", `${tag} ${team.map(n => `${n} ${shownRole(n) || "absent"}`).join(", ")}`);
+    // Contexte : rôle affiché moins probable que le meilleur rôle pris seul (conflit entre champions). Doit alors porter une marque d'incertitude.
+    team.forEach((name, i) => {
+      if (fixed[name]) return;
+      const shown = shownRole(name), m = belief.marginals[i], top = order[m.indexOf(Math.max(...m))];
+      if (!shown || shown === top || m[order.indexOf(top)] - m[order.indexOf(shown)] < .1) return;
+      const row = [...d.querySelectorAll(".role")].find(r => text(r.querySelector(".role-name")) === name);
+      const mark = row ? text(row.querySelector(".role-flex") || row.querySelector(".assumed")) : "";
+      if (row && !/(\?| ou )/.test(mark)) constat("B-06 rôle affiché moins probable qu'un autre, sans marque d'incertitude", `${tag} ${name} affiché ${shown}, calcul ${top} (${(m[order.indexOf(top)] * 100).toFixed(0)} % contre ${(m[order.indexOf(shown)] * 100).toFixed(0)} %)`);
     });
   } catch (e) { res.errors.push("B12 " + e.message); }
-  if (!V.mid && first && first.criteria.some(c => c.key === "matchup")) constat("B-09 « inconnu : le matchup direct n'est pas évalué » alors que les hypothèses le comptent", `${tag} ${first.criteria.find(c => c.key === "matchup").text}`);
+  // B-09 : le texte de l'analyse doit suivre le calcul du pick affiché (matchup présent = moyenne des hypothèses).
+  // Texte que l'onglet Analyse affiche (même fonction que la page), complété par le DOM s'il est ouvert.
+  const analysis = (!V.mid ? w.eval("matchupUncertainText()") + " " : "") + text(d.querySelector(".tab-body"));
+  const shownHasMatchup = shownEntry && shownEntry.criteria.some(c => c.key === "matchup");
+  if (!V.mid && /: le matchup (est une moyenne des hypothèses|ne compte pas encore)\./.test(analysis)) { res.checked.matchupLine++; if (shownHasMatchup) res.checked.matchupAveraged = (res.checked.matchupAveraged || 0) + 1; }
+  if (d.querySelector(".role-flex")) res.checked.flexShown++;
+  if (!V.mid && /n'est pas évalué\.|inconnu : le matchup/.test(analysis.replace(/Pas de données de matchup contre [^:]+: ce critère n'est pas évalué\./g, "")) && shownHasMatchup) constat("B-09 « inconnu : le matchup direct n'est pas évalué » alors que les hypothèses le comptent", `${tag} ${shownEntry.criteria.find(c => c.key === "matchup").text}`);
+  if (!V.mid && /le matchup ne compte pas encore/.test(analysis) && shownHasMatchup) constat("B-09 « le matchup ne compte pas encore » alors que les hypothèses le comptent", `${tag} ${shownEntry.criteria.find(c => c.key === "matchup").text}`);
+  if (!V.mid && /le matchup est une moyenne des hypothèses/.test(analysis) && !shownHasMatchup) constat("B-09 « moyenne des hypothèses » alors que le matchup ne compte pas", tag);
   if (V.without) {
     const sc = V.belief && V.n ? w.eval("beliefScenarios")(V.belief) : null;
     const real = $.analyze($.state.enemies, V.mid, false, sc).ranking[0];
@@ -782,8 +814,9 @@ function checks(x, where) {
       if ((good && avoid) || (!good && top)) constat("Contrôle titre du matchup écrit contraire au tableau pour l'adversaire nommé (moyenne des hypothèses)", `${tag} ${written.title}`);
     }
     const unknown = advice.items.find(i => i.id === "matchup.unknown");
-    if (unknown && /les deux cas/.test(unknown.title) && !/ ou /.test(unknown.text) && !/ et /.test(unknown.text)) constat("B-14 « prépare les deux cas » avec un seul candidat nommé", `${tag} ${unknown.text}`);
-    if (unknown && /seul le critère « sans adversaire connu »/.test(unknown.text) && $.myRole() !== "mid") constat("B-12 critère « sans adversaire connu » annoncé hors du mid", tag);
+    if (unknown && (/les deux cas/.test(unknown.title) || / ou /.test(unknown.title)) && !/ ou /.test(unknown.text) && !/ et /.test(unknown.text) && !/, /.test(unknown.text)) constat("B-14 « prépare les deux cas » avec un seul candidat nommé", `${tag} ${unknown.text}`);
+    const blindCrit = shownEntry && shownEntry.criteria.some(c => c.key === "blind");
+    if (unknown && /sans adversaire connu|sécurité du pick en blind/.test(unknown.text) && ($.myRole() !== "mid" || !blindCrit)) constat("B-12 critère « sans adversaire connu » annoncé alors qu'il ne s'applique pas", `${tag} ${unknown.text}`);
     const control = advice.items.find(i => i.id === "comp.control");
     const cc = shownEntry && shownEntry.criteria.find(c => c.key === "control");
     if (control && cc && cc.impact < 0 && /engages contre un champion lent/.test(cc.text) && /Si tu fonces|contrôles ciblés visibles/.test(control.text)) constat("B-15 « peuvent t'immobiliser / Si tu fonces » pour un malus d'engage sur un champion lent", `${tag} ${control.title} — ${control.text}`);

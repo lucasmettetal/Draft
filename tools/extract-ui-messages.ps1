@@ -19,6 +19,10 @@ $repo = Split-Path $PSScriptRoot -Parent
 if (-not $Scenarios) {
   $Scenarios = @('tests\moteur\scenarios-dev.json', 'tests\moteur\evaluation\scenarios-dev.json', 'docs\moteur\evaluation\scenarios-dev.json') | ForEach-Object { Join-Path $repo $_ } | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
+# Chaque identifiant du catalogue doit être unique : un doublon fausserait le rattachement des textes.
+$catalogue = [regex]::Match([IO.File]::ReadAllText((Join-Path $repo 'web\draft-messages-tests.html')), '<script type="text/plain" id="catalog">([\s\S]*?)</script>').Groups[1].Value
+$doublons = @([regex]::Matches($catalogue, '(?m)^\s*([A-Z]{2}-\d+) \|') | ForEach-Object { $_.Groups[1].Value } | Group-Object | Where-Object { $_.Count -gt 1 } | ForEach-Object { $_.Name })
+if ($doublons.Count) { throw "Catalogue : identifiant(s) en double : $($doublons -join ', ')" }
 $web = Join-Path $Work 'web'
 Remove-Item -Recurse -Force $web -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Work | Out-Null
@@ -63,7 +67,7 @@ if (-not $Out) { $Out = Join-Path $Work 'messages.json' }
 $r = $raw | ConvertFrom-Json
 $s = $r.summary
 "Durée : $([int]$watch.Elapsed.TotalSeconds) s, $($r.runs) drafts, $($r.steps) étapes"
-if ($r.checked) { "Étapes vérifiées (fenêtre complète) : $($r.checked.steps), dont $($r.checked.incomplete) avec une draft incomplète, $($r.checked.ties) égalités affichées, $($r.checked.noFront) avec l'option frontline décochée ; adversaire direct étiqueté : $($r.checked.assumedShown) fois, dont $($r.checked.assumedThin) avec 1 ou 2 champions révélés" }
+if ($r.checked) { "Étapes vérifiées (fenêtre complète) : $($r.checked.steps), dont $($r.checked.incomplete) avec une draft incomplète, $($r.checked.ties) égalités affichées, $($r.checked.noFront) avec l'option frontline décochée ; adversaire direct étiqueté : $($r.checked.assumedShown) fois, dont $($r.checked.assumedThin) avec 1 ou 2 champions révélés ; ligne matchup de l'analyse vérifiée (vis-à-vis pas nommé) : $($r.checked.matchupLine) fois, dont $([int]$r.checked.matchupAveraged) avec le matchup compté en moyenne des hypothèses ; rôle incertain marqué : $($r.checked.flexShown) étapes" }
 "Inventaire : $($s.inventaire) entrées dont $($s.inventaireVisible) visibles ; observées à l'écran : $($s.inventaireObserve) ; non déclenchées : $(@($s.nonDeclenches).Count)"
 "Textes distincts relevés dans le DOM : $($s.observesDistincts) ; gabarits hors inventaire : $($s.nonInventories)"
 "Constats (explication contraire au calcul) :"

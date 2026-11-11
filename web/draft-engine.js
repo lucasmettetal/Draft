@@ -621,7 +621,7 @@ function buildPlan(pick, compo, mid, jungler) {
     pick === "Kog'Maw" && !midDive && mid && `Contre ${mid}, farme à portée maximale et échange seulement quand ta vague te couvre.`,
     pick === "TF" && mid && `Contre ${mid}, garde ta carte dorée pour répondre à un engage ou préparer un gank.`,
     !roamer && jungler && `${jungler} peut venir en gank : place une ward avant de pousser ta vague.`,
-    !mid && `Ton adversaire ${oppAt()} n'est pas connu : joue d'abord la sécurité et observe son style.`,
+    !mid && `Ton vis-à-vis ${oppAt()} n'est pas encore identifié : joue d'abord la sécurité et observe son style.`,
     role === "jungle" ? "Prépare ton chemin vers la lane qui peut le mieux profiter de ton aide." : role === "support" ? "Garde la vision de ton côté avant de chercher un engage." : "Pousse ta vague avant de bouger, pour ne pas perdre de farm."
   ];
   const midGame = [

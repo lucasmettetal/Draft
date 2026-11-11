@@ -285,6 +285,57 @@ function roleBelief(team, fixed) {
   return { team:list, evidence, marginals:marginals.map(m => m.map(divide)), vacant:vacant.map(divide) };
 }
 
+// Affichage seulement : deux rôles sont « proches » quand l'un pèse au moins 80 % de l'autre. N'entre dans aucun calcul.
+const ROLE_CLOSE_RATIO = .8, ROLE_SURE_SHARE = .5;
+
+// Répartition la plus probable, tirée de roleBelief sans rien y changer : même produit des parts, mêmes corrections.
+// Fonction pure : elle ne modifie aucune probabilité et ne sert qu'à l'affichage et au relevé.
+// À égalité exacte, l'ordre alphabétique des noms tranche, pour que l'ordre de saisie n'ait aucun effet.
+// Pour chaque champion : rôle affiché, sa probabilité, rôle le plus probable pris seul, rôles proches, et s'il est incertain.
+function likelyAssignment(team, fixed) {
+  const belief = roleBelief(team, fixed);
+  const forced = fixed || {};
+  const order = belief.team.map((name, i) => i).sort((a, b) => belief.team[a] < belief.team[b] ? -1 : belief.team[a] > belief.team[b] ? 1 : a - b);
+  const search = lock => {
+    let best = null;
+    const place = (k, used, weight, chosen) => {
+      if (k === order.length) { if (weight > 0 && (!best || weight > best.weight * (1 + 1e-9))) best = { weight, chosen:chosen.slice() }; return; }
+      const i = order[k];
+      const only = lock && forced[belief.team[i]] ? ROLE_ORDER.indexOf(forced[belief.team[i]]) : -1;
+      ROLE_ORDER.forEach((_, role) => {
+        if ((used & (1 << role)) || (only >= 0 && role !== only)) return;
+        chosen[i] = role;
+        place(k + 1, used | (1 << role), weight * belief.evidence[i].shares[role], chosen);
+      });
+    };
+    place(0, 0, 1, []);
+    return best;
+  };
+  // Deux corrections contradictoires : comme roleBelief, on repart sans elles.
+  const best = search(true) || search(false);
+  const slots = {}, byName = {};
+  belief.team.forEach((name, i) => {
+    const m = belief.marginals[i];
+    const role = best ? best.chosen[i] : m.indexOf(Math.max(...m));
+    const top = m.indexOf(Math.max(...m));
+    const close = ROLE_ORDER.map((_, r) => r).filter(r => r !== role && (r === top || m[r] >= ROLE_CLOSE_RATIO * m[role]) && m[r] > 0)
+      .sort((a, b) => m[b] - m[a] || a - b).map(r => ROLE_ORDER[r]);
+    const corrected = !!forced[name] && forced[name] === ROLE_ORDER[role];
+    slots[ROLE_ORDER[role]] = name;
+    byName[name] = { role:ROLE_ORDER[role], p:m[role], top:ROLE_ORDER[top], topP:m[top], close:corrected ? [] : close, uncertain:!corrected && (close.length > 0 || m[role] < ROLE_SURE_SHARE), corrected };
+  });
+  return { slots, byName, team:belief.team };
+}
+
+// Relevé de validation : rôle le plus probable de chaque adversaire et sa probabilité, « Garen=top:0.92,Kog'Maw=mid:0.41 ».
+function predictedRolesText(team, fixed) {
+  const belief = roleBelief(team, fixed);
+  return belief.team.map((name, i) => {
+    const m = belief.marginals[i], top = m.indexOf(Math.max(...m));
+    return `${name}=${ROLE_ORDER[top]}:${m[top].toFixed(2)}`;
+  }).join(",");
+}
+
 // Qui peut être en face du joueur, et le risque qu'il ne soit pas encore révélé.
 function opponentBelief(team, fixed) {
   const index = ROLE_ORDER.indexOf(myRole());

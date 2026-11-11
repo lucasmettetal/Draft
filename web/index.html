@@ -211,7 +211,7 @@
   .to-mid { opacity:0; background:var(--raised); transition:opacity .12s, color .12s, background-color .12s; }
   .role:hover .to-mid, .role:focus-within .to-mid { opacity:1; }
   .to-mid:focus-visible { opacity:1; }
-  .assumed { color:var(--gold); font-weight:500; }
+  .assumed, .role-flex { color:var(--gold); font-weight:500; }
   .slot-ghost { display:flex; align-items:center; justify-content:center; color:var(--line); }
   .slot-ghost svg { width:42%; height:42%; }
   .role:hover .slot-ghost, .role.target .slot-ghost { color:var(--muted); }
@@ -542,6 +542,7 @@
   .opp-line b { color:var(--text); font-weight:600; }
   .hint.warn { color:var(--info); }
   .assumed { display:block; color:var(--info); }
+  .role-flex { color:var(--info); }
   .role.is-mid .role-traits { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-height:1.2; }
   .panel-left .role.is-mid .role-traits { -webkit-line-clamp:3; }
   /* Panneau unique : la colonne en surbrillance et la ligne d'adversaire suffisent. */
@@ -784,30 +785,22 @@ function syncCurrentEntry() {
 // ---------- Actions ----------
 let rerender = () => {};
 let V = null;
-const REQUIRED_ROLES = ["top", "jungle", "mid", "adc", "support"];
 const ROLE_LABEL = { top:"Top", jungle:"Jungle", mid:"Mid", adc:"ADC", support:"Support" };
 
-function roleHints(name) {
-  const shares = roleShares(name);
-  const others = ROLE_ORDER.filter(role => role !== myRole());
-  if (!shares) return others;
-  return others.sort((a, b) => shares[ROLE_ORDER.indexOf(b)] - shares[ROLE_ORDER.indexOf(a)]);
-}
-
-// Les rôles servent à l'affichage ; seul le mid influence le calcul, comme avant.
-function deriveSlots() {
-  const slots = {};
+// Les rôles affichés suivent la répartition la plus probable du calcul (likelyAssignment, tirée de roleBelief).
+// Ils servent à l'affichage ; seul l'adversaire direct influence le classement. L'adversaire affiché et les corrections sont respectés.
+function likelyRoles() {
+  const fixed = Object.assign({}, state.roleOf || {});
   const mid = currentMid();
-  if (mid) slots[myRole()] = mid;
-  // Sans adversaire identifié, le candidat le plus plausible se place en dernier : s'il faut remplir la ligne, c'est lui qu'elle montre.
-  const plausible = mid ? [] : opponentBelief(state.enemies, state.roleOf).candidates.map(c => c.name).reverse();
-  const others = (mid ? state.enemies : plausible).filter(n => n !== mid);
-  others.filter(n => state.roleOf[n] && state.roleOf[n] !== myRole()).forEach(n => { if (!slots[state.roleOf[n]]) slots[state.roleOf[n]] = n; });
-  others.filter(n => !Object.values(slots).includes(n)).forEach(n => {
-    const role = roleHints(n).find(r => !slots[r]) || REQUIRED_ROLES.find(r => !slots[r]);
-    slots[role] = n;
-  });
-  return slots;
+  if (mid) fixed[mid] = myRole();
+  return likelyAssignment(state.enemies, fixed);
+}
+function deriveSlots() { return likelyRoles().slots; }
+
+// Rôle incertain d'un adversaire : « ADC ou Mid » si deux rôles sont proches, « ADC ? » si le rôle affiché reste peu probable.
+function roleTag(info) {
+  if (!info || !info.uncertain) return "";
+  return info.close.length ? `${ROLE_LABEL[info.role]} ou ${ROLE_LABEL[info.close[0]]}` : `${ROLE_LABEL[info.role]} ?`;
 }
 
 function describeChange(prev, shown, heldEntry, ranking) {
@@ -1276,14 +1269,43 @@ function sendValidationRow() {
     myRole(), PICKS.map(label).join(","), state.enemies.join(","), V.mid || "", manual ? "manuel" : V.confidence || "",
     V.hypothesis ? V.hypothesis.others.join(",") : "", V.tied ? V.tied.map(label).join("=") : label(V.shown), V.rival ? label(V.rival.pick) : "", V.provisional ? "oui" : "non",
     corrections.join(","), entry && entry.picked ? label(entry.picked) : ""
-  ] });
+  ],
+  // Colonne roles_predits, écrite en fin de ligne : prédiction du modèle seul, sans les corrections (elles sont dans « corrections »).
+  predicted: predictedRolesText(state.enemies, {}) });
 }
 
 const CTA_HELP = "Note ce choix dans ton journal. Rien n'est envoyé au client LoL : tu verrouilles toi-même ton champion.";
 const CLOSE_HELP = "Deux de tes champions ont des scores proches : les deux se défendent.";
 const OPPONENT_HELP = "Le client ne donne pas les rôles adverses : cet adversaire est déduit, et se corrige dans la composition.";
 
-const CONFIDENCE_WORD = { "élevée":"très probable", moyenne:"probable", faible:"non identifié" };
+// Une seule échelle pour ton vis-à-vis (docs/technique/GLOSSAIRE-LOL.md §3) : presque sûr, probable, hypothèse
+// (1 ou 2 champions vus), pas identifié, pas encore choisi. Le mot suit la confiance calculée ; le seuil pour nommer ne change pas ici.
+const seenText = n => `${n} champion${n > 1 ? "s" : ""} vu${n > 1 ? "s" : ""}`;
+function opponentLevel() {
+  if (!V.mid) return null;
+  if (V.n <= 2) return "hypothèse";
+  return V.confidence === "élevée" ? "presque sûr" : "probable";
+}
+// Personne de nommé : « pas encore choisi » si aucun candidat plausible n'est révélé et qu'il reste une vraie chance
+// qu'il ne soit pas encore pris (ou si rien n'est révélé), sinon « pas identifié ».
+function unnamedWord() {
+  const h = V.hypothesis;
+  if (!V.n) return "pas encore choisi";
+  return h && h.others.includes("pas encore choisi") && !h.others.some(o => o !== "pas encore choisi") ? "pas encore choisi" : "pas identifié";
+}
+// Analyse, vis-à-vis pas nommé. Fidèle au calcul : avec des hypothèses, le critère matchup du pick affiché est leur moyenne pondérée.
+function matchupUncertainText() {
+  const shownEntry = V.res.ranking.find(p => p.pick === V.shown);
+  return shownEntry && shownEntry.criteria.some(c => c.key === "matchup")
+    ? `${oppName()} pas identifié : le matchup est une moyenne des hypothèses.`
+    : `${oppName()} ${unnamedWord()} : le matchup ne compte pas encore.`;
+}
+// Étiquette de la ligne de ton rôle dans la composition adverse.
+function opponentTag() {
+  const level = opponentLevel();
+  if (!level) return `${oppName()} ? pas identifié`;
+  return level === "hypothèse" ? `${oppName()} ? hypothèse (${seenText(V.n)})` : `${oppName()} d'en face (${level})`;
+}
 
 // Les hypothèses restent courtes, sans pourcentage : la qualité des données ne permet pas mieux.
 function hypothesisText() {
@@ -1291,9 +1313,12 @@ function hypothesisText() {
   if (!h) return "";
   const notYet = h.others.includes("pas encore choisi");
   const named = h.others.filter(o => o !== "pas encore choisi");
-  if (!h.main && !named.length) return `${oppName()} pas encore visible.`;
-  if (!h.main) return `${oppName()} non identifié : ${named.join(" ou ")}${notYet ? ", ou pas encore choisi" : ""}.`;
-  return `${oppName()} supposé : ${h.main}${named.length ? `, sinon ${named.join(" ou ")}` : notYet ? ", ou pas encore choisi" : ""}.`;
+  if (!h.main && !named.length) return `${oppName()} d'en face : ${unnamedWord()}.`;
+  if (!h.main) return `${oppName()} d'en face : pas identifié (${named.join(" ou ")}${notYet ? ", ou pas encore choisi" : ""}).`;
+  const rest = named.length ? `, sinon ${named.join(" ou ")}${notYet ? " ou pas encore choisi" : ""}` : notYet ? ", sinon pas encore choisi" : "";
+  const level = opponentLevel();
+  if (level === "hypothèse") return `${oppName()} ? ${h.main}, hypothèse (${seenText(V.n)})${rest}.`;
+  return `${oppName()} d'en face : ${h.main} (${level})${rest}.`;
 }
 
 // Incertitude sur l'adversaire direct : une ligne à part, d'une autre couleur que « Choix serré », qui porte sur le conseil.
@@ -1305,7 +1330,7 @@ function OpponentLine({ className }) {
   </p>`;
 }
 
-function RoleRow({ role, name, assumed }) {
+function RoleRow({ role, name, assumed, info }) {
   const isMid = role === myRole();
   const previous = useRef(name);
   const [flash, setFlash] = useState(null);
@@ -1325,7 +1350,7 @@ function RoleRow({ role, name, assumed }) {
         <${Portrait} name=${name} size=${44} />
         <span className="role-who">
           <span className="role-name" title=${name}>${name}</span>
-          <span className="role-traits" title=${traitsOf(name)}>${isMid && assumed ? html`<b className="assumed">${oppName()} ${CONFIDENCE_WORD[V.confidence] || "probable"}</b> ` : ""}${traitsOf(name)}</span>
+          <span className="role-traits" title=${traitsOf(name)}>${isMid && assumed ? html`<b className="assumed">${opponentTag()}</b> ` : !isMid && roleTag(info) ? html`<b className="role-flex">${roleTag(info)}</b> ` : ""}${traitsOf(name)}</span>
         </span>
       <//>
       <span className="role-tools">
@@ -1364,7 +1389,7 @@ function DraftEffects() {
 }
 
 function EnemyPanel() {
-  const slots = deriveSlots();
+  const likely = likelyRoles(), slots = likely.slots;
   const c = V.res.counts;
   const warn = V.n && !V.mid;
   return html`<aside className="col col-left" aria-label="Composition adverse">
@@ -1373,7 +1398,7 @@ function EnemyPanel() {
     <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
     <${LayoutGroup}>
       <div className="roles">
-        ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} />`)}
+        ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
       </div>
     <//>
     <h2 className="sec-title profile">Profil de l'équipe</h2>
@@ -1705,9 +1730,9 @@ function CriteriaView() {
   const entries = V.res.ranking;
   const rows = CRITERIA.filter(def => entries.some(p => p.criteria.some(c => c.key === def.key)));
   const uncertain = [];
-  if (V.hypothesis) uncertain.push(`${hypothesisText()} Confiance ${V.confidence}.`);
+  if (V.hypothesis) uncertain.push(hypothesisText());
   if (V.res.ranking[0] && V.res.ranking[0].byScenario) uncertain.push("Classement pondéré entre ces hypothèses, avec les mêmes règles.");
-  if (!V.mid) uncertain.push(`${oppName()} inconnu : le matchup direct n'est pas évalué.`);
+  if (!V.mid) uncertain.push(matchupUncertainText());
   if (V.mid && !matchupOf(V.mid) && !PICKS.some(p => liveMatchup(p, V.mid))) uncertain.push(`Pas de données de matchup contre ${V.mid} : ce critère n'est pas évalué.`);
   if (V.tied) uncertain.push(`${V.tied.map(label).join(", ")} ont le même score. ${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}`);
   if (entries[0] && V.shown !== entries[0].pick && !(V.tied && V.tied.includes(entries[0].pick))) uncertain.push(`${label(V.shown)} reste affiché : ${label(entries[0].pick)} mène de trop peu pour changer de nom en cours de draft.`);
@@ -2314,7 +2339,7 @@ function Settings({ onClose }) {
 
       ${hostState.available ? html`<div>
         <h3>Rôles des champions</h3>
-        <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : (typeof ROLE_RATES !== "undefined" ? `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.` : "Pas encore calculés : les rôles habituels écrits à la main servent de repère.")} Ils servent à deviner le mid adverse.</p>
+        <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : (typeof ROLE_RATES !== "undefined" ? `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.` : "Pas encore calculés : les rôles habituels écrits à la main servent de repère.")} Ils servent à deviner ton vis-à-vis et à placer les adversaires dans leurs rôles.</p>
         <h3>Matchups</h3>
         <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? `Bilans calculés pour le rôle ${ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"]} : relance le calcul pour ton rôle actuel.` : window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games}`).join(", ")}.` : "Pas encore de bilans calculés."} Sous ${MATCHUP_MIN_GAMES} parties, le matchup n'utilise pas le bilan.</p>
         <p className="small" role="status">${hostState.rolesStatus || ""}</p>
@@ -2342,11 +2367,11 @@ function Settings({ onClose }) {
 }
 
 function CompactEnemies() {
-  const slots = deriveSlots();
+  const likely = likelyRoles(), slots = likely.slots;
   return html`<div className="p-compact-enemies">
     <${SearchBox} />
     <div className="roles compact-roles">
-      ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} />`)}
+      ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
     </div>
   </div>`;
 }
