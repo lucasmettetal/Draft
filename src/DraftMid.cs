@@ -1586,7 +1586,7 @@ public static class Autostart
                 for (int i = 0; i < 100 && f != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof PROFILES !== 'undefined' && hostState.available") != "true"; i++) await Task.Delay(100);
                 if (f != null && f.View.CoreWebView2 != null)
                 {
-                    string js = "JSON.stringify({version:typeof APP_VERSION!=='undefined'?APP_VERSION:null,actif:PROFILES.active,parRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].pool.length])),ancienProfil:!!localStorage.getItem('draftProfile'),profilsEnregistres:!!localStorage.getItem('draftProfiles'),historique:window.DRAFT_HISTORY&&Array.isArray(window.DRAFT_HISTORY.rows)?window.DRAFT_HISTORY.rows.length:0,journal:loadJournal().length,niveau:PREFS.coachLevel,role:myRole()})";
+                    string js = "JSON.stringify({version:typeof APP_VERSION!=='undefined'?APP_VERSION:null,actif:PROFILES.active,parRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].pool.length])),exclusParRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].excluded.length])),favorisParRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].favorite?1:0])),exclusCalcul:ENGINE_PREFS.excluded.length,favoriCalcul:ENGINE_PREFS.favorite?1:0,ancienProfil:!!localStorage.getItem('draftProfile'),profilsEnregistres:!!localStorage.getItem('draftProfiles'),historique:window.DRAFT_HISTORY&&Array.isArray(window.DRAFT_HISTORY.rows)?window.DRAFT_HISTORY.rows.length:0,journal:loadJournal().length,niveau:PREFS.coachLevel,role:myRole()})";
                     result = new JavaScriptSerializer().Deserialize<string>(await f.View.CoreWebView2.ExecuteScriptAsync(js));
                 }
             }

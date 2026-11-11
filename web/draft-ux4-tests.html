@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests UX-4</title></head><body><pre id="out"></pre>
+<!-- UX-4 : Mon pool, exclusions et favori par rôle, sans perte de données ni changement du classement. Vraie page. -->
+<!-- Lancement : tools\run-v215-tests.ps1 -Page draft-ux4-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const settle=()=>wait(150);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const STORED={version:1,active:"mid",roles:{top:{pool:["Darius","Garen","Malphite"],excluded:["Garen"],favorite:"Darius"},jungle:{pool:[],excluded:[],favorite:null},mid:{pool:["TF","Fizz","Kog'Maw","Xerath"],excluded:["Fizz"],favorite:"Xerath"},adc:{pool:["Jinx","Caitlyn","Kog'Maw"],excluded:["Kog'Maw"],favorite:"Jinx"},support:{pool:[],excluded:[],favorite:null}}};
+const seed=()=>{localStorage.clear();localStorage.setItem("draftProfiles",JSON.stringify(STORED));localStorage.setItem("draftPrefs",JSON.stringify({excluded:["Fizz"],favorite:"Xerath",assumeFront:true,coachLevel:"beginner",autoRole:"suggest"}));localStorage.setItem("draftPatch","16.22");};
+async function load(extra){const f=document.createElement("iframe");f.width=1366;f.height=900;f.src="index.html?x=1"+(extra||"");document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(400);const w=f.contentWindow;return {f,w,d:f.contentDocument,ev:c=>w.eval(c)};}
+const q=(x,s)=>x.d.querySelector(`[data-test="${s}"]`);
+const rolesOf=x=>JSON.stringify(x.ev("PROFILES.roles"));
+const ENEMIES=["Syndra","Ornn","Lee Sin","Jinx"];
+const ranking=x=>JSON.stringify(x.ev("V.res.ranking.map(p=>[p.pick,+p.score.toFixed(6)])"));
+
+(async()=>{
+seed();
+// 1. Lecture : chaque rôle retrouve son pool, ses exclusions et son favori ; le calcul ne voit que ceux du rôle joué.
+let x=await load("&view=pool");
+t(rolesOf(x)===JSON.stringify(STORED.roles),"lecture : profils par rôle retrouvés à l'identique");
+t(JSON.stringify(x.ev("ENGINE_PREFS.excluded"))==='["Fizz"]'&&x.ev("ENGINE_PREFS.favorite")==="Xerath","calcul : exclusions et favori du rôle joué (Mid) seulement");
+// 2. Classement du rôle joué : identique avant et après des changements sur un autre rôle.
+ENEMIES.forEach(n=>x.ev(`addEnemy(${JSON.stringify(n)})`));await settle();const before=ranking(x);
+q(x,"pool-role-top").click();await settle();
+t(x.ev("myRole()")==="mid","voir le pool Top : le rôle joué reste Mid");
+const rows=[...x.d.querySelectorAll('[data-test="pool-row"]')].map(r=>r.dataset.champion).join();t(rows==="Darius,Garen,Malphite","tableau : le pool du rôle sélectionné ("+rows+")");
+t(x.d.querySelector('[data-test="pool-favorite"][data-champion="Darius"]').checked&&x.d.querySelector('[data-test="pool-exclude"][data-champion="Garen"]').checked,"tableau : favori et exclusion du rôle Top affichés");
+x.d.querySelector('[data-test="pool-exclude"][data-champion="Malphite"]').click();await settle();
+t(/Enregistré : Malphite exclu pour l'instant en Top\./.test(text(q(x,"pool-saved"))),"confirmation visible : exclusion enregistrée ("+text(q(x,"pool-saved"))+")");
+x.d.querySelector('[data-test="pool-favorite"][data-champion="Garen"]').click();await settle();
+t(/Enregistré : Garen préféré à égalité en Top\./.test(text(q(x,"pool-saved"))),"confirmation visible : favori enregistré");
+const top=x.ev("PROFILES.roles.top");t(JSON.stringify(top.excluded)==='["Garen","Malphite"]'&&top.favorite==="Garen","Top : exclusions et favori modifiés pour ce rôle seulement");
+t(JSON.stringify(x.ev("PROFILES.roles.mid"))===JSON.stringify(STORED.roles.mid)&&JSON.stringify(x.ev("PROFILES.roles.adc"))===JSON.stringify(STORED.roles.adc),"Mid et ADC inchangés");
+t(JSON.stringify(x.ev("ENGINE_PREFS.excluded"))==='["Fizz"]'&&x.ev("ENGINE_PREFS.favorite")==="Xerath","calcul inchangé tant que Top n'est pas joué");
+x.ev("commit()");await settle();t(ranking(x)===before,"classement du rôle joué identique après les changements du pool Top");
+const saved=JSON.parse(localStorage.getItem("draftProfiles"));t(JSON.stringify(saved.roles.top.excluded)==='["Garen","Malphite"]'&&saved.roles.top.favorite==="Garen","Top enregistré dans le stockage");
+// 3. Jouer Top puis revenir à Mid : chaque rôle garde ses choix, le calcul suit le rôle joué.
+q(x,"played-role-top").click();await settle();t(x.ev("myRole()")==="top"&&JSON.stringify(x.ev("ENGINE_PREFS.excluded"))==='["Garen","Malphite"]'&&x.ev("ENGINE_PREFS.favorite")==="Garen","Top joué : ses exclusions et son favori passent au calcul");
+q(x,"played-role-mid").click();await settle();t(JSON.stringify(x.ev("ENGINE_PREFS.excluded"))==='["Fizz"]'&&x.ev("ENGINE_PREFS.favorite")==="Xerath"&&JSON.stringify(x.ev("PROFILES.roles.top.excluded"))==='["Garen","Malphite"]',"retour à Mid : choix de Mid rétablis, ceux de Top conservés");
+t(ranking(x)===before,"retour à Mid : classement identique à celui du départ");
+// 4. Recherche : dans Mon pool, dit ce qui est déjà dans le pool, Entrée ajoute le premier champion absent.
+q(x,"pool-role-mid").click();await settle();const s=q(x,"pool-search");const set=Object.getOwnPropertyDescriptor(x.w.HTMLInputElement.prototype,"value").set;set.call(s,"kog");s.dispatchEvent(new x.w.Event("input",{bubbles:true}));await settle();
+t(!!x.d.querySelector('[data-test="pool-already"][data-champion="Kog\'Maw"]'),"recherche : « déjà dans le pool » pour Kog'Maw");
+set.call(s,"ahr");s.dispatchEvent(new x.w.Event("input",{bubbles:true}));await settle();s.dispatchEvent(new x.w.KeyboardEvent("keydown",{key:"Enter",bubbles:true}));await settle();
+t(x.ev("PROFILES.roles.mid.pool").includes("Ahri")&&/Enregistré : Ahri ajouté au pool Mid\./.test(text(q(x,"pool-saved"))),"recherche : Entrée ajoute Ahri au pool Mid, confirmation visible");
+t(JSON.stringify(x.ev("PROFILES.roles.mid.excluded"))==='["Fizz"]'&&x.ev("PROFILES.roles.mid.favorite")==="Xerath","ajout : exclusions et favori de Mid conservés");
+// Retrait puis Annuler : pool, exclusion et favori revenus.
+x.d.querySelector('[data-test="pool-remove"][data-champion="Fizz"]').click();await settle();t(!x.ev("PROFILES.roles.mid.excluded").includes("Fizz"),"retrait de Fizz : son exclusion part avec lui");
+q(x,"pool-undo").click();await settle();t(x.ev("PROFILES.roles.mid.pool").includes("Fizz")&&JSON.stringify(x.ev("PROFILES.roles.mid.excluded"))==='["Fizz"]',"Annuler : Fizz et son exclusion reviennent");
+const counts=[...x.d.querySelectorAll('[data-test^="pool-role-"] .pool-role-count')].map(text).join();t(counts==="3,0,5,3,0","liste des rôles : nombre de champions par rôle ("+counts+")");
+// 5. Export puis import : tous les rôles reviennent à l'identique.
+const exported=x.ev("exportConfig(PROFILES, PREFS, APP_VERSION)");const parsed=x.ev(`parseConfig(${JSON.stringify(exported)})`);
+t(parsed.ok&&JSON.stringify(parsed.roles)===rolesOf(x),"export puis import : exclusions et favoris de chaque rôle identiques");
+const current=rolesOf(x);x.f.remove();
+// 6. Rechargement : rien n'est perdu.
+x=await load("&view=pool");t(rolesOf(x)===current,"rechargement : profils de tous les rôles conservés");x.f.remove();
+// 7. Ancien profil unique (avant les profils par rôle) : exclusions et favori repris par son rôle.
+localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"adc",pool:["Jinx","Caitlyn","Kog'Maw"]}));localStorage.setItem("draftPrefs",JSON.stringify({excluded:["Caitlyn"],favorite:"Jinx"}));
+x=await load("&view=pool");const adc=x.ev("PROFILES.roles.adc");t(x.ev("PROFILES.active")==="adc"&&JSON.stringify(adc.excluded)==='["Caitlyn"]'&&adc.favorite==="Jinx","ancien profil : exclusions et favori repris par le rôle ADC");
+// Ancien fichier d'export (profil unique, sans exclusions) toujours lisible.
+const legacy=x.ev(`parseConfig(${JSON.stringify(JSON.stringify({role:"mid",pool:["Ahri","Fizz"]}))})`);t(legacy.ok&&legacy.roles.mid.pool.join()==="Ahri,Fizz","ancien fichier d'export : toujours lisible");
+x.f.remove();
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
+</script></body></html>

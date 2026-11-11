@@ -8,6 +8,7 @@ param(
   [Parameter(Mandatory = $true)][string]$Out,
   [Parameter(Mandatory = $true)][string]$Prefix,
   [switch]$Before,
+  [string[]]$Only = @(),
   [string]$Work = (Join-Path $env:TEMP ('draft-v3-shots-' + $PID))
 )
 $ErrorActionPreference = 'Stop'
@@ -32,6 +33,7 @@ $shots = if ($Before) {
 }
 foreach ($size in @(@(1366, 768), @(1920, 1080))) {
   foreach ($s in $shots) {
+    if ($Only.Count -and $Only -notcontains $s[0]) { continue }
     $file = "$Prefix-$($s[0])-$($size[0])x$($size[1]).png"
     $prof = Join-Path $Work "pf-$($s[0])-$($size[0])"
     $to = 'index.html?' + $s[1].Replace(' ', '%20')

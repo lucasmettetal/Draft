@@ -782,6 +782,52 @@
     .check { grid-template-columns:28px minmax(0,1fr); }
     .check .ghost-btn { grid-column:2; justify-self:start; }
   }
+  /* ---------- Mon pool (UX-4) ---------- */
+  .num { font-variant-numeric:tabular-nums; }
+  .played-bar { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s3) var(--s5); margin-bottom:var(--s4); padding:var(--s3) var(--s5); }
+  .played-bar > div:first-child { display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--s2) var(--s3); }
+  .played-bar > div:first-child span { color:var(--muted); font-size:var(--fs-sm); }
+  .played-seg { margin:0 0 0 auto; }
+  .played-seg .seg-tab { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; white-space:nowrap; }
+  .played-seg .seg-tab svg { width:14px; height:14px; }
+  .played-seg .seg-tab.on { color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+  .pool-layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:var(--s4); align-items:start; }
+  .pool-roles { display:grid; gap:2px; padding:var(--s2); }
+  .pool-role { display:grid; grid-template-columns:18px minmax(0,1fr) auto; align-items:center; gap:var(--s3); min-height:44px; padding:0 var(--s3); background:transparent; border:0; border-radius:var(--r-ctl); color:var(--muted); font-size:var(--fs-md); text-align:left; }
+  .pool-role:hover { background:var(--hover); color:var(--text); }
+  .pool-role.on { background:var(--raised); color:var(--text); box-shadow:inset 3px 0 0 var(--accent); }
+  .pool-role-icon, .pool-role-icon svg { width:16px; height:16px; }
+  .pool-role-count { color:var(--muted); font-size:var(--fs-xs); }
+  .tag-played { margin-left:4px; padding:0 5px; background:var(--accent); border-radius:var(--r-tag); color:var(--accent-ink); font-size:var(--fs-xs); font-weight:600; }
+  .pool-main { display:grid; gap:var(--s4); min-width:0; }
+  .pool-head { display:flex; flex-wrap:wrap; align-items:flex-start; gap:var(--s2) var(--s4); padding:var(--s4) var(--s5) 0; }
+  .pool-head > div { flex:1 1 280px; min-width:0; }
+  .pool-head .box-title small, .pool-main .box-title small { margin-left:6px; color:var(--muted); font:var(--fs-sm) var(--body); }
+  .pool-saved { display:flex; align-items:center; gap:var(--s2); margin:0; color:var(--accent); font-size:var(--fs-sm); }
+  .pool-search-wrap { padding:var(--s3) var(--s5) var(--s2); }
+  .pool-search-wrap .pool-search { height:40px; margin-bottom:4px; background:var(--bg); border-color:var(--line-strong); font-size:var(--fs-md); }
+  .pool-search-wrap .pool-search:focus { border-color:var(--accent); }
+  .pool-search-wrap .pool-list { margin-top:var(--s2); }
+  .pool-chip.already { border-color:var(--accent-line); cursor:default; }
+  .pool-chip.already small { color:var(--muted); font-size:var(--fs-xs); }
+  .pool-table { width:100%; border-collapse:collapse; font-size:var(--fs-md); }
+  .pool-table th, .pool-table td { padding:6px var(--s3); border-top:1px solid var(--line); text-align:center; font-weight:400; }
+  .pool-table thead th { color:var(--muted); font-size:var(--fs-sm); border-top:0; }
+  .pool-table th:first-child { padding-left:var(--s5); text-align:left; }
+  .pool-table tbody th { font-weight:600; }
+  .pool-table input { width:24px; height:24px; margin:0; accent-color:var(--accent); cursor:pointer; }
+  .pool-name { display:inline-flex; align-items:center; gap:var(--s3); font-size:var(--fs-md); }
+  .pool-table .mini.x { position:static; }
+  .pool-table-help { padding:0 var(--s5) var(--s4); }
+  .pool-page .empty-note { margin:var(--s3) var(--s5) var(--s5); }
+  @media (max-width:1100px) {
+    .pool-layout { grid-template-columns:minmax(0,1fr); }
+    .pool-roles { grid-template-columns:repeat(5,minmax(0,1fr)); }
+    .pool-role { grid-template-columns:minmax(0,1fr); justify-items:center; gap:2px; min-height:56px; padding:4px; font-size:var(--fs-sm); text-align:center; }
+    .pool-role.on { box-shadow:inset 0 -3px 0 var(--accent); }
+    .played-seg { margin-left:0; flex-wrap:wrap; }
+    .played-seg .seg-tab span { display:none; }
+  }
 </style>
 </head>
 <body>
@@ -2409,65 +2455,6 @@ function ProfileBackup() {
   </div>`;
 }
 
-function ProfileCard() {
-  const [role, setRole] = useState(PROFILES.active);
-  const [pool, setPool] = useState(PROFILES.active ? PROFILES.roles[PROFILES.active].pool.map(label) : []);
-  const [query, setQuery] = useState("");
-  const searchRef = useRef(null);
-  const [saved, setSaved] = useState(null);
-  const backToSearch = () => { if (searchRef.current) searchRef.current.focus(); };
-  // Choisir un rôle ici montre et modifie son pool, sans changer le rôle joué (sauf s'il n'y en a pas encore).
-  const pickRole = r => { if (!PROFILES.active) switchRole(r, "manual"); setRole(r); setPool(PROFILES.roles[r].pool.map(label)); setSaved(null); };
-  const playRole = () => { switchRole(role, "manual"); setSaved(null); };
-  const apply = (r, list) => { if (!r) return; setPool(list); saveMyProfile(r, list); };
-  const addChampion = n => { apply(role, pool.concat(n)); setSaved({ text:`Enregistré : ${n} ajouté au pool ${ROLE_NAMES[role]}.` }); };
-  const removeChampion = n => {
-    const r = PROFILES.roles[role], back = { role, pool, excluded:r.excluded.slice(), favorite:r.favorite };
-    apply(role, pool.filter(x => x !== n));
-    setSaved({ text:`${n} retiré du pool ${ROLE_NAMES[role]}.`, back });
-  };
-  // Annuler un retrait : pool, exclusions et favori du rôle tels qu'ils étaient.
-  const undoRemove = () => {
-    const back = saved && saved.back;
-    if (!back) return;
-    PROFILES.roles[back.role].excluded = back.excluded;
-    PROFILES.roles[back.role].favorite = back.favorite;
-    apply(back.role, back.pool);
-    if (PROFILES.active === back.role) savePrefs({ excluded:back.excluded.slice(), favorite:back.favorite });
-    setSaved(null);
-    backToSearch();
-  };
-  const editingOther = role && PROFILES.active && role !== PROFILES.active;
-  const key = norm(query);
-  const choices = (key ? NAMES.filter(n => champKeys(n).some(k => k.includes(key))) : role ? championsForRole(role) : []).filter(n => !pool.includes(n)).slice(0, 12);
-  return html`<div>
-    <h3>Mes profils</h3>
-    <div className=${`set-card${PROFILE ? " on" : ""}`}>
-      ${PROFILE ? null : html`<p className="set-main">Choisis ton rôle et tes champions pour obtenir un conseil.</p>`}
-      <div className="role-pick" role="group" aria-label="Mon rôle">
-        ${ROLE_ORDER.map(r => html`<button key=${r} type="button" data-test=${`pool-role-${r}`} className=${`ghost-btn${role === r ? " on" : ""}`} aria-pressed=${role === r} onClick=${() => pickRole(r)}>${ROLE_NAMES[r]}${PROFILES.roles[r].pool.length ? html` <small>${PROFILES.roles[r].pool.length}</small>` : null}</button>`)}
-      </div>
-      <div className="pool-list" aria-label="Mes champions">
-        ${pool.map(n => html`<button key=${n} type="button" data-test="pool-remove" data-champion=${n} className="pool-chip on" title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { removeChampion(n); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span><b aria-hidden="true">×</b></button>`)}
-        ${pool.length ? null : html`<span className="set-hint flush">Aucun champion pour l'instant.</span>`}
-      </div>
-      ${editingOther ? html`<p className="set-hint flush" role="status" data-test="pool-editing">Tu modifies le pool ${ROLE_NAMES[role]}. Ton rôle joué reste ${ROLE_NAMES[PROFILES.active]}. <button type="button" className="link-btn" data-test="pool-play-role" onClick=${playRole}>Jouer ce rôle</button></p>` : null}
-      ${role ? null : html`<p className="set-hint flush" data-test="pool-need-role">Choisis d'abord ton rôle, puis ajoute tes champions.</p>`}
-      <input ref=${searchRef} className="pool-search" data-test="pool-search" type="search" value=${query} disabled=${!role} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder=${role ? "Ajouter un champion : ahri, tf, kata..." : "Choisis d'abord ton rôle"}
-        onChange=${e => setQuery(e.target.value)} onKeyDown=${e => { if (e.key === "Enter") { e.preventDefault(); if (choices[0]) { addChampion(choices[0]); setQuery(""); } } }} />
-      ${saved ? html`<p className="small" role="status" data-test="pool-saved">${saved.text}${saved.back ? html` <button type="button" className="link-btn" data-test="pool-undo" onClick=${undoRemove}>Annuler</button>` : null}</p>` : null}
-      ${role || key ? html`<div className="pool-list">
-        ${choices.map(n => html`<button key=${n} type="button" data-test="pool-add" data-champion=${n} className="pool-chip" onClick=${() => { addChampion(n); setQuery(""); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`)}
-        ${key && !choices.length ? html`<span className="set-hint flush">Aucun champion trouvé.</span>` : null}
-      </div>` : null}
-      ${role && !pool.length ? html`<p className="set-hint flush">Aucun champion pour ce rôle : ajoute-en pour obtenir un conseil.</p>` : null}
-      <p className="set-hint flush">Chaque rôle garde son propre pool. Ils sont enregistrés automatiquement. Modifier un pool ne change pas ton rôle joué.</p>
-      <${ProfileBackup} />
-      <p className="set-hint flush">Sans statistiques calculées, le conseil repose sur des fiches écrites à la main : c'est un avis général.</p>
-    </div>
-  </div>`;
-}
-
 function DataSources() {
   // Le détail n'est calculé qu'à l'ouverture : les réglages restent immédiats.
   const [open, setOpen] = useState(false);
@@ -2579,28 +2566,130 @@ function HomeView() {
   </div>`;
 }
 
-function MyPicks() {
-  const toggleExcluded = p => savePrefs({ excluded: PREFS.excluded.includes(p) ? PREFS.excluded.filter(x => x !== p) : PREFS.excluded.concat(p) });
-  return html`<section className="box box-pad" data-test="my-picks">
-    <h2 className="box-title">${t("pool.picks.title", { role:PROFILES.active ? ROLE_NAMES[PROFILES.active] : t("nav.state.noRole") })}</h2>
-    <h3>Mes picks</h3>
-    ${PICKS.length ? html`<p className="set-hint flush">Exclure pour l'instant :</p>
-    <div className="set-row">${PICKS.map(p => html`<label key=${p} className="set-check"><input type="checkbox" checked=${PREFS.excluded.includes(p)} onChange=${() => toggleExcluded(p)} /> ${label(p)}</label>`)}</div>
-    <label className="set-line">En cas d'égalité, mettre en premier
-      <select value=${PREFS.favorite || ""} onChange=${e => savePrefs({ favorite: e.target.value || null })}>
-        <option value="">Aucun</option>
-        ${PICKS.map(p => html`<option key=${p} value=${p}>${label(p)}</option>`)}
-      </select>
-    </label>` : html`<p className="empty-note">${t("pool.picks.empty")}</p>`}
+// Exclusions et favori d'un rôle (UX-4) : chaque rôle garde les siens. Ceux du rôle joué sont aussi ceux du calcul (ENGINE_PREFS),
+// exactement comme avant ; ceux des autres rôles ne s'appliquent qu'une fois ce rôle joué.
+function setRoleChoices(role, change) {
+  const r = PROFILES.roles[role];
+  if (!r) return;
+  if ("excluded" in change) r.excluded = uniqueList(change.excluded).filter(p => r.pool.includes(p));
+  if ("favorite" in change) r.favorite = change.favorite && r.pool.includes(change.favorite) ? change.favorite : null;
+  if (role === PROFILES.active) { savePrefs({ excluded:r.excluded.slice(), favorite:r.favorite }); return; }
+  storeProfiles();
+  publish(null);
+}
+
+function PoolRoleList({ role, onPick }) {
+  return html`<div className="box pool-roles" role="group" aria-label=${t("pool.roles.label")}>
+    ${ROLE_ORDER.map(r => html`<button key=${r} type="button" data-test=${`pool-role-${r}`} className=${`pool-role${role === r ? " on" : ""}`} aria-pressed=${role === r} onClick=${() => onPick(r)}>
+      <span className="pool-role-icon"><${RoleIcon} role=${r} /></span>
+      <span className="pool-role-name">${ROLE_NAMES[r]}${PROFILES.active === r ? html` <small className="tag-played">${t("pool.role.playedTag")}</small>` : null}</span>
+      <span className="pool-role-count num">${PROFILES.roles[r].pool.length}</span>
+    </button>`)}
+  </div>`;
+}
+
+function PlayedRoleBar() {
+  return html`<section className="box played-bar" data-test="pool-played" aria-label=${t("pool.played.label")}>
+    <div><b>${t("pool.played.label")}</b><span>${t("pool.played.help")}</span></div>
+    <div className="seg-tabs played-seg" role="group" aria-label=${t("pool.played.label")}>
+      ${ROLE_ORDER.map(r => html`<button key=${r} type="button" data-test=${`played-role-${r}`} className=${`seg-tab${PROFILES.active === r ? " on" : ""}`} aria-pressed=${PROFILES.active === r} onClick=${() => switchRole(r, "manual")}>
+        <${RoleIcon} role=${r} /><span>${ROLE_NAMES[r]}</span></button>`)}
+    </div>
   </section>`;
 }
 
-function PoolView() {
-  return html`<div className="view-page">
+function PoolPage() {
+  const [role, setRole] = useState(PROFILES.active);
+  const [query, setQuery] = useState("");
+  const [saved, setSaved] = useState(null);
+  const searchRef = useRef(null);
+  const pool = role ? PROFILES.roles[role].pool.map(label) : [];
+  const roleData = role ? PROFILES.roles[role] : null;
+  const backToSearch = () => { if (searchRef.current) searchRef.current.focus(); };
+  // Choisir un rôle ici montre et modifie son pool, sans changer le rôle joué (sauf s'il n'y en a pas encore).
+  const pickRole = r => { if (!PROFILES.active) switchRole(r, "manual"); setRole(r); setQuery(""); setSaved(null); };
+  const playRole = () => { switchRole(role, "manual"); setSaved(null); };
+  const apply = (r, list) => { if (r) saveMyProfile(r, list); };
+  const addChampion = n => { apply(role, pool.concat(n)); setSaved({ text:`Enregistré : ${n} ajouté au pool ${ROLE_NAMES[role]}.` }); };
+  const removeChampion = n => {
+    const back = { role, pool, excluded:roleData.excluded.slice(), favorite:roleData.favorite };
+    apply(role, pool.filter(x => x !== n));
+    setSaved({ text:`${n} retiré du pool ${ROLE_NAMES[role]}.`, back });
+  };
+  // Annuler un retrait : pool, exclusions et favori du rôle tels qu'ils étaient.
+  const undoRemove = () => {
+    const back = saved && saved.back;
+    if (!back) return;
+    apply(back.role, back.pool);
+    setRoleChoices(back.role, { excluded:back.excluded, favorite:back.favorite });
+    setSaved(null);
+    backToSearch();
+  };
+  const toggleFavorite = p => {
+    const next = roleData.favorite === p ? null : p;
+    setRoleChoices(role, { favorite:next });
+    setSaved({ text: next ? t("pool.saved.favorite", { champion:label(p), role:ROLE_NAMES[role] }) : t("pool.saved.favoriteNone", { role:ROLE_NAMES[role] }) });
+  };
+  const toggleExcluded = p => {
+    const on = !roleData.excluded.includes(p);
+    setRoleChoices(role, { excluded: on ? roleData.excluded.concat(p) : roleData.excluded.filter(x => x !== p) });
+    setSaved({ text:t(on ? "pool.saved.excluded" : "pool.saved.included", { champion:label(p), role:ROLE_NAMES[role] }) });
+  };
+  const editingOther = role && PROFILES.active && role !== PROFILES.active;
+  const key = norm(query);
+  const found = key ? NAMES.filter(n => champKeys(n).some(k => k.includes(key))).slice(0, 12) : [];
+  const choices = found.filter(n => !pool.includes(n));
+  const suggested = role ? championsForRole(role).filter(n => !pool.includes(n)).slice(0, 12) : [];
+  const chip = (n, already) => already
+    ? html`<span key=${n} className="pool-chip already" data-test="pool-already" data-champion=${n}><${Portrait} name=${n} size=${24} /><span>${n}</span><small>${t("pool.search.already")}</small></span>`
+    : html`<button key=${n} type="button" data-test="pool-add" data-champion=${n} className="pool-chip" onClick=${() => { addChampion(n); setQuery(""); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`;
+  return html`<div className="view-page pool-page">
     <${ViewHead} title=${t("nav.pool")} sub=${t("pool.sub")} />
-    <div className="pool-grid">
-      <section className="box box-pad"><${ProfileCard} /></section>
-      <${MyPicks} />
+    <${PlayedRoleBar} />
+    <div className="pool-layout">
+      <${PoolRoleList} role=${role} onPick=${pickRole} />
+      <div className="pool-main">
+        <section className="box" data-test="pool-box" aria-labelledby="pool-title">
+          <header className="pool-head">
+            <div>
+              <h2 id="pool-title" className="box-title">${role ? t("pool.box.title", { role:ROLE_NAMES[role] }) : t("pool.box.noRole")}${role ? html` <small className="num">${tp("pool.box.count", pool.length)}</small>` : null}</h2>
+              ${editingOther ? html`<p className="set-hint flush" role="status" data-test="pool-editing">Tu modifies le pool ${ROLE_NAMES[role]}. Ton rôle joué reste ${ROLE_NAMES[PROFILES.active]}. <button type="button" className="link-btn" data-test="pool-play-role" onClick=${playRole}>Jouer ce rôle</button></p>` : null}
+              ${role ? null : html`<p className="set-hint flush" data-test="pool-need-role">Choisis d'abord ton rôle, puis ajoute tes champions.</p>`}
+            </div>
+            ${saved ? html`<p className="pool-saved" role="status" data-test="pool-saved">${saved.text}${saved.back ? html` <button type="button" className="ghost-btn" data-test="pool-undo" onClick=${undoRemove}>Annuler</button>` : null}</p>` : null}
+          </header>
+          <div className="pool-search-wrap">
+            <input ref=${searchRef} className="pool-search" data-test="pool-search" type="search" value=${query} disabled=${!role} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder=${role ? "Ajouter un champion : ahri, tf, kata..." : "Choisis d'abord ton rôle"}
+              onChange=${e => setQuery(e.target.value)}
+              onKeyDown=${e => { if (e.key === "Enter") { e.preventDefault(); if (choices[0]) { addChampion(choices[0]); setQuery(""); } } else if (e.key === "Escape" && query) { e.stopPropagation(); setQuery(""); } }} />
+            ${role ? html`<p className="small">${t("pool.search.hint")}</p>` : null}
+            ${key ? html`<div className="pool-list" data-test="pool-results">
+              ${found.map(n => chip(n, pool.includes(n)))}
+              ${!found.length ? html`<span className="set-hint flush">Aucun champion trouvé.</span>` : null}
+            </div>` : null}
+          </div>
+          ${role && pool.length ? html`<table className="pool-table" data-test="pool-table">
+            <thead><tr><th scope="col">${t("pool.table.champion")}</th><th scope="col">${t("pool.table.favorite")}</th><th scope="col">${t("pool.table.excluded")}</th><th scope="col"><span className="sr">${t("pool.table.remove")}</span></th></tr></thead>
+            <tbody>${roleData.pool.map(p => { const n = label(p); return html`<tr key=${p} data-test="pool-row" data-champion=${n}>
+              <th scope="row"><span className="pool-name"><${Portrait} name=${n} size=${28} />${n}</span></th>
+              <td><input type="radio" name=${`fav-${role}`} data-test="pool-favorite" data-champion=${n} checked=${roleData.favorite === p} aria-label=${t("pool.table.favoriteOf", { champion:n })} onClick=${() => toggleFavorite(p)} onChange=${() => {}} /></td>
+              <td><input type="checkbox" data-test="pool-exclude" data-champion=${n} checked=${roleData.excluded.includes(p)} aria-label=${t("pool.table.excludedOf", { champion:n })} onChange=${() => toggleExcluded(p)} /></td>
+              <td><button type="button" className="mini x" data-test="pool-remove" data-champion=${n} title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { removeChampion(n); backToSearch(); }}>×</button></td>
+            </tr>`; })}</tbody>
+          </table>
+          <p className="small pool-table-help">${t("pool.table.help")}</p>` : role ? html`<p className="empty-note">Aucun champion pour ce rôle : ajoute-en pour obtenir un conseil.</p>` : null}
+        </section>
+        ${role && suggested.length ? html`<section className="box box-pad" data-test="pool-suggested">
+          <h2 className="box-title">${t("pool.suggest.title", { role:ROLE_NAMES[role] })} <small>${t("pool.suggest.help", { role:ROLE_NAMES[role] })}</small></h2>
+          <div className="pool-list">${suggested.map(n => chip(n, false))}</div>
+        </section>` : null}
+        <section className="box box-pad" data-test="pool-backup">
+          <h2 className="box-title">${t("pool.backup.title")}</h2>
+          <p className="set-hint flush">Chaque rôle garde son propre pool. Ils sont enregistrés automatiquement. Modifier un pool ne change pas ton rôle joué.</p>
+          <${ProfileBackup} />
+          <p className="set-hint flush">Sans statistiques calculées, le conseil repose sur des fiches écrites à la main : c'est un avis général.</p>
+        </section>
+      </div>
     </div>
   </div>`;
 }
@@ -2854,7 +2943,7 @@ function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
-  const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolView} />` : uiView === "stats" ? html`<${StatsView} />`
+  const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolPage} />` : uiView === "stats" ? html`<${StatsView} />`
     : uiView === "settings" ? html`<${SettingsPage} onClose=${closeSettings} />` : html`<${SimView} />`;
   return html`<${MotionConfig} reducedMotion="user">
     <div className="shell" data-test="app">
