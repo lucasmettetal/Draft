@@ -1,0 +1,16 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Générateur de scénarios DRAFT (synthétique)</title></head><body><pre id="dev"></pre><pre id="eval"></pre><pre id="resume"></pre>
+<!-- Lancée par tools/run-engine-eval.ps1 -Generer. Volontairement, AUCUN fichier du moteur n'est chargé ici
+     (ni draft-engine.js, ni draft-data.js, ni draft-role-sheet.js) : seule la liste des fiches (draft-champions.js) l'est.
+     Si le générateur appelait analyze, roleBelief ou une autre fonction du moteur, la page échouerait.
+     Les réponses attendues ne peuvent donc pas venir du moteur évalué. -->
+<script src="draft-champions.js"></script>
+<script src="generer-scenarios.js"></script>
+<script>
+try {
+  if (typeof analyze !== "undefined" || typeof roleBelief !== "undefined" || typeof opponentBelief !== "undefined") throw new Error("Le moteur est chargé dans la page du générateur : refusé.");
+  const g = genererScenarios(CHAMPION_TRAITS);
+  document.getElementById("dev").textContent = JSON.stringify(g.dev, null, 2);
+  document.getElementById("eval").textContent = JSON.stringify(g.evaluation, null, 2);
+  document.getElementById("resume").textContent = JSON.stringify(g.resume);
+} catch (e) { document.getElementById("resume").textContent = JSON.stringify({ erreur: String(e && e.stack || e) }); }
+</script></body></html>

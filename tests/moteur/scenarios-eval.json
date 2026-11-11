@@ -1,0 +1,5429 @@
+{
+  "synthetique": true,
+  "version_schema": "1.0",
+  "graine": 217,
+  "jeu": "evaluation_gele",
+  "avertissement": "Données SYNTHÉTIQUES inventées pour tester le moteur. Aucune statistique réelle. Annotations écrites à la main, non validées par des experts.",
+  "source_annotations": "Tableaux ARCHETYPES, EVIDENTS_HORS_ARCHETYPE, FLEX, HORS_ROLE et INCONNUS de generer-scenarios.js. Égalités : fiches identiques dans web/draft-champions.js.",
+  "scenarios": [
+    {
+      "id": "CE-020",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Swain",
+          "Nami"
+        ]
+      },
+      "adversaires": [
+        "Vayne",
+        "Lissandra",
+        "Ornn",
+        "Zilean",
+        "Xin Zhao"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Ornn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Xin Zhao": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Lissandra": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Vayne": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Zilean": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Zilean",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-021",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Gnar",
+          "Akali",
+          "Sett",
+          "Camille"
+        ]
+      },
+      "adversaires": [
+        "Orianna",
+        "Jarvan IV",
+        "Janna",
+        "Nasus",
+        "Kog'Maw"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Nasus": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Jarvan IV": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Orianna": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kog'Maw": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Janna": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Nasus",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-022",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Briar",
+          "Ambessa"
+        ]
+      },
+      "adversaires": [
+        "Blitzcrank",
+        "Illaoi",
+        "Varus",
+        "Lissandra",
+        "Warwick"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Illaoi": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Warwick": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Lissandra": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Varus": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Blitzcrank": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Warwick",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-023",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Twisted Fate",
+          "Fizz",
+          "Kog'Maw"
+        ]
+      },
+      "adversaires": [
+        "Miss Fortune",
+        "Singed",
+        "Nocturne",
+        "Soraka",
+        "LeBlanc"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Singed": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Nocturne": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "LeBlanc": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Miss Fortune": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Soraka": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "LeBlanc",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-024",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Aphelios",
+          "Nilah",
+          "Zeri"
+        ]
+      },
+      "adversaires": [
+        "Thresh",
+        "Urgot",
+        "Katarina",
+        "Viego",
+        "Twitch"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Urgot": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Viego": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Katarina": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Twitch": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Thresh": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Twitch",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-025",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Thresh",
+          "Bard",
+          "Yuumi"
+        ]
+      },
+      "adversaires": [
+        "Soraka",
+        "Kassadin",
+        "Xayah",
+        "K'Sante",
+        "Skarner"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "K'Sante": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Skarner": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Kassadin": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Xayah": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Soraka": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Soraka",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-026",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Wukong",
+          "Trundle",
+          "Gwen",
+          "Tahm Kench",
+          "Garen"
+        ]
+      },
+      "adversaires": [
+        "Darius",
+        "Kha'Zix",
+        "Viktor",
+        "Draven",
+        "Leona"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Darius": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Kha'Zix": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Viktor": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Draven": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Leona": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Darius",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-027",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Vi",
+          "Kayn",
+          "Diana",
+          "Gwen",
+          "Trundle"
+        ]
+      },
+      "adversaires": [
+        "Garen",
+        "Smolder",
+        "Leona",
+        "Nocturne",
+        "LeBlanc"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Garen": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Nocturne": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "LeBlanc": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Smolder": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Leona": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Nocturne",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-034",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Lucian",
+          "Kog'Maw"
+        ]
+      },
+      "adversaires": [
+        "Skarner",
+        "Lulu",
+        "Aurelion Sol",
+        "Yorick",
+        "Sivir"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Yorick": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Skarner": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Aurelion Sol": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Sivir": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Lulu": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Sivir",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-035",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Morgana",
+          "Yuumi",
+          "Sona",
+          "Soraka",
+          "Rakan"
+        ]
+      },
+      "adversaires": [
+        "Rammus",
+        "Darius",
+        "Orianna",
+        "Thresh",
+        "Kog'Maw"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Darius": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Rammus": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Orianna": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kog'Maw": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Thresh": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Thresh",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-036",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Jayce",
+          "Ornn",
+          "Akshan",
+          "Malphite",
+          "Lillia"
+        ]
+      },
+      "adversaires": [
+        "Pyke",
+        "Jhin",
+        "Fizz",
+        "Ivern",
+        "Illaoi"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Illaoi": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Ivern": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Fizz": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Jhin": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Pyke": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Illaoi",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-037",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Sylas",
+          "Xin Zhao",
+          "Gwen"
+        ]
+      },
+      "adversaires": [
+        "Viego",
+        "Riven",
+        "Lissandra",
+        "Nautilus",
+        "Jinx"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Riven": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Viego": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Lissandra": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Nautilus": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Viego",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-040",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Hwei",
+          "Maokai",
+          "Galio",
+          "Seraphine"
+        ]
+      },
+      "adversaires": [
+        "Mel",
+        "Bel'Veth",
+        "Riven",
+        "Thresh",
+        "Kalista"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Riven": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Bel'Veth": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Mel": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kalista": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Thresh": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Thresh",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-041",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Olaf",
+          "Aurora",
+          "Sett"
+        ]
+      },
+      "adversaires": [
+        "Gangplank",
+        "LeBlanc",
+        "Nautilus",
+        "Samira",
+        "Shyvana"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Gangplank": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Shyvana": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "LeBlanc": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Samira": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Nautilus": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Gangplank",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-042",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Ekko",
+          "Rek'Sai"
+        ]
+      },
+      "adversaires": [
+        "Kayn",
+        "Soraka",
+        "Kog'Maw",
+        "Yorick",
+        "Twisted Fate"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Yorick": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Kayn": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Twisted Fate": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kog'Maw": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Soraka": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Kayn",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-043",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Twisted Fate",
+          "Fizz",
+          "Kog'Maw",
+          "Xerath"
+        ]
+      },
+      "adversaires": [
+        "Yunara",
+        "Katarina",
+        "Skarner",
+        "Quinn",
+        "Soraka"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Quinn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Skarner": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Katarina": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Yunara": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Soraka": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Katarina",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-044",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Zeri",
+          "Samira",
+          "Xayah",
+          "Kai'Sa",
+          "Nilah"
+        ]
+      },
+      "adversaires": [
+        "Lulu",
+        "Jhin",
+        "Katarina",
+        "Skarner",
+        "Singed"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Singed": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Skarner": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Katarina": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Jhin": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Lulu": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Jhin",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-045",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Bard",
+          "Yuumi"
+        ]
+      },
+      "adversaires": [
+        "Zilean",
+        "Briar",
+        "Gangplank",
+        "Aphelios",
+        "Ahri"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Gangplank": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Briar": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Ahri": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Aphelios": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Zilean": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Zilean",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-046",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Gragas",
+          "Singed",
+          "Ornn"
+        ]
+      },
+      "adversaires": [
+        "Mordekaiser",
+        "Ezreal",
+        "Shyvana",
+        "Sona",
+        "Zoe"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Mordekaiser": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Shyvana": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Zoe": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Ezreal": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Sona": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Mordekaiser",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-047",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Hecarim",
+          "Xin Zhao"
+        ]
+      },
+      "adversaires": [
+        "Dr. Mundo",
+        "Rengar",
+        "Bard",
+        "Zeri",
+        "Zed"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Dr. Mundo": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Rengar": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Zed": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Zeri": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Bard": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Rengar",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-048",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Twisted Fate",
+          "Fizz",
+          "Kog'Maw",
+          "Xerath"
+        ]
+      },
+      "adversaires": [
+        "Gangplank",
+        "Pyke",
+        "Vayne",
+        "Xin Zhao",
+        "Qiyana"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Gangplank": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Xin Zhao": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Vayne": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Pyke": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Qiyana",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-049",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Kai'Sa",
+          "Tristana",
+          "Seraphine"
+        ]
+      },
+      "adversaires": [
+        "Tryndamere",
+        "Yuumi",
+        "Master Yi",
+        "Varus",
+        "Fizz"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Tryndamere": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Master Yi": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Fizz": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Varus": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Yuumi": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Varus",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-080",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Rakan",
+          "Braum",
+          "Lux"
+        ]
+      },
+      "adversaires": [
+        "Nilah",
+        "Azir",
+        "Sona",
+        "Zac",
+        "Ornn"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Ornn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Zac": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Azir": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Nilah": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Sona": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Sona",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-084",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Twitch",
+          "Jhin",
+          "Vayne",
+          "Aphelios",
+          "Lucian"
+        ]
+      },
+      "adversaires": [
+        "Lee Sin",
+        "Veigar",
+        "Fiora",
+        "Kalista",
+        "Nami"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Fiora": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Lee Sin": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Veigar": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kalista": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Nami": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Kalista",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-085",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Rakan",
+          "Neeko"
+        ]
+      },
+      "adversaires": [
+        "Kayn",
+        "Pyke",
+        "Smolder",
+        "Quinn",
+        "Syndra"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Quinn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Kayn": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Syndra": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Smolder": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Pyke": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Pyke",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-086",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Quinn",
+          "Poppy",
+          "Jayce"
+        ]
+      },
+      "adversaires": [
+        "Yorick",
+        "Ahri",
+        "Shyvana",
+        "Tristana",
+        "Yuumi"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Yorick": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Shyvana": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Ahri": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Tristana": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Yuumi": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Yorick",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CE-087",
+      "synthetique": true,
+      "categorie": "complet_evident",
+      "description": "5 adversaires, un champion évident par rôle.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Rammus",
+          "Elise",
+          "Pantheon",
+          "Ekko",
+          "Shaco"
+        ]
+      },
+      "adversaires": [
+        "Nidalee",
+        "Tristana",
+        "Qiyana",
+        "Yorick",
+        "Janna"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Yorick": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Nidalee": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Tristana": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Janna": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Nidalee",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-010",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Corki : seul rôle libre adc.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Galio",
+          "Annie",
+          "Brand",
+          "Nautilus",
+          "Taric"
+        ]
+      },
+      "adversaires": [
+        "Qiyana",
+        "Yuumi",
+        "Kha'Zix",
+        "K'Sante",
+        "Corki"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "K'Sante": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Kha'Zix": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Yuumi": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Corki": {
+            "role": "adc",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Corki": [
+            "mid",
+            "adc"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Yuumi",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-014",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Aurora : seul rôle libre top.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Corki",
+          "Varus",
+          "Samira",
+          "Kog'Maw",
+          "Caitlyn"
+        ]
+      },
+      "adversaires": [
+        "Viego",
+        "Vayne",
+        "Aurora",
+        "Zed",
+        "Janna"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Viego": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Zed": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Vayne": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Janna": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Aurora": {
+            "role": "top",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Aurora": [
+            "mid",
+            "top"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Vayne",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-015",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Ziggs : seul rôle libre adc.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Vel'Koz",
+          "Annie",
+          "Nautilus",
+          "Maokai"
+        ]
+      },
+      "adversaires": [
+        "Qiyana",
+        "Gangplank",
+        "Ziggs",
+        "Nami",
+        "Hecarim"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Gangplank": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Hecarim": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Nami": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Ziggs": {
+            "role": "adc",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Ziggs": [
+            "mid",
+            "adc"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Nami",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-016",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Pantheon : seul rôle libre jungle.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Teemo",
+          "Gwen",
+          "K'Sante",
+          "Renekton",
+          "Rumble"
+        ]
+      },
+      "adversaires": [
+        "Naafiri",
+        "Pantheon",
+        "Nami",
+        "Urgot",
+        "Jinx"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Urgot": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Naafiri": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Nami": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Pantheon": {
+            "role": "jungle",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Pantheon": [
+            "support",
+            "mid",
+            "top",
+            "jungle"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Urgot",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-017",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Lux : seul rôle libre support.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Nunu",
+          "Jarvan IV",
+          "Taliyah"
+        ]
+      },
+      "adversaires": [
+        "Jinx",
+        "Viktor",
+        "Lux",
+        "Urgot",
+        "Rek'Sai"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Urgot": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Rek'Sai": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Viktor": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Lux": {
+            "role": "support",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Lux": [
+            "support",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Rek'Sai",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-018",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Vladimir : seul rôle libre mid.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Yone",
+          "Malzahar",
+          "Talon"
+        ]
+      },
+      "adversaires": [
+        "Vladimir",
+        "Nautilus",
+        "Master Yi",
+        "Varus",
+        "K'Sante"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "K'Sante": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Master Yi": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Varus": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Nautilus": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Vladimir": {
+            "role": "mid",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Vladimir": [
+            "mid",
+            "top"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Vladimir",
+          "niveau": "elimination"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-019",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Shen : seul rôle libre top.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Aphelios",
+          "Jinx"
+        ]
+      },
+      "adversaires": [
+        "Smolder",
+        "Shen",
+        "Lee Sin",
+        "Senna",
+        "Vex"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Lee Sin": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Vex": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Smolder": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Senna": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Shen": {
+            "role": "top",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Shen": [
+            "top",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Smolder",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-040",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Flex Lucian : seul rôle libre adc.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Soraka",
+          "Bard",
+          "Tahm Kench",
+          "Hwei"
+        ]
+      },
+      "adversaires": [
+        "Lucian",
+        "Ornn",
+        "Morgana",
+        "Hecarim",
+        "Cassiopeia"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Ornn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Hecarim": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Cassiopeia": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Morgana": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Lucian": {
+            "role": "adc",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Lucian": [
+            "adc",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Morgana",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-041",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Sylas et Corki sur jungle et mid.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Akshan",
+          "Ornn"
+        ]
+      },
+      "adversaires": [
+        "Sylas",
+        "Nami",
+        "Kled",
+        "Samira",
+        "Corki"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Kled": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Samira": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Nami": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Sylas": {
+            "role": "jungle",
+            "niveau": "elimination"
+          },
+          "Corki": {
+            "role": "mid",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Sylas": [
+            "mid",
+            "jungle"
+          ],
+          "Corki": [
+            "mid",
+            "adc"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Kled",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-042",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Seraphine et Hwei sur adc et support.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Lee Sin",
+          "Ekko",
+          "Rengar",
+          "Kha'Zix",
+          "Shyvana"
+        ]
+      },
+      "adversaires": [
+        "Viego",
+        "Zed",
+        "Seraphine",
+        "Hwei",
+        "Urgot"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Urgot": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Viego": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Zed": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Seraphine": {
+            "role": "adc",
+            "niveau": "elimination"
+          },
+          "Hwei": {
+            "role": "support",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Seraphine": [
+            "support",
+            "adc"
+          ],
+          "Hwei": [
+            "mid",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Viego",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-043",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Annie et Diana sur support et mid.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Yasuo",
+          "Pantheon",
+          "LeBlanc",
+          "Vladimir",
+          "Kennen"
+        ]
+      },
+      "adversaires": [
+        "Nilah",
+        "Viego",
+        "Gnar",
+        "Diana",
+        "Annie"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Gnar": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Viego": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Nilah": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Annie": {
+            "role": "support",
+            "niveau": "elimination"
+          },
+          "Diana": {
+            "role": "mid",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Annie": [
+            "mid",
+            "support"
+          ],
+          "Diana": [
+            "jungle",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Diana",
+          "niveau": "elimination"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-044",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Volibear et Sylas sur top et jungle.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Draven",
+          "Lucian",
+          "Jinx",
+          "Nilah",
+          "Tristana"
+        ]
+      },
+      "adversaires": [
+        "Kalista",
+        "Malzahar",
+        "Senna",
+        "Sylas",
+        "Volibear"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Malzahar": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kalista": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Senna": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Volibear": {
+            "role": "top",
+            "niveau": "elimination"
+          },
+          "Sylas": {
+            "role": "jungle",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Volibear": [
+            "top",
+            "jungle"
+          ],
+          "Sylas": [
+            "mid",
+            "jungle"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Kalista",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-045",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Seraphine et Malphite sur adc et support.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Ashe",
+          "Janna"
+        ]
+      },
+      "adversaires": [
+        "Malphite",
+        "Sion",
+        "Bel'Veth",
+        "Seraphine",
+        "Anivia"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Sion": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Bel'Veth": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Anivia": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Seraphine": {
+            "role": "adc",
+            "niveau": "elimination"
+          },
+          "Malphite": {
+            "role": "support",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Seraphine": [
+            "support",
+            "adc"
+          ],
+          "Malphite": [
+            "top",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Malphite",
+          "niveau": "elimination"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-046",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Karthus et Lux sur jungle et support.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Tahm Kench",
+          "Sett",
+          "Trundle"
+        ]
+      },
+      "adversaires": [
+        "Zed",
+        "Urgot",
+        "Karthus",
+        "Kalista",
+        "Lux"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Urgot": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Zed": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kalista": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Karthus": {
+            "role": "jungle",
+            "niveau": "elimination"
+          },
+          "Lux": {
+            "role": "support",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Karthus": [
+            "jungle",
+            "mid"
+          ],
+          "Lux": [
+            "support",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Urgot",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-047",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Jax et Corki sur top et adc.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Fiddlesticks",
+          "Nocturne",
+          "Udyr"
+        ]
+      },
+      "adversaires": [
+        "Corki",
+        "Shyvana",
+        "Qiyana",
+        "Lulu",
+        "Jax"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Shyvana": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Lulu": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Jax": {
+            "role": "top",
+            "niveau": "elimination"
+          },
+          "Corki": {
+            "role": "adc",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Jax": [
+            "top",
+            "jungle"
+          ],
+          "Corki": [
+            "mid",
+            "adc"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Shyvana",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-048",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Rumble et Ekko sur top et jungle.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Twisted Fate",
+          "Fizz",
+          "Kog'Maw"
+        ]
+      },
+      "adversaires": [
+        "Ekko",
+        "Rumble",
+        "Mel",
+        "Rakan",
+        "Jinx"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Mel": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Rakan": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Rumble": {
+            "role": "top",
+            "niveau": "elimination"
+          },
+          "Ekko": {
+            "role": "jungle",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {
+          "Rumble": [
+            "top",
+            "mid",
+            "jungle"
+          ],
+          "Ekko": [
+            "jungle",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Mel",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-049",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Diana et Karthus sur mid et jungle, répartition ambiguë.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Jhin",
+          "Corki"
+        ]
+      },
+      "adversaires": [
+        "Sivir",
+        "Karthus",
+        "Taric",
+        "Yorick",
+        "Diana"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Yorick": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Sivir": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Taric": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {
+          "Diana": [
+            "jungle",
+            "mid"
+          ],
+          "Karthus": [
+            "jungle",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Sivir",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "CF-060",
+      "synthetique": true,
+      "categorie": "complet_flex",
+      "description": "Deux flex Brand et Diana sur mid et jungle, répartition ambiguë.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Annie",
+          "Nautilus"
+        ]
+      },
+      "adversaires": [
+        "Soraka",
+        "Brand",
+        "Diana",
+        "Jinx",
+        "Urgot"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Urgot": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Soraka": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {
+          "Brand": [
+            "support",
+            "mid",
+            "jungle"
+          ],
+          "Diana": [
+            "jungle",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Soraka",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-001",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Vayne joué top ; son rôle habituel (adc) est occupé.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Urgot",
+          "Trundle"
+        ]
+      },
+      "adversaires": [
+        "Vayne",
+        "Tristana",
+        "Katarina",
+        "Soraka",
+        "Nunu"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Nunu": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Katarina": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Tristana": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Soraka": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Vayne": {
+            "role": "top",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Vayne",
+          "niveau": "hors_role_par_construction"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-002",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Teemo joué support ; son rôle habituel (top) est occupé.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Viego",
+          "Shyvana",
+          "Elise",
+          "Kayn",
+          "Ekko"
+        ]
+      },
+      "adversaires": [
+        "Garen",
+        "Kog'Maw",
+        "LeBlanc",
+        "Teemo",
+        "Jarvan IV"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Garen": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Jarvan IV": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "LeBlanc": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kog'Maw": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Teemo": {
+            "role": "support",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Jarvan IV",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-003",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Kog'Maw joué mid ; son rôle habituel (adc) est occupé.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Swain",
+          "Anivia"
+        ]
+      },
+      "adversaires": [
+        "Renekton",
+        "Nocturne",
+        "Tristana",
+        "Renata Glasc",
+        "Kog'Maw"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Renekton": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Nocturne": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Tristana": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Renata Glasc": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Kog'Maw": {
+            "role": "mid",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Kog'Maw",
+          "niveau": "hors_role_par_construction"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-004",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Senna joué adc ; son rôle habituel (support) est occupé.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Caitlyn",
+          "Tristana",
+          "Corki",
+          "Kai'Sa",
+          "Yunara"
+        ]
+      },
+      "adversaires": [
+        "Orianna",
+        "Briar",
+        "Senna",
+        "Braum",
+        "Nasus"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Nasus": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Briar": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Orianna": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Braum": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Senna": {
+            "role": "adc",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Senna",
+          "niveau": "hors_role_par_construction"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-005",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Garen joué mid ; son rôle habituel (top) est occupé.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Seraphine",
+          "Janna",
+          "Zilean",
+          "Zyra",
+          "Braum"
+        ]
+      },
+      "adversaires": [
+        "Illaoi",
+        "Smolder",
+        "Nautilus",
+        "Skarner",
+        "Garen"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Illaoi": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Skarner": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Smolder": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Nautilus": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Garen": {
+            "role": "mid",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Nautilus",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-006",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Nunu joué mid ; son rôle habituel (jungle) est occupé.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Fiora",
+          "Yorick",
+          "Gwen",
+          "Illaoi",
+          "Dr. Mundo"
+        ]
+      },
+      "adversaires": [
+        "Jinx",
+        "Nunu",
+        "Quinn",
+        "Rengar",
+        "Sona"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Quinn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Rengar": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Sona": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Nunu": {
+            "role": "mid",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Quinn",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-007",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Pyke joué mid ; son rôle habituel (support) est occupé.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Graves",
+          "Viego",
+          "Maokai",
+          "Xin Zhao"
+        ]
+      },
+      "adversaires": [
+        "Lulu",
+        "Rek'Sai",
+        "Pyke",
+        "Draven",
+        "Dr. Mundo"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Dr. Mundo": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Rek'Sai": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Draven": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Lulu": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Pyke": {
+            "role": "mid",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Rek'Sai",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-008",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Taric joué jungle ; son rôle habituel (support) est occupé.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Twisted Fate",
+          "Fizz",
+          "Kog'Maw",
+          "Xerath"
+        ]
+      },
+      "adversaires": [
+        "Mel",
+        "Senna",
+        "Taric",
+        "Darius",
+        "Aphelios"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Darius": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Mel": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Aphelios": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Senna": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Taric": {
+            "role": "jungle",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Mel",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-009",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Shaco joué support ; son rôle habituel (jungle) est occupé.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Xayah",
+          "Jhin"
+        ]
+      },
+      "adversaires": [
+        "Shaco",
+        "Vex",
+        "Renekton",
+        "Shyvana",
+        "Nilah"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Renekton": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Shyvana": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Vex": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Nilah": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Shaco": {
+            "role": "support",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Nilah",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-024",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Zilean joué mid ; son rôle habituel (support) est occupé.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Tristana",
+          "Jhin"
+        ]
+      },
+      "adversaires": [
+        "Ezreal",
+        "Zilean",
+        "Skarner",
+        "Fiora",
+        "Rakan"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Fiora": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Skarner": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Ezreal": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Rakan": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Zilean": {
+            "role": "mid",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Ezreal",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-028",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Senna joué adc ; son rôle habituel (support) est occupé.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Fizz",
+          "Galio",
+          "Lucian"
+        ]
+      },
+      "adversaires": [
+        "Morgana",
+        "Ornn",
+        "Veigar",
+        "Senna",
+        "Zac"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Ornn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Zac": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Veigar": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Morgana": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Senna": {
+            "role": "adc",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Veigar",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "HR-029",
+      "synthetique": true,
+      "categorie": "atypique_hors_role",
+      "description": "Garen joué mid ; son rôle habituel (top) est occupé.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Kalista",
+          "Aphelios",
+          "Samira",
+          "Ashe"
+        ]
+      },
+      "adversaires": [
+        "Jinx",
+        "Tryndamere",
+        "Vi",
+        "Garen",
+        "Rakan"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Tryndamere": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Vi": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Rakan": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Garen": {
+            "role": "mid",
+            "niveau": "hors_role_par_construction"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Jinx",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "NV-004",
+      "synthetique": true,
+      "categorie": "atypique_inconnu",
+      "description": "Zaahen, sans avis de rôle, dans le seul rôle libre (mid).",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Nilah",
+          "Vayne",
+          "Lucian"
+        ]
+      },
+      "adversaires": [
+        "Rell",
+        "Varus",
+        "Elise",
+        "Zaahen",
+        "Quinn"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Quinn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Elise": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Varus": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Rell": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Zaahen": {
+            "role": "mid",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Varus",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "NV-005",
+      "synthetique": true,
+      "categorie": "atypique_inconnu",
+      "description": "Locke, sans avis de rôle, dans le seul rôle libre (support).",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Tahm Kench",
+          "Nami",
+          "Maokai"
+        ]
+      },
+      "adversaires": [
+        "Twitch",
+        "Locke",
+        "Tryndamere",
+        "Cassiopeia",
+        "Amumu"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Tryndamere": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Amumu": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Cassiopeia": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Twitch": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Locke": {
+            "role": "support",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Locke",
+          "niveau": "elimination"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": true,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "NV-006",
+      "synthetique": true,
+      "categorie": "atypique_inconnu",
+      "description": "Zaahen, sans avis de rôle, dans le seul rôle libre (jungle).",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Akali",
+          "Urgot",
+          "Camille"
+        ]
+      },
+      "adversaires": [
+        "K'Sante",
+        "Orianna",
+        "Draven",
+        "Zaahen",
+        "Pyke"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "K'Sante": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Orianna": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Draven": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Pyke": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Zaahen": {
+            "role": "jungle",
+            "niveau": "elimination"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "K'Sante",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-010",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Vladimir",
+          "Nasus"
+        ]
+      },
+      "adversaires": [
+        "Rakan"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Rakan": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-011",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Pantheon",
+          "Lee Sin"
+        ]
+      },
+      "adversaires": [
+        "Quinn"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Quinn": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-012",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s), dont le flex Kayle.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Pantheon",
+          "Yone"
+        ]
+      },
+      "adversaires": [
+        "Kayle"
+      ],
+      "annotations": {
+        "roles_attendus": {},
+        "roles_possibles": {
+          "Kayle": [
+            "top",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": null,
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-013",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Jhin",
+          "Varus"
+        ]
+      },
+      "adversaires": [
+        "Kassadin"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Kassadin": {
+            "role": "mid",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-014",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Ashe",
+          "Gragas",
+          "Zyra"
+        ]
+      },
+      "adversaires": [
+        "Amumu"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Amumu": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-015",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s), dont le flex Galio.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Gwen",
+          "Pantheon"
+        ]
+      },
+      "adversaires": [
+        "Galio"
+      ],
+      "annotations": {
+        "roles_attendus": {},
+        "roles_possibles": {
+          "Galio": [
+            "mid",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-016",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Kha'Zix",
+          "Jax",
+          "Taliyah",
+          "Maokai"
+        ]
+      },
+      "adversaires": [
+        "Viktor"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Viktor": {
+            "role": "mid",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-017",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Zed",
+          "Twisted Fate",
+          "Vladimir",
+          "LeBlanc"
+        ]
+      },
+      "adversaires": [
+        "Aurelion Sol"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Aurelion Sol": {
+            "role": "mid",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Aurelion Sol",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-018",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s), dont le flex Karthus.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Vayne",
+          "Lucian",
+          "Jhin",
+          "Zeri",
+          "Ziggs"
+        ]
+      },
+      "adversaires": [
+        "Karthus"
+      ],
+      "annotations": {
+        "roles_attendus": {},
+        "roles_possibles": {
+          "Karthus": [
+            "jungle",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-019",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Heimerdinger",
+          "Alistar",
+          "Sett",
+          "Brand",
+          "Zyra"
+        ]
+      },
+      "adversaires": [
+        "Aatrox"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Aatrox": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-020",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Aatrox",
+          "Illaoi",
+          "Poppy",
+          "Camille"
+        ]
+      },
+      "adversaires": [
+        "Gnar"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Gnar": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Gnar",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-021",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s), dont le flex Vel'Koz.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Udyr",
+          "Zac",
+          "Lee Sin",
+          "Briar",
+          "Lillia"
+        ]
+      },
+      "adversaires": [
+        "Vel'Koz"
+      ],
+      "annotations": {
+        "roles_attendus": {},
+        "roles_possibles": {
+          "Vel'Koz": [
+            "support",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-022",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Kennen",
+          "Jayce",
+          "Zoe"
+        ]
+      },
+      "adversaires": [
+        "Talon"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Talon": {
+            "role": "mid",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Talon",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-023",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Ezreal",
+          "Aphelios",
+          "Samira",
+          "Sivir",
+          "Lucian"
+        ]
+      },
+      "adversaires": [
+        "Tryndamere"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Tryndamere": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-024",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s), dont le flex Tahm Kench.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Nami",
+          "Maokai",
+          "Neeko",
+          "Rell",
+          "Sona"
+        ]
+      },
+      "adversaires": [
+        "Tahm Kench"
+      ],
+      "annotations": {
+        "roles_attendus": {},
+        "roles_possibles": {
+          "Tahm Kench": [
+            "support",
+            "top"
+          ]
+        },
+        "adversaire_direct_attendu": null,
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-025",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Jax",
+          "Sion",
+          "Kayle",
+          "Gragas"
+        ]
+      },
+      "adversaires": [
+        "Master Yi"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Master Yi": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-026",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Rengar",
+          "Evelynn",
+          "Trundle",
+          "Nocturne",
+          "Skarner"
+        ]
+      },
+      "adversaires": [
+        "Amumu"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Amumu": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Amumu",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-027",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s), dont le flex Ashe.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Yone",
+          "Katarina",
+          "Karma",
+          "Talon"
+        ]
+      },
+      "adversaires": [
+        "Ashe"
+      ],
+      "annotations": {
+        "roles_attendus": {},
+        "roles_possibles": {
+          "Ashe": [
+            "adc",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-028",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Caitlyn",
+          "Zeri",
+          "Seraphine",
+          "Lucian",
+          "Jhin"
+        ]
+      },
+      "adversaires": [
+        "Braum"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Braum": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-029",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Sett",
+          "Zyra",
+          "Heimerdinger"
+        ]
+      },
+      "adversaires": [
+        "Morgana"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Morgana": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Morgana",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-030",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "1 adversaire(s) révélé(s), dont le flex Sett.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Teemo",
+          "Malphite"
+        ]
+      },
+      "adversaires": [
+        "Sett"
+      ],
+      "annotations": {
+        "roles_attendus": {},
+        "roles_possibles": {
+          "Sett": [
+            "top",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": null,
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-031",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Kayle",
+          "Zed",
+          "Twisted Fate",
+          "Yone"
+        ]
+      },
+      "adversaires": [
+        "Rakan",
+        "Kha'Zix"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Rakan": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Kha'Zix": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-032",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Draven",
+          "Twitch",
+          "Samira"
+        ]
+      },
+      "adversaires": [
+        "Yorick",
+        "Nunu"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Yorick": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Nunu": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-033",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s), dont le flex Sett.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Vel'Koz",
+          "Milio",
+          "Janna"
+        ]
+      },
+      "adversaires": [
+        "Sett",
+        "Fiora"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Fiora": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {
+          "Sett": [
+            "top",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": null,
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-034",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Rumble",
+          "Ambessa",
+          "Gnar",
+          "Yasuo"
+        ]
+      },
+      "adversaires": [
+        "Vayne",
+        "Soraka"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Vayne": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Soraka": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-035",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Diana",
+          "Taliyah"
+        ]
+      },
+      "adversaires": [
+        "Veigar",
+        "Miss Fortune"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Veigar": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Miss Fortune": {
+            "role": "adc",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-036",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s), dont le flex Heimerdinger.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Pantheon",
+          "Taliyah",
+          "Hwei",
+          "Galio",
+          "Rumble"
+        ]
+      },
+      "adversaires": [
+        "Heimerdinger",
+        "Zac"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Zac": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {
+          "Heimerdinger": [
+            "mid",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": null,
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-037",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Yunara",
+          "Xayah"
+        ]
+      },
+      "adversaires": [
+        "Zoe",
+        "Jinx"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Zoe": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Jinx": {
+            "role": "adc",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Jinx",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-038",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Braum",
+          "Tahm Kench",
+          "Milio",
+          "Vel'Koz",
+          "Malphite"
+        ]
+      },
+      "adversaires": [
+        "Fizz",
+        "Alistar"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Fizz": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Alistar": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Alistar",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-039",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "2 adversaire(s) révélé(s), dont le flex Lucian.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Kayle",
+          "Yasuo",
+          "Singed",
+          "Malphite",
+          "Pantheon"
+        ]
+      },
+      "adversaires": [
+        "Lucian",
+        "Zilean"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Zilean": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {
+          "Lucian": [
+            "adc",
+            "mid"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-115",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "4 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Ziggs",
+          "Tristana",
+          "Nilah",
+          "Kai'Sa"
+        ]
+      },
+      "adversaires": [
+        "Kayn",
+        "Braum",
+        "Zeri",
+        "Garen"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Kayn": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Braum": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Zeri": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Garen": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Zeri",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-116",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "4 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Heimerdinger",
+          "Maokai",
+          "Pantheon",
+          "Sett",
+          "Leona"
+        ]
+      },
+      "adversaires": [
+        "Ornn",
+        "Senna",
+        "Kai'Sa",
+        "Rek'Sai"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Ornn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Senna": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Kai'Sa": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Rek'Sai": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Senna",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-117",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "4 adversaire(s) révélé(s), dont le flex Gragas.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Singed",
+          "Quinn",
+          "Yone",
+          "Nasus"
+        ]
+      },
+      "adversaires": [
+        "Gragas",
+        "Vi",
+        "Veigar",
+        "Mordekaiser"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Vi": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Veigar": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Mordekaiser": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {
+          "Gragas": [
+            "jungle",
+            "top",
+            "support"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": "Mordekaiser",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-118",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "4 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Rumble",
+          "Graves",
+          "Vi",
+          "Nidalee"
+        ]
+      },
+      "adversaires": [
+        "Caitlyn",
+        "Thresh",
+        "Anivia",
+        "Gnar"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Caitlyn": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Thresh": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Anivia": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Gnar": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-119",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "4 adversaire(s) révélé(s).",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Jayce",
+          "Zoe",
+          "Ekko",
+          "LeBlanc"
+        ]
+      },
+      "adversaires": [
+        "Nami",
+        "Renekton",
+        "Sivir",
+        "Sejuani"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Nami": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Renekton": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Sivir": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Sejuani": {
+            "role": "jungle",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "IN-120",
+      "synthetique": true,
+      "categorie": "incomplet",
+      "description": "4 adversaire(s) révélé(s), dont le flex Jax.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Jinx",
+          "Ezreal"
+        ]
+      },
+      "adversaires": [
+        "Jax",
+        "Mel",
+        "Janna",
+        "Sion"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Mel": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Janna": {
+            "role": "support",
+            "niveau": "evident"
+          },
+          "Sion": {
+            "role": "top",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {
+          "Jax": [
+            "top",
+            "jungle"
+          ]
+        },
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-001",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Lissandra et Blitzcrank ont la même fiche (« Ei ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Lissandra",
+          "Blitzcrank"
+        ]
+      },
+      "adversaires": [
+        "Qiyana",
+        "Varus",
+        "Kindred",
+        "Braum",
+        "Renekton"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Renekton": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Kindred": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Varus": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Braum": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Qiyana",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "Blitzcrank",
+            "Lissandra"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-002",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Yuumi et Lulu ont la même fiche (« c ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Rell",
+          "Lulu",
+          "Yuumi"
+        ]
+      },
+      "adversaires": [
+        "Azir",
+        "Smolder"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Azir": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Smolder": {
+            "role": "adc",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": null,
+          "niveau": "non_revele"
+        },
+        "egalites_attendues": [
+          [
+            "Lulu",
+            "Yuumi"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-004",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Karma et Seraphine ont la même fiche (« cl ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "support",
+        "pool": [
+          "Seraphine",
+          "Karma"
+        ]
+      },
+      "adversaires": [
+        "Rell",
+        "Twisted Fate",
+        "Briar",
+        "Kog'Maw"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Briar": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Twisted Fate": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kog'Maw": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Rell": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Rell",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "Karma",
+            "Seraphine"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-005",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Udyr et Briar ont la même fiche (« d ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "jungle",
+        "pool": [
+          "Udyr",
+          "Briar",
+          "Evelynn"
+        ]
+      },
+      "adversaires": [
+        "Elise",
+        "Qiyana",
+        "Yuumi",
+        "Teemo",
+        "Smolder"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Teemo": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Elise": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Smolder": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Yuumi": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Elise",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "Briar",
+            "Udyr"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-006",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Kennen et Volibear ont la même fiche (« dE ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Volibear",
+          "Cho'Gath",
+          "Tryndamere",
+          "Kennen"
+        ]
+      },
+      "adversaires": [
+        "Gangplank",
+        "Lissandra"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Gangplank": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Lissandra": {
+            "role": "mid",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Gangplank",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "Kennen",
+            "Volibear"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-007",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Lucian et Riven ont la même fiche (« de ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Lucian",
+          "Riven"
+        ]
+      },
+      "adversaires": [
+        "Udyr",
+        "Janna",
+        "Yunara",
+        "Dr. Mundo",
+        "Ryze"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Dr. Mundo": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Udyr": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Ryze": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Yunara": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Janna": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Yunara",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "Lucian",
+            "Riven"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-015",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Annie et Syndra ont la même fiche (« hi ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Syndra",
+          "Ziggs",
+          "Annie",
+          "Hwei"
+        ]
+      },
+      "adversaires": [
+        "Vayne",
+        "Janna",
+        "Fiora",
+        "Kassadin",
+        "Udyr"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Fiora": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Udyr": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Kassadin": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Vayne": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Janna": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Kassadin",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "Annie",
+            "Syndra"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-016",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Quinn et LeBlanc ont la même fiche (« hre ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "top",
+        "pool": [
+          "Quinn",
+          "LeBlanc"
+        ]
+      },
+      "adversaires": [
+        "Nocturne",
+        "Vex",
+        "Samira",
+        "Illaoi"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Illaoi": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Nocturne": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Vex": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Samira": {
+            "role": "adc",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Illaoi",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "LeBlanc",
+            "Quinn"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "EG-017",
+      "synthetique": true,
+      "categorie": "egalite_attendue",
+      "description": "Hwei et Mel ont la même fiche (« il ») : ils doivent être ex æquo.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Hwei",
+          "Mel",
+          "Yasuo"
+        ]
+      },
+      "adversaires": [
+        "Evelynn",
+        "Kog'Maw",
+        "Ornn",
+        "Naafiri",
+        "Leona"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Ornn": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Evelynn": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Naafiri": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Kog'Maw": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Leona": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Naafiri",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [
+          [
+            "Hwei",
+            "Mel"
+          ]
+        ],
+        "absents_attendus": [],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "PP-004",
+      "synthetique": true,
+      "categorie": "pick_pris",
+      "description": "Vayne, dans le pool, est pris par l'adversaire.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Vayne",
+          "Kai'Sa",
+          "Smolder"
+        ]
+      },
+      "adversaires": [
+        "Vayne",
+        "Lee Sin",
+        "Blitzcrank",
+        "Camille",
+        "Syndra"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Camille": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Lee Sin": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Syndra": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Vayne": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Blitzcrank": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Vayne",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [
+          "Vayne"
+        ],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "PP-008",
+      "synthetique": true,
+      "categorie": "pick_pris",
+      "description": "Qiyana, dans le pool, est pris par l'adversaire.",
+      "joueur": {
+        "role": "mid",
+        "pool": [
+          "Qiyana",
+          "Brand",
+          "Cho'Gath",
+          "Orianna"
+        ]
+      },
+      "adversaires": [
+        "Braum",
+        "Caitlyn",
+        "Qiyana",
+        "Sion",
+        "Shaco"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Sion": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Shaco": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Qiyana": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Caitlyn": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Braum": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Qiyana",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [
+          "Qiyana"
+        ],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    },
+    {
+      "id": "PP-009",
+      "synthetique": true,
+      "categorie": "pick_pris",
+      "description": "Smolder, dans le pool, est pris par l'adversaire.",
+      "joueur": {
+        "role": "adc",
+        "pool": [
+          "Smolder",
+          "Aphelios",
+          "Draven",
+          "Samira",
+          "Vayne"
+        ]
+      },
+      "adversaires": [
+        "Master Yi",
+        "Cassiopeia",
+        "Smolder",
+        "Janna",
+        "Aatrox"
+      ],
+      "annotations": {
+        "roles_attendus": {
+          "Aatrox": {
+            "role": "top",
+            "niveau": "evident"
+          },
+          "Master Yi": {
+            "role": "jungle",
+            "niveau": "evident"
+          },
+          "Cassiopeia": {
+            "role": "mid",
+            "niveau": "evident"
+          },
+          "Smolder": {
+            "role": "adc",
+            "niveau": "evident"
+          },
+          "Janna": {
+            "role": "support",
+            "niveau": "evident"
+          }
+        },
+        "roles_possibles": {},
+        "adversaire_direct_attendu": {
+          "nom": "Smolder",
+          "niveau": "evident"
+        },
+        "egalites_attendues": [],
+        "absents_attendus": [
+          "Smolder"
+        ],
+        "confiance_elevee_interdite": false,
+        "jugement_expert": null
+      }
+    }
+  ]
+}

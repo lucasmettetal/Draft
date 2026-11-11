@@ -60,7 +60,8 @@ namespace DraftMid
 
     public class LocalHttpsTransport : ILcuTransport
     {
-        const int TimeoutMs = 1500;
+        // Délai d'une lecture. Le diagnostic essaie aussi un délai plus long, pour repérer un client lent.
+        public int TimeoutMs = 1500;
         readonly LockfileInfo info;
         // Nature de la dernière erreur réseau, pour le journal : jamais d'identifiant.
         public static string LastError = "";
@@ -105,8 +106,41 @@ namespace DraftMid
         }
     }
 
+    // Dossier du client à partir de son processus.
+    // Process.MainModule demande un accès complet au processus : il est refusé quand le client tourne avec plus de droits
+    // que DRAFT (client lancé en administrateur, par exemple). La requête limitée, elle, est permise dans ce cas.
+    public static class ClientProcess
+    {
+        const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder name, ref int size);
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        static extern bool CloseHandle(IntPtr handle);
+
+        // Null si le chemin est introuvable ; error donne alors la raison, sans chemin ni identifiant.
+        public static string FolderOf(int pid, out string error)
+        {
+            error = "";
+            IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (h == IntPtr.Zero) { error = "processus du client inaccessible (Win32 " + System.Runtime.InteropServices.Marshal.GetLastWin32Error() + ")"; return null; }
+            try
+            {
+                StringBuilder s = new StringBuilder(1024);
+                int n = s.Capacity;
+                if (!QueryFullProcessImageName(h, 0, s, ref n)) { error = "chemin du client illisible (Win32 " + System.Runtime.InteropServices.Marshal.GetLastWin32Error() + ")"; return null; }
+                return Path.GetDirectoryName(s.ToString(0, n));
+            }
+            finally { CloseHandle(h); }
+        }
+    }
+
     public static class LcuFactory
     {
+        // Étape où la dernière ouverture a échoué, pour le journal de diagnostic : jamais de chemin, de port ni de mot de passe.
+        public static string LastOpenError = "";
+
         // Le lockfile n'est jamais ouvert tant que le verrou est fermé.
         public static ILcuTransport CreateReal(bool optionEnabled, string clientProcessFolder)
         {
@@ -118,10 +152,84 @@ namespace DraftMid
                 using (StreamReader r = new StreamReader(f))
                 {
                     LockfileInfo i = LockfileInfo.Parse(r.ReadToEnd());
+                    LastOpenError = i == null ? "lockfile invalide" : "";
                     return i == null ? null : new LocalHttpsTransport(i);
                 }
             }
-            catch { return null; }
+            catch (FileNotFoundException) { LastOpenError = "lockfile absent"; return null; }
+            catch (DirectoryNotFoundException) { LastOpenError = "lockfile absent"; return null; }
+            catch (UnauthorizedAccessException) { LastOpenError = "lockfile refusé"; return null; }
+            catch (IOException) { LastOpenError = "lockfile verrouillé"; return null; }
+            catch (Exception e) { LastOpenError = "lockfile : " + e.GetType().Name; return null; }
+        }
+    }
+
+    // Diagnostic de connexion, lancé par l'utilisateur depuis le menu de l'icône. Lecture seule, adresse locale uniquement.
+    // Le texte produit ne contient jamais le mot de passe, le port, le chemin du client ni aucun identifiant de joueur.
+    public static class LcuDiagnostic
+    {
+        public static bool IsElevated()
+        {
+            try { return new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator); }
+            catch { return false; }
+        }
+
+        // clientPid : processus de la fenêtre du client, 0 si aucune. folderForTests : dossier imposé par les tests.
+        public static async Task<string> RunAsync(bool optionEnabled, int clientPid, string version, string folderForTests = null)
+        {
+            StringBuilder sb = new StringBuilder();
+            Action<string> line = s => sb.AppendLine(s);
+            line("Diagnostic de connexion au client LoL (DRAFT " + version + ", Windows " + Environment.OSVersion.Version + ")");
+            line("Aucun mot de passe, port, chemin ni nom de joueur n'apparaît ici.");
+            line("DRAFT lancé en administrateur : " + (IsElevated() ? "oui" : "non"));
+            if (!LcuGate.Allowed(optionEnabled)) { line("Lecture du client : désactivée dans les réglages. Rien d'autre n'est vérifié."); line("Conclusion : coche « Lire la draft depuis le client LoL » dans les réglages, puis relance ce diagnostic."); return sb.ToString(); }
+            string folder = folderForTests;
+            if (folder == null)
+            {
+                if (clientPid <= 0) { line("Fenêtre du client : introuvable."); line("Conclusion : ouvre le client LoL, attends qu'il soit complètement chargé, puis relance ce diagnostic."); return sb.ToString(); }
+                line("Fenêtre du client : trouvée.");
+                bool full;
+                try { using (Process p = Process.GetProcessById(clientPid)) { string m = p.MainModule.FileName; full = m != null; } } catch { full = false; }
+                line("Accès complet au processus du client : " + (full ? "oui" : "non : le client tourne probablement avec plus de droits que DRAFT (lancé en administrateur)"));
+                string err;
+                folder = ClientProcess.FolderOf(clientPid, out err);
+                if (folder == null) { line("Dossier du client : introuvable (" + err + ")."); line("Conclusion : lance DRAFT et le client LoL avec les mêmes droits (tous deux normalement, ou tous deux en administrateur)."); return sb.ToString(); }
+                line("Dossier du client : trouvé.");
+            }
+            string path = Path.Combine(folder, "lockfile");
+            if (!File.Exists(path)) { line("Lockfile : absent."); line("Conclusion : le client démarre encore, ou ce n'est pas le client de League of Legends. Réessaie une fois l'accueil du client affiché."); return sb.ToString(); }
+            LockfileInfo info;
+            try { using (FileStream f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) using (StreamReader r = new StreamReader(f)) info = LockfileInfo.Parse(r.ReadToEnd()); }
+            catch (Exception e) { line("Lockfile : présent mais illisible (" + e.GetType().Name + ")."); line("Conclusion : un antivirus ou des droits Windows bloquent la lecture."); return sb.ToString(); }
+            if (info == null) { line("Lockfile : format inattendu."); line("Conclusion : format du client inconnu de DRAFT. Envoie ce diagnostic."); return sb.ToString(); }
+            line("Lockfile : lisible, format valide.");
+            Uri local = new Uri("https://127.0.0.1:" + info.Port + "/");
+            bool proxied = false;
+            try { IWebProxy px = WebRequest.DefaultWebProxy; proxied = px != null && !px.IsBypassed(local); } catch { }
+            line("Proxy Windows pour l'adresse locale : " + (proxied ? "UTILISÉ (peut empêcher la connexion)" : "non utilisé"));
+            Stopwatch clock = Stopwatch.StartNew();
+            string tcp;
+            using (TcpClient c = new TcpClient())
+            {
+                try
+                {
+                    Task connect = c.ConnectAsync(IPAddress.Loopback, info.Port);
+                    tcp = await Task.WhenAny(connect, Task.Delay(2000)) != connect ? "pas de réponse en 2 s" : connect.IsFaulted ? "refusée" : "ouverte (" + clock.ElapsedMilliseconds + " ms)";
+                }
+                catch (Exception e) { tcp = "erreur " + e.GetType().Name; }
+            }
+            line("Connexion locale au client : " + tcp);
+            foreach (int timeout in new[] { 1500, 6000 })
+            {
+                LocalHttpsTransport t = new LocalHttpsTransport(info) { TimeoutMs = timeout };
+                clock.Restart();
+                string body = await t.GetAsync(LcuEndpoints.Phase);
+                string phase = body == null ? "" : LcuParser.ParsePhase(body);
+                if (body != null && phase != "") { line("Lecture de la phase (délai " + timeout + " ms) : réussie en " + clock.ElapsedMilliseconds + " ms, phase " + phase + "."); line(timeout == 1500 ? "Conclusion : la connexion fonctionne maintenant. Si le message revient, envoie ce diagnostic juste après." : "Conclusion : le client répond, mais plus lentement que le délai de DRAFT (1,5 s)."); return sb.ToString(); }
+                line("Lecture de la phase (délai " + timeout + " ms) : échec (" + (body == "" ? "réponse vide ou 404" : LocalHttpsTransport.LastError) + ") après " + clock.ElapsedMilliseconds + " ms.");
+            }
+            line(proxied ? "Conclusion : le proxy Windows est le suspect principal." : tcp.StartsWith("ouverte") ? "Conclusion : le client refuse ou ne comprend pas la requête (voir l'erreur ci-dessus)." : "Conclusion : la connexion locale est bloquée (pare-feu, antivirus) ou le client n'écoute pas encore.");
+            return sb.ToString();
         }
     }
 
@@ -315,6 +423,54 @@ namespace DraftMid
             t(li != null && li.Port == 50000 && li.Password == "motdepasse", "LCU : lecture d'un lockfile simulé");
             t(!li.ToString().Contains("motdepasse"), "LCU : le mot de passe n'apparaît jamais dans un journal");
             t(LockfileInfo.Parse("abimé") == null && LockfileInfo.Parse("a:b:port:c:https") == null && LockfileInfo.Parse("a:1:50000:c:http") == null, "LCU : un lockfile invalide est refusé");
+            // Dossier du client : requête limitée, sans Process.MainModule.
+            string err;
+            string self = ClientProcess.FolderOf(Process.GetCurrentProcess().Id, out err);
+            t(self != null && string.Equals(self, Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), StringComparison.OrdinalIgnoreCase), "LCU : dossier du client lu par requête limitée");
+            t(ClientProcess.FolderOf(-1, out err) == null && err.StartsWith("processus du client inaccessible") && !err.Contains("\\"), "LCU : processus introuvable, raison donnée sans chemin");
+            // Processus de l'utilisateur lancé avec plus de droits (comme un client lancé en administrateur) : MainModule est refusé.
+            int elevated = -1;
+            foreach (Process p in Process.GetProcesses())
+                using (p)
+                {
+                    if (elevated > 0) continue;
+                    try { string m = p.MainModule.FileName; } catch { string e2; if (p.SessionId == Process.GetCurrentProcess().SessionId && ClientProcess.FolderOf(p.Id, out e2) != null) elevated = p.Id; }
+                }
+            t(true, elevated > 0 ? "LCU : processus à droits supérieurs (pid " + elevated + ") : MainModule refusé, dossier lu quand même" : "LCU : aucun processus à droits supérieurs sur ce PC, cas non rejoué");
+            string lockDir = Path.Combine(Path.GetTempPath(), "draft-lcu-test-" + Process.GetCurrentProcess().Id);
+            Directory.CreateDirectory(lockDir);
+            try
+            {
+                t(LcuFactory.CreateReal(true, lockDir) == null && LcuFactory.LastOpenError == "lockfile absent", "LCU : lockfile absent signalé dans le diagnostic");
+                File.WriteAllText(Path.Combine(lockDir, "lockfile"), "abimé");
+                t(LcuFactory.CreateReal(true, lockDir) == null && LcuFactory.LastOpenError == "lockfile invalide", "LCU : lockfile invalide signalé dans le diagnostic");
+                File.WriteAllText(Path.Combine(lockDir, "lockfile"), "LeagueClient:1234:50000:secretlcu:https");
+                t(LcuFactory.CreateReal(true, lockDir) != null && LcuFactory.LastOpenError == "", "LCU : lockfile valide, diagnostic remis à zéro");
+                File.WriteAllText(Path.Combine(lockDir, "lockfile"), "abimé:secretlcu");
+                LcuFactory.CreateReal(true, lockDir);
+                t(!LcuFactory.LastOpenError.Contains("secretlcu") && !LcuFactory.LastOpenError.Contains(lockDir), "LCU : le diagnostic ne contient ni mot de passe ni chemin");
+            }
+            finally { Directory.Delete(lockDir, true); LcuFactory.LastOpenError = ""; }
+
+            // Diagnostic utilisateur : verrou respecté, aucun secret, réponse lente repérée.
+            string off = LcuDiagnostic.RunAsync(false, 1234, "test").GetAwaiter().GetResult();
+            t(off.Contains("désactivée") && !off.Contains("Lockfile"), "LCU : diagnostic, option décochée : le lockfile n'est pas lu");
+            string noClient = LcuDiagnostic.RunAsync(true, 0, "test").GetAwaiter().GetResult();
+            t(noClient.Contains("introuvable") && noClient.Contains("Conclusion"), "LCU : diagnostic, client fermé : consigne simple");
+            TcpListener mute = new TcpListener(IPAddress.Loopback, 0);
+            mute.Start();
+            string diagDir = Path.Combine(Path.GetTempPath(), "draft-lcu-diag-" + Process.GetCurrentProcess().Id);
+            Directory.CreateDirectory(diagDir);
+            try
+            {
+                int port = ((IPEndPoint)mute.LocalEndpoint).Port;
+                File.WriteAllText(Path.Combine(diagDir, "lockfile"), "LeagueClient:1:" + port + ":secretlcu:https");
+                string text = Task.Run(() => LcuDiagnostic.RunAsync(true, 0, "test", diagDir)).GetAwaiter().GetResult();
+                t(text.Contains("format valide") && text.Contains("ouverte") && text.Contains("échec") && text.Contains("Conclusion"), "LCU : diagnostic, client qui ne répond pas : étapes et conclusion");
+                t(!text.Contains("secretlcu") && !text.Contains(port.ToString()) && !text.Contains(diagDir), "LCU : diagnostic sans mot de passe, port ni chemin");
+            }
+            finally { mute.Stop(); Directory.Delete(diagDir, true); }
+
             string prefs = new JavaScriptSerializer().Serialize(new UserPreferences());
             t(!prefs.Contains("Password") && !prefs.Contains("Port") && prefs.Contains("\"LcuEnabled\":false"), "LCU : option désactivée par défaut, aucun identifiant dans les préférences");
 

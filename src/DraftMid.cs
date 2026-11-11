@@ -22,8 +22,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DRAFT")]
 [assembly: AssemblyDescription("DRAFT : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.")]
 [assembly: AssemblyProduct("DRAFT")]
-[assembly: AssemblyVersion("2.16.1.0")]
-[assembly: AssemblyFileVersion("2.16.1.0")]
+[assembly: AssemblyVersion("2.16.2.0")]
+[assembly: AssemblyFileVersion("2.16.2.0")]
 
 namespace DraftMid
 {
@@ -420,6 +420,7 @@ public static class Autostart
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Analyse détaillée", null, (s, e) => OpenFull(""));
             menu.Items.Add("Réglages", null, (s, e) => OpenFull("settings"));
+            menu.Items.Add("Diagnostic de connexion LoL...", null, (s, e) => ShowLcuDiagnostic());
             menu.Items.Add("Importer mes statistiques...", null, (s, e) => ImportStats());
             miRoles = new ToolStripMenuItem("Mettre à jour les rôles...", null, (s, e) => ToggleRiotUpdate(false));
             miMatchups = new ToolStripMenuItem("Mettre à jour les matchups...", null, (s, e) => ToggleRiotUpdate(true));
@@ -541,7 +542,9 @@ public static class Autostart
         string LcuDiag()
         {
             if (lcu == null) return "off";
-            return lcu.Connected ? lcuInfo : "absent(" + LocalHttpsTransport.LastError + ")";
+            if (lcu.Connected) return lcuInfo;
+            // Ouverture (processus, lockfile) puis requête : la première étape en échec suffit à comprendre.
+            return "absent(" + (LcuFactory.LastOpenError != "" ? LcuFactory.LastOpenError : LocalHttpsTransport.LastError) + ")";
         }
 
         public void TestUseLcu(Func<ILcuTransport> open) { lcu = new LcuSession(open) { RetryMs = 0, PollTimeoutMs = 400 }; lastEnemies = ""; }
@@ -560,10 +563,30 @@ public static class Autostart
             {
                 uint pid;
                 Native.GetWindowThreadProcessId(tracker.Handle, out pid);
-                using (Process p = Process.GetProcessById((int)pid))
-                    return LcuFactory.CreateReal(settings.LcuEnabled, Path.GetDirectoryName(p.MainModule.FileName));
+                string error;
+                string folder = ClientProcess.FolderOf((int)pid, out error);
+                if (folder == null) { LcuFactory.LastOpenError = error; return null; }
+                return LcuFactory.CreateReal(settings.LcuEnabled, folder);
             }
-            catch { return null; }
+            catch (Exception e) { LcuFactory.LastOpenError = "ouverture : " + e.GetType().Name; return null; }
+        }
+
+        // Diagnostic lancé à la demande : le résultat s'affiche et se copie, sans aucun secret, pour être envoyé tel quel.
+        public async Task<string> LcuDiagnosticText()
+        {
+            int pid = 0;
+            if (ClientOpen) { uint p; Native.GetWindowThreadProcessId(tracker.Handle, out p); pid = (int)p; }
+            return await LcuDiagnostic.RunAsync(settings.LcuEnabled, pid, typeof(CompanionApp).Assembly.GetName().Version.ToString(3));
+        }
+
+        async void ShowLcuDiagnostic()
+        {
+            string text;
+            try { text = await LcuDiagnosticText(); }
+            catch (Exception e) { text = "Diagnostic interrompu : " + e.GetType().Name; }
+            bool copied = false;
+            try { Clipboard.SetText(text); copied = true; } catch { }
+            MessageBox.Show(text + (copied ? "\r\nCe texte est copié : colle-le dans ton message." : ""), "DRAFT : diagnostic de connexion LoL", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         // Vrai si le client a répondu. Sinon, l'estimation visuelle et le mode manuel prennent le relais.
@@ -1324,6 +1347,86 @@ public static class Autostart
 
         // Protections de la page, vérifiées dans la vraie WebView2 : CSP réellement appliquée, eval interdit,
         // réseau et cadres limités, navigation et fenêtres vers un site inconnu refusées. Aucun accès réseau réel (.invalid).
+        public string DetailOpenReport = "non mesuré";
+
+        // Perte de draft (audit UX, P0) : ouvrir Analyse détaillée ou Comparer depuis les panneaux ne doit jamais vider ni écraser
+        // la vraie draft. 50 ouvertures successives, chacune recharge la grande fenêtre. Puis le simulateur, qui reste local.
+        public async Task<string> TestDraftSurvivesDetail(int openings)
+        {
+            string problem = "";
+            bool? manualBefore = visibility.Manual;
+            visibility.Manual = true;
+            ApplyVisibility();
+            Func<PanelForm, string, Task<string>> run = async (p, code) => await p.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<PanelForm, string, int, Task<bool>> waitIn = async (p, code, ms) =>
+            {
+                for (int i = 0; i < ms / 50; i++)
+                {
+                    if (p != null && p.Ready.IsCompleted && p.View.CoreWebView2 != null && await run(p, "!!(" + code + ")") == "true") return true;
+                    await Task.Delay(50);
+                }
+                return false;
+            };
+            Func<List<PanelForm>> shownPanels = () => panels.Values.Where(p => p.Id != "full" && p.Visible).ToList();
+            for (int i = 0; i < 200 && (!panelsShown || shownPanels().Count == 0 || !shownPanels().All(p => p.Ready.IsCompleted)); i++) await Task.Delay(50);
+            List<PanelForm> sources = shownPanels();
+            if (sources.Count == 0) { visibility.Manual = manualBefore; ApplyVisibility(); return "(aucun panneau affiché)"; }
+            foreach (PanelForm p in sources) await waitIn(p, "typeof draftApi !== 'undefined' && typeof state !== 'undefined'", 6000);
+            const string Expected = "\"Ahri,Sion,Vi\"";
+            await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1");
+            foreach (PanelForm p in sources)
+                if (!await waitIn(p, "state.enemies.join() === 'Ahri,Sion,Vi'", 3000)) problem += "draft de départ absente du panneau " + p.Id + " ; ";
+            if (problem != "") { visibility.Manual = manualBefore; ApplyVisibility(); return problem; }
+
+            int lost = 0, notShown = 0, lostOnClose = 0;
+            for (int k = 0; k < openings; k++)
+            {
+                PanelForm full;
+                if (panels.TryGetValue("full", out full) && full.Visible)
+                {
+                    // Fermeture de la grande fenêtre : les panneaux gardent la draft.
+                    full.Hide();
+                    await Task.Delay(150);
+                    foreach (PanelForm p in sources)
+                        if (await run(p, "state.enemies.join()") != Expected) { lostOnClose++; await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1"); await Task.Delay(300); break; }
+                }
+                OpenFull(k % 2 == 0 ? "analyse" : "compare");
+                for (int i = 0; i < 200 && !(panels.TryGetValue("full", out full) && full.Visible && full.Ready.IsCompleted); i++) await Task.Delay(50);
+                // La grande fenêtre doit afficher la vraie draft, puis laisser le temps à une éventuelle diffusion parasite.
+                if (!await waitIn(full, "state.enemies.join() === 'Ahri,Sion,Vi'", 3000)) notShown++;
+                await Task.Delay(400);
+                foreach (PanelForm p in sources)
+                    if (await run(p, "state.enemies.join()") != Expected) { lost++; await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1"); await Task.Delay(300); break; }
+            }
+            DetailOpenReport = openings + " ouvertures (Analyse détaillée / Comparer), " + lost + " perte(s) de draft, " + lostOnClose + " perte(s) à la fermeture, " + notShown + " fenêtre(s) sans la draft";
+            if (lost > 0) problem += lost + " perte(s) de draft sur " + openings + " ouvertures ; ";
+            if (lostOnClose > 0) problem += lostOnClose + " perte(s) de draft à la fermeture de la grande fenêtre ; ";
+            if (notShown > 0) problem += notShown + " ouverture(s) sans la draft en cours ; ";
+
+            // Simulateur : Draft aléatoire reste dans la grande fenêtre, la draft en cours n'est pas touchée.
+            PanelForm f;
+            panels.TryGetValue("full", out f);
+            if (f != null && await waitIn(f, "document.querySelector('[data-random-draft]')", 3000))
+            {
+                await run(f, "document.querySelector('[data-random-draft]').click(); 1");
+                if (!await waitIn(f, "state.enemies.length === 5 && !!document.querySelector('[data-simulation]')", 3000)) problem += "le simulateur ne se lance pas ou n'est pas signalé ; ";
+                await Task.Delay(400);
+                foreach (PanelForm p in sources) if (await run(p, "state.enemies.join()") != Expected) { problem += "Draft aléatoire écrase la draft du panneau " + p.Id + " ; "; break; }
+                await run(sources[0], "draftApi.add('Jinx'); 1");
+                await Task.Delay(300);
+                if (await run(f, "state.enemies.includes('Jinx')") == "true") problem += "la simulation est modifiée par la draft en cours ; ";
+                await run(f, "document.querySelector('[data-simulation] button').click(); 1");
+                if (!await waitIn(f, "state.enemies.join() === 'Ahri,Sion,Vi,Jinx' && !document.querySelector('[data-simulation]')", 3000)) problem += "Revenir à la draft en cours ne la retrouve pas ; ";
+            }
+            else problem += "(grande fenêtre absente pour le simulateur) ";
+
+            await run(sources[0], "draftApi.reset(); 1");
+            if (panels.TryGetValue("full", out f) && f.Visible) f.Hide();
+            visibility.Manual = manualBefore;
+            ApplyVisibility();
+            return problem;
+        }
+
         public async Task<string> TestPageSecurity()
         {
             OpenFull("");
@@ -1439,6 +1542,11 @@ public static class Autostart
         // Ouvre les réglages comme le bouton du panneau, puis vérifie qu'ils se ferment des deux façons.
         public string KeyStressReport = "non mesuré";
 
+        static class CloseProbe
+        {
+            [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
+        }
+
         // Fenêtre principale et réglages, avec de vraies frappes envoyées à la page.
         public async Task<string> TestFullWindow()
         {
@@ -1548,16 +1656,46 @@ public static class Autostart
             if (!f.Visible) problem += "depuis le menu, Fermer masque toute la fenêtre ; ";
 
             // 6. Pendant une draft, depuis un panneau : rien ne doit rester devant le client.
+            // Panneaux réellement affichés (affichage manuel), comme pendant une draft.
             f.Hide();
-            bool shown = panelsShown;
-            panelsShown = true;
+            bool? manualBefore = visibility.Manual;
+            Func<bool, Task> showPanels = async on => { visibility.Manual = on; ApplyVisibility(); for (int i = 0; i < 100 && panelsShown != on; i++) await Task.Delay(50); };
+            await showPanels(true);
             OpenFull("settings");
             await findWindow();
             await waitFor(Close);
             await run(Close + ".click(); 1");
             for (int i = 0; i < 60 && f.Visible; i++) await Task.Delay(50);
-            panelsShown = shown;
+            if (!panelsShown) problem += "les panneaux de test ne sont pas restés affichés ; ";
             if (f.Visible) problem += "pendant une draft, Fermer laisse la grande fenêtre ouverte ; ";
+
+            // 6 bis. Fenêtre principale déjà ouverte pendant une draft, page en plein rechargement (après un import, par exemple) :
+            //    fermer les réglages doit ramener à la fenêtre principale, pas la faire disparaître.
+            OpenFull("");
+            await findWindow();
+            await waitFor("document.querySelector('.app')");
+            f.View.CoreWebView2.Reload();
+            OpenFull("settings");
+            await waitFor(Close);
+            await Task.Delay(300);
+            await waitFor(Close);
+            await run(Close + ".click(); 1");
+            await waitFor("!document.querySelector('.settings')");
+            await Task.Delay(300);
+            if (!f.Visible) problem += "fenêtre principale ouverte, page en rechargement : Fermer fait disparaître la fenêtre principale ; ";
+
+            // 6 ter. Réglages ouverts depuis un panneau pendant une draft, puis la draft se termine avant la fermeture :
+            //    plus aucun panneau à l'écran, DRAFT ne doit pas sembler fermé.
+            f.Hide();
+            OpenFull("settings");
+            await findWindow();
+            await waitFor(Close);
+            await showPanels(false);
+            await run(Close + ".click(); 1");
+            for (int i = 0; i < 20; i++) await Task.Delay(50);
+            if (!panels.Values.Any(p => p.Visible)) problem += "draft terminée pendant les réglages : Fermer ne laisse plus aucune fenêtre DRAFT ; ";
+            visibility.Manual = manualBefore;
+            ApplyVisibility();
 
             // Simulation : le bouton de la page de draft donne une draft complète, différente à chaque clic.
             OpenFull("");
@@ -1596,6 +1734,26 @@ public static class Autostart
             await findWindow();
             if (!f.Visible || !await waitFor("document.querySelector('.app')")) problem += "réouverture impossible ; ";
             f.Hide();
+
+            // 7 bis. Fermeture par un autre programme (WM_CLOSE brut) : la fenêtre doit seulement être masquée,
+            //        l'application continue, et Réglages se rouvre normalement.
+            OpenFull("");
+            await findWindow();
+            PanelForm closed = f;
+            CloseProbe.SendMessage(closed.Handle, 0x0010, IntPtr.Zero, IntPtr.Zero);
+            await Task.Delay(300);
+            if (Quitting) problem += "WM_CLOSE fait quitter l'application ; ";
+            if (closed.Visible || closed.IsDisposed) problem += "WM_CLOSE ne masque pas proprement (détruite=" + closed.IsDisposed + ") ; ";
+            f = null;
+            OpenFull("settings");
+            for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && !f.IsDisposed && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50);
+            if (f == null || f.IsDisposed || !f.Visible) problem += "après une fermeture par WM_CLOSE, les réglages ne se rouvrent plus ; ";
+            else
+            {
+                if (!await waitFor(Close)) problem += "fenêtre recréée sans les réglages ; ";
+                else { await run(Close + ".click(); 1"); await waitFor("!document.querySelector('.settings')"); }
+                f.Hide();
+            }
             return problem;
         }
 
@@ -1615,7 +1773,8 @@ public static class Autostart
                     if (open.IsDisposed || open.View.CoreWebView2 == null) return;
                     if (await open.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.settings')") == "true") return;
                 }
-                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings" + (panelsShown ? "&solo=1" : ""));
+                // La fenêtre principale était déjà à l'écran : fermer les réglages doit y revenir, jamais la masquer (pas de solo=1).
+                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings");
                 return;
             }
             // Pendant une draft, la fenêtre ne doit pas rester devant le client une fois les réglages fermés.
@@ -1690,7 +1849,9 @@ public static class Autostart
                     break;
                 }
                 case "profileAdopted": legacyProfile = false; settings.ProfileKnown = true; Persist(); break;
-                case "closeFull": { PanelForm full; if (panels.TryGetValue("full", out full)) full.Hide(); break; }
+                // Réglages ouverts seuls pendant une draft : on les referme sans rien laisser devant le client.
+                // Si la draft est finie entre-temps (plus aucun panneau), la fenêtre principale reste : sinon DRAFT semblerait fermé.
+                case "closeFull": { PanelForm full; if (panelsShown && panels.TryGetValue("full", out full)) full.Hide(); break; }
                 case "toggleCompact": SetCompact(!settings.Compact); break;
                 case "openFull": OpenFull(m.ContainsKey("tab") ? m["tab"] as string ?? "" : ""); break;
                 case "setAutostart": Autostart.Set(val, exePath); RefreshUi(); break;
@@ -2082,6 +2243,8 @@ public static class Autostart
             t(profileProblem == "", "Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre " + profileProblem);
             string historyProblem = await app.TestHistoryImport();
             t(historyProblem == "", "Import Riot simulé depuis l'application, sans appel réel, sans trace de clé " + historyProblem);
+            string detailProblem = await app.TestDraftSurvivesDetail(50);
+            t(detailProblem == "", "Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (" + app.DetailOpenReport + ") " + detailProblem);
             string securityProblem = await app.TestPageSecurity();
             t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
         }
@@ -2477,7 +2640,7 @@ public static class Autostart
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DRAFT");
-                k.SetValue("DisplayVersion", "2.16.1");
+                k.SetValue("DisplayVersion", "2.16.2");
                 k.SetValue("Publisher", "DRAFT");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
