@@ -166,7 +166,7 @@ UI-155 | index.html:1815 | Duel, choix | Prends {C}, sinon {C}
 UI-156 | index.html:1816 | Duel, à éviter | re:^À éviter :
 UI-157 | index.html:1819 | Duel, source | Avis écrit à la main, pas encore de bilan.
 UI-158 | index.html:1842 | Statistiques, limite | Sans pourcentage : moins de {N} parties, trop peu pour conclure.
-UI-159 | index.html:1913 | Statistiques absentes (UX-1 : plus de consigne .bat) | Pas encore de statistiques importées ici. Ton historique Riot s'importe dans les réglages et s'affiche dans l'onglet Conseils. Un ancien fichier draft-stats.js s'importe depuis le menu de l'icône DRAFT.
+UI-159 | index.html:1913 | Statistiques absentes (UX-1 : plus de consigne .bat) | Pas encore de statistiques importées ici. Ton historique Riot s'importe dans les réglages et s'affiche dans l'onglet Conseils. Un ancien fichier draft-stats.js s'importe dans l'onglet Historique Riot, avec l'application DRAFT.
 UI-160 | index.html:1862 | Statistiques, en-tête | Ces bilans décrivent le passé et ne changent pas le verdict.
 UI-161 | index.html:1866-1875 | Statistiques, titres | re:^(Victoires par champion, .+|Selon le type de mid adverse|Évolution par tranche de \d+ parties|Total|Mon pool|Hors de ce pool|Hors pool, par rôle|Hors pool, par champion|Parties|Bilan|Winrate|\d+ à \d+|Autre)$
 UI-162 | index.html:1883 | Journal vide | Ton journal est vide : clique sur « Je joue » pendant une draft pour commencer.
@@ -200,17 +200,17 @@ UI-189 | index.html:1941,1947 | Vues d'Analyse | re:^(Critères|Comparer|Règles
 UI-190 | index.html:1953,1960 | Onglets | re:^(Plan|Analyse|Conseils|Duel|Parties|Détails et statistiques)$
 UI-191 | index.html:1974 | Barre mobile, égalité | Égalité : {liste}
 UI-192 | index.html:1977 | Barre mobile, bouton (PR C) | re:^(Enregistré|Je joue)$
-UI-193 | index.html:1990 | Aucun profil | Choisis ton rôle et tes champions dans les réglages.
-UI-194 | index.html:1991 | Rôle sans champion | Aucun champion pour le rôle {Rôle}. Ajoute-les dans les réglages, ou change de rôle.
-UI-195 | index.html:1992 | Tous les picks exclus ou pris | Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans les réglages.
+UI-193 | index.html:noPickText (fr.js panel.empty.noProfile) | Aucun profil (UX-6 : Mon pool) | Choisis ton rôle et tes champions dans Mon pool.
+UI-194 | index.html:noPickText (fr.js panel.empty.noPick) | Rôle sans champion (UX-6 : Mon pool) | Aucun champion pour le rôle {Rôle}. Ajoute-les dans Mon pool, ou change de rôle.
+UI-195 | index.html:noPickText (fr.js panel.empty.allExcluded) | Tous les picks exclus ou pris (UX-6 : Mon pool) | Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans Mon pool.
 UI-196 | index.html:1999-2000 | Sélecteur de rôle | re:^(Rôle actif|Rôle \?)$
 UI-197 | index.html:2003 | Sélecteur de rôle (title) | re:^(Top|Jungle|Mid|ADC|Support)( : \d+ champions?| : aucun champion)( \(attribué par LoL\))?$
 UI-198 | index.html:2004 | Sélecteur de rôle (aria) | re:^Passer au profil (Top|Jungle|Mid|ADC|Support)$
 UI-199 | index.html:2006 | Rôle attribué par le client | re:^LoL t'attribue (Top|Jungle|Mid|ADC|Support)\.
 UI-200 | index.html:2007-2008 | Rôle attribué, actions | re:^(Passer à (Top|Jungle|Mid|ADC|Support)|Ignorer)$
 UI-201 | index.html:2014,2406 | Logo (title) | Ton assistant stratégique pour League of Legends
-UI-202 | index.html:2017-2019 | Barre des panneaux | re:^(Deux panneaux|Panneau unique|Passer à deux panneaux|Passer au panneau unique|Ouvrir les réglages|Masquer|Masquer les panneaux)$
-UI-203 | index.html:2027 | Panneau sans profil | Choisir mon profil
+UI-202 | index.html:TitleBar | Barre des panneaux (UX-6 : icônes SVG, réglages d'affichage) | re:^(Deux panneaux|Panneau unique|Passer à deux panneaux|Passer au panneau unique|Réglages d'affichage|Masquer|Masquer les panneaux)$
+UI-203 | index.html:VerdictPanel (fr.js panel.openPool) | Panneau sans profil (UX-6) | Ouvrir Mon pool
 UI-204 | index.html:2043 | Panneau droit (aria) | Champion conseillé
 UI-205 | index.html:2047 | Panneau droit, étiquette du nom affiché (Recommandé seulement pour le 1er, PR D) | re:^(Recommandé|Presque à égalité)$
 UI-206 | index.html:2052 | Panneau droit, alternative (title) | Comparer ces deux champions
@@ -225,7 +225,9 @@ UI-214 | index.html:2069 | Panneau droit, repli | re:^(Plan de jeu et ban|Ban co
 UI-215 | index.html:2071 | Panneau droit, autres bans | re:^ou .+
 UI-216 | index.html:2072 | Panneau droit, raison du ban | re:^.+ (mauvais bilan de|gêne) .+\.$
 UI-217 | index.html:2074 | Panneau droit, plan sans champion | Choisis un champion pour voir son plan.
-UI-218 | index.html:2078 | Bouton vers l'analyse | re:^(Analyse|Analyse détaillée|détaillée)$
+UI-218 | index.html:VerdictPanel (fr.js panel.details, panel.compare) | Boutons « Détails » et « Comparer » (UX-6, ex-« Analyse détaillée ») | re:^(Détails|Comparer|Ouvre le Simulateur sur ta draft en cours, sans la modifier\.)$
+UI-299 | index.html:VerdictPanel (fr.js panel.source.*) | UX-6, source des adversaires | re:^(Lecture du client|Saisie à la main|D'où viennent les adversaires : lus dans le client LoL, ou saisis à la main\.)$
+UI-300 | index.html:SettingsSection, StatsView (fr.js settings.display.replace*, settings.diag.lcu*, stats.oldFile.stats) | UX-6, fonctions sorties du menu de l'icône | re:^(Replacer les panneaux|Recolle les panneaux au client LoL, à la place calculée par DRAFT\.|Diagnostic de connexion LoL|Teste la lecture du client et copie le rapport dans le presse-papiers, pour le joindre à un signalement\.|Importer un ancien fichier draft-stats\.js)$
 UI-219 | index.html:2088 | Lecture du client : connectée | Connecté au client LoL
 UI-220 | index.html:2089 | Lecture du client : attente | En attente : lance le client LoL pour vérifier
 UI-221 | index.html:2090 | Lecture du client : échec | Client ouvert, mais connexion impossible
@@ -293,6 +295,8 @@ UI-288 | index.html:StatsView (fr.js stats.*) | UX-5, Mes statistiques : titres,
 UI-289 | index.html:HistoryImportBox (fr.js stats.history.*) | UX-5, Mes statistiques : historique Riot, états vides, clé et collecte | re:^(Ton expérience, jamais le classement\.|Historique Riot Ton expérience, jamais le classement\.|Aucun historique importé\. DRAFT peut lire tes parties classées avec ta clé Riot, saisie à chaque import et jamais enregistrée\.|\d+ parties? importées?, le \d\d/\d\d/\d{4}|L'import se fait dans l'application DRAFT\.|Ta clé Riot se saisit dans une fenêtre DRAFT, une seule fois pour l'historique, les rôles et les matchups\. Elle n'est jamais enregistrée\.|Lu : tes parties classées solo/duo\. Gardé sur ce PC : champion, rôle, résultat, KDA, patch et champions adverses\. Aucun nom ni identifiant de joueur\.|Aucune partie importée en (Top|Jungle|Mid|ADC|Support)\.)$
 UI-298 | index.html:RecentDrafts, StatsOverview (fr.js stats.recent.*, stats.overview.*) | UX-5, dernières drafts et journal vide | re:^(Dernières drafts|Notées avec « Je joue »\. DRAFT garde le pick, ton vis-à-vis et le résultat, rien d'autre\.|Dernières drafts Notées avec .+|Voir tout le journal|Ton pick|Ton vis-à-vis|Conseil|Résultat|Date|Suivi|Autre choix|Aucune partie notée pour l'instant\. Pendant une draft, clique sur « Je joue », puis sur le résultat : tes bilans apparaîtront ici\.|Victoires par champion joué Journal DRAFT)$
 NA-004 | RiotKeyDialog.cs:RiotDialogText | [non affiché] fenêtre Windows commune de la clé Riot (UX-5), textes regroupés pour native.riot.dialog.* | re:^(DRAFT : lectures avec ta clé Riot|Une seule clé pour les lectures que tu coches\..+|Lectures à lancer, l'une après l'autre :|Importer mon historique|Mettre à jour les (rôles des champions|matchups de ton pool) \(environ \d+ minutes\)|Lu : .+|Choisis d'abord ton rôle et ton pool dans Mon pool\.|Lancer)$
+NA-005 | DraftMid.cs:MenuText | [non affiché] menu de l'icône, 8 entrées (UX-6), libellés identiques à ceux de la page | re:^(Ouvrir DRAFT|Afficher les panneaux|Simuler une draft|Détection de la draft|C'est une draft : retenir cet écran|Ce n'est pas une draft : retenir cet écran|Diagnostic de connexion LoL|Réglages|Rechercher une mise à jour|Quitter)$
+NA-006 | DraftMid.cs:MenuText.Hidden* | [non affiché] bulle Windows, premier masquage depuis l'outil du panneau (UX-6) | re:^Panneaux masqués\. (Ctrl\+Alt\+D pour les rappeler\.|Menu de l'icône, « Afficher les panneaux », pour les rappeler\.)$
 UI-290 | index.html:SettingsPage (fr.js settings.*) | UX-3, Réglages : rubriques | re:^(Six rubriques\. Chaque changement est enregistré tout de suite\.|Rubriques des réglages|Ce réglage n'existe que dans l'application DRAFT\.|Général|Connexion League|Affichage et fenêtres|Données et confidentialité|Mises à jour|Diagnostic et informations)$
 UI-291 | index.html:SettingsPage (fr.js settings.*.sub) | UX-3, Réglages : phrase de chaque rubrique | re:^(Ce qui vaut partout dans DRAFT\.|Lecture de la draft dans le client, rôle attribué par League\.|Les panneaux pendant la draft, et leur place à l'écran\.|Rôles, matchups, historique et sources\. Rien ne quitte ton PC sans ton action\.|La version installée, et la recherche d'une nouvelle version\.|Pour comprendre la détection et signaler un problème\.)$
 UI-292 | index.html:SimView | UX-3, titre de la barre du Simulateur | Simulateur
@@ -307,7 +311,7 @@ UI-277 | index.html:ProfileCard | UX-1, rappel sous le pool | Chaque rôle garde
 UI-278 | index.html:DataSources | UX-1, résumé des sources | re:^Sources de données( : \d+ anciennes?)?(,? :? ?\d+ pas encore disponibles?)?$
 
 ## src/DraftMid.cs : bulles de l'icône (hors page)
-NA-001 | DraftMid.cs:BalloonClosed | [non affiché] bulle Windows, première fermeture de la fenêtre dans la session (UX-1) | DRAFT reste actif près de l'horloge. Pour rouvrir cette fenêtre : clic droit sur son icône, puis « Analyse détaillée ».
+NA-001 | DraftMid.cs:BalloonClosed | [non affiché] bulle Windows, première fermeture de la fenêtre dans la session (UX-1) | DRAFT reste actif près de l'horloge. Pour rouvrir cette fenêtre : double-clic sur son icône, ou « Ouvrir DRAFT » dans son menu.
 NA-002 | DraftMid.cs:BalloonStatsImported | [non affiché] bulle Windows, import de statistiques (ancien format) réussi (UX-1) | Statistiques importées : elles s'affichent dans l'onglet Parties de la fenêtre DRAFT.
 NA-003 | DraftMid.cs:RunUpdate | [non affiché] bulle Windows, mise à jour lancée depuis le menu (UX-1) : mêmes textes que l'état de mise à jour des réglages | re:^(DRAFT est à jour \(version \d+\.\d+\.\d+\)\.|La version \d+\.\d+\.\d+ est disponible\.|Une draft ou une partie est en cours : relance la mise à jour après\.|Un import ou un calcul est en cours : attends sa fin\.)$
 

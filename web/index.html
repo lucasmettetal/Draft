@@ -79,7 +79,7 @@
   .role-hit { position:absolute; inset:0; background:none; border:0; border-radius:6px; }
   .who-wrap { display:flex; flex:1; min-width:0; align-items:center; gap:10px; pointer-events:none; }
   .role-name, .role-traits { display:block; }
-  .role-icon { flex:none; width:40px; color:var(--muted); text-align:center; font-size:10.5px; line-height:1.1; pointer-events:none; }
+  .role-icon { flex:none; width:40px; color:var(--muted); text-align:center; font-size:12px; line-height:1.1; pointer-events:none; }
   .role-icon svg { display:block; width:20px; height:20px; margin:0 auto 2px; }
   .role.is-mid .role-icon { color:var(--accent); }
   .role-who { min-width:0; flex:1; pointer-events:none; }
@@ -316,7 +316,7 @@
   .comps b { min-width:80px; font-weight:600; }
   .comp-faces { display:flex; gap:2px; }
   /* Panneaux compagnon */
-  .panel { display:flex; flex-direction:column; height:100vh; overflow:hidden; background:var(--surface); border:1px solid #1f4a4a; border-radius:8px; }
+  .panel { display:flex; flex-direction:column; height:100vh; overflow:hidden; background:var(--surface); border:1px solid var(--accent-line, #1f4a4a); border-radius:8px; }
   .p-title { flex:none; display:flex; align-items:center; gap:8px; height:40px; padding:0 6px 0 12px; border-bottom:1px solid var(--line); app-region:drag; -webkit-app-region:drag; user-select:none; }
   .p-title .grow { flex:1; }
   .p-logo { width:20px; height:20px; color:var(--accent); }
@@ -339,7 +339,7 @@
   .panel-left .role-who { flex:1; width:auto; min-width:0; }
   .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:16px; }
   .panel-left .role-traits { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:11.5px; white-space:normal; line-height:1.2; }
-  .panel-left .role-icon { width:36px; font-size:10.5px; }
+  .panel-left .role-icon { width:36px; font-size:12px; }
   .panel-left .role-icon svg { width:18px; height:18px; }
   .panel-left .role-empty { font-size:13px; }
   .panel-left .role-empty .em { display:inline; }
@@ -361,7 +361,7 @@
   .compact-roles .role-who { width:100%; flex:none; }
   .compact-roles .role-name, .compact-roles .role.is-mid .role-name { font-size:12px; }
   .compact-roles .role-traits, .compact-roles .to-mid, .compact-roles .role-empty .em { display:none; }
-  .compact-roles .role-icon { width:100%; font-size:10.5px; }
+  .compact-roles .role-icon { width:100%; font-size:12px; }
   .compact-roles .role-icon svg { display:none; }
   .compact-roles .role-tools { top:14px; right:0; transform:none; }
   .compact-roles .mini.x { background:rgba(10,15,22,.8); border-radius:3px; color:var(--text); }
@@ -579,7 +579,7 @@
     .panel .p-actions { margin-left:-9px; margin-right:-9px; padding-left:9px; padding-right:9px; }
     .p-compact-enemies { padding-left:9px; padding-right:9px; }
     .panel-left .roles > .role { gap:6px; padding:5px 4px; }
-    .panel-left .role-icon { width:34px; font-size:10.5px; }
+    .panel-left .role-icon { width:34px; font-size:12px; }
     .panel-left .role .portrait, .panel-left .slot-ghost { width:38px !important; height:38px !important; }
     .panel-left .who-wrap { gap:6px; padding-right:32px; }
     .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:15px; }
@@ -853,7 +853,16 @@
   .result-tag.win { background:var(--accent-soft); color:var(--accent); }
   .result-tag.loss { background:var(--threat-soft); color:var(--threat); }
   #root [data-test="stats-recent"] .empty-note { margin:var(--s3) var(--s5) var(--s5); }
-  @media (max-width:1100px) { .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .kpis > div:nth-child(3) { border-left:0; } .kpis > div:nth-child(n+3) { border-top:1px solid var(--line); } }</style>
+  @media (max-width:1100px) { .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .kpis > div:nth-child(3) { border-left:0; } .kpis > div:nth-child(n+3) { border-top:1px solid var(--line); } }  /* ---------- Overlay (UX-6) : outils en SVG, « Détails », source des adversaires ---------- */
+  .tool-icon { display:block; width:16px; height:16px; margin:auto; }
+  .p-btn { display:inline-flex; align-items:center; justify-content:center; }
+  .details-btn { display:inline-flex; align-items:center; gap:6px; }
+  .details-btn .tool-icon { width:14px; height:14px; margin:0; }
+  .p-alt-go { flex:none; color:var(--muted); font:13px var(--body); }
+  .p-alt:hover .p-alt-go { color:var(--accent); }
+  .badge.source { color:var(--muted); }
+  /* Libellés de rôle à 12 px (plus de 10,5) : le bouton de retrait du panneau unique descend sous le libellé. */
+  .compact-roles .role-tools { top:18px; }</style>
 </head>
 <body>
 <div id="root"></div>
@@ -2163,7 +2172,7 @@ const StatsTable = ({ title, groups }) => html`<div>
 </div>`;
 
 function StatsTab() {
-  if (!STAT_ROWS.length) return html`<p className="small" data-test="stats-empty">Pas encore de statistiques importées ici. Ton historique Riot s'importe dans les réglages et s'affiche dans l'onglet Conseils. Un ancien fichier draft-stats.js s'importe depuis le menu de l'icône DRAFT.</p>`;
+  if (!STAT_ROWS.length) return html`<p className="small" data-test="stats-empty">Pas encore de statistiques importées ici. Ton historique Riot s'importe dans les réglages et s'affiche dans l'onglet Conseils. Un ancien fichier draft-stats.js s'importe dans l'onglet Historique Riot, avec l'application DRAFT.</p>`;
   return html`<div>
     <p className="small">Import du ${new Date(STATS.generated).toLocaleDateString("fr-FR")}, ${STAT_ROWS.length} parties classées solo/duo. Ces bilans décrivent le passé et ne changent pas le verdict.</p>
     ${groupRows(STAT_ROWS, r => r.acct).map(account => {
@@ -2253,6 +2262,8 @@ function openViewInPage(tab, source) {
   // Sections de la fenêtre (UX-3) et anciens noms : « settings », « parties ». Le reste est un onglet du Simulateur.
   if (tab === "settings") { goView("settings"); return; }
   if (tab === "parties") { goView("stats"); return; }
+  // « Simuler une draft » du menu de l'icône : le Simulateur, sur une simulation vide.
+  if (tab === "simulate") { startSimulation(); goView("sim"); return; }
   if (VIEWS.includes(tab)) { goView(tab); return; }
   navTarget = tab || null;
   navId++;
@@ -2306,9 +2317,10 @@ function openDetail(tab) {
 }
 
 function noPickText() {
-  if (!PROFILE) return "Choisis ton rôle et tes champions dans les réglages.";
-  if (!PICKS.length) return `Aucun champion pour le rôle ${ROLE_NAMES[myRole()]}. Ajoute-les dans les réglages, ou change de rôle.`;
-  return "Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans les réglages.";
+  // UX-6 : le pool, les exclusions et le favori sont dans Mon pool, plus dans les réglages.
+  if (!PROFILE) return t("panel.empty.noProfile");
+  if (!PICKS.length) return t("panel.empty.noPick", { role:ROLE_NAMES[myRole()] });
+  return t("panel.empty.allExcluded");
 }
 
 // Changement de rôle en un clic. Le rôle actif est toujours visible.
@@ -2328,14 +2340,27 @@ function RoleSwitch() {
   </div>`;
 }
 
+// Outils de l'overlay (UX-6) : trois icônes SVG au lieu de caractères. Réglages d'affichage ouvre Réglages > Affichage et fenêtres.
+const TOOL_PATHS = {
+  one: "M4 4h12v12H4z",
+  two: "M3 4h6v12H3zM11 4h6v12h-6z",
+  display: "M4 6h12M4 14h12M7 4v4M13 12v4",
+  hide: "M5 5l10 10M15 5 5 15",
+  details: "M11 4h5v5M16 4l-6 6M9 16H4v-5M4 16l6-6"
+};
+const ToolIcon = ({ name }) => html`<svg className="tool-icon" viewBox="0 0 20 20" aria-hidden="true"><path d=${TOOL_PATHS[name]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+function openDisplaySettings() {
+  if (IS_HOST) hostSend({ cmd:"openFull", tab:"settings", section:"display" });
+  else window.open("?panel=full&view=settings&section=display", "draftmid-full");
+}
 function TitleBar() {
   return html`<header className="p-title">
     <${LogoMark} /><span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span>
     <span className="grow"></span>
     ${IS_HOST ? html`<span className="p-tools">
-      <button type="button" className="p-btn" data-test="panel-toggle-compact" title=${hostState.compact ? "Deux panneaux" : "Panneau unique"} aria-label=${hostState.compact ? "Passer à deux panneaux" : "Passer au panneau unique"} onClick=${() => hostSend({ cmd:"toggleCompact" })}>${hostState.compact ? "⧉" : "▭"}</button>
-      <button type="button" className="p-btn" data-test="panel-settings" title="Réglages" aria-label="Ouvrir les réglages" onClick=${() => openDetail("settings")}>⚙</button>
-      <button type="button" className="p-btn" data-test="panel-hide" title="Masquer" aria-label="Masquer les panneaux" onClick=${() => hostSend({ cmd:"hideAll" })}>×</button>
+      <button type="button" className="p-btn" data-test="panel-toggle-compact" title=${hostState.compact ? "Deux panneaux" : "Panneau unique"} aria-label=${hostState.compact ? "Passer à deux panneaux" : "Passer au panneau unique"} onClick=${() => hostSend({ cmd:"toggleCompact" })}><${ToolIcon} name=${hostState.compact ? "two" : "one"} /></button>
+      <button type="button" className="p-btn" data-test="panel-settings" title=${t("panel.tools.display")} aria-label=${t("panel.tools.display")} onClick=${openDisplaySettings}><${ToolIcon} name="display" /></button>
+      <button type="button" className="p-btn" data-test="panel-hide" title="Masquer" aria-label="Masquer les panneaux" onClick=${() => hostSend({ cmd:"hideAll" })}><${ToolIcon} name="hide" /></button>
     </span>` : null}
   </header>`;
 }
@@ -2346,7 +2371,7 @@ const shownIsFirst = () => { const first = V.res.ranking[0]; return !first || fi
 function VerdictPanel() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
-  if (V.none) return html`<div className="p-body"><p className="p-empty" data-test="no-pick">${noPickText()}</p><button type="button" className="ghost-btn" data-test="choose-profile" onClick=${() => hostSend({ cmd:"openFull", tab:"settings" })}>Choisir mon profil</button></div>`;
+  if (V.none) return html`<div className="p-body"><p className="p-empty" data-test="no-pick">${noPickText()}</p><button type="button" className="ghost-btn" data-test="choose-profile" onClick=${() => hostSend({ cmd:"openFull", tab:"pool" })}>${t("panel.openPool")}</button></div>`;
   const name = label(V.shown);
   const c = V.res.counts;
   // À égalité, un danger ou un plan propre au premier nom le désignerait à tort : seul ce qui vaut pour tous reste affiché.
@@ -2361,6 +2386,7 @@ function VerdictPanel() {
     <div className="p-status">
       ${V.tied ? html`<span data-test="badge" className="badge close">Égalité</span>` : V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
       ${unknown ? html`<span data-test="badge" className="badge">${V.n}/5 adversaires</span>` : null}
+      ${IS_HOST && hostState.available ? html`<span data-test="panel-source" className="badge source" title=${t("panel.source.help")}>${t(hostState.lcuEnabled && hostState.lcuStatus === "connected" ? "panel.source.client" : "panel.source.manual")}</span>` : null}
     </div>
     ${V.tied ? html`<${TieGroup} detailed=${false} />` : html`<section className="p-reco" aria-label="Champion conseillé">
       <${SplashStack} name=${name} />
@@ -2374,7 +2400,7 @@ function VerdictPanel() {
     ${V.rival ? html`<button type="button" className="p-alt" data-test="open-compare" title="Comparer ces deux champions" onClick=${() => openDetail("compare")}>
       <${Portrait} name=${label(V.rival.pick)} size=${40} />
       <span className="p-alt-text"><small>${V.tied ? "Sinon" : V.clear ? "Alternative" : shownIsFirst() ? "Presque à égalité" : "Devant de peu"}</small>${label(V.rival.pick)}</span>
-      <span aria-hidden="true">›</span>
+      <span className="p-alt-go">${t("panel.compare")}</span>
     </button>` : null}
     <${FamiliarLine} />
     <h2 className="sr">Pourquoi ce choix ?</h2>
@@ -2397,7 +2423,7 @@ function VerdictPanel() {
     </details>
     <div className="p-actions">
       ${V.tied ? null : html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} noté` : `Je joue ${name}`}<//>`}
-      <button type="button" className="ghost-btn" data-test="open-analysis" onClick=${() => openDetail("analyse")}>Analyse<span className="opt-word"> détaillée</span></button>
+      <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" />${t("panel.details")}</button>
     </div>
     ${entry || pending ? html`<div>
       ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b></p>` : null}
@@ -2510,6 +2536,7 @@ function viewFromAddress() {
   if (VIEWS.includes(v)) return v;
   if (tab === "settings") return "settings";
   if (tab === "parties") return "stats";
+  if (VIEWS.includes(tab)) return tab;
   return "sim";
 }
 let uiView = viewFromAddress(), uiBack = "sim";
@@ -2826,7 +2853,8 @@ function StatsView() {
     ${tab === "journal" ? html`<section className="box box-pad" data-test="stats-journal-full"><h2 className="box-title">${t("stats.journal.title")}</h2><${JournalTab} /><${JournalImport} /></section>` : null}
     ${tab === "history" ? html`<div className="stats-grid">
       <${HistoryImportBox} detailed=${true} />
-      <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} /></section>
+      <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} />
+        ${hostState.available ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="import-stats" onClick=${() => hostSend({ cmd:"importStats" })}>${t("stats.oldFile.stats")}</button></p>` : null}</section>
     </div>` : null}
   </div>`;
 }
@@ -2862,6 +2890,8 @@ function SettingsSection({ id }) {
     <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Coller les panneaux au client LoL</label>
     <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Un seul panneau</label>
     <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
+    <p className="set-row"><button type="button" className="ghost-btn" data-test="replace-panels" onClick=${() => hostSend({ cmd:"replacePanels" })}>${t("settings.display.replace")}</button></p>
+    <p className="set-hint flush">${t("settings.display.replaceHint")}</p>
   </div>` : html`<${HostOnly} />`;
   if (id === "data") return html`<div>
     ${host ? html`<div>
@@ -2895,6 +2925,8 @@ function SettingsSection({ id }) {
     ${host ? html`<div>
       <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
       <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
+      <p className="set-row"><button type="button" className="ghost-btn" data-test="lcu-diagnostic" onClick=${() => hostSend({ cmd:"lcuDiagnostic" })}>${t("settings.diag.lcu")}</button></p>
+      <p className="set-hint flush">${t("settings.diag.lcuHint")}</p>
     </div>` : null}
   </div>`;
 }
@@ -2986,6 +3018,8 @@ function App() {
   }, []);
   useEffect(() => {
     rerender = force;
+    // « Simuler une draft » du menu de l'icône quand la fenêtre n'était pas encore chargée.
+    if (!PANEL || PANEL === "full") { if (new URLSearchParams(location.search).get("tab") === "simulate") startSimulation(); }
     if (channel) { channel.postMessage({ kind:"hello" }); setTimeout(() => { synced = true; }, SYNC_WAIT_MS); }
     if (IS_HOST) {
       window.chrome.webview.addEventListener("message", e => {
@@ -3001,7 +3035,7 @@ function App() {
             hostSend({ cmd:"profileAdopted" });
           }
           if (PROFILE && !window.draftProfileSent) { window.draftProfileSent = true; sendProfile(); }
-          if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"settings" }); }
+          if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"pool" }); }
           force();
           handleAssignedRole(m.assignedRole || null);
         }
@@ -3010,7 +3044,7 @@ function App() {
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
         // Message gardé une version (alias) : ouvre la section Réglages.
-        if (m.kind === "openSettings") goView("settings");
+        if (m.kind === "openSettings") goView("settings", m.section);
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
         // Ouverture d'une section ou d'un onglet sans recharger la page (« Détails », « Comparer ») : la draft affichée reste, aucune diffusion.
         if (m.kind === "openView") { openViewInPage(m.tab || "", m.source || ""); window.__openViewSeen = m.token || 0; }
