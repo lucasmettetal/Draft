@@ -22,6 +22,9 @@ namespace DraftMid
             using (StreamReader r = new StreamReader(s, Encoding.UTF8)) index = r.ReadToEnd();
             t(index.Contains("http-equiv=\"Content-Security-Policy\"") && index.Contains("default-src 'none'") && index.Contains("frame-src 'none'") && !index.Contains("unsafe-eval"), "Interface livrée : CSP stricte, sans unsafe-eval");
             t(!asm.GetManifestResourceNames().Any(n => n.EndsWith("-tests.html")), "Interface livrée : aucune page de test embarquée");
+            // Traduction : catalogue et fonctions chargés par des balises statiques, avant le script principal (I18N-0).
+            int cat = index.IndexOf("<script src=\"i18n/fr.js\"></script>"), run = index.IndexOf("<script src=\"draft-i18n.js\"></script>"), main = index.IndexOf("<script>");
+            t(cat > 0 && run > cat && main > run && asm.GetManifestResourceNames().Contains("web/i18n/fr.js") && asm.GetManifestResourceNames().Contains("web/draft-i18n.js"), "Interface livrée : catalogue français et traduction chargés par balise, avant le script principal");
 
             // Une redirection ne doit jamais emporter la clé Riot vers un autre serveur.
             TcpListener first = new TcpListener(IPAddress.Loopback, 0), other = new TcpListener(IPAddress.Loopback, 0);

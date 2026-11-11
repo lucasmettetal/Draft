@@ -24,6 +24,10 @@ jobs:
           $p = Start-Process .\dist\DRAFT-Portable.exe -ArgumentList '--selftest','--data',"$env:RUNNER_TEMP\dm",'--out',"$env:RUNNER_TEMP\selftest.txt" -PassThru -Wait
           Get-Content "$env:RUNNER_TEMP\selftest.txt"
           exit $p.ExitCode
+      # Catalogues de langue : forme JSON stricte, clés, variables, pluriels, longueurs (docs/i18n/FORMAT-CATALOGUE.md).
+      - name: Catalogues de langue
+        shell: pwsh
+        run: .\tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js
       # Scénarios SYNTHÉTIQUES, jeu de développement seulement, contre l'instantané de référence. Hors ligne.
       # Chrome fait partie de l'image windows-latest ; s'il manque, le script s'arrête avec « Chrome introuvable ».
       - name: Banc d'évaluation du moteur

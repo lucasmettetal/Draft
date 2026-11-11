@@ -3092,6 +3092,18 @@ public static class Autostart
                     string rel = res.StartsWith("web/") ? res.Substring(4) : "WebView2Loader.dll";
                     string path = Path.Combine(dir, rel.Replace('/', Path.DirectorySeparatorChar));
                     Directory.CreateDirectory(Path.GetDirectoryName(path));
+                    // Catalogue de langue : relu comme du JSON strict et réécrit par DRAFT, comme les fichiers de données.
+                    string catalog;
+                    if (res.StartsWith("web/") && DataScripts.Catalogs.TryGetValue(rel, out catalog))
+                    {
+                        string text;
+                        using (Stream st = asm.GetManifestResourceStream(res))
+                        using (StreamReader r = new StreamReader(st, Encoding.UTF8)) text = r.ReadToEnd();
+                        string safe = DataScripts.Canonical(catalog, text);
+                        if (safe == null) { Log(dataDir, "Catalogue de langue non valide, remplacé par un catalogue vide : " + rel); safe = DataScripts.EmptyCatalog(catalog); }
+                        File.WriteAllText(path, safe, new UTF8Encoding(false));
+                        continue;
+                    }
                     using (Stream st = asm.GetManifestResourceStream(res))
                     using (FileStream fs = File.Create(path)) st.CopyTo(fs);
                 }
