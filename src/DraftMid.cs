@@ -420,6 +420,7 @@ public static class Autostart
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Analyse détaillée", null, (s, e) => OpenFull(""));
             menu.Items.Add("Réglages", null, (s, e) => OpenFull("settings"));
+            menu.Items.Add("Diagnostic de connexion LoL...", null, (s, e) => ShowLcuDiagnostic());
             menu.Items.Add("Importer mes statistiques...", null, (s, e) => ImportStats());
             miRoles = new ToolStripMenuItem("Mettre à jour les rôles...", null, (s, e) => ToggleRiotUpdate(false));
             miMatchups = new ToolStripMenuItem("Mettre à jour les matchups...", null, (s, e) => ToggleRiotUpdate(true));
@@ -568,6 +569,24 @@ public static class Autostart
                 return LcuFactory.CreateReal(settings.LcuEnabled, folder);
             }
             catch (Exception e) { LcuFactory.LastOpenError = "ouverture : " + e.GetType().Name; return null; }
+        }
+
+        // Diagnostic lancé à la demande : le résultat s'affiche et se copie, sans aucun secret, pour être envoyé tel quel.
+        public async Task<string> LcuDiagnosticText()
+        {
+            int pid = 0;
+            if (ClientOpen) { uint p; Native.GetWindowThreadProcessId(tracker.Handle, out p); pid = (int)p; }
+            return await LcuDiagnostic.RunAsync(settings.LcuEnabled, pid, typeof(CompanionApp).Assembly.GetName().Version.ToString(3));
+        }
+
+        async void ShowLcuDiagnostic()
+        {
+            string text;
+            try { text = await LcuDiagnosticText(); }
+            catch (Exception e) { text = "Diagnostic interrompu : " + e.GetType().Name; }
+            bool copied = false;
+            try { Clipboard.SetText(text); copied = true; } catch { }
+            MessageBox.Show(text + (copied ? "\r\nCe texte est copié : colle-le dans ton message." : ""), "DRAFT : diagnostic de connexion LoL", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         // Vrai si le client a répondu. Sinon, l'estimation visuelle et le mode manuel prennent le relais.
@@ -1443,6 +1462,11 @@ public static class Autostart
         // Ouvre les réglages comme le bouton du panneau, puis vérifie qu'ils se ferment des deux façons.
         public string KeyStressReport = "non mesuré";
 
+        static class CloseProbe
+        {
+            [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
+        }
+
         // Fenêtre principale et réglages, avec de vraies frappes envoyées à la page.
         public async Task<string> TestFullWindow()
         {
@@ -1565,7 +1589,7 @@ public static class Autostart
             if (!panelsShown) problem += "les panneaux de test ne sont pas restés affichés ; ";
             if (f.Visible) problem += "pendant une draft, Fermer laisse la grande fenêtre ouverte ; ";
 
-            // 7. Fenêtre principale déjà ouverte pendant une draft, page en plein rechargement (après un import, par exemple) :
+            // 6 bis. Fenêtre principale déjà ouverte pendant une draft, page en plein rechargement (après un import, par exemple) :
             //    fermer les réglages doit ramener à la fenêtre principale, pas la faire disparaître.
             OpenFull("");
             await findWindow();
@@ -1580,7 +1604,7 @@ public static class Autostart
             await Task.Delay(300);
             if (!f.Visible) problem += "fenêtre principale ouverte, page en rechargement : Fermer fait disparaître la fenêtre principale ; ";
 
-            // 8. Réglages ouverts depuis un panneau pendant une draft, puis la draft se termine avant la fermeture :
+            // 6 ter. Réglages ouverts depuis un panneau pendant une draft, puis la draft se termine avant la fermeture :
             //    plus aucun panneau à l'écran, DRAFT ne doit pas sembler fermé.
             f.Hide();
             OpenFull("settings");
@@ -1630,6 +1654,26 @@ public static class Autostart
             await findWindow();
             if (!f.Visible || !await waitFor("document.querySelector('.app')")) problem += "réouverture impossible ; ";
             f.Hide();
+
+            // 7 bis. Fermeture par un autre programme (WM_CLOSE brut) : la fenêtre doit seulement être masquée,
+            //        l'application continue, et Réglages se rouvre normalement.
+            OpenFull("");
+            await findWindow();
+            PanelForm closed = f;
+            CloseProbe.SendMessage(closed.Handle, 0x0010, IntPtr.Zero, IntPtr.Zero);
+            await Task.Delay(300);
+            if (Quitting) problem += "WM_CLOSE fait quitter l'application ; ";
+            if (closed.Visible || closed.IsDisposed) problem += "WM_CLOSE ne masque pas proprement (détruite=" + closed.IsDisposed + ") ; ";
+            f = null;
+            OpenFull("settings");
+            for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && !f.IsDisposed && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50);
+            if (f == null || f.IsDisposed || !f.Visible) problem += "après une fermeture par WM_CLOSE, les réglages ne se rouvrent plus ; ";
+            else
+            {
+                if (!await waitFor(Close)) problem += "fenêtre recréée sans les réglages ; ";
+                else { await run(Close + ".click(); 1"); await waitFor("!document.querySelector('.settings')"); }
+                f.Hide();
+            }
             return problem;
         }
 

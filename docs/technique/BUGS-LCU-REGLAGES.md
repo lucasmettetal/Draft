@@ -38,8 +38,28 @@ L'état « connexion impossible » veut dire : fenêtre trouvée (1), mais l'ét
 | Proxy ou antivirus qui intercepte `127.0.0.1` | Hypothèse : apparaîtrait comme `ConnectFailure`, `TrustFailure` ou `SecureChannelFailure` |
 | Architecture 32/64 bits | Écartée : DRAFT est compilé en x64 |
 
-### Ce que la personne peut envoyer
-Cocher **Réglages > Avancé > Diagnostic**, ouvrir le client, attendre 10 secondes, puis envoyer la ligne `lcu=absent(...)` de `%LOCALAPPDATA%\DraftMid\diagnostic.log`. Elle ne contient aucun secret.
+### Diagnostic pour une personne non technique
+**Clic droit sur l'icône DRAFT près de l'horloge, puis « Diagnostic de connexion LoL... ».** Le résultat s'affiche dans une fenêtre et se copie tout seul : il suffit de le coller dans un message. Il vérifie dans l'ordre :
+1. l'option de lecture du client. Si elle est décochée, le lockfile n'est pas lu, et le diagnostic s'arrête là ;
+2. la fenêtre du client ;
+3. l'accès au processus du client et la différence de droits avec DRAFT ;
+4. le dossier du client et le lockfile (présence, format) ;
+5. le proxy Windows pour l'adresse locale ;
+6. la connexion TCP locale ;
+7. la lecture de la phase avec le délai de DRAFT (1,5 s), puis avec un délai long (6 s), pour repérer un client lent.
+
+Il termine par une conclusion en une phrase. Il **n'affiche jamais** le mot de passe, le port, le chemin du client ni un nom de joueur ; des tests natifs le vérifient. Il ne fait qu'une lecture de la phase, en local, comme la lecture normale.
+
+À défaut, avec le diagnostic activé (**Réglages > Avancé**), la ligne `lcu=absent(...)` de `%LOCALAPPDATA%\DraftMid\diagnostic.log` donne l'étape en échec, sans secret.
+
+### Reproduction sur un deuxième PC (à faire, non fait)
+1. Installer la version corrigée.
+2. Lancer le client LoL normalement, puis DRAFT : la connexion doit s'établir.
+3. Quitter le client, le relancer **en tant qu'administrateur**, DRAFT restant normal :
+   - avant le correctif : « connexion impossible » ;
+   - après : connexion établie ;
+   - le diagnostic indique « Accès complet au processus du client : non ».
+4. Si le message persiste, lancer le diagnostic et envoyer son texte.
 
 ## Bug 2 : fermer les réglages semble fermer DRAFT
 
@@ -55,11 +75,25 @@ Cocher **Réglages > Avancé > Diagnostic**, ouvrir le client, attendre 10 secon
 2. **La fenêtre principale est déjà ouverte pendant une draft, et la page se recharge** (après un import, par exemple) au moment où on ouvre les réglages. Le message d'ouverture est perdu. Au bout de 1,5 s, DRAFT rechargeait la page en `solo=1`, et « Fermer » faisait alors disparaître la fenêtre principale.
    - **Correctif :** ce rechargement de secours n'ajoute plus `solo=1`, puisque la fenêtre était déjà à l'écran.
 
+### Vérifié sans défaut
+- **Le processus ne s'arrête pas :**
+  - la croix, Alt+F4 et un `WM_CLOSE` envoyé par un autre programme masquent seulement la fenêtre ;
+  - seul « Quitter » arrête DRAFT ;
+  - les exceptions de l'interface sont journalisées sans arrêter l'application.
+- **Un `WM_CLOSE` brut ne détruit pas la fenêtre :** l'audit UX avait observé une destruction, mais le test 7 bis ne la reproduit pas. La fenêtre est masquée, puis les réglages se rouvrent. Aucun correctif n'est appliqué ; le test reste comme garde-fou.
+- **Plusieurs panneaux :** `hideAll` (croix des panneaux) masque les panneaux, jamais la fenêtre principale.
+
 ### Non modifié, à traiter dans l'UX (audit UX, problème 7)
 - La croix Windows de la fenêtre principale la masque **sans message**. Si la personne ferme la fenêtre pendant que les réglages sont ouverts, DRAFT semble fermé alors qu'il tourne toujours.
 - C'est le comportement voulu, mais il n'est pas signalé. Une bulle « DRAFT reste actif près de l'horloge » à la première fermeture est proposée dans UX-1, hors de ce correctif.
 
 ## Tests
+- **Diagnostic (`--selftest`) :** 4 tests :
+  - option décochée ;
+  - client fermé ;
+  - client qui ne répond pas ;
+  - absence de secret.
+- **Complet (`--e2e`) :** scénario 7 bis (`WM_CLOSE` brut).
 - **Natifs (`--selftest`) :** 8 nouveaux tests LCU :
   - requête limitée ;
   - processus introuvable ;
