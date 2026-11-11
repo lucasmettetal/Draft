@@ -117,6 +117,10 @@ function exportConfig(profiles, prefs, appVersion, now) {
   return JSON.stringify({ format:CONFIG_FORMAT, version:PROFILES_VERSION, exported:now || new Date().toISOString(), app:appVersion || "", active:profiles.active, roles, preferences }, null, 2);
 }
 
+// Noms de rôles tels que l'interface les affiche (messages d'import).
+const PROFILE_ROLE_NAMES = { top:"Top", jungle:"Jungle", mid:"Mid", adc:"ADC", support:"Support" };
+const profileRoleName = role => PROFILE_ROLE_NAMES[role] || role;
+
 // ---------- Import : validation stricte, sans rien écrire ----------
 function parseConfig(text) {
   const fail = error => ({ ok:false, error });
@@ -128,16 +132,16 @@ function parseConfig(text) {
   const warnings = [], roles = {};
   PROFILE_ROLES.forEach(r => { roles[r] = emptyRoleProfile(); });
   const readRole = (role, value) => {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return `Le rôle ${role} est mal formé.`;
-    if (!Array.isArray(value.pool)) return `Le rôle ${role} n'a pas de liste de champions.`;
-    if (value.pool.length > POOL_MAX) return `Le rôle ${role} contient trop de champions.`;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return `Le rôle ${profileRoleName(role)} est mal formé.`;
+    if (!Array.isArray(value.pool)) return `Le rôle ${profileRoleName(role)} n'a pas de liste de champions.`;
+    if (value.pool.length > POOL_MAX) return `Le rôle ${profileRoleName(role)} contient trop de champions.`;
     const unknown = value.pool.filter(n => !knownPick(n));
-    if (unknown.length) return `Champion inconnu dans ${role} : ${unknown.slice(0, 3).map(String).join(", ")}.`;
-    if (value.excluded !== undefined && !Array.isArray(value.excluded)) return `Le rôle ${role} a des exclusions mal formées.`;
+    if (unknown.length) return `Champion inconnu dans ${profileRoleName(role)} : ${unknown.slice(0, 3).map(String).join(", ")}.`;
+    if (value.excluded !== undefined && !Array.isArray(value.excluded)) return `Le rôle ${profileRoleName(role)} a des exclusions mal formées.`;
     const pool = uniqueList(value.pool.map(pickId));
     const excluded = uniqueList((value.excluded || []).filter(knownPick).map(pickId));
     roles[role] = { pool, excluded:excluded.filter(p => pool.includes(p)), favorite:knownPick(value.favorite) && pool.includes(pickId(value.favorite)) ? pickId(value.favorite) : null };
-    if (value.favorite && !roles[role].favorite) warnings.push(`Favori ignoré pour ${role} : il n'est pas dans le pool.`);
+    if (value.favorite && !roles[role].favorite) warnings.push(`Favori ignoré pour ${profileRoleName(role)} : il n'est pas dans le pool.`);
     return null;
   };
   // Ancien format : le profil unique des versions précédentes.
@@ -155,7 +159,7 @@ function parseConfig(text) {
   const strange = Object.keys(raw.roles).filter(r => !PROFILE_ROLES.includes(r));
   if (strange.length) return fail(`Rôle inconnu : ${strange.slice(0, 3).join(", ")}.`);
   for (const r of PROFILE_ROLES) {
-    if (raw.roles[r] === undefined) { warnings.push(`Rôle absent du fichier, laissé vide : ${r}.`); continue; }
+    if (raw.roles[r] === undefined) { warnings.push(`Rôle absent du fichier, laissé vide : ${profileRoleName(r)}.`); continue; }
     const problem = readRole(r, raw.roles[r]);
     if (problem) return fail(problem);
   }

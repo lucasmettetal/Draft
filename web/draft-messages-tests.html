@@ -33,9 +33,9 @@ UI-022 | index.html:1244 | Recherche sans résultat | Aucun champion ne correspo
 UI-023 | index.html:1262 | Infobulle « Je joue » (CTA_HELP) | Note ce choix dans ton journal. Rien n'est envoyé au client LoL : tu verrouilles toi-même ton champion.
 UI-024 | index.html:1263 | Infobulle « Choix serré » (CLOSE_HELP) | Deux de tes champions ont des scores proches : les deux se défendent.
 UI-025 | index.html:1264 | Infobulle ligne adversaire (OPPONENT_HELP) | Le client ne donne pas les rôles adverses : cet adversaire est déduit, et se corrige dans la composition.
-UI-026 | index.html:1297,1346 | Étiquette de ton vis-à-vis, confiance élevée, 3 champions vus ou plus (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face \(presque sûr\)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
-UI-027 | index.html:1297,1346 | Étiquette de ton vis-à-vis, confiance moyenne, 3 champions vus ou plus (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face \(probable\)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
-UI-028 | index.html:1297,1346 | Étiquette de la ligne du joueur, personne d'identifié (champion placé par la répartition la plus probable, PR E) | re:^(Top|Jungle|Mid|ADC|Support) \? pas identifié( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
+UI-026 | index.html:1297,1346 | Étiquette de ton vis-à-vis, confiance élevée, 3 champions vus ou plus (PR E) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) d'en face \(presque sûr\)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
+UI-027 | index.html:1297,1346 | Étiquette de ton vis-à-vis, confiance moyenne, 3 champions vus ou plus (PR E) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) d'en face \(probable\)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
+UI-028 | index.html:1297,1346 | Étiquette de la ligne du joueur, personne d'identifié (champion placé par la répartition la plus probable, PR E) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) \? pas identifié( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-029 | index.html:1309 | Ligne adversaire (hypothesisText), aucun candidat (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face : (pas encore choisi|pas identifié)\.$
 UI-030 | index.html:1310 | Ligne adversaire, personne de nommé (PR E) | re:^(Top|Jungle|Mid|ADC|Support) d'en face : pas identifié \(
 UI-031 | index.html:1313-1314 | Ligne adversaire, adversaire nommé (PR E) | re:(Top|Jungle|Mid|ADC|Support) (d'en face : .+ \((probable|presque sûr)\)|\? .+, hypothèse \(\d champions? vus?\))
@@ -46,9 +46,9 @@ UI-035 | index.html:1312 | Bouton « placer au rôle du joueur » (aria) | re:^P
 UI-036 | index.html:1313,2177 | Bouton retirer (aria) | re:^Retirer [^ ].*$
 UI-037 | index.html:1315 | Rôle visé, en attente de saisie | Tape son nom
 UI-038 | index.html:1315 | Rôle vide | re:^(Ajouter )?(l'ADC|le (Top|Jungle|Mid|Support))$
-UI-039 | index.html:1196-1204 | Profil d'un adversaire (traitsOf) | re:^(Profil inconnu|Soutien|(Tank|Bruiser|Carry|Plongeur|Contrôle|Engage)(, (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage))*)$
-UI-040 | index.html:1328 | Jauge (aria) | re:^(Frontline|Carrys fragiles|Plongeurs|Contrôles ciblés|Engage) : \d sur 5$
-UI-041 | index.html:1361-1365 | Jauges du profil adverse | re:^(Frontline|Carrys fragiles|Plongeurs|Contrôles ciblés|Engage)$
+UI-039 | index.html:1196-1204 | Profil d'un adversaire (traitsOf) (PR C) | re:^(Profil inconnu|Utilitaire|(Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu)(, (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu))*)$
+UI-040 | index.html:1328 | Jauge (aria) (PR C) | re:^(Frontline|Carrys fragiles|Dive|CC ciblés|Engage) : \d sur 5$
+UI-041 | index.html:1361-1365 | Jauges du profil adverse (PR C) | re:^(Frontline|Carrys fragiles|Dive|CC ciblés|Engage)$
 UI-042 | index.html:1336 | Profil adverse vide | Le profil se remplit à chaque adversaire ajouté.
 UI-043 | index.html:1340 | Profil adverse : forces (compoReading) | Leurs forces : {liste}
 UI-044 | index.html:1341 | Profil adverse : failles (compoReading) | Leurs failles : {liste}
@@ -56,7 +56,7 @@ UI-045 | index.html:1342 | Profil adverse sans trait marqué | Pas de profil mar
 UI-046 | index.html:1350-1351 | Titre colonne gauche | re:^(Composition adverse( \d sur 5)?|\d sur 5)$
 UI-047 | index.html:1353 | Aide après sélection d'un adversaire | {C} sélectionné : clique sur un autre rôle.
 UI-048 | index.html:1353 | Aide clavier | Entrée ajoute, Échap efface.
-UI-049 | index.html:1359 | Titre des jauges | Profil de l'équipe
+UI-049 | index.html:1359 | Titre des jauges (PR C) | Profil de leur comp
 UI-050 | index.html:1394 | Illustration absente | Illustration indisponible : vérifie ta connexion.
 UI-051 | index.html:1400 | Lecteur d'écran, égalité | Égalité entre {liste}
 UI-052 | index.html:1400 | Lecteur d'écran, conseil | re:^Conseil : .+
@@ -91,7 +91,7 @@ UI-080 | index.html:1536,1556,2054 | Alternative affichée | re:^(Sinon|Ou)( .+|
 UI-081 | index.html:1551,2040 | Badge Choix net | Choix net
 UI-082 | index.html:1551,2040 | Badge Choix serré | Choix serré
 UI-083 | index.html:1559 | Aucune raison positive | Aucun argument particulier dans cette draft
-UI-084 | index.html:1562 | Risque principal (mainRisk) | re:^Danger( .+)?$
+UI-084 | index.html:1562 | Risque principal (mainRisk) (PR C) | re:^Risque( .+)?$
 UI-085 | index.html:1567 | Repli | Plus de détails
 UI-086 | index.html:1568 | Picks à éviter (tableau) | À éviter : {liste}
 UI-087 | index.html:1569 | Bilan personnel | Tes parties : {x}
@@ -130,8 +130,8 @@ UI-119 | index.html:1729-1732 | Analyse, ton vis-à-vis pas nommé, fidèle au c
 UI-120 | index.html:1690 | Analyse, pas de données de matchup | Pas de données de matchup contre {C} : ce critère n'est pas évalué.
 UI-121 | index.html:1691 | Analyse, égalité (PR D) | re:ont le même score\. 
 UI-122 | index.html:1692 | Analyse, nom maintenu (holdPick) | reste affiché : {C} mène de trop peu pour changer de nom en cours de draft.
-UI-123 | index.html:1693 | Analyse, draft incomplète | Draft incomplète : {N} adversaire(s) sur 5.
-UI-124 | index.html:1694 | Analyse, profil provisoire | Profil provisoire : {liste}.
+UI-123 | index.html:1693 | Analyse, draft incomplète (PR C) | re:Draft incomplète : \d adversaires? sur 5\.
+UI-124 | index.html:1694 | Analyse, profil provisoire (PR C) | Fiche provisoire : {liste}.
 UI-125 | index.html:1695 | Analyse, frontline alliée selon le réglage (PR D) | re:(Pas de f|F)rontline alliée supposée \(réglage\)\.
 UI-126 | index.html:1698-1699 | Matrice, en-tête | re:^(Critère|Critères par champion)$
 UI-127 | index.html:1705 | Matrice, case vide (title) | Non concerné
@@ -176,13 +176,13 @@ UI-165 | index.html:1897 | Journal, bilan suivi | Conseil suivi : {x}. Autre cho
 UI-166 | index.html:1898 | Journal, en-têtes | re:^(Date|Pick|Mid|Conseil|Résultat)$
 UI-167 | index.html:1902 | Journal, export | Télécharger le journal
 UI-168 | index.html:1907 | Règles, titre (pool hors tableau) | Comment tes picks sont classés
-UI-169 | index.html:1908 | Règles, texte (pool hors tableau) | Chaque champion a une fiche écrite à la main : chasseur de cibles fragiles, tueur de tanks, immobile, protecteur, etc. Le moteur compare ces fiches à la composition adverse. C'est un avis général, sans statistiques.
-UI-170 | index.html:1908-1913 | Règles mid, tableau (titre : PR D) | re:^(Repères pour ton pool \(résumé, pas le calcul exact\)|Situation|Au moins 2 tanks ou bruisers, et tu as un frontline|Au moins 2 carrys fragiles, et peu de contrôles ciblés|Adversaires lents et peu de plongeurs, et tu as un frontline|Tous les autres cas, ou draft inconnue)$
+UI-169 | index.html:1908 | Règles, texte (pool hors tableau) (PR C) | Chaque champion a une fiche écrite à la main : chasseur de carrys fragiles, anti-tank, peu mobile, protecteur, etc. Le moteur compare ces fiches à leur comp. C'est un avis général, sans statistiques.
+UI-170 | index.html:1908-1913 | Règles mid, tableau (titre : PR D) | re:^(Repères pour ton pool \(résumé, pas le calcul exact\)|Situation|Au moins 2 tanks ou bruisers, et tu as une frontline|Au moins 2 carrys fragiles, et peu de CC ciblés|Adversaires peu mobiles et peu de dive, et tu as une frontline|Tous les autres cas, ou draft inconnue)$
 UI-171 | index.html:1915 | Règles mid, titre | Quand éviter chaque pick
-UI-172 | index.html:1917 | Règles mid | ton équipe n'a pas de frontline, ou l'équipe adverse a au moins 2 assassins ou plongeurs.
-UI-173 | index.html:1918 | Règles mid | aucune cible fragile accessible, ou beaucoup de contrôles ciblés en face.
-UI-174 | index.html:1919 | Règles mid | plusieurs champions très mobiles en face, et ton équipe ne peut pas te protéger.
-UI-175 | index.html:1920 | Règles mid | rarement mauvais, mais moins utile si tes mates ne suivent jamais tes ultimes.
+UI-172 | index.html:1917 | Règles mid (PR C) | ton équipe n'a pas de frontline, ou leur comp a au moins 2 assassins ou champions de dive.
+UI-173 | index.html:1918 | Règles mid (PR C) | aucun carry fragile accessible, ou beaucoup de CC ciblés en face.
+UI-174 | index.html:1919 | Règles mid (PR C) | plusieurs champions très mobiles en face, et pas de peel dans ton équipe.
+UI-175 | index.html:1920 | Règles mid (PR C) | rarement mauvais, mais moins utile si tes alliés ne suivent jamais tes ults.
 UI-176 | index.html:1922 | Règles, titre | Critères et poids du moteur
 UI-177 | index.html:1923 | Règles, poids | Chaque critère donne une note de -2 à +2, multipliée par son poids. Le total sert seulement à comparer tes picks : ce n'est ni un winrate ni une probabilité. Ces poids sont des choix de conception, jamais mesurés sur de vraies parties.
 UI-178 | index.html:1924 | Règles, en-têtes | re:^(Poids|D'où ça vient)$
@@ -191,7 +191,7 @@ UI-180 | index.html:1929 | Règles, provenance | noms, portraits, illustrations,
 UI-181 | index.html:1930 | Règles, provenance | rôles et bilans de matchups, si tu les as calculés avec l'API Riot. Le lien LoLalytics ouvre simplement leur page.
 UI-182 | index.html:1931 | Règles, provenance | matchups sans assez de parties, profils de champions, règles, plan de jeu.
 UI-183 | index.html:1932 | Règles, provenance | ton journal et ton import Riot. Affichés, mais sans effet sur le classement.
-UI-184 | index.html:1929-1932 | Règles, étiquettes de provenance | re:^(Officiel \(Riot, Data Dragon\) :|Statistiques observées :|Heuristique \(écrit à la main\) :|Personnel :|Kog'Maw :|Fizz :|Xerath :|Twisted Fate :)$
+UI-184 | index.html:1929-1932 | Règles, étiquettes de provenance (PR C) | re:^(Officiel \(Riot, Data Dragon\) :|Statistiques observées :|Écrit à la main :|Personnel :|Kog'Maw :|Fizz :|Xerath :|Twisted Fate :)$
 UI-185 | index.html:1934 | Règles, titre | Fiabilité
 UI-186 | index.html:1935 | Règles, fiabilité selon le réglage (PR D) | re:(L'outil compte sur une frontline dans ton équipe \(réglage\)|Réglage actuel : pas de frontline alliée supposée\.).*Pendant la draft, le nom affiché ne change que si un autre pick mène d'au moins \d points\.
 UI-187 | index.html:1935 | Règles, fiabilité (suite, PR D) | Le ban conseillé vient de tes bilans calculés s'il y en a, sinon du tableau de matchups (mid), sinon des fiches de champions. La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch en cours.
@@ -199,7 +199,7 @@ UI-188 | index.html:1936 | Mention légale | Outil personnel non approuvé par R
 UI-189 | index.html:1941,1947 | Vues d'Analyse | re:^(Critères|Comparer|Règles|Vue de l'analyse)$
 UI-190 | index.html:1953,1960 | Onglets | re:^(Plan|Analyse|Conseils|Duel|Parties|Détails et statistiques)$
 UI-191 | index.html:1974 | Barre mobile, égalité | Égalité : {liste}
-UI-192 | index.html:1977 | Barre mobile, bouton | re:^(Enregistré|Je prends)$
+UI-192 | index.html:1977 | Barre mobile, bouton (PR C) | re:^(Enregistré|Je joue)$
 UI-193 | index.html:1990 | Aucun profil | Choisis ton rôle et tes champions dans les réglages.
 UI-194 | index.html:1991 | Rôle sans champion | Aucun champion pour le rôle {Rôle}. Ajoute-les dans les réglages, ou change de rôle.
 UI-195 | index.html:1992 | Tous les picks exclus ou pris | Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans les réglages.
@@ -218,8 +218,8 @@ UI-207 | index.html:2054 | Panneau droit, alternative en choix serré ou devant 
 UI-208 | index.html:2058 | Panneau droit, titre caché | Pourquoi ce choix ?
 UI-209 | index.html:2060 | Panneau droit, égalité sans raison commune | Leurs raisons diffèrent : compare-les dans Analyse.
 UI-210 | index.html:2060 | Panneau droit, aucune raison | Aucun argument marqué pour l'instant : ajoute des adversaires.
-UI-211 | index.html:2062 | Panneau droit, danger (aria) | Danger principal
-UI-212 | index.html:2064 | Panneau droit, danger | Danger : {C}
+UI-211 | index.html:2062 | Panneau droit, danger (aria) (PR C) | Menace principale
+UI-212 | index.html:2064 | Panneau droit, danger (PR C) | Menace : {C}
 UI-213 | index.html:2064 | Panneau droit, danger commun | Commun à ces champions.
 UI-214 | index.html:2069 | Panneau droit, repli | re:^(Plan de jeu et ban|Ban conseillé)$
 UI-215 | index.html:2071 | Panneau droit, autres bans | re:^ou .+
@@ -249,7 +249,7 @@ UI-238 | index.html:2203 | Réglages, sources | re:^Sources de données
 UI-239 | index.html:2205 | Réglages, sources, état | re:^(Ancienne|Absente)$
 UI-240 | index.html:2206 | Réglages, sources, détail | re:(Patch : |Observations : |Incertitude (élevée|moyenne)\.)
 UI-241 | index.html:2209-2210 | Réglages, rôles à surveiller | re:(Rôles à surveiller|plus souvent (Top|Jungle|Mid|ADC|Support) que dans)
-UI-242 | index.html:2226 | Réglages, import du journal | {N} partie(s) ajoutée(s) à ton journal.
+UI-242 | index.html:2226 | Réglages, import du journal (PR C) | re:^\d+ parties? ajoutées? à ton journal\.$
 UI-243 | index.html:2228 | Réglages, journal invalide | Ce fichier n'est pas un journal DRAFT : rien n'a été modifié.
 UI-244 | index.html:2238,2240 | Réglages, titre | re:^(Réglages|Fermer|Réglages Fermer)$
 UI-245 | index.html:2239 | Réglages, en-tête | bêta : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.
@@ -263,8 +263,8 @@ UI-252 | index.html:2268 | Réglages, rôle attribué | Seulement si la lecture 
 UI-253 | index.html:2270-2276 | Réglages, fenêtres | re:^(Afficher les panneaux automatiquement pendant la draft|Fenêtres|Coller les panneaux au client LoL|Un seul panneau|Toujours au premier plan|Démarrer avec Windows)$
 UI-254 | index.html:2271 | Réglages, raccourci | affiche ou masque les panneaux à tout moment.
 UI-255 | index.html:2278-2279 | Réglages, picks | re:^(Mes picks|Exclure pour l'instant :)$
-UI-256 | index.html:2281 | Réglages, favori | À égalité exacte, préférer
-UI-257 | index.html:2287 | Réglages, frontline allié | Supposer un frontline dans mon équipe
+UI-256 | index.html:2281 | Réglages, favori (PR C) | En cas d'égalité, mettre en premier
+UI-257 | index.html:2287 | Réglages, frontline allié (PR C) | Compter sur une frontline dans mon équipe
 UI-258 | index.html:2338-2339 | Réglages, rôles (PR E) | re:(Rôles des champions|Ils servent à deviner ton vis-à-vis et à placer les adversaires dans leurs rôles\.)
 UI-259 | index.html:2291 | Réglages, rôles non calculés | Pas encore calculés : les rôles habituels écrits à la main servent de repère.
 UI-260 | index.html:2292-2293 | Réglages, matchups | re:(^Matchups$|Sous \d+ parties, le matchup n'utilise pas le bilan\.|relance le calcul pour ton rôle actuel|Pas encore de bilans calculés\.)
@@ -278,92 +278,92 @@ UI-267 | index.html:1835 | Barre de victoires (aria) | re:^.+ : \d+V \d+D$
 UI-269 | index.html:1866,1869 | Statistiques : nom du compte importé (donnée) | re:^[^ ]+#[^ ]+$
 UI-268 | index.html:2311 | Réglages avancés : phase et placement transmis par le programme (src/DraftDetection.cs PhaseText) | re:^(Client LoL fermé|Client ouvert, hors draft \(estimation\)|Draft en cours \(estimation\)|Partie en cours|Phase incertaine)\.
 UI-270 | index.html:2440 | Simulateur, bandeau (2.16.2) | re:^(Simulation : ta draft en cours n'est pas modifiée\.( Revenir à la draft en cours)?|Revenir à la draft en cours)$
-UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 champions vus (PR E, B-05) | re:^(Top|Jungle|Mid|ADC|Support) \? hypothèse \(\d champions? vus?\)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
-UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry|Plongeur|Contrôle|Engage|Soutien|Profil inconnu).*)?$
+UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 champions vus (PR E, B-05) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) \? hypothèse \(\d champions? vus?\)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
+UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 
 ## web/draft-engine.js : critères, raisons, plan
-EN-001 | draft-engine.js:122-130 | Libellés des critères (matrice, comparer, règles, conseils) | re:^(Matchup direct|Sécurité sans adversaire connu|Cibles exploitables|Tanks et bruisers|Survie aux plongeurs|Engages et contrôles|Poke et longue portée|Protection nécessaire|Pression sur la carte)$
+EN-001 | draft-engine.js:122-130 | Libellés des critères (matrice, comparer, règles, conseils) (PR C) | re:^(Matchup direct|Sûr en blind|Carrys à punir|Frontline adverse|Résistance au dive|Engage et CC adverses|Poke adverse|Besoin de peel|Pression sur la map)$
 EN-002 | draft-engine.js:122 | Règles, source du critère matchup | Bilans calculés sur de vraies parties dès 30 parties, sinon tableau écrit à la main. Inclut la pression de lane, pour ne pas la compter deux fois.
-EN-003 | draft-engine.js:123 | Règles, source blind | Calculé : part des mids du tableau où le pick est à éviter. Ne compte que si le mid est inconnu.
-EN-004 | draft-engine.js:124 | Règles, source targets | Règle heuristique : nombre de carrys fragiles adverses.
-EN-005 | draft-engine.js:125 | Règles, source front | Règle heuristique : nombre de frontlines adverses.
-EN-006 | draft-engine.js:126 | Règles, source dive | Règle heuristique : nombre d'assassins et de plongeurs adverses.
-EN-007 | draft-engine.js:127 | Règles, source control | Règle heuristique : contrôles ciblés et engages adverses, comptés une seule fois par pick.
-EN-008 | draft-engine.js:128 | Règles, source range | Règle heuristique : nombre de champions à longue portée adverses.
-EN-009 | draft-engine.js:129 | Règles, source peel | Règle heuristique : frontline allié supposé, mobilité adverse.
+EN-003 | draft-engine.js:123 | Règles, source blind (PR C) | Calculé : part des mids du tableau où le pick est à éviter. Ne compte qu'au mid, tant que ton vis-à-vis n'est pas nommé.
+EN-004 | draft-engine.js:124 | Règles, source targets (PR C) | Règle écrite à la main : nombre de carrys fragiles adverses.
+EN-005 | draft-engine.js:125 | Règles, source front (PR C) | Règle écrite à la main : nombre de tanks et bruisers adverses.
+EN-006 | draft-engine.js:126 | Règles, source dive (PR C) | Règle écrite à la main : nombre d'assassins et de champions de dive adverses.
+EN-007 | draft-engine.js:127 | Règles, source control (PR C) | Règle écrite à la main : CC ciblés et engages adverses, comptés une seule fois par pick.
+EN-008 | draft-engine.js:128 | Règles, source range (PR C) | Règle écrite à la main : nombre de champions de poke adverses.
+EN-009 | draft-engine.js:129 | Règles, source peel (PR C) | Règle écrite à la main : frontline alliée supposée (réglage), mobilité adverse.
 EN-010 | draft-engine.js:130 | Règles, source map | Atout propre au champion. Poids faible, car il ne dépend pas de la draft.
 EN-011 | draft-engine.js:201 | Raison matchup, bilan calculé | re:(% contre .+ sur \d+ parties|Sans écart net contre .+ sur \d+ parties)
 EN-012 | draft-engine.js:205 | Raison matchup, tableau | À éviter contre {C}
 EN-013 | draft-engine.js:206 | Raison matchup, tableau | 1er choix contre {C}
 EN-014 | draft-engine.js:207 | Raison matchup, tableau | 2e choix contre {C}
 EN-015 | draft-engine.js:208 | Raison matchup, tableau (note 0, seulement en matrice) | Pas d'avis marqué contre {C}
-EN-016 | draft-engine.js:216 | Raison blind, positive | Mid inconnu : peu de mauvais matchups ({N} sur {N} dans le tableau)
-EN-017 | draft-engine.js:216 | Raison blind, négative | Mid inconnu : risqué, mauvais dans {N} matchups sur {N} du tableau
-EN-018 | draft-engine.js:221 | Raison targets h | re:\d cibles fragiles :
-EN-019 | draft-engine.js:222 | Raison targets h | Une cible fragile : {C}
-EN-020 | draft-engine.js:223 | Raison targets h, aucune | Aucune cible fragile à éliminer
-EN-021 | draft-engine.js:225 | Raison targets E | cibles fragiles à attraper : {liste}
-EN-022 | draft-engine.js:226 | Raison targets l | cibles à abîmer de loin : {liste}
+EN-016 | draft-engine.js:216 | Raison blind, positive (PR C) | re:Sûr en blind, mauvais dans \d+ matchups? sur \d+ du tableau
+EN-017 | draft-engine.js:216 | Raison blind, négative (PR C) | re:Risqué en blind, mauvais dans \d+ matchups? sur \d+ du tableau
+EN-018 | draft-engine.js:221 | Raison targets h (PR C) | re:\d carrys fragiles à punir :
+EN-019 | draft-engine.js:222 | Raison targets h (PR C) | Un carry fragile à punir : {C}
+EN-020 | draft-engine.js:223 | Raison targets h, aucune (PR C) | Aucun carry fragile à punir
+EN-021 | draft-engine.js:225 | Raison targets E (PR C) | carrys fragiles à attraper : {liste}
+EN-022 | draft-engine.js:226 | Raison targets l (PR C) | carrys à poke : {liste}
 EN-023 | draft-engine.js:232 | Raison front k, 3+ | tanks ou bruisers : {x} font la différence
 EN-024 | draft-engine.js:233 | Raison front k, 2 | 2 tanks ou bruisers : {x} sont utiles
 EN-025 | draft-engine.js:236 | Raison front h+d, 4+ | re:\d frontlines à traverser
 EN-026 | draft-engine.js:237 | Raison front h+d, 3 | Beaucoup de frontline à traverser
 EN-027 | draft-engine.js:239 | Raison front w | frontlines : peu de prise sur les tanks
-EN-028 | draft-engine.js:245 | Raison dive i | plongeurs contre un champion immobile : {liste}
-EN-029 | draft-engine.js:246 | Raison dive t | Encaisse leurs {N} plongeurs
-EN-030 | draft-engine.js:247 | Raison dive c | Peut protéger ses alliés de leurs {N} plongeurs
-EN-031 | draft-engine.js:248 | Raison dive, note 0 (matrice) | re:^(Son E lui laisse une sortie contre les plongeurs|Son étourdissement l'aide à se défendre contre les plongeurs|Peut survivre aux plongeurs)$
-EN-032 | draft-engine.js:251 | Raison control h+d | contrôles ciblés punissent ses plongeons : {liste}
-EN-033 | draft-engine.js:252 | Raison control e | re:Peut jouer loin de leur engage (et revenir avec son ultime|et de leurs contrôles)
-EN-034 | draft-engine.js:253 | Raison control i | engages contre un champion lent : {liste}
-EN-035 | draft-engine.js:258 | Raison range l | Peut rendre les coups à distance : {liste}
-EN-036 | draft-engine.js:259 | Raison range o | Se fait toucher avant de pouvoir frapper : {liste}
-EN-037 | draft-engine.js:263 | Raison peel p, note 0 (matrice) | Suppose un frontline allié pour le protéger
-EN-038 | draft-engine.js:263 | Raison peel p, sans frontline | Ton équipe n'a pas de frontline pour le protéger
-EN-039 | draft-engine.js:265 | Raison peel q, sans frontline | Personne pour te protéger de leur mobilité
+EN-028 | draft-engine.js:245 | Raison dive i (PR C) | champions de dive contre un champion peu mobile : {liste}
+EN-029 | draft-engine.js:246 | Raison dive t (PR C) | Tient bien face à leurs {N} champions de dive
+EN-030 | draft-engine.js:247 | Raison dive c (PR C) | Bon peel contre leurs {N} champions de dive
+EN-031 | draft-engine.js:248 | Raison dive, note 0 (matrice) (PR C) | re:^(Son E lui laisse une sortie contre le dive|Son stun l'aide à se défendre contre le dive|Peut survivre au dive)$
+EN-032 | draft-engine.js:251 | Raison control h+d (PR C) | CC ciblés punissent ses all-in : {liste}
+EN-033 | draft-engine.js:252 | Raison control e (PR C) | re:Peut jouer loin de leur engage (et revenir avec son ult|et de leurs CC)
+EN-034 | draft-engine.js:253 | Raison control i (PR C) | engages contre un champion peu mobile : {liste}
+EN-035 | draft-engine.js:258 | Raison range l (PR C) | Peut répondre à leur poke : {liste}
+EN-036 | draft-engine.js:259 | Raison range o (PR C) | Subit leur poke avant de pouvoir agir : {liste}
+EN-037 | draft-engine.js:263 | Raison peel p, note 0 (matrice) (PR C) | Suppose une frontline alliée pour le protéger (réglage)
+EN-038 | draft-engine.js:263 | Raison peel p, sans frontline (PR C) | Pas de frontline alliée pour le protéger (réglage)
+EN-039 | draft-engine.js:265 | Raison peel q, sans frontline (PR C) | Pas de frontline alliée contre leur mobilité (réglage)
 EN-040 | draft-engine.js:266 | Raison peel q | champions très mobiles : {liste}
-EN-041 | draft-engine.js:267 | Raison peel q, positive | Peu de plongeurs et de mobilité, et un frontline devant toi
-EN-042 | draft-engine.js:271 | Raison map g | re:(Son ultime couvre toute la carte|Peut peser sur toute la carte)
+EN-041 | draft-engine.js:267 | Raison peel q, positive (PR C) | Peu de dive et de mobilité en face, et une frontline devant toi
+EN-042 | draft-engine.js:271 | Raison map g (PR C) | re:(Son ult couvre toute la map|Grosse pression sur la map)
 EN-043 | draft-engine.js:272 | Raison map r | Peut roamer une fois sa vague poussée
-EN-044 | draft-engine.js:273 | Raison map n | Peu d'impact hors des combats groupés
+EN-044 | draft-engine.js:273 | Raison map n (PR C) | Peu d'impact hors teamfight
 EN-045 | draft-engine.js:292-307 | Raison pesée sur plusieurs hypothèses, chacune nommée (PR D) | re:^(?:[+−] )?(Si c'est .+|S'il n'est pas encore choisi) : 
 EN-046 | draft-engine.js:420 | Raison du ban, bilans | mauvais bilan de {liste} sur de vraies parties
 EN-047 | draft-engine.js:423 | Raison du ban, tableau | gêne {liste} dans le tableau de matchups
 EN-048 | draft-engine.js:425 | Raison du ban, fiches | gêne {liste} d'après leurs profils
-EN-049 | draft-engine.js:439-442 | Style des picks du tableau (Comparer) | re:^(Assassin de mêlée : entre, tue une cible et ressort\.|Mage de carte : pousse, contrôle une cible et rejoint les autres lanes\.|Artillerie immobile : fait de gros dégâts s'il est protégé\.|Artillerie à très longue portée : affaiblit avant le combat\.)$
-EN-050 | draft-engine.js:447-454 | Style d'un pick (Comparer) | re:^(Protecteur : garde ses alliés en vie\.|Tank d'engage : lance les combats et encaisse\.|Tank : encaisse en première ligne\.|Assassin : cherche les cibles fragiles\.|Tueur de tanks : fait fondre la première ligne\.|Combattant : plonge dans le combat\.|Longue portée : affaiblit avant le combat\.|Polyvalent : s'adapte au déroulé de la partie\.)$
+EN-049 | draft-engine.js:439-442 | Style des picks du tableau (Comparer) (PR C) | re:^(Assassin de mêlée : entre, tue une cible et ressort\.|Mage de map : push, stun une cible et rejoint les autres lanes\.|Artillerie immobile : fait de gros dégâts s'il est protégé\.|Artillerie à très longue portée : poke avant le teamfight\.)
+EN-050 | draft-engine.js:447-454 | Style d'un pick (Comparer) (PR C) | re:^(Protecteur : garde ses alliés en vie\.|Tank d'engage : engage les combats et encaisse\.|Tank : encaisse en frontline\.|Assassin : cherche les carrys fragiles\.|Anti-tank : fait fondre la frontline\.|Combattant : va au contact dans les combats\.|Longue portée : poke avant le teamfight\.|Polyvalent : s'adapte au déroulé de la partie\.)$
 EN-051 | draft-engine.js:483 | whenBetter, sans frontline | si ton équipe n'a pas de frontline
 EN-052 | draft-engine.js:484 | whenBetter, autre adversaire | re:si ton adversaire (au top|à la jungle|au mid|à l'ADC|au support) est
-EN-053 | draft-engine.js:470,485 | whenBetter, adversaire type ajouté | re:avec un (tank|plongeur|contrôle ciblé|carry fragile|poke) de plus
+EN-053 | draft-engine.js:470,485 | whenBetter, adversaire type ajouté (PR C) | re:avec un (tank|champion de dive|CC ciblé|carry fragile|poke) de plus
 EN-054 | draft-engine.js:508 | Analyse, position | Seul pick disponible.
 EN-055 | draft-engine.js:510 | Analyse, position 1er | 1er : passe devant {C} surtout grâce au critère « {critère} ».
 EN-056 | draft-engine.js:510 | Analyse, position 1er à égalité | 1er, à égalité avec {C}.
 EN-057 | draft-engine.js:513 | Analyse, position | Derrière {C} surtout à cause du critère « {critère} ».
 EN-058 | draft-engine.js:513 | Analyse, position à égalité | re:^À égalité avec .+\.$
-EN-059 | draft-engine.js:519-527 | Mots de compoReading (Leurs forces / failles) | re:(frontline|engage|contrôles ciblés|plongeurs|poke|plusieurs cibles fragiles|pas de frontline|peu d'engage|aucun contrôle ciblé)
-EN-060 | draft-engine.js:542 | Danger (panneau droit) | Son contrôle ciblé peut stopper ton plongeon.
+EN-059 | draft-engine.js:519-527 | Mots de compoReading (Leurs forces / failles) (PR C) | re:(frontline|engage|CC ciblés|dive|poke|plusieurs carrys fragiles|pas de frontline|peu d'engage|aucun CC ciblé)
+EN-060 | draft-engine.js:542 | Danger (panneau droit) (PR C) | Son CC ciblé peut stopper ton all-in.
 EN-061 | draft-engine.js:543 | Danger | Peut te rattraper quand tu ressors d'un combat.
 EN-062 | draft-engine.js:543 | Danger | Peut te sauter dessus si tu es mal placé.
 EN-063 | draft-engine.js:544 | Danger | Sa mobilité lui permet d'éviter tes sorts à distance.
-EN-064 | draft-engine.js:545 | Danger | Peut démarrer le combat sur toi.
+EN-064 | draft-engine.js:545 | Danger (PR C) | Peut engager le combat sur toi.
 EN-065 | draft-engine.js:546 | Danger | À surveiller pendant la partie.
 EN-066 | draft-engine.js:552 | Condition de victoire c | Protège ton meilleur carry, et fais échouer les engages sur lui.
-EN-067 | draft-engine.js:553 | Condition de victoire E | Lance le combat sur {C} dès que ton équipe peut suivre.
-EN-068 | draft-engine.js:554 | Condition de victoire t | Encaisse en première ligne, et prends l'espace autour des objectifs.
+EN-067 | draft-engine.js:553 | Condition de victoire E (PR C) | Engage sur {C} dès que ton équipe peut suivre.
+EN-068 | draft-engine.js:554 | Condition de victoire t (PR C) | Encaisse en frontline, et prends l'espace autour des objectifs.
 EN-069 | draft-engine.js:555 | Condition de victoire h | Prends ton avantage, puis élimine {C} avant l'objectif.
 EN-070 | draft-engine.js:556 | Condition de victoire k | re:(Fais fondre .+, et reste en vie jusqu'à la fin du combat\.|Frappe la cible la plus proche, et reste en vie jusqu'à la fin du combat\.)
-EN-071 | draft-engine.js:557,568 | Condition de victoire l / Xerath | re:Affaiblis-les à distance avant l'objectif, (sans te faire attraper|loin de leurs plongeurs)\.
+EN-071 | draft-engine.js:557,568 | Condition de victoire l / Xerath (PR C) | re:(Affaiblis-les à distance avant l'objectif, sans te faire attraper\.|Poke-les avant l'objectif, loin de leur dive\.)
 EN-072 | draft-engine.js:558 | Condition de victoire par défaut | Prends ton avantage en lane, puis joue chaque objectif avec ton équipe.
 EN-073 | draft-engine.js:565 | Condition de victoire Fizz | Pousse ta vague, roam, et tue {C} avant l'objectif.
-EN-074 | draft-engine.js:566 | Condition de victoire TF | Pousse à la carte bleue, puis crée un surnombre avec ton ultime.
-EN-075 | draft-engine.js:567 | Condition de victoire Kog'Maw | re:Reste derrière ton frontline et (fais fondre .+|frappe) autour des objectifs\.
+EN-074 | draft-engine.js:566 | Condition de victoire TF (PR C) | Push avec la carte bleue, puis crée un surnombre avec ton ult.
+EN-075 | draft-engine.js:567 | Condition de victoire Kog'Maw (PR C) | re:Reste derrière ta frontline et (fais fondre .+|frappe) autour des objectifs\.
 EN-076 | draft-engine.js:587 | Plan lane, adversaire plongeur | peut te sauter dessus : garde tes distances et ton sort de défense.
-EN-077 | draft-engine.js:588 | Plan lane, adversaire à contrôle | a un contrôle ciblé : attends de le voir partir avant d'engager.
+EN-077 | draft-engine.js:588 | Plan lane, adversaire à contrôle (PR C) | a un CC ciblé : attends de le voir partir avant d'engager.
 EN-078 | draft-engine.js:589 | Plan lane | Contre {C}, observe ses sorts importants avant d'engager un échange.
 EN-079 | draft-engine.js:590 | Plan lane, matchup difficile | est un matchup difficile : farme prudemment et n'échange qu'après avoir vu partir un de ses sorts importants.
-EN-080 | draft-engine.js:591 | Plan lane Fizz | a un contrôle ciblé : attends de le voir partir avant de lancer ton all-in.
+EN-080 | draft-engine.js:591 | Plan lane Fizz (PR C) | a un CC ciblé : attends de le voir partir avant de lancer ton all-in.
 EN-081 | draft-engine.js:592 | Plan lane Fizz | Contre {C}, cherche des échanges courts, puis ressors avec ton E.
-EN-082 | draft-engine.js:593 | Plan lane, pick immobile | peut te sauter dessus : garde tes distances et ne gaspille pas ton sort de contrôle ou de ralentissement.
+EN-082 | draft-engine.js:593 | Plan lane, pick immobile (PR C) | peut te sauter dessus : garde tes distances et ne gaspille pas ton CC ou ton ralentissement.
 EN-083 | draft-engine.js:594 | Plan lane Xerath | Touche {C} de loin dès qu'il vient au farm, sans dépasser la moitié de la lane.
 EN-084 | draft-engine.js:595 | Plan lane Kog'Maw | Contre {C}, farme à portée maximale et échange seulement quand ta vague te couvre.
 EN-085 | draft-engine.js:596 | Plan lane TF | Contre {C}, garde ta carte dorée pour répondre à un engage ou préparer un gank.
@@ -372,24 +372,24 @@ EN-087 | draft-engine.js:624 | Plan lane, vis-à-vis pas identifié (PR E) | re:
 EN-088 | draft-engine.js:599 | Plan lane jungle | Prépare ton chemin vers la lane qui peut le mieux profiter de ton aide.
 EN-089 | draft-engine.js:599 | Plan lane support | Garde la vision de ton côté avant de chercher un engage.
 EN-090 | draft-engine.js:599 | Plan lane top, mid, ADC | Pousse ta vague avant de bouger, pour ne pas perdre de farm.
-EN-091 | draft-engine.js:602 | Plan mid game TF | Utilise ton ultime dès qu'une lane peut punir {C}.
+EN-091 | draft-engine.js:602 | Plan mid game TF (PR C) | Utilise ton ult dès qu'une lane peut punir {C}.
 EN-092 | draft-engine.js:603 | Plan mid game Fizz | Cherche {C} isolé sur un côté, puis disparais avant la riposte.
-EN-093 | draft-engine.js:604 | Plan mid game Kog'Maw | Reste groupé avec ton frontline : seul sur un côté, tu n'as presque aucune échappatoire.
+EN-093 | draft-engine.js:604 | Plan mid game Kog'Maw (PR C) | Reste groupé avec ta frontline : seul sur un côté, tu n'as presque aucune échappatoire.
 EN-094 | draft-engine.js:605 | Plan mid game Xerath | Affaiblis {C} avant chaque objectif, depuis un endroit couvert par une ward.
-EN-095 | draft-engine.js:606 | Plan mid game, plongeur | Repère {C} sur la carte avant de te placer : sans visuel, recule.
-EN-096 | draft-engine.js:607 | Plan mid game, engage | Pose une ward de contrôle sur le chemin de {C} avant les objectifs.
+EN-095 | draft-engine.js:606 | Plan mid game, plongeur (PR C) | Repère {C} sur la map avant de te placer : sans vision, recule.
+EN-096 | draft-engine.js:607 | Plan mid game, engage (PR C) | Pose une control ward sur le chemin de {C} avant les objectifs.
 EN-097 | draft-engine.js:608 | Plan mid game, tank | Ne perds pas de temps sur {C} si une tour ou un objectif est disponible.
 EN-098 | draft-engine.js:609 | Plan mid game, défaut | Après un combat gagné, prends tout de suite une tour ou un objectif.
-EN-099 | draft-engine.js:612 | Plan teamfight Fizz | Entre seulement après avoir vu partir le contrôle de {C}.
-EN-100 | draft-engine.js:613 | Plan teamfight Fizz | Ta cible prioritaire est {C}, pas le frontline.
-EN-101 | draft-engine.js:614 | Plan teamfight Fizz | Sans cible fragile accessible, ne plonge pas : va chercher un objectif ailleurs.
-EN-102 | draft-engine.js:615 | Plan teamfight TF | Garde ta carte dorée pour {C} ou pour le premier qui plonge.
+EN-099 | draft-engine.js:612 | Plan teamfight Fizz (PR C) | Entre seulement après avoir vu partir le CC de {C}.
+EN-100 | draft-engine.js:613 | Plan teamfight Fizz (PR C) | Ta cible prioritaire est {C}, pas la frontline.
+EN-101 | draft-engine.js:614 | Plan teamfight Fizz (PR C) | Sans carry fragile accessible, ne dive pas : va chercher un objectif ailleurs.
+EN-102 | draft-engine.js:615 | Plan teamfight TF (PR C) | Garde ta carte dorée pour {C} ou pour le premier qui dive.
 EN-103 | draft-engine.js:616 | Plan teamfight TF | Temporise tant que {C} n'a pas engagé, puis rejoins le combat.
-EN-104 | draft-engine.js:617 | Plan teamfight, pick immobile | Garde-toi une sortie contre {C} : ne te place jamais en première ligne.
+EN-104 | draft-engine.js:617 | Plan teamfight, pick immobile (PR C) | Garde-toi une sortie contre {C} : ne te place jamais devant ta frontline.
 EN-105 | draft-engine.js:618 | Plan teamfight Kog'Maw | Frappe {C} s'il est le plus proche : ne traverse pas le combat pour une cible lointaine.
 EN-106 | draft-engine.js:619 | Plan teamfight Xerath | Lance tes sorts sur {C} depuis l'arrière, et recule dès qu'un adversaire s'approche.
-EN-107 | draft-engine.js:620 | Plan teamfight, engage | Évite les combats sans vision : {C} peut démarrer l'engage sur toi.
-EN-108 | draft-engine.js:621 | Plan teamfight, défaut | Évite d'ouvrir un combat quand plusieurs adversaires sont invisibles sur la carte.
+EN-107 | draft-engine.js:620 | Plan teamfight, engage (PR C) | Évite les combats sans vision : {C} peut engager sur toi.
+EN-108 | draft-engine.js:621 | Plan teamfight, défaut (PR C) | Évite d'ouvrir un combat quand plusieurs adversaires sont absents de la map.
 EN-109 | draft-engine.js:2-44 | Types de mid du tableau (Statistiques, Journal) | re:^(Mage|Assassin|Combattant|Tank|Support)$
 
 ## web/draft-coaching.js : conseils
@@ -414,7 +414,7 @@ CO-018 | draft-coaching.js:171-190 | draft.conflict, intermédiaire (PR D) | re:
 CO-019 | draft-coaching.js:163 | draft.conflict, avancé | re:^Critère négatif « .+ » \(-?\d+,\d\), compensé par les autres\.
 CO-020 | draft-coaching.js:167 | draft.incomplete, titre | re:^Il reste \d adversaires? à voir$
 CO-021 | draft-coaching.js:168 | draft.incomplete, débutant | Ce conseil peut changer. Attends si tu peux, avant de te décider.
-CO-022 | draft-coaching.js:169 | draft.incomplete, intermédiaire | seulement : les comptes de frontline et de contrôles peuvent encore bouger.
+CO-022 | draft-coaching.js:169 | draft.incomplete, intermédiaire | seulement : les comptes de frontline et de CC peuvent encore bouger.
 CO-023 | draft-coaching.js:170 | draft.incomplete, avancé | Les critères à seuil ne se déclenchent pas encore tous
 CO-024 | draft-coaching.js:177 | matchup.measured, titre | {C} contre {C} : bilan mesuré
 CO-025 | draft-coaching.js:178 | matchup.measured, débutant | re:^Sur \d+ parties de joueurs habitués à .+, ce matchup se passe plutôt (mieux|moins bien) que leur moyenne\.$
@@ -436,15 +436,15 @@ CO-040 | draft-coaching.js:205 | matchup.range, intermédiaire, plus long | doit
 CO-041 | draft-coaching.js:206 | matchup.range, avancé, plus long | Il ne compte que si {C} n'a pas de quoi le combler : à vérifier dans ses sorts.
 CO-042 | draft-coaching.js:207 | matchup.range, limite | Portée d'attaque de base seulement : les sorts ne sont pas comptés.
 CO-043 | draft-coaching.js:210 | matchup.tank, titre | {C} encaisse beaucoup
-CO-044 | draft-coaching.js:211 | matchup.tank, tueur de tanks, débutant | fait de bons dégâts aux joueurs solides. Tuer {C} prend du temps : n'en fais pas ta priorité tout de suite.
+CO-044 | draft-coaching.js:211 | matchup.tank, tueur de tanks, débutant (PR C) | fait de bons dégâts aux tanks. Tuer {C} prend du temps : n'en fais pas ta priorité tout de suite.
 CO-045 | draft-coaching.js:212 | matchup.tank, tueur de tanks, intermédiaire | Un tank en face tue rarement vite : joue la durée.
 CO-046 | draft-coaching.js:213 | matchup.tank, tueur de tanks, avancé | l'intérêt de {C} grandit avec le temps. C'est une règle générale de sa fiche, pas un bilan mesuré de ce matchup.
 CO-047 | draft-coaching.js:214 | matchup.tank, jungle/support, débutant | Ne t'acharne pas : regarde s'il y a une cible plus fragile à ta portée.
 CO-048 | draft-coaching.js:215 | matchup.tank, jungle/support, intermédiaire | Tuer un tank est long : garde tes sorts pour une cible plus fragile, sauf si tes alliés se concentrent sur lui.
-CO-049 | draft-coaching.js:216 | matchup.tank, jungle/support, avancé | Contre un tank, ton impact passe souvent par les cibles fragiles et le timing. À nuancer selon ce que ton équipe peut tuer.
+CO-049 | draft-coaching.js:216 | matchup.tank, jungle/support, avancé (PR C) | Contre un tank, ton impact passe souvent par les carrys fragiles et le timing. À nuancer selon ce que ton équipe peut tuer.
 CO-050 | draft-coaching.js:217 | matchup.tank, voie, débutant | Ne t'acharne pas : va plutôt aider ailleurs quand ta vague est poussée.
-CO-051 | draft-coaching.js:218 | matchup.tank, voie, intermédiaire | Tuer un tank en voie est long et rarement rentable tôt : pousse ta vague et regarde où ton aide pèserait davantage.
-CO-052 | draft-coaching.js:219 | matchup.tank, voie, avancé | Contre un tank, l'objectif de voie est souvent le tempo plutôt que le meurtre. À nuancer selon ta capacité à le punir.
+CO-051 | draft-coaching.js:218 | matchup.tank, voie, intermédiaire (PR C) | Tuer un tank en lane est long et rarement rentable tôt : push ta vague et regarde où ton aide pèserait davantage.
+CO-052 | draft-coaching.js:219 | matchup.tank, voie, avancé (PR C) | Contre un tank, l'objectif en lane est souvent le tempo plutôt que le kill. À nuancer selon ta capacité à le punir.
 CO-053 | draft-coaching.js:220,227 | matchup.tank/assassin, limite | Avis général, pas un bilan de ce matchup.
 CO-054 | draft-coaching.js:223 | matchup.assassin, titre | {C} peut te sauter dessus
 CO-055 | draft-coaching.js:224 | matchup.assassin, débutant | cherche à te surprendre et à te tuer vite. Garde de quoi te défendre tant que ses sorts pour s'approcher sont disponibles.
@@ -457,59 +457,59 @@ CO-061 | draft-coaching.js:278 | matchup.unknown, intermédiaire (PR E) | re:(Le
 CO-062 | draft-coaching.js:279 | matchup.unknown, avancé (PR E) | re:(Classement pondéré entre les hypothèses : |Le critère matchup n'intervient pas pour ce pick\.|Le matchup ne compte pas encore dans le classement\.|Si tu connais le vrai rôle, corrige-le : le calcul redevient exact pour ce matchup\.)
 CO-063 | draft-coaching.js:281 | matchup.unknown, débutant, aucun candidat (PR E) | Tant qu'il n'est pas identifié, le conseil ne porte pas sur ton matchup. Si tu peux, choisis après l'avoir vu.
 CO-064 | draft-coaching.js:282 | matchup.unknown, intermédiaire, aucun candidat (PR E, B-12) | re:Le matchup ne compte pas encore : le conseil repose sur la comp adverse( et sur la sécurité du pick en blind)?\.
-CO-065 | draft-coaching.js:283 | matchup.unknown, avancé, aucun candidat, critère blind présent (PR E, B-12) | Sans candidat plausible, le critère « Sécurité sans adversaire connu » remplace le matchup.
+CO-065 | draft-coaching.js:283 | matchup.unknown, avancé, aucun candidat, critère blind présent (PR E, B-12) (PR C) | Sans candidat plausible, le critère « Sûr en blind » remplace le matchup.
 CO-066 | draft-coaching.js:243 | matchup.unknown, limite | Déduction d'après les rôles habituels : ce n'est pas une information du client.
-CO-067 | draft-coaching.js:61,64 | Portées (coachRangeWords) | re:(Les deux : |: )(longue portée|portée moyenne|corps à corps|portée inconnue)
+CO-067 | draft-coaching.js:61,64 | Portées (coachRangeWords) (PR C) | re:(Les deux : |: )(longue portée|portée moyenne|mêlée|portée inconnue)
 CO-068 | draft-coaching.js:250 | comp.assassins, titres | re:^(.+ peuvent atteindre .+|\d adversaires sautent sur leurs cibles)$
 CO-069 | draft-coaching.js:251 | comp.assassins, risque, débutant | peuvent venir sur toi d'un coup, et {C} s'échappe mal. Joue près d'un allié qui peut te protéger.
 CO-070 | draft-coaching.js:252 | comp.assassins, risque, intermédiaire | Reste dans la zone de protection de ton équipe, et repère-les avant d'avancer.
 CO-071 | draft-coaching.js:275 | comp.assassins, risque, avancé (PR D) | En jeu, une frontline alliée qui peel le réduit, mais le calcul n'en tient pas compte.
-CO-072 | draft-coaching.js:254 | comp.assassins, solide, débutant | encaisse ou protège bien : place-toi près de ton joueur le plus fragile.
+CO-072 | draft-coaching.js:254 | comp.assassins, solide, débutant (PR C) | encaisse ou protège bien : place-toi près de ton allié le plus fragile.
 CO-073 | draft-coaching.js:255 | comp.assassins, solide, intermédiaire | ta solidité aide ton équipe : garde ton carry à portée pour répondre à leur saut.
-CO-074 | draft-coaching.js:256 | comp.assassins, solide, avancé | profil solide ou protecteur face à {N} plongeurs.
-CO-075 | draft-coaching.js:257 | comp.assassins, neutre, débutant | cherchent des cibles fragiles. Avant d'avancer, vérifie où ils sont sur la carte.
-CO-076 | draft-coaching.js:258 | comp.assassins, neutre, intermédiaire | Leurs plongeurs punissent un mauvais placement : quand ils ne sont pas visibles, considère qu'ils peuvent arriver.
-CO-077 | draft-coaching.js:259 | comp.assassins, neutre, avancé | plongeurs : l'équipe est forte sur une cible isolée, plus faible si elle doit traverser une frontline bien placée.
-CO-078 | draft-coaching.js:264 | comp.frontline, titre | Des joueurs solides en face : {liste}
+CO-074 | draft-coaching.js:256 | comp.assassins, solide, avancé (PR C) | profil solide ou protecteur face à {N} champions de dive.
+CO-075 | draft-coaching.js:257 | comp.assassins, neutre, débutant (PR C) | cherchent des carrys fragiles. Avant d'avancer, vérifie où ils sont sur la map.
+CO-076 | draft-coaching.js:258 | comp.assassins, neutre, intermédiaire (PR C) | Leur dive punit un mauvais placement : quand ils ne sont pas visibles, considère qu'ils peuvent arriver.
+CO-077 | draft-coaching.js:259 | comp.assassins, neutre, avancé (PR C) | champions de dive : leur comp est forte sur une cible isolée, plus faible si elle doit traverser une frontline bien placée.
+CO-078 | draft-coaching.js:264 | comp.frontline, titre (PR C) | Grosse frontline en face : {liste}
 CO-079 | draft-coaching.js:265 | comp.frontline, bonus, débutant | fait de bons dégâts à ce type de cible. Si l'un d'eux te barre la route, tes coups restent utiles.
-CO-080 | draft-coaching.js:266 | comp.frontline, bonus, intermédiaire | joueurs très solides : le profil de {C} est valorisé ici. Reste en vie assez longtemps pour que tes dégâts comptent.
+CO-080 | draft-coaching.js:266 | comp.frontline, bonus, intermédiaire (PR C) | champions très solides : le profil de {C} est valorisé ici. Reste en vie assez longtemps pour que tes dégâts comptent.
 CO-081 | draft-coaching.js:267 | comp.frontline, bonus, avancé | Attention : il compte aussi les bruisers
-CO-082 | draft-coaching.js:268 | comp.frontline, malus, débutant | se mettent devant leurs joueurs fragiles. Cherche à les contourner : foncer dans le tas ne marchera pas.
-CO-083 | draft-coaching.js:269 | comp.frontline, malus, intermédiaire | Trop de frontline à traverser pour {C} : attends que leurs sorts soient utilisés, ou joue ailleurs sur la carte.
+CO-082 | draft-coaching.js:268 | comp.frontline, malus, débutant (PR C) | se mettent devant leurs carrys fragiles. Cherche à les contourner : foncer dans le tas ne marchera pas.
+CO-083 | draft-coaching.js:269 | comp.frontline, malus, intermédiaire (PR C) | Trop de frontline à traverser pour {C} : attends que leurs sorts soient utilisés, ou joue ailleurs sur la map.
 CO-084 | draft-coaching.js:270 | comp.frontline, malus, avancé | Le moteur compte un malus (« {critère} ») : {raison}.
 CO-085 | draft-coaching.js:271 | comp.frontline, neutre, débutant | encaissent beaucoup. Un combat long les avantage si ton équipe manque de dégâts.
-CO-086 | draft-coaching.js:272 | comp.frontline, neutre, intermédiaire | joueurs très solides : ils tiennent longtemps en combat groupé. Pense à leurs joueurs fragiles derrière.
-CO-087 | draft-coaching.js:273 | comp.frontline, neutre, avancé | Composition résistante : à comparer aux dégâts soutenus de ton équipe, que l'outil ne connaît pas.
-CO-088 | draft-coaching.js:277 | comp.no-frontline, titre | Personne pour encaisser en face
+CO-086 | draft-coaching.js:272 | comp.frontline, neutre, intermédiaire (PR C) | champions très solides : ils tiennent longtemps en teamfight. Pense à leurs carrys fragiles derrière.
+CO-087 | draft-coaching.js:273 | comp.frontline, neutre, avancé (PR C) | Comp résistante : à comparer aux dégâts soutenus de ton équipe, que l'outil ne connaît pas.
+CO-088 | draft-coaching.js:277 | comp.no-frontline, titre (PR C) | Pas de frontline en face
 CO-089 | draft-coaching.js:278 | comp.no-frontline, débutant | adversaires n'encaisse vraiment : si ton équipe les atteint, le combat peut basculer vite.
-CO-090 | draft-coaching.js:279 | comp.no-frontline, intermédiaire | Sans frontline, leurs joueurs fragiles sont exposés dès que quelqu'un les atteint. À l'inverse, ils peuvent te tuer vite si tu arrives seul.
-CO-091 | draft-coaching.js:280 | comp.no-frontline, avancé | Leur force dépend alors de tuer avant d'être atteint : le premier engagement réussi pèse lourd.
-CO-092 | draft-coaching.js:284 | comp.control, titre | {liste} peuvent t'immobiliser
+CO-090 | draft-coaching.js:279 | comp.no-frontline, intermédiaire (PR C) | Sans frontline, leurs carrys fragiles sont exposés dès que quelqu'un les atteint. À l'inverse, ils peuvent te tuer vite si tu arrives seul.
+CO-091 | draft-coaching.js:280 | comp.no-frontline, avancé (PR C) | Leur force dépend alors de tuer avant d'être atteint : le premier engage réussi pèse lourd.
+CO-092 | draft-coaching.js:284 | comp.control, titre (PR C) | Beaucoup de CC ciblés : {liste}
 CO-093 | draft-coaching.js:285 | comp.control, malus, débutant | Si tu fonces et qu'ils t'immobilisent, tu ne peux plus rien faire. Mieux vaut entrer après avoir vu leurs sorts partir.
 CO-094 | draft-coaching.js:286 | comp.control, malus, intermédiaire | Regarde quel sort vient de partir avant d'entrer.
-CO-095 | draft-coaching.js:304-320 | comp.control, malus, avancé (CC ou engage, PR D) | re:(contrôles ciblés visibles\.|engages contre un champion peu mobile, pas les CC ciblés\.)
-CO-096 | draft-coaching.js:288 | comp.control, bonus, débutant | peut rester loin de leurs contrôles, puis revenir au bon moment. Ne te place pas devant ton équipe.
+CO-095 | draft-coaching.js:304-320 | comp.control, malus, avancé (CC ou engage, PR D) (PR C) | re:(CC ciblés visibles\.|engages contre un champion peu mobile, pas les CC ciblés\.)
+CO-096 | draft-coaching.js:288 | comp.control, bonus, débutant (PR C) | peut rester loin de leurs CC, puis revenir au bon moment. Ne te place pas devant ton équipe.
 CO-097 | draft-coaching.js:289 | comp.control, bonus, intermédiaire | Garde cette distance : c'est ce qui rend ce pick intéressant ici.
-CO-098 | draft-coaching.js:290 | comp.control, bonus, avancé | profil capable de jouer loin de l'engage et des contrôles.
+CO-098 | draft-coaching.js:290 | comp.control, bonus, avancé (PR C) | profil capable de jouer loin de l'engage et des CC.
 CO-099 | draft-coaching.js:291 | comp.control, neutre, débutant | Un seul de leurs sorts peut t'empêcher d'agir : évite d'être le premier à portée quand tu ne sais pas où ils sont.
-CO-100 | draft-coaching.js:292 | comp.control, neutre, intermédiaire | Plusieurs contrôles ciblés : joue autour du moment où ils sont utilisés.
-CO-101 | draft-coaching.js:293 | comp.control, neutre, avancé | contrôles ciblés : à lire avec les délais de récupération, que l'outil ne connaît pas.
-CO-102 | draft-coaching.js:297 | comp.engage, titre | {liste} peuvent lancer le combat
-CO-103 | draft-coaching.js:298 | comp.engage, débutant | Ils peuvent démarrer un combat d'un coup. Évite de rester seul dans une zone que tu ne vois pas, surtout près d'un objectif.
-CO-104 | draft-coaching.js:299 | comp.engage, intermédiaire | Équipe qui choisit quand le combat commence : place-toi avant l'apparition des objectifs, pas au dernier moment.
+CO-100 | draft-coaching.js:292 | comp.control, neutre, intermédiaire (PR C) | Plusieurs CC ciblés : joue autour du moment où ils sont utilisés.
+CO-101 | draft-coaching.js:293 | comp.control, neutre, avancé (PR C) | CC ciblés : à lire avec les cooldowns, que l'outil ne connaît pas.
+CO-102 | draft-coaching.js:297 | comp.engage, titre (PR C) | Beaucoup d'engage en face : {liste}
+CO-103 | draft-coaching.js:298 | comp.engage, débutant (PR C) | Ils peuvent engager d'un coup. Évite de rester seul dans une zone que tu ne vois pas, surtout près d'un objectif.
+CO-104 | draft-coaching.js:299 | comp.engage, intermédiaire (PR C) | Comp qui choisit quand le combat commence : place-toi avant l'apparition des objectifs, pas au dernier moment.
 CO-105 | draft-coaching.js:300 | comp.engage, avancé | sources d'engage : leur force est de forcer le combat. La vision et l'ordre d'arrivée sur les objectifs deviennent décisifs.
-CO-106 | draft-coaching.js:304 | comp.poke, titre | {liste} touchent de très loin
-CO-107 | draft-coaching.js:305 | comp.poke, débutant | Ils t'abîment de loin avant le combat. Ne reste pas à découvert sans raison : ta vie baisse pour rien.
-CO-108 | draft-coaching.js:306 | comp.poke, intermédiaire | Équipe de poke : si vous arrivez affaiblis, le combat démarre mal. Cherche à engager vite, ou à ne pas rester à portée.
+CO-106 | draft-coaching.js:304 | comp.poke, titre (PR C) | Beaucoup de poke en face : {liste}
+CO-107 | draft-coaching.js:305 | comp.poke, débutant (PR C) | Ils te poke avant le combat. Ne reste pas à découvert sans raison : ta vie baisse pour rien.
+CO-108 | draft-coaching.js:306 | comp.poke, intermédiaire (PR C) | Comp poke : si ton équipe arrive affaiblie, le teamfight démarre mal. Engage vite, ou reste hors de portée.
 CO-109 | draft-coaching.js:307 | comp.poke, avancé, critère | Le moteur en tient compte pour {C} (« {critère} » : {raison}).
 CO-110 | draft-coaching.js:307 | comp.poke, avancé, sans critère | Le poke gagne le temps : il faut soit le raccourcir, soit soigner. Ton équipe n'est pas connue de l'outil.
-CO-111 | draft-coaching.js:319 | comp.damage, titre | re:^Dégâts surtout (physiques|magiques) en face$
-CO-112 | draft-coaching.js:320 | comp.damage, débutant | Un objet qui protège des dégâts {x} peut donc être plus utile que d'habitude : regarde lesquels existent.
+CO-111 | draft-coaching.js:319 | comp.damage, titre (PR C) | re:^Dégâts surtout (AD|AP) en face$
+CO-112 | draft-coaching.js:320 | comp.damage, débutant (PR C) | re:Leurs principaux dégâts semblent (physiques \(AD\)|magiques \(AP\))\. Un objet qui protège des dégâts (physiques|magiques) peut donc être plus utile que d'habitude : regarde lesquels existent\.
 CO-113 | draft-coaching.js:321 | comp.damage, intermédiaire | une résistance adaptée a plus de valeur. Vérifie en partie, car les objets adverses changent le partage.
 CO-114 | draft-coaching.js:322 | comp.damage, avancé | Estimation d'après les notes de Riot et une table écrite à la main. Le vrai partage dépend des objets et de chaque partie : à confirmer une fois en jeu.
 CO-115 | draft-coaching.js:323 | comp.damage, limite | Estimation, pas une mesure : les dégâts réels dépendent des objets.
 CO-116 | draft-coaching.js:346 | champ.profile, titre | Comprendre {C}
-CO-117 | draft-coaching.js:347 | champ.profile, débutant | re:^.+ (se joue à (longue portée|portée moyenne|corps à corps) \(\d+\)|change de portée selon sa forme ou sa transformation)\.
+CO-117 | draft-coaching.js:347 | champ.profile, débutant (PR C) | re:^.+ (se joue à (longue portée|portée moyenne|mêlée) \(\d+\)|change de portée selon sa forme ou sa transformation)\.
 CO-118 | draft-coaching.js:348-349 | champ.profile, intermédiaire et avancé | re:^Classes Riot :
 CO-119 | draft-coaching.js:332-342 | champ.profile, forces et risques | re:(Points forts : |Attention : |Sa fiche ne lui donne pas de point fort particulier\.)
 CO-120 | draft-coaching.js:350 | champ.profile, limite | Portée et classes viennent de Riot. Forces et risques sont un avis écrit à la main.
@@ -546,21 +546,21 @@ CO-150 | draft-coaching.js:414 | personal.too-few, titre (intermédiaire et avan
 CO-151 | draft-coaching.js:415 | personal.too-few, débutant [non affiché] (minLevel 2) | trop peu pour dire comment ce champion te réussit.
 CO-152 | draft-coaching.js:415 | personal.too-few, intermédiaire | aucune tendance personnelle n'est tirée sous {N} parties.
 CO-153 | draft-coaching.js:415 | personal.too-few, avancé | aucune conclusion sur tes résultats.
-CO-154 | draft-coaching.js:425-426 | Principe débutant : dégâts | re:^(Dégâts physiques et magiques|L'armure réduit les dégâts physiques, la résistance magique réduit les dégâts magiques\..+)$
-CO-155 | draft-coaching.js:427 | Principe débutant : contrôles | re:^(Pourquoi les contrôles comptent|Un joueur immobilisé ne peut ni fuir ni attaquer\..+)$
-CO-156 | draft-coaching.js:428 | Principe débutant : placement | re:^(Se placer avant le combat|Avant un combat, demande-toi qui peut t'atteindre\..+)$
+CO-154 | draft-coaching.js:425-426 | Principe débutant : dégâts (PR C) | re:^(Dégâts AD et AP|L'armure réduit les dégâts physiques \(AD\), la résistance magique réduit les dégâts magiques \(AP\)\..+)$
+CO-155 | draft-coaching.js:427 | Principe débutant : contrôles (PR C) | re:^(Pourquoi les CC comptent|Un champion immobilisé ne peut ni fuir ni attaquer\..+)$
+CO-156 | draft-coaching.js:428 | Principe débutant : placement (PR C) | re:^(Se placer avant le combat|Avant un combat, demande-toi qui peut t'atteindre\..+)$
 CO-157 | draft-coaching.js:429 | Principe débutant : portée | re:^(Jouer avec la portée|Le plus court doit s'approcher pour toucher.+)$
 CO-158 | draft-coaching.js:430 | Principe débutant : échanges | re:^(Un bon échange|Attaque quand un sort important de ton adversaire vient de partir, puis recule\..+)$
 CO-159 | draft-coaching.js:431 | Principe débutant : farm | re:^(L'or vient d'abord des sbires|Chaque sbire que tu achèves te donne de l'or\..+)$
-CO-160 | draft-coaching.js:432 | Principe débutant : vagues | re:^(Pousser avant de bouger|Avant de quitter ta voie, pousse ta vague contre la tour adverse\..+)$
-CO-161 | draft-coaching.js:433 | Principe débutant : objectifs | re:^(Les objectifs gagnent les parties|Une mise à mort rapporte davantage si elle mène à quelque chose.+)$
-CO-162 | draft-coaching.js:434 | Principe débutant : vision | re:^(Voir avant d'avancer|Une balise montre qui arrive\..+)$
+CO-160 | draft-coaching.js:432 | Principe débutant : vagues (PR C) | re:^(Push avant de bouger|Avant de quitter ta lane, push ta vague contre la tour adverse\..+)$
+CO-161 | draft-coaching.js:433 | Principe débutant : objectifs (PR C) | re:^(Les objectifs gagnent les parties|Un kill rapporte davantage s'il mène à quelque chose.+)$
+CO-162 | draft-coaching.js:434 | Principe débutant : vision (PR C) | re:^(Voir avant d'avancer|Une ward montre qui arrive\..+)$
 CO-163 | draft-coaching.js:435 | Principe débutant : top | re:^(Le rôle du top|Tu joues souvent seul et loin de ton équipe\..+)$
-CO-164 | draft-coaching.js:436 | Principe débutant : jungle | re:^(Le rôle du jungler|Tu n'as pas de voie : tu choisis où aider\..+)$
-CO-165 | draft-coaching.js:437 | Principe débutant : mid | re:^(Le rôle du mid|Ta voie est courte et centrale : tu peux aider les deux côtés\..+)$
+CO-164 | draft-coaching.js:436 | Principe débutant : jungle (PR C) | re:^(Le rôle du jungler|Tu n'as pas de lane : tu choisis où aider\..+)$
+CO-165 | draft-coaching.js:437 | Principe débutant : mid (PR C) | re:^(Le rôle du mid|Ta lane est courte et centrale : tu peux aider les deux côtés\..+)$
 CO-166 | draft-coaching.js:438 | Principe débutant : ADC | re:^(Le rôle de l'ADC|Tu fais beaucoup de dégâts mais tu es fragile\..+)$
-CO-167 | draft-coaching.js:439 | Principe débutant : support | re:^(Le rôle du support|Ta valeur ne se lit pas dans les mises à mort\..+)$
-CO-168 | draft-coaching.js:28-41 | Définitions COACH_TERMS [non affiché] | re:^Les joueurs solides qui se placent devant et encaissent les coups\.$
+CO-167 | draft-coaching.js:439 | Principe débutant : support (PR C) | re:^(Le rôle du support|Ta valeur ne se lit pas dans les kills\..+)$
+CO-168 | draft-coaching.js:28-41 | Définitions COACH_TERMS [non affiché] (PR C) | re:^Les champions solides qui se placent devant et encaissent les coups\.$
 
 CO-169 | draft-coaching.js:143-170 | draft.close, nom affiché 2e : il reste affiché (PR D) | re:reste affiché tant que l'écart reste sous \d points, pour que le conseil ne change pas à chaque pick\.
 CO-170 | draft-coaching.js:304-320 | comp.control, malus venu des engages (PR D) | re:(peuvent engager sur toi, et .+ est peu mobile\. Reste derrière ta frontline et attends leur engage\.|Place-toi derrière ta frontline avant les objectifs\.)
@@ -606,7 +606,7 @@ DA-010 | draft-data.js:144 | Note : bilans calculés | re:Pour le rôle (Top|Jun
 DA-011 | draft-data.js:150 | Note : tableau de matchups | adversaires au mid, pour Twisted Fate, Fizz, Kog'Maw et Xerath seulement. Sans statistiques ni patch.
 DA-012 | draft-data.js:155 | Note : fiches | fiches d'avis général, sans statistiques ni patch. À revoir si un champion est refait.
 DA-013 | draft-data.js:162-163 | Note : statistiques importées | re:(Pas d'import sur ce PC\. Facultatif\.|Affichées seulement : elles ne changent pas le classement\.)
-DA-014 | draft-data.js:74,143 | Rang des bilans | Silver à Émeraude, classé solo/duo
+DA-014 | draft-data.js:74,143 | Rang des bilans (PR C) | Silver à Emerald, classé solo/duo
 DA-015 | draft-data.js:330 | Hypothèse « pas encore choisi » (ligne adversaire) | re:pas encore choisi
 
 ## web/draft-profiles.js : import et export des profils (Réglages)
@@ -816,10 +816,10 @@ function checks(x, where) {
     const unknown = advice.items.find(i => i.id === "matchup.unknown");
     if (unknown && (/les deux cas/.test(unknown.title) || / ou /.test(unknown.title)) && !/ ou /.test(unknown.text) && !/ et /.test(unknown.text) && !/, /.test(unknown.text)) constat("B-14 « prépare les deux cas » avec un seul candidat nommé", `${tag} ${unknown.text}`);
     const blindCrit = shownEntry && shownEntry.criteria.some(c => c.key === "blind");
-    if (unknown && /sans adversaire connu|sécurité du pick en blind/.test(unknown.text) && ($.myRole() !== "mid" || !blindCrit)) constat("B-12 critère « sans adversaire connu » annoncé alors qu'il ne s'applique pas", `${tag} ${unknown.text}`);
+    if (unknown && /« Sûr en blind »|sans adversaire connu|sécurité du pick en blind/.test(unknown.text) && ($.myRole() !== "mid" || !blindCrit)) constat("B-12 critère « sans adversaire connu » annoncé alors qu'il ne s'applique pas", `${tag} ${unknown.text}`);
     const control = advice.items.find(i => i.id === "comp.control");
     const cc = shownEntry && shownEntry.criteria.find(c => c.key === "control");
-    if (control && cc && cc.impact < 0 && /engages contre un champion lent/.test(cc.text) && /Si tu fonces|contrôles ciblés visibles/.test(control.text)) constat("B-15 « peuvent t'immobiliser / Si tu fonces » pour un malus d'engage sur un champion lent", `${tag} ${control.title} — ${control.text}`);
+    if (control && cc && cc.impact < 0 && /engages contre un champion (lent|peu mobile)/.test(cc.text) && /Si tu fonces|(contrôles|CC) ciblés visibles/.test(control.text)) constat("B-15 « peuvent t'immobiliser / Si tu fonces » pour un malus d'engage sur un champion lent", `${tag} ${control.title} — ${control.text}`);
     const assassins = advice.items.find(i => i.id === "comp.assassins");
     if (assassins && /Il baisse avec une frontline alliée/.test(assassins.text)) constat("B-13 risque de plongeurs « baisse avec une frontline alliée » : le calcul n'en tient pas compte", tag);
     const conflict = advice.items.find(i => i.id === "draft.conflict");

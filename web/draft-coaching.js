@@ -25,18 +25,18 @@ const DAMAGE_OVERRIDES = {
 };
 
 const COACH_TERMS = {
-  frontline:"Les joueurs solides qui se placent devant et encaissent les coups.",
+  frontline:"Les champions solides qui se placent devant et encaissent les coups.",
   carry:"Le joueur qui fait le plus de dégâts de son équipe, souvent fragile.",
-  engage:"Démarrer un combat en sautant sur l'adversaire.",
-  poke:"Toucher l'adversaire de loin, sans entrer vraiment dans le combat.",
-  "contrôle":"Un effet qui empêche de bouger ou d'agir : étourdissement, immobilisation...",
-  assassin:"Un champion qui saute sur une cible fragile pour la tuer très vite.",
-  roam:"Quitter ta voie pour aller aider une autre voie.",
-  vague:"Le groupe de sbires qui avance sur une voie.",
+  engage:"Lancer le combat en sautant sur l'adversaire.",
+  poke:"Abîmer l'adversaire de loin, sans entrer dans le combat.",
+  "contrôle":"CC : un effet qui empêche de bouger ou d'agir (stun, root...).",
+  assassin:"Un champion qui saute sur un carry fragile pour le tuer très vite.",
+  roam:"Quitter ta lane pour aller aider une autre lane.",
+  vague:"Le groupe de sbires qui avance sur une lane.",
   farm:"Donner le dernier coup aux sbires pour gagner de l'or.",
   "échange":"Une courte attaque sur l'adversaire, suivie d'un recul.",
   portée:"La distance à laquelle un champion peut toucher sa cible.",
-  objectif:"Une cible importante de la carte : tour, dragon, baron."
+  objectif:"Une cible importante de la map : tour, dragon, baron."
 };
 
 function coachOfficial(name) { return typeof CHAMPION_OFFICIAL !== "undefined" ? CHAMPION_OFFICIAL.champions[name] || null : null; }
@@ -56,8 +56,11 @@ function coachIsSolid(name) {
   return /t/.test(ROSTER[name] || "") || (!/a/.test(ROSTER[name] || "") && !!o && o.defense >= 6);
 }
 const coachNum = v => v.toFixed(1).replace(".", ",");
+// Classes Riot traduites pour l'affichage. La donnée (o.tags) reste celle de Riot.
+const COACH_RIOT_CLASSES = { Fighter:"Combattant", Marksman:"Tireur", Mage:"Mage", Assassin:"Assassin", Tank:"Tank", Support:"Support" };
+const coachRiotClass = tag => COACH_RIOT_CLASSES[tag] || tag;
 const coachList = names => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
-const coachRangeWord = range => range === null ? null : range >= 500 ? "longue portée" : range >= 300 ? "portée moyenne" : "corps à corps";
+const coachRangeWord = range => range === null ? null : range >= 500 ? "longue portée" : range >= 300 ? "portée moyenne" : "mêlée";
 
 // Trois noms au plus, sans cacher qu'il y en a d'autres.
 const coachNames = names => names.length <= 3 ? coachList(names) : `${names.slice(0, 3).join(", ")} et ${names.length - 3} autre${names.length > 4 ? "s" : ""}`;
@@ -67,7 +70,8 @@ function coachReason(text, fallback) {
   const m = text.match(/^(\d+) ([^:]+) : ([^:]+)$/);
   let out = text;
   if (m && m[3].split(", ").every(n => ROSTER[n] !== undefined)) { const shown = m[3].split(", ").length, total = +m[1]; if (shown < total) out = `${text} et ${total - shown} autre${total - shown > 1 ? "s" : ""}`; }
-  return NAMES.some(n => out.startsWith(n)) ? out : out.charAt(0).toLowerCase() + out.slice(1);
+  // Un nom de champion ou un sigle (CC, ADC, AP) garde sa majuscule.
+  return NAMES.some(n => out.startsWith(n)) || /^[A-Z]{2,}\b/.test(out) ? out : out.charAt(0).toLowerCase() + out.slice(1);
 }
 // Pourquoi un pick est affiché en premier à score égal (tieCause, draft-engine.js). shown : le nom affiché en premier.
 function tieCauseText(cause, shown) {
@@ -204,7 +208,7 @@ const COACH_RULES = [
     when: c => c.n > 0 && c.n < 5 ? {} : null,
     build: c => ({ title:`Il reste ${5 - c.n} adversaire${5 - c.n > 1 ? "s" : ""} à voir`,
       text:[`Ce conseil peut changer. Attends si tu peux, avant de te décider.`,
-        `La lecture de la composition se fait sur ${c.n} champion${c.n > 1 ? "s" : ""} seulement : les comptes de frontline et de contrôles peuvent encore bouger.`,
+        `La lecture de la composition se fait sur ${c.n} champion${c.n > 1 ? "s" : ""} seulement : les comptes de frontline et de CC peuvent encore bouger.`,
         `Les critères à seuil ne se déclenchent pas encore tous, et ${5 - c.n} rôle${5 - c.n > 1 ? "s restent" : " reste"} ouvert${5 - c.n > 1 ? "s" : ""} dans le calcul des hypothèses.`] }) },
 
   // ----- Matchups -----
@@ -246,15 +250,15 @@ const COACH_RULES = [
   { id:"matchup.tank", category:"matchup", priority:66, basis:"heuristic",
     when: c => c.opponent && c.pick && /t/.test(ROSTER[c.opponent] || "") ? {} : null,
     build: c => { const killer = hasTrait(c.entry.pick, "k"); return { title:`${c.opponent} encaisse beaucoup`, terms:["frontline", "roam"],
-      text:killer ? [`${c.opponent} est solide, mais ${c.pick} fait de bons dégâts aux joueurs solides. Tuer ${c.opponent} prend du temps : n'en fais pas ta priorité tout de suite.`,
+      text:killer ? [`${c.opponent} est solide, mais ${c.pick} fait de bons dégâts aux tanks. Tuer ${c.opponent} prend du temps : n'en fais pas ta priorité tout de suite.`,
         `Un tank en face tue rarement vite : joue la durée. ${c.pick} a ce qu'il faut contre une grosse barre de vie.`,
         `Face à un tank, l'intérêt de ${c.pick} grandit avec le temps. C'est une règle générale de sa fiche, pas un bilan mesuré de ce matchup.`]
       : !["top", "mid", "adc"].includes(c.role) ? [`Tu mettras du temps à tuer ${c.opponent}. Ne t'acharne pas : regarde s'il y a une cible plus fragile à ta portée.`,
         `Tuer un tank est long : garde tes sorts pour une cible plus fragile, sauf si tes alliés se concentrent sur lui.`,
-        `Contre un tank, ton impact passe souvent par les cibles fragiles et le timing. À nuancer selon ce que ton équipe peut tuer.`]
+        `Contre un tank, ton impact passe souvent par les carrys fragiles et le timing. À nuancer selon ce que ton équipe peut tuer.`]
       : [`Tu mettras du temps à tuer ${c.opponent}. Ne t'acharne pas : va plutôt aider ailleurs quand ta vague est poussée.`,
-        `Tuer un tank en voie est long et rarement rentable tôt : pousse ta vague et regarde où ton aide pèserait davantage.`,
-        `Contre un tank, l'objectif de voie est souvent le tempo plutôt que le meurtre. À nuancer selon ta capacité à le punir.`],
+        `Tuer un tank en lane est long et rarement rentable tôt : push ta vague et regarde où ton aide pèserait davantage.`,
+        `Contre un tank, l'objectif en lane est souvent le tempo plutôt que le kill. À nuancer selon ta capacité à le punir.`],
       limits:"Avis général, pas un bilan de ce matchup." }; } },
   { id:"matchup.assassin", category:"matchup", priority:70, basis:"heuristic",
     when: c => c.opponent && c.pick && /a/.test(ROSTER[c.opponent] || "") && !/t/.test(ROSTER[c.opponent] || "") && !(c.compo.divers.length >= 2 && c.compo.divers.includes(c.opponent)) ? {} : null,
@@ -280,7 +284,7 @@ const COACH_RULES = [
       ] : [
         `Tant qu'il n'est pas identifié, le conseil ne porte pas sur ton matchup. Si tu peux, choisis après l'avoir vu.`,
         d.blind ? `Le matchup ne compte pas encore : le conseil repose sur la comp adverse et sur la sécurité du pick en blind.` : `Le matchup ne compte pas encore : le conseil repose sur la comp adverse.`,
-        d.blind ? `Sans candidat plausible, le critère « Sécurité sans adversaire connu » remplace le matchup.` : `Le matchup ne compte pas encore : le conseil repose sur la comp adverse.`
+        d.blind ? `Sans candidat plausible, le critère « Sûr en blind » remplace le matchup.` : `Le matchup ne compte pas encore : le conseil repose sur la comp adverse.`
       ], limits:"Déduction d'après les rôles habituels : ce n'est pas une information du client." }) },
 
   // ----- Composition -----
@@ -292,65 +296,65 @@ const COACH_RULES = [
         text:risky ? [`${names} peuvent venir sur toi d'un coup, et ${c.pick} s'échappe mal. Joue près d'un allié qui peut te protéger.`,
           `${c.pick} a peu de sorties contre ${names}. Reste dans la zone de protection de ton équipe, et repère-les avant d'avancer.`,
           `Risque compté par le moteur (« ${cr.label} »). En jeu, une frontline alliée qui peel le réduit, mais le calcul n'en tient pas compte.`]
-        : solid ? [`${names} cherchent des cibles fragiles. ${c.pick} encaisse ou protège bien : place-toi près de ton joueur le plus fragile.`,
+        : solid ? [`${names} cherchent des carrys fragiles. ${c.pick} encaisse ou protège bien : place-toi près de ton allié le plus fragile.`,
           `Contre ${names}, ta solidité aide ton équipe : garde ton carry à portée pour répondre à leur saut.`,
-          `Le moteur compte un avantage sur « ${cr.label} » : profil solide ou protecteur face à ${c.compo.divers.length} plongeurs.`]
-        : [`${names} cherchent des cibles fragiles. Avant d'avancer, vérifie où ils sont sur la carte.`,
-          `Leurs plongeurs punissent un mauvais placement : quand ils ne sont pas visibles, considère qu'ils peuvent arriver.`,
-          `${c.compo.divers.length} plongeurs : l'équipe est forte sur une cible isolée, plus faible si elle doit traverser une frontline bien placée.`],
+          `Le moteur compte un avantage sur « ${cr.label} » : profil solide ou protecteur face à ${c.compo.divers.length} champions de dive.`]
+        : [`${names} cherchent des carrys fragiles. Avant d'avancer, vérifie où ils sont sur la map.`,
+          `Leur dive punit un mauvais placement : quand ils ne sont pas visibles, considère qu'ils peuvent arriver.`,
+          `${c.compo.divers.length} champions de dive : leur comp est forte sur une cible isolée, plus faible si elle doit traverser une frontline bien placée.`],
         stance:cr ? { key:"dive", sign:Math.sign(cr.impact) } : null, evidence:[{ kind:"champions", value:c.compo.divers }] };
     } },
   { id:"comp.frontline", category:"composition", priority:62, basis:"heuristic",
     when: c => { const solid = c.compo.front.filter(coachIsSolid); return solid.length >= 2 && c.pick ? { solid } : null; },
-    build: (c, d) => { const names = coachNames(d.solid), cr = c.crit("front"), good = cr && cr.impact > 0, bad = cr && cr.impact < 0; return { title:`Des joueurs solides en face : ${names}`, terms:["frontline", "carry"],
+    build: (c, d) => { const names = coachNames(d.solid), cr = c.crit("front"), good = cr && cr.impact > 0, bad = cr && cr.impact < 0; return { title:`Grosse frontline en face : ${names}`, terms:["frontline", "carry"],
       text:good ? [`${names} encaissent beaucoup, et ${c.pick} fait de bons dégâts à ce type de cible. Si l'un d'eux te barre la route, tes coups restent utiles.`,
-        `${d.solid.length} joueurs très solides : le profil de ${c.pick} est valorisé ici. Reste en vie assez longtemps pour que tes dégâts comptent.`,
+        `${d.solid.length} champions très solides : le profil de ${c.pick} est valorisé ici. Reste en vie assez longtemps pour que tes dégâts comptent.`,
         `Bonus du critère « ${cr.label} » (+${coachNum(cr.impact)}). Attention : il compte aussi les bruisers (${c.compo.front.length} ici), et se déclenche dès 2 : ne le lis pas comme un avantage rare.`]
-      : bad ? [`${names} se mettent devant leurs joueurs fragiles. Cherche à les contourner : foncer dans le tas ne marchera pas.`,
-        `Trop de frontline à traverser pour ${c.pick} : attends que leurs sorts soient utilisés, ou joue ailleurs sur la carte.`,
+      : bad ? [`${names} se mettent devant leurs carrys fragiles. Cherche à les contourner : foncer dans le tas ne marchera pas.`,
+        `Trop de frontline à traverser pour ${c.pick} : attends que leurs sorts soient utilisés, ou joue ailleurs sur la map.`,
         `Le moteur compte un malus (« ${cr.label} ») : ${cr.text}.`]
       : [`${names} encaissent beaucoup. Un combat long les avantage si ton équipe manque de dégâts.`,
-        `${d.solid.length} joueurs très solides : ils tiennent longtemps en combat groupé. Pense à leurs joueurs fragiles derrière.`,
-        `Composition résistante : à comparer aux dégâts soutenus de ton équipe, que l'outil ne connaît pas.`],
+        `${d.solid.length} champions très solides : ils tiennent longtemps en teamfight. Pense à leurs carrys fragiles derrière.`,
+        `Comp résistante : à comparer aux dégâts soutenus de ton équipe, que l'outil ne connaît pas.`],
       stance:cr ? { key:"front", sign:Math.sign(cr.impact) } : null, evidence:[{ kind:"champions", value:d.solid }] }; } },
   { id:"comp.no-frontline", category:"composition", priority:64, basis:"heuristic",
     when: c => c.n >= 4 && !c.compo.front.length ? {} : null,
-    build: c => ({ title:"Personne pour encaisser en face", terms:["frontline", "carry"],
+    build: c => ({ title:"Pas de frontline en face", terms:["frontline", "carry"],
       text:[`Aucun des ${c.n} adversaires n'encaisse vraiment : si ton équipe les atteint, le combat peut basculer vite.`,
-        `Sans frontline, leurs joueurs fragiles sont exposés dès que quelqu'un les atteint. À l'inverse, ils peuvent te tuer vite si tu arrives seul.`,
-        `Absence de tank ou de bruiser sur ${c.n} champions visibles. Leur force dépend alors de tuer avant d'être atteint : le premier engagement réussi pèse lourd.`],
+        `Sans frontline, leurs carrys fragiles sont exposés dès que quelqu'un les atteint. À l'inverse, ils peuvent te tuer vite si tu arrives seul.`,
+        `Absence de tank ou de bruiser sur ${c.n} champions visibles. Leur force dépend alors de tuer avant d'être atteint : le premier engage réussi pèse lourd.`],
       evidence:[{ kind:"count", key:"frontline", value:0 }] }) },
   { id:"comp.control", category:"composition", priority:60, basis:"heuristic",
     when: c => c.compo.cc.length >= 2 && c.pick ? {} : null,
     build: c => { const names = coachNames(c.compo.cc), cr = c.crit("control"), bad = cr && cr.impact < 0, good = cr && cr.impact > 0;
       // Malus venu des engages (champion peu mobile), pas des CC ciblés : même règle, autre branche (draft-engine.js, critère control).
       const engage = bad && !(hasTrait(c.entry.pick, "h") && hasTrait(c.entry.pick, "d") && c.compo.cc.length >= 2);
-      return { title:`${names} peuvent t'immobiliser`, terms:["contrôle"],
+      return { title:`Beaucoup de CC ciblés : ${names}`, terms:["contrôle"],
       text:engage ? [`${coachNames(c.compo.engage)} peuvent engager sur toi, et ${c.pick} est peu mobile. Reste derrière ta frontline et attends leur engage.`,
         `${cr.text}. Place-toi derrière ta frontline avant les objectifs.`,
         `Malus du critère « ${cr.label} » : ${c.compo.engage.length} engages contre un champion peu mobile, pas les CC ciblés.`]
       : bad ? [`Si tu fonces et qu'ils t'immobilisent, tu ne peux plus rien faire. Mieux vaut entrer après avoir vu leurs sorts partir.`,
-        `Leurs contrôles punissent ${c.pick} : ${cr.text}. Regarde quel sort vient de partir avant d'entrer.`,
-        `Malus du critère « ${cr.label} » : ${c.compo.cc.length} contrôles ciblés visibles.`]
-      : good ? [`${c.pick} peut rester loin de leurs contrôles, puis revenir au bon moment. Ne te place pas devant ton équipe.`,
+        `Leurs CC punissent ${c.pick} : ${cr.text}. Regarde quel sort vient de partir avant d'entrer.`,
+        `Malus du critère « ${cr.label} » : ${c.compo.cc.length} CC ciblés visibles.`]
+      : good ? [`${c.pick} peut rester loin de leurs CC, puis revenir au bon moment. Ne te place pas devant ton équipe.`,
         `${cr.text}. Garde cette distance : c'est ce qui rend ce pick intéressant ici.`,
-        `Bonus du critère « ${cr.label} » : profil capable de jouer loin de l'engage et des contrôles.`]
+        `Bonus du critère « ${cr.label} » : profil capable de jouer loin de l'engage et des CC.`]
       : [`Un seul de leurs sorts peut t'empêcher d'agir : évite d'être le premier à portée quand tu ne sais pas où ils sont.`,
-        `Plusieurs contrôles ciblés : joue autour du moment où ils sont utilisés.`,
-        `${c.compo.cc.length} contrôles ciblés : à lire avec les délais de récupération, que l'outil ne connaît pas.`],
+        `Plusieurs CC ciblés : joue autour du moment où ils sont utilisés.`,
+        `${c.compo.cc.length} CC ciblés : à lire avec les cooldowns, que l'outil ne connaît pas.`],
       stance:cr ? { key:"control", sign:Math.sign(cr.impact) } : null, evidence:[{ kind:"champions", value:c.compo.cc }] }; } },
   { id:"comp.engage", category:"composition", priority:56, basis:"heuristic",
     when: c => c.compo.engage.length >= 3 ? {} : null,
-    build: c => { const names = coachNames(c.compo.engage); return { title:`${names} peuvent lancer le combat`, terms:["engage", "objectif"],
-      text:[`Ils peuvent démarrer un combat d'un coup. Évite de rester seul dans une zone que tu ne vois pas, surtout près d'un objectif.`,
-        `Équipe qui choisit quand le combat commence : place-toi avant l'apparition des objectifs, pas au dernier moment.`,
+    build: c => { const names = coachNames(c.compo.engage); return { title:`Beaucoup d'engage en face : ${names}`, terms:["engage", "objectif"],
+      text:[`Ils peuvent engager d'un coup. Évite de rester seul dans une zone que tu ne vois pas, surtout près d'un objectif.`,
+        `Comp qui choisit quand le combat commence : place-toi avant l'apparition des objectifs, pas au dernier moment.`,
         `${c.compo.engage.length} sources d'engage : leur force est de forcer le combat. La vision et l'ordre d'arrivée sur les objectifs deviennent décisifs.`],
       evidence:[{ kind:"champions", value:c.compo.engage }] }; } },
   { id:"comp.poke", category:"composition", priority:54, basis:"heuristic",
     when: c => c.compo.poke.length >= 2 ? {} : null,
-    build: c => { const names = coachNames(c.compo.poke), cr = c.crit("range"); return { title:`${names} touchent de très loin`, terms:["poke", "portée"],
-      text:[`Ils t'abîment de loin avant le combat. Ne reste pas à découvert sans raison : ta vie baisse pour rien.`,
-        `Équipe de poke : si vous arrivez affaiblis, le combat démarre mal. Cherche à engager vite, ou à ne pas rester à portée.`,
+    build: c => { const names = coachNames(c.compo.poke), cr = c.crit("range"); return { title:`Beaucoup de poke en face : ${names}`, terms:["poke", "portée"],
+      text:[`Ils te poke avant le combat. Ne reste pas à découvert sans raison : ta vie baisse pour rien.`,
+        `Comp poke : si ton équipe arrive affaiblie, le teamfight démarre mal. Engage vite, ou reste hors de portée.`,
         cr ? `Le moteur en tient compte pour ${c.pick} (« ${cr.label} » : ${cr.text}).` : `Le poke gagne le temps : il faut soit le raccourcir, soit soigner. Ton équipe n'est pas connue de l'outil.`],
       stance:cr ? { key:"range", sign:Math.sign(cr.impact) } : null, evidence:[{ kind:"champions", value:c.compo.poke }] }; } },
   { id:"comp.damage", category:"composition", priority:50, basis:"estimate",
@@ -363,8 +367,8 @@ const COACH_RULES = [
       if (mag === kinds.length) return { type:"magiques", other:"physiques", kinds };
       return null;
     },
-    build: (c, d) => ({ title:`Dégâts surtout ${d.type} en face`, terms:[],
-      text:[`Leurs principaux dégâts semblent ${d.type}. Un objet qui protège des dégâts ${d.type} peut donc être plus utile que d'habitude : regarde lesquels existent.`,
+    build: (c, d) => ({ title:`Dégâts surtout ${d.type === "magiques" ? "AP" : "AD"} en face`, terms:[],
+      text:[`Leurs principaux dégâts semblent ${d.type} (${d.type === "magiques" ? "AP" : "AD"}). Un objet qui protège des dégâts ${d.type} peut donc être plus utile que d'habitude : regarde lesquels existent.`,
         `Répartition déséquilibrée sur ${d.kinds.length} champions : une résistance adaptée a plus de valeur. Vérifie en partie, car les objets adverses changent le partage.`,
         `Estimation d'après les notes de Riot et une table écrite à la main. Le vrai partage dépend des objets et de chaque partie : à confirmer une fois en jeu.`],
       limits:"Estimation, pas une mesure : les dégâts réels dépendent des objets.", evidence:[{ kind:"damage", value:d.type, champions:d.kinds.length }] }) },
@@ -375,25 +379,25 @@ const COACH_RULES = [
     build: c => {
       const o = coachOfficial(c.pick), traits = CHAMPION_TRAITS[c.pick], word = coachRangeWord(o.range);
       const assets = [], risks = [];
-      if (traits.includes("l")) assets.push("touche de très loin");
-      if (traits.includes("k")) assets.push("fait de bons dégâts aux joueurs solides");
-      if (traits.includes("h")) assets.push("peut tuer une cible fragile");
+      if (traits.includes("l")) assets.push("poke de très loin");
+      if (traits.includes("k")) assets.push("fait de bons dégâts aux tanks");
+      if (traits.includes("h")) assets.push("peut tuer un carry fragile");
       if (traits.includes("t")) assets.push("encaisse bien");
       if (traits.includes("c")) assets.push("protège ses alliés");
-      if (traits.includes("E")) assets.push("peut lancer les combats");
-      if (traits.includes("g")) assets.push("peut peser sur toute la carte");
+      if (traits.includes("E")) assets.push("peut engager les combats");
+      if (traits.includes("g")) assets.push("grosse pression sur la map");
       if (traits.includes("i")) risks.push("se déplace peu, donc un adversaire mobile peut l'atteindre");
       if (traits.includes("p")) risks.push("a besoin d'alliés autour");
       if (traits.includes("d") && !traits.includes("t")) risks.push("doit entrer dans le combat, donc s'exposer");
-      if (traits.includes("w")) risks.push("a peu de prise sur les joueurs solides");
+      if (traits.includes("w")) risks.push("a peu de prise sur les tanks");
       const main = assets.length ? assets.slice(0, 2).join(" et ") : null;
       const risk = risks.length ? ` Attention : ${risks[0]}.` : "";
       const changes = COACH_RANGE_CHANGES.includes(c.pick), how = changes ? `${c.pick} change de portée selon sa forme ou sa transformation` : `${c.pick} se joue à ${word} (${o.range})`;
       const points = main ? ` Points forts : ${main}.` : " Sa fiche ne lui donne pas de point fort particulier.", rangeText = changes ? "portée variable" : `portée ${o.range}`;
       return { title:`Comprendre ${c.pick}`, terms:["portée"],
         text:[`${how}.${main ? ` Points forts : ${main}.` : ""}${risk}`,
-          `Classes Riot : ${o.tags.join(", ")}. ${rangeText.charAt(0).toUpperCase() + rangeText.slice(1)}.${points}${risk}`,
-          `Classes Riot : ${o.tags.join(", ")}, ${rangeText}, difficulté notée ${o.difficulty}/10 par Riot.${points}${risk}`],
+          `Classes Riot : ${o.tags.map(coachRiotClass).join(", ")}. ${rangeText.charAt(0).toUpperCase() + rangeText.slice(1)}.${points}${risk}`,
+          `Classes Riot : ${o.tags.map(coachRiotClass).join(", ")}, ${rangeText}, difficulté notée ${o.difficulty}/10 par Riot.${points}${risk}`],
         limits:"Portée et classes viennent de Riot. Forces et risques sont un avis écrit à la main.", evidence:[{ kind:"official", tags:o.tags, range:o.range, difficulty:o.difficulty }] };
     } },
   { id:"champ.difficulty", category:"champion", priority:44, basis:"official", maxLevel:1,
@@ -471,21 +475,21 @@ function when2(c) {
 
 // ---------- Principes pour débuter : choisis d'après la draft, jamais au hasard ----------
 const COACH_FUNDAMENTALS = [
-  { id:"fund.damage-types", term:null, trigger:c => c.n >= 3, roles:null, priority:20, title:"Dégâts physiques et magiques",
-    text:"L'armure réduit les dégâts physiques, la résistance magique réduit les dégâts magiques. Regarde ce que font surtout tes adversaires avant de choisir un objet de protection." },
-  { id:"fund.cc", trigger:c => c.compo.cc.length >= 1, roles:null, priority:27, title:"Pourquoi les contrôles comptent", text:"Un joueur immobilisé ne peut ni fuir ni attaquer. Quand un adversaire vient de rater ou d'utiliser son contrôle, c'est souvent le bon moment pour agir." },
-  { id:"fund.positioning", trigger:c => c.compo.divers.length >= 1 || c.compo.engage.length >= 2, roles:null, priority:26, title:"Se placer avant le combat", text:"Avant un combat, demande-toi qui peut t'atteindre. Si tu es fragile, reste derrière un allié solide : le joueur touché en premier a peu de chances de finir le combat." },
+  { id:"fund.damage-types", term:null, trigger:c => c.n >= 3, roles:null, priority:20, title:"Dégâts AD et AP",
+    text:"L'armure réduit les dégâts physiques (AD), la résistance magique réduit les dégâts magiques (AP). Regarde ce que font surtout tes adversaires avant de choisir un objet de protection." },
+  { id:"fund.cc", trigger:c => c.compo.cc.length >= 1, roles:null, priority:27, title:"Pourquoi les CC comptent", text:"Un champion immobilisé ne peut ni fuir ni attaquer. Quand un adversaire vient de rater ou d'utiliser son CC, c'est souvent le bon moment pour agir." },
+  { id:"fund.positioning", trigger:c => c.compo.divers.length >= 1 || c.compo.engage.length >= 2, roles:null, priority:26, title:"Se placer avant le combat", text:"Avant un combat, demande-toi qui peut t'atteindre. Si tu es fragile, reste derrière ta frontline : le champion touché en premier a peu de chances de finir le combat." },
   { id:"fund.range", trigger:c => !!coachRangeDuel(c), roles:["top", "mid", "adc"], priority:28, title:"Jouer avec la portée", text:"Le plus court doit s'approcher pour toucher : il ne doit le faire que lorsqu'il y gagne quelque chose. Le plus long doit le punir à chaque fois qu'il avance pour un sbire." },
   { id:"fund.trades", trigger:c => !!c.opponent, roles:["top", "mid", "adc"], priority:18, title:"Un bon échange", text:"Attaque quand un sort important de ton adversaire vient de partir, puis recule. Tu lui prends de la vie sans qu'il puisse répondre aussi fort." },
-  { id:"fund.farm", trigger:() => true, roles:["top", "mid", "adc"], priority:12, title:"L'or vient d'abord des sbires", text:"Chaque sbire que tu achèves te donne de l'or. Une quinzaine de sbires rapporte à peu près autant qu'une mise à mort : ne prends pas de gros risques pour un échange inutile." },
-  { id:"fund.waves", trigger:c => !!c.pick && hasTrait(pickId(c.pick), "r") || !!c.pick && hasTrait(pickId(c.pick), "g"), roles:["top", "mid"], priority:22, title:"Pousser avant de bouger", text:"Avant de quitter ta voie, pousse ta vague contre la tour adverse. Tes sbires occupent l'ennemi, et tu perds moins d'or pendant ton absence." },
-  { id:"fund.objectives", trigger:c => c.n >= 4, roles:null, priority:14, title:"Les objectifs gagnent les parties", text:"Une mise à mort rapporte davantage si elle mène à quelque chose : une tour, un dragon, un baron. Après un combat gagné, regarde d'abord ce que ton équipe peut prendre." },
-  { id:"fund.vision", trigger:c => c.compo.engage.length >= 2 || c.compo.divers.length >= 2, roles:null, priority:16, title:"Voir avant d'avancer", text:"Une balise montre qui arrive. Sans elle, considère que l'adversaire absent de la carte peut se trouver près de toi." },
-  { id:"fund.role-top", trigger:() => true, roles:["top"], priority:24, title:"Le rôle du top", text:"Tu joues souvent seul et loin de ton équipe. Une téléportation ou une tour prise peut peser plus qu'un duel gagné." },
-  { id:"fund.role-jungle", trigger:() => true, roles:["jungle"], priority:24, title:"Le rôle du jungler", text:"Tu n'as pas de voie : tu choisis où aider. Va là où un allié peut suivre, et regarde les objectifs qui apparaissent bientôt." },
-  { id:"fund.role-mid", trigger:() => true, roles:["mid"], priority:24, title:"Le rôle du mid", text:"Ta voie est courte et centrale : tu peux aider les deux côtés. Pousse ta vague d'abord, puis regarde où ton aide changerait quelque chose." },
-  { id:"fund.role-adc", trigger:() => true, roles:["adc"], priority:24, title:"Le rôle de l'ADC", text:"Tu fais beaucoup de dégâts mais tu es fragile. Ton but en combat : rester en vie et frapper ce qui est à portée, pas aller chercher une cible lointaine." },
-  { id:"fund.role-support", trigger:() => true, roles:["support"], priority:24, title:"Le rôle du support", text:"Ta valeur ne se lit pas dans les mises à mort. Protéger ton ADC, poser de la vision et lancer le bon combat rapporte plus." }
+  { id:"fund.farm", trigger:() => true, roles:["top", "mid", "adc"], priority:12, title:"L'or vient d'abord des sbires", text:"Chaque sbire que tu achèves te donne de l'or. Une quinzaine de sbires rapporte à peu près autant qu'un kill : ne prends pas de gros risques pour un échange inutile." },
+  { id:"fund.waves", trigger:c => !!c.pick && hasTrait(pickId(c.pick), "r") || !!c.pick && hasTrait(pickId(c.pick), "g"), roles:["top", "mid"], priority:22, title:"Push avant de bouger", text:"Avant de quitter ta lane, push ta vague contre la tour adverse. Tes sbires occupent l'ennemi, et tu perds moins d'or pendant ton absence." },
+  { id:"fund.objectives", trigger:c => c.n >= 4, roles:null, priority:14, title:"Les objectifs gagnent les parties", text:"Un kill rapporte davantage s'il mène à quelque chose : une tour, un dragon, un baron. Après un combat gagné, regarde d'abord ce que ton équipe peut prendre." },
+  { id:"fund.vision", trigger:c => c.compo.engage.length >= 2 || c.compo.divers.length >= 2, roles:null, priority:16, title:"Voir avant d'avancer", text:"Une ward montre qui arrive. Sans elle, considère que l'adversaire absent de la map peut se trouver près de toi." },
+  { id:"fund.role-top", trigger:() => true, roles:["top"], priority:24, title:"Le rôle du top", text:"Tu joues souvent seul et loin de ton équipe. Un TP ou une tour prise peut peser plus qu'un duel gagné." },
+  { id:"fund.role-jungle", trigger:() => true, roles:["jungle"], priority:24, title:"Le rôle du jungler", text:"Tu n'as pas de lane : tu choisis où aider. Va là où un allié peut suivre, et regarde les objectifs qui apparaissent bientôt." },
+  { id:"fund.role-mid", trigger:() => true, roles:["mid"], priority:24, title:"Le rôle du mid", text:"Ta lane est courte et centrale : tu peux aider les deux côtés. Push ta vague d'abord, puis regarde où ton aide changerait quelque chose." },
+  { id:"fund.role-adc", trigger:() => true, roles:["adc"], priority:24, title:"Le rôle de l'ADC", text:"Tu fais beaucoup de dégâts mais tu es fragile. Ton but en teamfight : rester en vie et frapper ce qui est à portée, pas aller chercher une cible lointaine." },
+  { id:"fund.role-support", trigger:() => true, roles:["support"], priority:24, title:"Le rôle du support", text:"Ta valeur ne se lit pas dans les kills. Protéger ton ADC, poser de la vision et engager au bon moment rapporte plus." }
 ];
 
 // ---------- Parties personnelles ----------

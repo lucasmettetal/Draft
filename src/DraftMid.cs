@@ -404,9 +404,9 @@ public static class Autostart
             ContextMenuStrip menu = new ContextMenuStrip();
             miPhase = new ToolStripMenuItem("") { Enabled = false };
             miShow = new ToolStripMenuItem("Afficher les panneaux (Ctrl+Alt+D)", null, (s, e) => ToggleManual());
-            miAutoDraft = new ToolStripMenuItem("Activation automatique pendant la draft", null, (s, e) => SetAutoDraft(!settings.AutoDraft));
-            miFollow = new ToolStripMenuItem("Positionnement automatique", null, (s, e) => SetFollow(!settings.Follow));
-            miCompact = new ToolStripMenuItem("Panneau unique", null, (s, e) => SetCompact(!settings.Compact));
+            miAutoDraft = new ToolStripMenuItem("Afficher les panneaux automatiquement pendant la draft", null, (s, e) => SetAutoDraft(!settings.AutoDraft));
+            miFollow = new ToolStripMenuItem("Coller les panneaux au client LoL", null, (s, e) => SetFollow(!settings.Follow));
+            miCompact = new ToolStripMenuItem("Un seul panneau", null, (s, e) => SetCompact(!settings.Compact));
             miAutostart = new ToolStripMenuItem("Démarrer avec Windows", null, (s, e) => { Autostart.Set(!Autostart.IsOn(), exePath); RefreshUi(); });
             menu.Items.Add(miPhase);
             menu.Items.Add(miShow);
@@ -421,7 +421,7 @@ public static class Autostart
             menu.Items.Add("Analyse détaillée", null, (s, e) => OpenFull(""));
             menu.Items.Add("Réglages", null, (s, e) => OpenFull("settings"));
             menu.Items.Add("Diagnostic de connexion LoL...", null, (s, e) => ShowLcuDiagnostic());
-            menu.Items.Add("Importer mes statistiques...", null, (s, e) => ImportStats());
+            menu.Items.Add("Importer mes statistiques (ancien format)...", null, (s, e) => ImportStats());
             miRoles = new ToolStripMenuItem("Mettre à jour les rôles...", null, (s, e) => ToggleRiotUpdate(false));
             miMatchups = new ToolStripMenuItem("Mettre à jour les matchups...", null, (s, e) => ToggleRiotUpdate(true));
             menu.Items.Add(miRoles);
@@ -1184,7 +1184,7 @@ public static class Autostart
             Rectangle b = f.Bounds;
             settings.Rects[f.Id] = new SavedRect { X = b.X, Y = b.Y, W = b.Width, H = b.Height };
             settings.Follow = false;
-            placementNote = "Position manuelle conservée. Réactive le positionnement automatique dans les réglages.";
+            placementNote = "Position manuelle conservée. Réactive « Coller les panneaux au client LoL » dans les réglages.";
             Persist();
             RefreshUi();
         }
