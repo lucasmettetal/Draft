@@ -678,7 +678,7 @@
   }
   /* ---------- Fenêtre principale à cinq sections (UX-3, COMPOSANTS-V3) ---------- */
   /* Échelle réduite : 12, 13, 15, 18, 24, 34 px. Espacements de 4 en 4. Rayons : étiquette 4, contrôle 6, boîte 10. */
-  :root { --hover:#1e2938; --line-strong:#5f7088; --accent-soft:#0e2a2a; --accent-line:#1f4a4a; --gold-soft:#2a2312; --gold-line:#5a4a22;
+  :root { --hover:#1e2938; --line-strong:#5f7088; --accent-soft:#0e2a2a; --accent-line:#1f4a4a; --threat-soft:#2d1416; --gold-soft:#2a2312; --gold-line:#5a4a22;
     --fs-xs:12px; --fs-sm:13px; --fs-md:15px; --fs-lg:18px; --fs-xl:24px; --fs-2xl:34px;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --r-tag:4px; --r-ctl:6px; --r-box:10px; --nav-w:216px; }
   .shell { display:grid; grid-template-columns:var(--nav-w) minmax(0,1fr); height:100vh; }
@@ -828,7 +828,32 @@
     .played-seg { margin-left:0; flex-wrap:wrap; }
     .played-seg .seg-tab span { display:none; }
   }
-</style>
+  /* ---------- Mes statistiques (UX-5) ---------- */
+  .stats-tabs { display:flex; gap:var(--s5); margin:calc(-1 * var(--s2)) 0 var(--s4); border-bottom:1px solid var(--line); }
+  .stats-tab { position:relative; min-height:40px; padding:0; background:none; border:0; color:var(--muted); font-size:var(--fs-md); }
+  .stats-tab:hover { color:var(--text); }
+  .stats-tab.on { color:var(--text); font-weight:600; box-shadow:inset 0 -2px 0 var(--accent); }
+  .kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:var(--s4); }
+  .kpis > div { padding:var(--s4) var(--s5); border-left:1px solid var(--line); }
+  .kpis > div:first-child { border-left:0; }
+  .kpis span { display:block; color:var(--muted); font-size:var(--fs-sm); }
+  .kpis b { font:var(--fs-xl)/1.2 var(--condensed); }
+  .kpis small { color:var(--muted); font-size:var(--fs-sm); }
+  .stats-overview { display:grid; gap:var(--s4); }
+  .stats-grid .box-title small, .stats-overview .box-title small { margin-left:6px; color:var(--muted); font:var(--fs-sm) var(--body); }
+  .stats-line.ok { margin:var(--s2) 0; font-size:var(--fs-md); font-weight:600; }
+  .box-head-row { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s3); padding:var(--s4) var(--s5) var(--s2); }
+  .box-head-row .box-title { flex:1 1 auto; margin:0; }
+  .stats-table { width:100%; border-collapse:collapse; font-size:var(--fs-sm); }
+  .stats-table th, .stats-table td { padding:6px var(--s3); border-top:1px solid var(--line); text-align:left; font-weight:400; }
+  .stats-table thead th { color:var(--muted); border-top:0; }
+  .stats-table.recent th:first-child, .stats-table.recent td:first-child { padding-left:var(--s5); }
+  .stats-table tbody th { font-weight:600; }
+  .result-tag { padding:1px 8px; border-radius:var(--r-tag); background:var(--raised); color:var(--muted); font-size:var(--fs-xs); }
+  .result-tag.win { background:var(--accent-soft); color:var(--accent); }
+  .result-tag.loss { background:var(--threat-soft); color:var(--threat); }
+  #root [data-test="stats-recent"] .empty-note { margin:var(--s3) var(--s5) var(--s5); }
+  @media (max-width:1100px) { .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .kpis > div:nth-child(3) { border-left:0; } .kpis > div:nth-child(n+3) { border-top:1px solid var(--line); } }</style>
 </head>
 <body>
 <div id="root"></div>
@@ -2106,7 +2131,7 @@ function MatchupsTab() {
 function WinBars({ title, groups }) {
   if (!groups.length) return null;
   return html`<div>
-    <h3>${title}</h3>
+    ${title ? html`<h3>${title}</h3>` : null}
     <div className="winbars">
       ${groups.map(g => {
         const rec = record(g.rows);
@@ -2719,21 +2744,90 @@ function JournalImport() {
   </details>`;
 }
 
+// ---------- Mes statistiques (UX-5) : journal DRAFT, historique Riot et anciens imports au même endroit ----------
+const ROLE_POSITION = { top:"TOP", jungle:"JUNGLE", mid:"MIDDLE", adc:"BOTTOM", support:"UTILITY" };
+const STATS_TABS = ["overview", "journal", "history"];
+const historyRows = () => window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? window.DRAFT_HISTORY.rows : null;
+const wl = rows => { const w = rows.filter(r => r.win).length; return t("stats.wl", { wins:w, losses:rows.length - w }); };
+
+function StatsKpis() {
+  const list = loadJournal(), played = list.filter(x => x.result === "win" || x.result === "loss");
+  const wins = played.filter(x => x.result === "win").length, followed = list.filter(x => x.picked === x.suggested).length;
+  const rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
+  const kpi = (label, value, rest, test) => html`<div data-test=${test}><span>${label}</span><b className="num">${value}</b>${rest ? html` <small>${rest}</small>` : null}</div>`;
+  return html`<section className="box kpis" data-test="stats-kpis" aria-label=${t("stats.tabs.overview")}>
+    ${kpi(t("stats.kpi.drafts"), list.length, "", "kpi-drafts")}
+    ${kpi(t("stats.kpi.wins"), wins, tp("stats.kpi.winsOf", played.length), "kpi-wins")}
+    ${kpi(t("stats.kpi.followed"), followed, t("stats.kpi.followedOf", { count:list.length }), "kpi-followed")}
+    ${kpi(t("stats.kpi.history"), rows ? rows.length : t("stats.kpi.none"), rows ? `${tp("stats.kpi.historyUnit", rows.length)}${when ? `, ${new Date(when).toLocaleDateString("fr-FR")}` : ""}` : "", "kpi-history")}
+  </section>`;
+}
+
+function HistoryImportBox({ detailed }) {
+  const rows = historyRows(), role = PROFILES.active;
+  const mine = rows && role ? rows.filter(r => r.pos === ROLE_POSITION[role]) : [];
+  const champs = groupRows(mine.map(r => ({ win:r.win, name:toName(r.champ) })), r => r.name).slice(0, 5);
+  return html`<section className="box box-pad" data-test="stats-history">
+    <h2 className="box-title">${t("stats.history.title")} <small>${t("stats.history.sub")}</small></h2>
+    <p className=${rows ? "stats-line ok" : "empty-note"} data-test="stats-history-summary">${rows
+      ? tp("stats.history.imported", rows.length, { date: window.DRAFT_HISTORY.generated ? new Date(window.DRAFT_HISTORY.generated).toLocaleDateString("fr-FR") : "?" })
+      : t("stats.history.none")}</p>
+    ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${hostState.historyStatus}</p>` : null}
+    ${hostState.available
+      ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="stats-import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? "Arrêter l'import" : hostState.historyHasMore ? "Importer plus de parties" : "Importer mon historique Riot"}</button></p>`
+      : html`<p className="small">${t("stats.history.app")}</p>`}
+    <p className="small">${t("stats.history.key")}</p>
+    <p className="small" data-test="stats-collect">${t("stats.history.collect")}</p>
+    ${rows && role ? html`<h3>${t("stats.mostPlayed", { role:ROLE_NAMES[role] })}</h3>
+      ${champs.length ? html`<${WinBars} title="" groups=${champs} />` : html`<p className="small">${t("stats.mostPlayed.empty", { role:ROLE_NAMES[role] })}</p>`}` : null}
+    ${detailed && rows ? html`<h3>${t("stats.history.byRole")}</h3>
+      <table className="stats-table"><tbody>${ROLE_ORDER.map(r => { const list = rows.filter(x => x.pos === ROLE_POSITION[r]); return html`<tr key=${r}><th scope="row">${ROLE_NAMES[r]}</th><td className="num">${tp("stats.kpi.historyUnit", list.length)}</td><td className="num">${list.length ? wl(list) : "-"}</td></tr>`; })}</tbody></table>` : null}
+  </section>`;
+}
+
+function RecentDrafts({ onAll }) {
+  const list = loadJournal().slice(-8).reverse();
+  const results = { win:"Victoire", loss:"Défaite", skip:"Ignorée" };
+  return html`<section className="box" data-test="stats-recent">
+    <header className="box-head-row"><h2 className="box-title">${t("stats.recent.title")} <small>${t("stats.recent.sub")}</small></h2>
+      ${list.length ? html`<button type="button" className="ghost-btn" data-test="stats-all-journal" onClick=${onAll}>${t("stats.recent.all")}</button>` : null}</header>
+    ${list.length ? html`<table className="stats-table recent"><thead><tr><th scope="col">${t("stats.recent.pick")}</th><th scope="col">${t("stats.recent.opponent")}</th><th scope="col">${t("stats.recent.advice")}</th><th scope="col">${t("stats.recent.result")}</th><th scope="col">${t("stats.recent.date")}</th></tr></thead>
+      <tbody>${list.map(x => html`<tr key=${x.id}><th scope="row"><span className="pool-name"><${Portrait} name=${label(x.picked)} size=${24} />${label(x.picked)}</span></th><td>${x.mid || "-"}</td><td>${t(x.picked === x.suggested ? "stats.recent.followed" : "stats.recent.other")}</td>
+        <td><span className=${`result-tag ${x.result || "wait"}`}>${results[x.result] || "En attente"}</span></td><td className="num">${new Date(x.date).toLocaleDateString("fr-FR")}</td></tr>`)}</tbody></table>`
+      : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
+  </section>`;
+}
+
+function StatsOverview({ onAll }) {
+  const played = loadJournal().filter(x => x.result === "win" || x.result === "loss");
+  return html`<div className="stats-overview">
+    <div className="stats-grid">
+      <section className="box box-pad" data-test="stats-journal">
+        <h2 className="box-title">${t("stats.byChampion.title")} <small>${t("stats.byChampion.source")}</small></h2>
+        ${played.length ? html`<${WinBars} title="" groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
+          <${WinBars} title="Selon le type de mid adverse" groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: matchupOf(x.mid).t })), r => r.type)} />`
+          : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
+      </section>
+      <${HistoryImportBox} detailed=${false} />
+    </div>
+    <${RecentDrafts} onAll=${onAll} />
+  </div>`;
+}
+
 function StatsView() {
-  const h = window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? window.DRAFT_HISTORY : null;
+  const [tab, setTab] = useState(() => { const s = new URLSearchParams(location.search).get("section"); return STATS_TABS.includes(s) ? s : "overview"; });
   return html`<div className="view-page">
     <${ViewHead} title=${t("nav.stats")} sub=${t("stats.sub")} />
-    <div className="stats-grid">
-      <section className="box box-pad" data-test="stats-journal"><h2 className="box-title">${t("stats.journal.title")}</h2><${JournalTab} /></section>
-      <div className="stats-side">
-        <section className="box box-pad" data-test="stats-history">
-          <h2 className="box-title">${t("stats.history.title")}</h2>
-          <p className="small">${h ? `${h.rows.length} parties importées${h.generated ? ` le ${new Date(h.generated).toLocaleDateString("fr-FR")}` : ""}.` : "Rien d'importé pour l'instant."} ${t("stats.history.where")}</p>
-          <p className="set-row"><button type="button" className="ghost-btn" data-test="stats-history-manage" onClick=${() => goView("settings", "data")}>${t("stats.history.manage")}</button></p>
-        </section>
-        <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} /><${JournalImport} /></section>
-      </div>
+    <div className="stats-tabs" role="tablist" aria-label=${t("nav.stats")}>
+      ${STATS_TABS.map(k => html`<button key=${k} type="button" role="tab" aria-selected=${tab === k} data-test=${`stats-tab-${k}`} className=${`stats-tab${tab === k ? " on" : ""}`} onClick=${() => setTab(k)}>${t(`stats.tabs.${k}`)}</button>`)}
     </div>
+    <${StatsKpis} />
+    ${tab === "overview" ? html`<${StatsOverview} onAll=${() => setTab("journal")} />` : null}
+    ${tab === "journal" ? html`<section className="box box-pad" data-test="stats-journal-full"><h2 className="box-title">${t("stats.journal.title")}</h2><${JournalTab} /><${JournalImport} /></section>` : null}
+    ${tab === "history" ? html`<div className="stats-grid">
+      <${HistoryImportBox} detailed=${true} />
+      <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} /></section>
+    </div>` : null}
   </div>`;
 }
 
@@ -2784,9 +2878,9 @@ function SettingsSection({ id }) {
       <p className="small" role="status">${hostState.rolesStatus || ""}</p>
       <p className="set-row">
         ${hostState.rolesRunning
-          ? html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Arrêter le calcul</button>`
-          : html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Mettre à jour les rôles</button>
-              <button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateMatchups" })}>Mettre à jour les matchups</button>`}
+          ? html`<button type="button" className="ghost-btn" data-test="stop-roles" onClick=${() => hostSend({ cmd:"updateRoles" })}>Arrêter le calcul</button>`
+          : html`<button type="button" className="ghost-btn" data-test="update-roles" onClick=${() => hostSend({ cmd:"updateRoles" })}>Mettre à jour les rôles</button>
+              <button type="button" className="ghost-btn" data-test="update-matchups" onClick=${() => hostSend({ cmd:"updateMatchups" })}>Mettre à jour les matchups</button>`}
       </p>
     </div>` : null}
     <${DataSources} />

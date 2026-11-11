@@ -675,50 +675,6 @@ namespace DraftMid
         }
     }
 
-    // Demande la clé pour ce calcul : elle n'est gardée nulle part.
-    public class RiotKeyDialog : Form
-    {
-        readonly TextBox keyBox = new TextBox { UseSystemPasswordChar = true, Width = 340 };
-        readonly ComboBox regionBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 340 };
-
-        public string Key { get { return keyBox.Text.Trim(); } }
-        public RiotRegion SelectedRegion { get { return (RiotRegion)regionBox.SelectedItem; } }
-
-        public RiotKeyDialog(Icon icon, Action<string> openLink, string title, string intro)
-        {
-            Text = title;
-            if (icon != null) Icon = icon;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
-            AutoScaleMode = AutoScaleMode.Dpi;
-            AutoSize = true;
-            AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            regionBox.Items.AddRange(RiotRegion.All);
-            regionBox.SelectedIndex = 0;
-
-            FlowLayoutPanel root = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Padding = new Padding(14) };
-            Label introLabel = new Label { AutoSize = true, MaximumSize = new Size(340, 0), Margin = new Padding(0, 0, 0, 10), Text = intro };
-            LinkLabel link = new LinkLabel { AutoSize = true, Margin = new Padding(0, 0, 0, 10), Text = "Obtenir une clé sur developer.riotgames.com" };
-            link.LinkClicked += (s, e) => openLink("https://developer.riotgames.com/");
-            Label keyLabel = new Label { AutoSize = true, Margin = new Padding(0, 0, 0, 3), Text = "Clé Riot (masquée, jamais enregistrée) :" };
-            keyBox.Margin = new Padding(0, 0, 0, 10);
-            Label regionLabel = new Label { AutoSize = true, Margin = new Padding(0, 0, 0, 3), Text = "Région :" };
-            regionBox.Margin = new Padding(0, 0, 0, 14);
-            FlowLayoutPanel buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Width = 340, Anchor = AnchorStyles.Right, Margin = new Padding(0) };
-            Button start = new Button { Text = "Lancer", DialogResult = DialogResult.OK, AutoSize = true, Enabled = false };
-            Button cancel = new Button { Text = "Annuler", DialogResult = DialogResult.Cancel, AutoSize = true };
-            buttons.Controls.Add(start);
-            buttons.Controls.Add(cancel);
-            keyBox.TextChanged += (s, e) => start.Enabled = Key != "";
-            root.Controls.AddRange(new Control[] { introLabel, link, keyLabel, keyBox, regionLabel, regionBox, buttons });
-            Controls.Add(root);
-            AcceptButton = start;
-            CancelButton = cancel;
-        }
-    }
-
     static class MatchupStatsTests
     {
         static string Game(string pick, bool win, string opponent, string puuid, int duration = 1800)

@@ -137,7 +137,7 @@ for(const [param,marker] of [["compare","compare"],["rules","rules"]]){const x=a
 // Une panne du coaching n'atteint pas le verdict
 {const x=await open("mid","right");x.w.coachingAdvice=()=>{throw new Error("panne")};x.w.eval("coachingAdvice=()=>{throw new Error('panne')};playerChoices=()=>{throw new Error('panne')}");["Ahri","Ornn"].forEach(x.$.addEnemy);await settle();t(x.d.querySelector(".p-chip")||x.d.querySelector(".tie-group"),"panne du coaching : le verdict reste affiché");t(!x.d.querySelector(".coach-line"),"panne du coaching : aucun conseil inventé");close(x);}
 // Aucun appel réseau vers Riot depuis la page
-{const r=await fetch("index.html").then(a=>a.text());t((r.match(/cmd:"importHistory"/g)||[]).length===1&&/onClick=\$\{\(\) => hostSend\(\{ cmd:"importHistory" \}\)\}/.test(r),"import : seulement au clic sur le bouton");t(!/api\.riotgames\.com|X-Riot-Token/.test(r),"page : aucun appel à l'API Riot");}
+{const r=await fetch("index.html").then(a=>a.text());{const all=(r.match(/cmd:"importHistory"/g)||[]).length,clicks=(r.match(/onClick=\$\{\(\) => hostSend\(\{ cmd:"importHistory" \}\)\}/g)||[]).length;t(all>=1&&all===clicks,"import : seulement au clic sur un bouton ("+clicks+" boutons, "+all+" appels)");}t(!/api\.riotgames\.com|X-Riot-Token/.test(r),"page : aucun appel à l'API Riot");}
 document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
 })().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
 </script></body></html>
