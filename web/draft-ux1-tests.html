@@ -58,7 +58,7 @@ const FOUR=["Ornn","Sion","Ahri","Jinx"];
  t(!!q(x,"settings")&&!x.d.getElementById("add"),"réglages : la recherche d'adversaire n'est pas présente derrière");q(x,"settings-close").click();await settle();t(!!x.d.getElementById("add"),"réglages fermés : retour au Simulateur et à sa recherche");close(x);}
 
 // ---------- États vides et messages internes ----------
-{const x=await open("mid",null,1280,720,"&tab=parties");await settle();const body=text(x.d.body);t(!/draft-import-stats\.bat/.test(body),"Parties vide : plus de consigne « draft-import-stats.bat »");t(/historique Riot/.test(text(q(x,"stats-empty"))),"Parties vide : la consigne dit où importer ("+text(q(x,"stats-empty"))+")");close(x);}
+{const x=await open("mid",null,1280,720,"&tab=parties");await settle();{const h=q(x,"stats-tab-history");if(h){h.click();await settle();}}const body=text(x.d.body);t(!/draft-import-stats\.bat/.test(body),"Parties vide : plus de consigne « draft-import-stats.bat »");t(/historique Riot/.test(text(q(x,"stats-empty"))),"Parties vide : la consigne dit où importer ("+text(q(x,"stats-empty"))+")");close(x);}
 {const x=await open("mid",null,1280,900,"&view=settings&section=data");await settle();x.d.querySelectorAll("details").forEach(d=>d.open=true);await settle();const body=text(x.d.body);
  t(!/Licence non confirmée/.test(body),"Sources : plus de « Licence non confirmée »");t(!/absente/i.test(body),"Sources : plus de « absente » dès le premier lancement");close(x);}
 

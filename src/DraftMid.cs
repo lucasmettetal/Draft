@@ -758,33 +758,6 @@ public static class Autostart
         string historyStatus = "";
         bool historyHasMore;
 
-        async void ToggleHistoryImport()
-        {
-            if (historyCts != null)
-            {
-                historyCts.Cancel();
-                historyStatus = "Arrêt de l'import : les parties déjà lues sont conservées...";
-                RefreshUi();
-                return;
-            }
-            if (machine.Current == Phase.Draft) { historyStatus = "Une draft est en cours : lance l'import après."; RefreshUi(); return; }
-            if (rolesCts != null) { historyStatus = "Un calcul Riot est déjà en cours : attends sa fin pour ne pas dépasser les limites de ta clé."; RefreshUi(); return; }
-            string path = Path.Combine(dataDir, HistoryImporter.FileName);
-            string key;
-            RiotRegion region;
-            int limit;
-            List<string> accounts;
-            using (HistoryImportDialog dialog = new HistoryImportDialog(AppIcon, OpenExternal, HistoryImporter.SavedAccounts(path)))
-            {
-                if (dialog.ShowDialog() != DialogResult.OK || !dialog.Consent) return;
-                key = dialog.Key;
-                region = dialog.SelectedRegion;
-                limit = dialog.GamesToRead;
-                accounts = dialog.Accounts;
-            }
-            await RunHistoryImport(new RiotWebFetcher(key), region, accounts, limit, 1300);
-        }
-
         // La clé reste dans le fetcher : ni l'importeur, ni les journaux, ni la page ne la voient.
         public async Task<HistoryImportResult> RunHistoryImport(IRiotFetcher fetcher, RiotRegion region, List<string> accounts, int limit, int delayMs)
         {
@@ -794,7 +767,7 @@ public static class Autostart
             historyStatus = "Import de l'historique : démarrage...";
             RefreshUi();
             SynchronizationContext ui = SynchronizationContext.Current;
-            HistoryImporter importer = new HistoryImporter(fetcher, region, path, accounts, HistoryImportDialog.OldestSupported) { MaxGamesPerRun = limit, DelayMs = delayMs };
+            HistoryImporter importer = new HistoryImporter(fetcher, region, path, accounts, HistoryImporter.OldestSupported) { MaxGamesPerRun = limit, DelayMs = delayMs };
             importer.Status = text => ui.Post(_ => { if (historyCts != null && !historyCts.IsCancellationRequested) { historyStatus = text; RefreshUi(); } }, null);
             importer.Progress = (done, total, account) =>
             {
@@ -817,52 +790,106 @@ public static class Autostart
                 catch (IOException) { r.Error = "Historique enregistré, mais pas encore visible : relance DRAFT."; }
             }
             historyHasMore = r.HasMore;
+            // Clé refusée ou Riot indisponible : les lectures suivantes ne sont pas lancées avec la même clé.
+            if (r.Error != "" && !r.Saved) riotQueueStopped = true;
             string summary = r.Added + (r.Added > 1 ? " parties ajoutées, " : " partie ajoutée, ") + r.Total + " au total.";
             historyStatus = r.Error != "" ? r.Error + " " + summary : (r.Cancelled ? "Import arrêté : " : "Import terminé : ") + summary;
             if (r.NotFound.Count > 0) historyStatus += " Compte introuvable : " + string.Join(", ", r.NotFound) + ".";
-            if (tray != null) tray.ShowBalloonTip(5000, "DRAFT", historyStatus, r.Error == "" ? ToolTipIcon.Info : ToolTipIcon.Warning);
+            Notify(historyStatus, r.Error == "" ? ToolTipIcon.Info : ToolTipIcon.Warning);
             RefreshUi();
             return r;
         }
 
-        async void ToggleRiotUpdate(bool matchups)
+        // Une seule saisie de la clé pour les trois lectures (UX-5). Un bouton en cours d'exécution arrête sa lecture et la suite.
+        bool riotQueueStopped;
+
+        void ToggleHistoryImport()
         {
-            if (historyCts != null && rolesCts == null) { rolesStatus = "Un import de l'historique est en cours : attends sa fin."; RefreshUi(); return; }
+            if (historyCts != null)
+            {
+                riotQueueStopped = true;
+                historyCts.Cancel();
+                historyStatus = "Arrêt de l'import : les parties déjà lues sont conservées...";
+                RefreshUi();
+                return;
+            }
+            OpenRiotTasks(RiotTask.History);
+        }
+
+        void ToggleRiotUpdate(bool matchups)
+        {
             if (rolesCts != null)
             {
+                riotQueueStopped = true;
                 rolesCts.Cancel();
                 rolesStatus = "Arrêt du calcul en cours...";
                 RefreshUi();
                 return;
             }
+            OpenRiotTasks(matchups ? RiotTask.Matchups : RiotTask.Roles);
+        }
+
+        // Rôle et pool envoyés par la page pour les matchups ; une ancienne installation garde le pool Mid d'origine.
+        void MatchupTarget(out string role, out string[] pool)
+        {
+            role = settings.ProfileRole;
+            pool = settings.ProfilePool;
+            if (pool == null && legacyProfile) { role = "mid"; pool = MatchupStatsUpdater.DefaultPool; }
+        }
+
+        async void OpenRiotTasks(RiotTask initial)
+        {
+            if (historyCts != null) { rolesStatus = "Un import de l'historique est en cours : attends sa fin."; RefreshUi(); return; }
+            if (rolesCts != null) { historyStatus = "Un calcul Riot est déjà en cours : attends sa fin pour ne pas dépasser les limites de ta clé."; RefreshUi(); return; }
+            if ((initial & RiotTask.History) != 0 && machine.Current == Phase.Draft) { historyStatus = "Une draft est en cours : lance l'import après."; RefreshUi(); return; }
+            string path = Path.Combine(dataDir, HistoryImporter.FileName);
+            string role; string[] pool;
+            MatchupTarget(out role, out pool);
+            RiotTask tasks;
             string key;
             RiotRegion region;
-            string what = matchups ? "matchups" : "rôles";
-            string role = settings.ProfileRole;
-            string[] pool = settings.ProfilePool;
-            if (matchups && pool == null)
-            {
-                if (legacyProfile) { role = "mid"; pool = MatchupStatsUpdater.DefaultPool; }
-                else { OpenFull("settings"); return; }
-            }
-            string fileName = matchups ? "draft-matchups-live.js" : "draft-role-rates-live.js";
-            string intro = matchups
-                ? "Calcule les bilans de ton pool contre chaque adversaire direct, à ton rôle, sur des parties des 30 derniers jours. Plus ton pool est grand, moins chaque champion aura de parties. Le calcul prend environ 65 minutes et tourne en arrière-plan."
-                : "Compte les rôles joués sur 1 000 parties récentes, pour mieux deviner le mid adverse. Le calcul prend environ 40 minutes et tourne en arrière-plan.";
-            using (RiotKeyDialog dialog = new RiotKeyDialog(AppIcon, OpenExternal, "DRAFT : mettre à jour les " + what, intro))
+            int limit;
+            List<string> accounts;
+            using (RiotKeyDialog dialog = new RiotKeyDialog(AppIcon, OpenExternal, HistoryImporter.SavedAccounts(path), initial, pool == null ? null : RoleLabel(role), pool == null ? 0 : pool.Length))
             {
                 if (dialog.ShowDialog() != DialogResult.OK) return;
+                tasks = dialog.Tasks;
                 key = dialog.Key;
                 region = dialog.SelectedRegion;
+                limit = dialog.GamesToRead;
+                accounts = dialog.Accounts;
+                if ((tasks & RiotTask.History) != 0 && !dialog.Consent) tasks &= ~RiotTask.History;
             }
+            // Un seul fetcher : la clé n'existe qu'ici, en mémoire, le temps des lectures choisies.
+            await RunRiotTasks(new RiotWebFetcher(key), tasks, region, accounts, limit, role, pool, 1300);
+        }
+
+        static string RoleLabel(string role)
+        {
+            switch (role) { case "top": return "Top"; case "jungle": return "Jungle"; case "mid": return "Mid"; case "adc": return "ADC"; case "support": return "Support"; default: return role ?? ""; }
+        }
+
+        // Lectures l'une après l'autre, avec la même clé. Testable avec un fetcher simulé.
+        public async Task RunRiotTasks(IRiotFetcher fetcher, RiotTask tasks, RiotRegion region, List<string> accounts, int limit, string role, string[] pool, int delayMs)
+        {
+            riotQueueStopped = false;
+            if ((tasks & RiotTask.History) != 0 && !Quitting) await RunHistoryImport(fetcher, region, accounts, limit, delayMs);
+            if ((tasks & RiotTask.Roles) != 0 && !riotQueueStopped && !Quitting) await RunRiotUpdate(false, fetcher, region, role, pool);
+            if ((tasks & RiotTask.Matchups) != 0 && pool != null && !riotQueueStopped && !Quitting) await RunRiotUpdate(true, fetcher, region, role, pool);
+        }
+
+        public async Task<RoleUpdateResult> RunRiotUpdate(bool matchups, IRiotFetcher fetcher, RiotRegion region, string role, string[] pool)
+        {
+            string what = matchups ? "matchups" : "rôles";
+            string fileName = matchups ? "draft-matchups-live.js" : "draft-role-rates-live.js";
             CancellationTokenSource cts = new CancellationTokenSource();
             rolesCts = cts;
             rolesStatus = "Calcul des " + what + " : démarrage...";
             RefreshUi();
             SynchronizationContext ui = SynchronizationContext.Current;
             RiotCrawler updater = matchups
-                ? (RiotCrawler)new MatchupStatsUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName), pool, role) { StatePath = Path.Combine(dataDir, "draft-matchups-state-" + role + ".json") }
-                : new RoleRatesUpdater(new RiotWebFetcher(key), region, Path.Combine(dataDir, fileName)) { StatePath = Path.Combine(dataDir, "draft-role-rates-state.json") };
+                ? (RiotCrawler)new MatchupStatsUpdater(fetcher, region, Path.Combine(dataDir, fileName), pool, role) { StatePath = Path.Combine(dataDir, "draft-matchups-state-" + role + ".json") }
+                : new RoleRatesUpdater(fetcher, region, Path.Combine(dataDir, fileName)) { StatePath = Path.Combine(dataDir, "draft-role-rates-state.json") };
             int shown = 0;
             updater.Progress = (done, total) =>
             {
@@ -873,7 +900,7 @@ public static class Autostart
             RoleUpdateResult r = await Task.Run(() => updater.Run(cts.Token));
             rolesCts = null;
             cts.Dispose();
-            if (Quitting) return;
+            if (Quitting) return r;
             if (r.Saved)
             {
                 // Les noms de champions viennent de l'API Riot : le fichier est relu et réécrit avant d'atteindre la page.
@@ -886,8 +913,10 @@ public static class Autostart
                 : r.Error != "" ? r.Error
                 : "Calcul arrêté : " + r.Games + " parties, trop peu pour remplacer les données actuelles.";
             if (r.Saved && r.Error != "") rolesStatus += " " + r.Error;
-            tray.ShowBalloonTip(5000, "DRAFT", rolesStatus, r.Saved || r.UpToDate ? ToolTipIcon.Info : ToolTipIcon.Warning);
+            if (r.Error != "" && !r.Saved) riotQueueStopped = true;
+            Notify(rolesStatus, r.Saved || r.UpToDate ? ToolTipIcon.Info : ToolTipIcon.Warning);
             RefreshUi();
+            return r;
         }
 
         // Recharger les panneaux efface leur état : jamais pendant une draft.
@@ -1296,6 +1325,20 @@ public static class Autostart
             // La vraie fenêtre, ouverte par le vrai bouton des réglages. Une fausse clé est saisie pour la capture, puis on annule : aucun appel.
             string windowProblem = await TestHistoryWindow(fakeKey);
             if (windowProblem != "") return windowProblem;
+            // UX-5 : la même fenêtre de clé s'ouvre depuis le bouton des rôles, avec cette lecture cochée ; annuler ne lance rien.
+            string rolesWindow = await TestRiotWindowFor("update-roles", RiotTask.Roles);
+            if (rolesWindow != "") return rolesWindow;
+            // Une seule clé pour plusieurs lectures : si Riot la refuse, la lecture suivante n'est pas lancée et rien n'est écrit.
+            int calls = 0;
+            SimRiot refused = new SimRiot { Answer = url => { calls++; return new RiotReply { Status = 403 }; } };
+            string matchupsPath = Path.Combine(dataDir, "draft-matchups-live.js"), ratesPath = Path.Combine(dataDir, "draft-role-rates-live.js");
+            bool hadMatchups = File.Exists(matchupsPath), hadRates = File.Exists(ratesPath);
+            await RunRiotTasks(refused, RiotTask.Roles, RiotRegion.All[0], null, 0, "mid", new[] { "Fizz" }, 0);
+            int rolesOnly = calls;
+            calls = 0;
+            await RunRiotTasks(refused, RiotTask.Roles | RiotTask.Matchups, RiotRegion.All[0], null, 0, "mid", new[] { "Fizz" }, 0);
+            if (rolesOnly == 0 || calls != rolesOnly || !rolesStatus.Contains("refusée")) return "(clé refusée : la lecture suivante est lancée quand même, " + calls + " appels contre " + rolesOnly + " ; " + rolesStatus + ")";
+            if (File.Exists(matchupsPath) != hadMatchups || File.Exists(ratesPath) != hadRates) return "(clé refusée : un fichier de calcul a été créé)";
             foreach (string file in Directory.GetFiles(dataDir, "*", SearchOption.TopDirectoryOnly))
             {
                 string text;
@@ -1525,6 +1568,45 @@ public static class Autostart
             return problem;
         }
 
+        // Ouvre la fenêtre de clé par un bouton de la page (Réglages > Données), vérifie la lecture cochée et la mise en page, puis annule.
+        async Task<string> TestRiotWindowFor(string button, RiotTask expected)
+        {
+            OpenFull("settings");
+            PanelForm f = null;
+            for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50);
+            if (f == null || f.View.CoreWebView2 == null) return "(réglages absents)";
+            for (int i = 0; i < 120 && await f.View.CoreWebView2.ExecuteScriptAsync("typeof goView === 'function'") != "true"; i++) await Task.Delay(50);
+            await f.View.CoreWebView2.ExecuteScriptAsync("goView('settings', 'data'); 1");
+            string find = "document.querySelector('[data-test=\"" + button + "\"]')";
+            bool found = false;
+            for (int i = 0; i < 120 && !found; i++) { found = await f.View.CoreWebView2.ExecuteScriptAsync("!!(" + find + ")") == "true"; if (!found) await Task.Delay(50); }
+            if (!found) return "(bouton " + button + " absent)";
+            bool seen = false; RiotTask got = RiotTask.None; string layout = "";
+            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 300 };
+            timer.Tick += (s, e) =>
+            {
+                RiotKeyDialog d = Application.OpenForms.OfType<RiotKeyDialog>().FirstOrDefault();
+                if (d == null || !d.Visible) return;
+                timer.Stop();
+                seen = true;
+                got = d.TestPreselected();
+                layout = d.LayoutProblem();
+                if (opts.CaptureDir != null) d.SaveCapture(Path.Combine(opts.CaptureDir, "cle-riot-" + button + ".png"));
+                d.Close();
+            };
+            timer.Start();
+            await f.View.CoreWebView2.ExecuteScriptAsync(find + ".click(); 1");
+            for (int i = 0; i < 200 && !seen; i++) await Task.Delay(50);
+            timer.Stop();
+            timer.Dispose();
+            await Task.Delay(200);
+            if (!seen) return "(fenêtre de clé jamais ouverte par " + button + ")";
+            if (got != expected) return "(fenêtre de clé : " + got + " coché au lieu de " + expected + ")";
+            if (layout != "") return "(fenêtre de clé : " + layout + ")";
+            if (rolesCts != null || historyCts != null) return "(annuler a lancé un calcul)";
+            return "";
+        }
+
         async Task<string> TestHistoryWindow(string fakeKey)
         {
             string path = Path.Combine(dataDir, HistoryImporter.FileName), before = File.ReadAllText(path), status = historyStatus, layout = "";
@@ -1548,7 +1630,7 @@ public static class Autostart
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 300 };
             timer.Tick += (s, e) =>
             {
-                HistoryImportDialog d = Application.OpenForms.OfType<HistoryImportDialog>().FirstOrDefault();
+                RiotKeyDialog d = Application.OpenForms.OfType<RiotKeyDialog>().FirstOrDefault();
                 if (d == null || !d.Visible) return;
                 timer.Stop();
                 seen = true;

@@ -24,6 +24,8 @@ namespace DraftMid
 
     public class HistoryImporter
     {
+        // Plus ancienne date que l'API Riot sert pour l'historique (ex-HistoryImportDialog.OldestSupported).
+        public static readonly DateTime OldestSupported = new DateTime(2021, 6, 16, 0, 0, 0, DateTimeKind.Utc);
         public const string FileName = "draft-history.js";
         public const string BackupFolder = "sauvegardes-historique";
         const string Prefix = "window.DRAFT_HISTORY = ";
@@ -265,104 +267,7 @@ namespace DraftMid
         }
     }
 
-    // Fenêtre dédiée : consentement, comptes, clé masquée et nombre de parties. La clé n'en sort que le temps de l'import.
-    public class HistoryImportDialog : Form
-    {
-        public static readonly DateTime OldestSupported = new DateTime(2021, 6, 16, 0, 0, 0, DateTimeKind.Utc);
-        readonly TextBox accountsBox = new TextBox { Width = 360 };
-        readonly TextBox keyBox = new TextBox { UseSystemPasswordChar = true, Width = 360 };
-        readonly ComboBox regionBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
-        readonly ComboBox countBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
-        readonly CheckBox consent = new CheckBox { AutoSize = true, Margin = new Padding(0, 0, 0, 14), Text = "J'accepte cette lecture" };
-        static readonly int[] Counts = { 100, 200, 500 };
-
-        public string Key { get { return keyBox.Text.Trim(); } }
-        public RiotRegion SelectedRegion { get { return (RiotRegion)regionBox.SelectedItem; } }
-        public int GamesToRead { get { return Counts[countBox.SelectedIndex]; } }
-        public bool Consent { get { return consent.Checked; } }
-        public List<string> Accounts { get { return accountsBox.Text.Split(',').Select(a => a.Trim()).Where(a => a != "").ToList(); } }
-
-        public HistoryImportDialog(Icon icon, Action<string> openLink, IEnumerable<string> savedAccounts)
-        {
-            Text = "DRAFT : importer mon historique Riot";
-            if (icon != null) Icon = icon;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
-            AutoScaleMode = AutoScaleMode.Dpi;
-            AutoSize = true;
-            AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            regionBox.Items.AddRange(RiotRegion.All);
-            regionBox.SelectedIndex = 0;
-            foreach (int n in Counts) countBox.Items.Add(n + " parties, environ " + Math.Max(1, (int)Math.Ceiling(n * 1.3 / 60)) + " minutes");
-            countBox.SelectedIndex = 0;
-            accountsBox.Text = string.Join(", ", savedAccounts);
-
-            FlowLayoutPanel root = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Padding = new Padding(14) };
-            Func<string, Label> title = t => new Label { AutoSize = true, Margin = new Padding(0, 0, 0, 3), Text = t };
-            Label terms = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 4), Text = "DRAFT lira tes parties classées solo/duo avec ta clé et les gardera sur ce PC." };
-            Label intro = new Label { AutoSize = true, MaximumSize = new Size(360, 0), Margin = new Padding(0, 0, 0, 10), Text = "Lit tes parties, des plus récentes aux plus anciennes. Un import suivant ira plus loin, sans doublon. Seuls tes champions, résultats et les champions adverses sont gardés, sur ce PC. Tes autres données ne sont pas modifiées, et le classement ne change pas. DRAFT n'est pas approuvé par Riot Games." };
-            LinkLabel link = new LinkLabel { AutoSize = true, Margin = new Padding(0, 0, 0, 10), Text = "Obtenir une clé sur developer.riotgames.com" };
-            link.LinkClicked += (s, e) => openLink("https://developer.riotgames.com/");
-            accountsBox.Margin = keyBox.Margin = regionBox.Margin = countBox.Margin = new Padding(0, 0, 0, 10);
-            FlowLayoutPanel buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Width = 360, Anchor = AnchorStyles.Right, Margin = new Padding(0) };
-            Button start = new Button { Text = "Importer", DialogResult = DialogResult.OK, AutoSize = true, Enabled = false };
-            Button cancel = new Button { Text = "Annuler", DialogResult = DialogResult.Cancel, AutoSize = true };
-            buttons.Controls.Add(start);
-            buttons.Controls.Add(cancel);
-            EventHandler check = (s, e) => start.Enabled = Consent && Key != "" && Accounts.Count > 0 && Accounts.All(HistoryImporter.ValidAccount);
-            keyBox.TextChanged += check;
-            accountsBox.TextChanged += check;
-            consent.CheckedChanged += check;
-            // La case ne doit jamais dépasser de la colonne : son texte serait coupé sans avertissement.
-            root.Controls.AddRange(new Control[] { intro, link, title("Comptes (Nom#TAG, séparés par une virgule) :"), accountsBox, title("Clé Riot (masquée, jamais enregistrée) :"), keyBox, title("Région :"), regionBox, title("Parties à lire :"), countBox, terms, consent, buttons });
-            Controls.Add(root);
-            AcceptButton = start;
-            CancelButton = cancel;
-        }
-
-        // Pour les tests : aucun contrôle coupé, et une fenêtre qui tient à l'écran.
-        public string LayoutProblem()
-        {
-            List<string> problems = new List<string>();
-            Rectangle screen = Screen.FromControl(this).WorkingArea;
-            if (Width > screen.Width || Height > screen.Height) problems.Add("fenêtre plus grande que l'écran");
-            Action<Control> walk = null;
-            walk = c =>
-            {
-                foreach (Control k in c.Controls)
-                {
-                    if (!k.Visible) continue;
-                    if (k.Left < 0 || k.Top < 0 || k.Right > c.ClientSize.Width || k.Bottom > c.ClientSize.Height) problems.Add("coupé : " + k.GetType().Name + " " + k.Text);
-                    if ((k is Label || k is CheckBox) && (k.Height + 1 < (k is Label ? k.GetPreferredSize(new Size(k.Width, 0)).Height : k.PreferredSize.Height) || (k is CheckBox && k.PreferredSize.Width > k.Width + 1))) problems.Add("texte coupé : " + k.Text);
-                    walk(k);
-                }
-            };
-            walk(this);
-            return string.Join(" ; ", problems);
-        }
-
-        public bool ConsentFits() { return consent.PreferredSize.Width <= 360; }
-
-        public void SaveCapture(string path)
-        {
-            using (Bitmap image = new Bitmap(Width, Height))
-            {
-                DrawToBitmap(image, new Rectangle(0, 0, Width, Height));
-                image.Save(path, System.Drawing.Imaging.ImageFormat.Png);
-            }
-        }
-
-        // Pour les tests natifs : le bouton reste bloqué tant que le consentement manque.
-        public bool TestCanStart(string account, string key, bool agree)
-        {
-            accountsBox.Text = account;
-            keyBox.Text = key;
-            consent.Checked = agree;
-            return AcceptButton is Button && ((Button)AcceptButton).Enabled;
-        }
-    }
+    // La fenêtre de saisie est commune aux trois lectures Riot : voir RiotKeyDialog.cs (UX-5).
 
     static class HistoryImporterTests
     {
@@ -437,7 +342,7 @@ namespace DraftMid
             HistoryImportResult r3 = make(same).Run(CancellationToken.None).Result;
             t(r3.Added == 0 && !r3.Saved && File.ReadAllText(path) == saved, "historique : rien de nouveau, fichier inchangé");
             string progressive = Path.Combine(home, "progressif.js");
-            Func<int, string[], HistoryImporter> step = (limit, ids) => new HistoryImporter(new Sim { Answer = Riot(ids) }, RiotRegion.All[0], progressive, new[] { "Test#EUW" }, HistoryImportDialog.OldestSupported) { DelayMs = 0, MaxGamesPerRun = limit, Wait = (ms, ct) => Task.FromResult(0) };
+            Func<int, string[], HistoryImporter> step = (limit, ids) => new HistoryImporter(new Sim { Answer = Riot(ids) }, RiotRegion.All[0], progressive, new[] { "Test#EUW" }, HistoryImporter.OldestSupported) { DelayMs = 0, MaxGamesPerRun = limit, Wait = (ms, ct) => Task.FromResult(0) };
             HistoryImportResult first = step(2, new[] { "P1", "P2", "P3" }).Run(CancellationToken.None).Result;
             t(first.Added == 2 && first.HasMore && File.ReadAllText(progressive).Contains("\"P1\"") && !File.ReadAllText(progressive).Contains("\"P3\""), "historique : premier import limité aux parties récentes");
             HistoryImportResult second = step(2, new[] { "P1", "P2", "P3" }).Run(CancellationToken.None).Result;
@@ -480,16 +385,26 @@ namespace DraftMid
 
             t(personal.All(p => Sum(Path.Combine(home, p)) == before[p]), "historique : données personnelles existantes inchangées");
             t(!Directory.GetFiles(home).Any(f => File.ReadAllText(f).Contains("RGAPI")), "historique : aucune clé sur le disque");
-            using (HistoryImportDialog dialog = new HistoryImportDialog(null, _ => { }, new[] { "Test#EUW", "Autre#EUW" }))
+            using (RiotKeyDialog dialog = new RiotKeyDialog(null, _ => { }, new[] { "Test#EUW", "Autre#EUW" }, RiotTask.History, "mid", 3))
             {
                 dialog.CreateControl();
                 dialog.CreateControl();
                 t(dialog.ConsentFits(), "historique : texte du consentement entier");
                 t(dialog.Accounts.Count == 2 && dialog.Key == "" && dialog.SelectedRegion != null && dialog.GamesToRead == 100, "historique : fenêtre préremplie, clé vide, 100 parties par défaut");
+                t(dialog.TestPreselected() == RiotTask.History, "clé Riot : la lecture demandée est cochée, et elle seule");
                 t(!dialog.TestCanStart("Test#EUW", "fausse", false), "historique : aucun import sans consentement");
                 t(!dialog.TestCanStart("SansTag", "fausse", true), "historique : compte invalide refusé");
                 t(dialog.TestCanStart("Test#EUW", "fausse", true), "historique : consentement, compte et clé suffisent");
+                t(!dialog.TestCanStartTasks(RiotTask.None, "fausse"), "clé Riot : aucune lecture cochée, rien ne se lance");
+                t(dialog.TestCanStartTasks(RiotTask.Roles | RiotTask.Matchups, "fausse") && !dialog.TestCanStartTasks(RiotTask.Roles, ""), "clé Riot : rôles et matchups avec une seule saisie de clé ; sans clé, rien");
             }
+            using (RiotKeyDialog noPool = new RiotKeyDialog(null, _ => { }, new string[0], RiotTask.Matchups, null, 0))
+            {
+                noPool.CreateControl();
+                t(!noPool.TestMatchupsAvailable() && noPool.TestPreselected() == RiotTask.None, "clé Riot : matchups indisponibles sans pool, et dit pourquoi");
+            }
+            // La clé ne vit que dans la fenêtre puis dans le fetcher : aucun champ ni propriété statique ne la garde.
+            t(typeof(RiotKeyDialog).GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).All(f => f.FieldType != typeof(string) || f.IsLiteral), "clé Riot : aucune variable statique ne peut garder la clé");
             Directory.Delete(home, true);
         }
     }

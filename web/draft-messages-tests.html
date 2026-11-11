@@ -289,8 +289,10 @@ UI-283 | index.html:HomeView (fr.js home.*) | UX-3, Accueil : titres | re:^(Ce q
 UI-284 | index.html:HomeView (fr.js home.check.*) | UX-3, Accueil : vérifications | re:^(Client League connecté|Lecture du client désactivée|Disponible dans l'application DRAFT\.|Rôle joué : (Top|Jungle|Mid|ADC|Support), \d+ champions?|Aucun champion dans ce pool pour l'instant\.|Aucun rôle choisi|Choisis ton rôle, puis ajoute tes champions\.|Panneaux automatiques|Panneaux à afficher toi-même|Pour les afficher ou les masquer à tout moment : Ctrl\+Alt\+D\.|Pour les afficher ou les masquer : menu de l'icône DRAFT\.)$
 UI-285 | index.html:HomeView (fr.js home.action.*) | UX-3, Accueil : boutons | re:^(Connexion League|Modifier mon pool|Affichage|Simuler une draft)$
 UI-287 | index.html:PoolPage (fr.js pool.sub) | UX-3, Mon pool : phrase | Chaque rôle garde ses champions. Modifier un pool ne change pas ton rôle joué.
-UI-288 | index.html:StatsView (fr.js stats.*) | UX-3, Mes statistiques | re:^(Ton journal DRAFT et ton historique Riot, au même endroit\.|Journal des drafts|Historique Riot|L'import se fait dans Réglages, rubrique Données et confidentialité\.|Gérer l'import|Statistiques importées|Importer un ancien fichier)$
-UI-289 | index.html:StatsView | UX-3, Mes statistiques : historique (texte existant + renvoi) | re:^(\d+ parties importées( le \d\d/\d\d/\d{4})?\.|Rien d'importé pour l'instant\.) L'import se fait dans Réglages, rubrique Données et confidentialité\.$
+UI-288 | index.html:StatsView (fr.js stats.*) | UX-5, Mes statistiques : titres, onglets, chiffres | re:^(Ton journal DRAFT et ton historique Riot, au même endroit\.|Vue d'ensemble|Journal des drafts|Historique Riot|Drafts notées|Victoires|Conseil suivi|Aucun|sur \d+ parties? terminées?|sur \d+|\d+ parties?(, \d\d/\d\d/\d{4})?|\d+ V, \d+ D|Victoires par champion joué|Journal DRAFT|Statistiques importées|Importer un ancien fichier|Parties par rôle|Le plus joué en (Top|Jungle|Mid|ADC|Support))$
+UI-289 | index.html:HistoryImportBox (fr.js stats.history.*) | UX-5, Mes statistiques : historique Riot, états vides, clé et collecte | re:^(Ton expérience, jamais le classement\.|Historique Riot Ton expérience, jamais le classement\.|Aucun historique importé\. DRAFT peut lire tes parties classées avec ta clé Riot, saisie à chaque import et jamais enregistrée\.|\d+ parties? importées?, le \d\d/\d\d/\d{4}|L'import se fait dans l'application DRAFT\.|Ta clé Riot se saisit dans une fenêtre DRAFT, une seule fois pour l'historique, les rôles et les matchups\. Elle n'est jamais enregistrée\.|Lu : tes parties classées solo/duo\. Gardé sur ce PC : champion, rôle, résultat, KDA, patch et champions adverses\. Aucun nom ni identifiant de joueur\.|Aucune partie importée en (Top|Jungle|Mid|ADC|Support)\.)$
+UI-298 | index.html:RecentDrafts, StatsOverview (fr.js stats.recent.*, stats.overview.*) | UX-5, dernières drafts et journal vide | re:^(Dernières drafts|Notées avec « Je joue »\. DRAFT garde le pick, ton vis-à-vis et le résultat, rien d'autre\.|Dernières drafts Notées avec .+|Voir tout le journal|Ton pick|Ton vis-à-vis|Conseil|Résultat|Date|Suivi|Autre choix|Aucune partie notée pour l'instant\. Pendant une draft, clique sur « Je joue », puis sur le résultat : tes bilans apparaîtront ici\.|Victoires par champion joué Journal DRAFT)$
+NA-004 | RiotKeyDialog.cs:RiotDialogText | [non affiché] fenêtre Windows commune de la clé Riot (UX-5), textes regroupés pour native.riot.dialog.* | re:^(DRAFT : lectures avec ta clé Riot|Une seule clé pour les lectures que tu coches\..+|Lectures à lancer, l'une après l'autre :|Importer mon historique|Mettre à jour les (rôles des champions|matchups de ton pool) \(environ \d+ minutes\)|Lu : .+|Choisis d'abord ton rôle et ton pool dans Mon pool\.|Lancer)$
 UI-290 | index.html:SettingsPage (fr.js settings.*) | UX-3, Réglages : rubriques | re:^(Six rubriques\. Chaque changement est enregistré tout de suite\.|Rubriques des réglages|Ce réglage n'existe que dans l'application DRAFT\.|Général|Connexion League|Affichage et fenêtres|Données et confidentialité|Mises à jour|Diagnostic et informations)$
 UI-291 | index.html:SettingsPage (fr.js settings.*.sub) | UX-3, Réglages : phrase de chaque rubrique | re:^(Ce qui vaut partout dans DRAFT\.|Lecture de la draft dans le client, rôle attribué par League\.|Les panneaux pendant la draft, et leur place à l'écran\.|Rôles, matchups, historique et sources\. Rien ne quitte ton PC sans ton action\.|La version installée, et la recherche d'une nouvelle version\.|Pour comprendre la détection et signaler un problème\.)$
 UI-292 | index.html:SimView | UX-3, titre de la barre du Simulateur | Simulateur
@@ -898,7 +900,7 @@ async function fullTour(x, where, deep) {
     await clickTab(x, "plan");
     for (const phase of ["mid", "fight"]) { const b = x.d.querySelector(`[data-test="plan-phase-${phase}"]`); if (b) { b.click(); await settle(); collect(x.d, where + " plan"); } }
     await clickTab(x, "matchups"); collect(x.d, where + " duel");
-    await showView(x, "stats"); collect(x.d, where + " parties"); await showView(x, "sim");
+    await showView(x, "stats"); for (const k of ["overview", "journal", "history"]) { const b = x.d.querySelector(`[data-test="stats-tab-${k}"]`); if (b) { b.click(); await settle(); } collect(x.d, where + " parties"); } await showView(x, "sim");
     for (const level of ["intermediate", "advanced"]) { x.$.savePrefs({ coachLevel:level }); await settle(); await clickTab(x, "coach"); collect(x.d, where + " conseils " + level); }
     x.$.savePrefs({ coachLevel:"beginner" }); await settle();
   }
@@ -979,7 +981,7 @@ async function special() {
     x.$.choosePick(x.$.V.shown); await settle(); collect(x.d, "journal");
     x.$.setResult(x.$.state.current, "win"); await settle(); collect(x.d, "journal");
     x.$.reset(); await settle(); ["Ahri"].forEach(n => x.$.addEnemy(n)); x.$.choosePick("Fizz"); await settle(); x.$.reset(); await settle(); collect(x.d, "journal en attente");
-    await showView(x, "stats"); collect(x.d, "journal parties"); await showView(x, "sim");
+    await showView(x, "stats"); for (const k of ["overview", "journal", "history"]) { const b = x.d.querySelector(`[data-test="stats-tab-${k}"]`); if (b) { b.click(); await settle(); } collect(x.d, "journal parties"); } await showView(x, "sim");
     // Duel avec tableau : recherche.
     await clickTab(x, "matchups"); const q = x.d.getElementById("q"); if (q) { await type(q, "ahri"); await type(q, "zzzz"); }
     // Tous exclus.
@@ -1046,7 +1048,7 @@ async function special() {
     const parsed = JSON.parse(config); if (parsed.roles) { parsed.roles.top = { pool:["Darius", "Garen"], excluded:[], favorite:"Ornn" }; delete parsed.roles.support; }
     await drop(profileInput(), "profils.json", JSON.stringify(parsed));
     const undo = x.d.querySelector('[data-test="undo-profiles-import"]'); if (undo) { undo.click(); await settle(); collect(x.d, current); }
-    await showView(x, "stats");
+    await showView(x, "stats"); { const b = x.d.querySelector('[data-test="stats-tab-journal"]'); if (b) { b.click(); await settle(); } }
     await drop(journalInput(), "journal.json", "{}");
     await drop(journalInput(), "journal.json", JSON.stringify([{ id:1, date:"2026-10-01T10:00:00Z", picked:"Fizz", suggested:"TF", enemies:["Ahri"], mid:"Ahri", result:"win" }]));
     close(x);
@@ -1066,9 +1068,13 @@ async function special() {
     const x = await open({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] }, null, 1280, 900, "&view=settings"); current = "réglages";
     await eachSettings(x, "réglages");
     for (const v of ["home", "pool", "stats"]) { await showView(x, v); collect(x.d, "section " + v); }
+    for (const k of ["journal", "history", "overview"]) { const b = x.d.querySelector(`[data-test="stats-tab-${k}"]`); if (b) { b.click(); await settle(); collect(x.d, "statistiques " + k); } }
     Object.assign(x.$.hostState, { available:true, lcuConfirmed:true, lcuEnabled:true, lcuStatus:"waiting", hotkey:true, updateStatus:"", phase:"Client LoL fermé", placement:"Panneaux placés de chaque côté du client." });
     x.$.rerender(); await settle(); await eachSettings(x, "réglages application");
     for (const v of ["home", "stats"]) { await showView(x, v); collect(x.d, "section application " + v); }
+    x.w.DRAFT_HISTORY = { generated:"2026-11-08T10:00:00Z", rows:[{ id:"H1", champ:"Fizz", pos:"MIDDLE", win:true }, { id:"H2", champ:"Fizz", pos:"MIDDLE", win:false }] }; x.$.rerender(); await settle();
+    for (const k of ["overview", "history"]) { const b = x.d.querySelector(`[data-test="stats-tab-${k}"]`); if (b) { b.click(); await settle(); collect(x.d, "statistiques application " + k); } }
+    delete x.w.DRAFT_HISTORY; x.$.rerender(); await settle();
     for (const s of ["connected", "failed", "off"]) { x.$.hostState.lcuStatus = s; x.$.rerender(); await settle(); await showView(x, "settings", "league"); collect(x.d, "réglages lcu"); await showView(x, "home"); collect(x.d, "accueil lcu"); }
     Object.assign(x.$.hostState, { rolesRunning:true, historyRunning:true, updateRunning:true }); x.$.rerender(); await settle(); await eachSettings(x, "réglages calcul");
     x.$.hostState.historyRunning = false; x.$.hostState.historyHasMore = true; x.$.hostState.hotkey = false; x.$.hostState.autoDraft = false; x.$.rerender(); await settle(); await eachSettings(x, "réglages"); await showView(x, "home"); collect(x.d, "accueil manuel"); await showView(x, "sim");
