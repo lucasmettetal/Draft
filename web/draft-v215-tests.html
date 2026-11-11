@@ -81,7 +81,7 @@ for(const [param,marker] of [["compare","compare"],["rules","rules"]]){const x=a
  x.w.eval("handleAssignedRole(null);savePrefs({autoRole:'off'});handleAssignedRole('support')");await settle();t(x.w.eval("myRole()")==="jungle"&&!x.d.querySelector(".role-hint"),"changement désactivé : rien ne bouge");
  x.w.eval("handleAssignedRole(null);savePrefs({autoRole:'suggest'})");close(x);}
 {const x=await open("mid",null,1280,720,"&tab=settings");await settle();const body=text(x.d.body);t(/Mes profils/.test(body)&&/Exporter mes profils/.test(body)&&/Importer/.test(body),"réglages : profils, export et import");
- const roleBtn=x.d.querySelector('[data-test="pool-role-jungle"]');roleBtn.click();await settle();t(x.w.eval("myRole()")==="jungle"&&!x.d.querySelector('[data-test="settings"] [data-test="pool-remove"]'),"réglages : le rôle choisi charge son propre pool");
+ const roleBtn=x.d.querySelector('[data-test="pool-role-jungle"]');roleBtn.click();await settle();t(x.w.eval("myRole()")==="mid"&&!x.d.querySelector('[data-test="settings"] [data-test="pool-remove"]'),"réglages : le rôle choisi montre son propre pool, sans changer le rôle joué (UX-1)");
  x.d.querySelector('[data-test="pool-role-mid"]').click();await settle();t(x.d.querySelectorAll('[data-test="settings"] [data-test="pool-remove"]').length===4,"réglages : le pool Mid revient");
  t(body.includes("DRAFT "+x.w.eval("APP_VERSION")+" bêta")&&/DRAFT 2\.\d+\.\d+ bêta/.test(body)&&/Non approuvé par Riot Games/.test(body),"réglages : nom, version et avertissement");close(x);}
 {const x=await open("mid",null,1280,720);t(x.d.title==="DRAFT"&&text(x.d.querySelector(".top .brand"))==="DRAFT","fenêtre principale : nom DRAFT");t(x.d.querySelector(".top .role-switch"),"fenêtre principale : sélecteur de rôle");t(!/DraftMid/.test(x.d.body.innerText),"aucun « DraftMid » visible");close(x);}
@@ -104,7 +104,7 @@ for(const [param,marker] of [["compare","compare"],["rules","rules"]]){const x=a
  const mixed=x.$.V.res.ranking.flatMap(p=>p.criteria).filter(c=>c.parts);t(mixed.length&&mixed.every(c=>/^Si c'est /.test(c.text)&&!/ · /.test(c.text)),"B-08 : hypothèses nommées (« Si c'est … »)");
  close(x);}
 // B-04 : à score égal, l'ordre départagé par le risque est dit comme tel, pas comme l'alphabet.
-{const x=await open("mid",null,1280,720,"&tab=analyse");x.w.eval("saveMyProfile('jungle',['Graves','Warwick'])");await settle();["Lissandra","Nautilus","Kog'Maw"].forEach(x.$.addEnemy);await settle();const v=x.$.V;
+{const x=await open("mid",null,1280,720,"&tab=analyse");x.w.eval("saveMyProfile('jungle',['Graves','Warwick']);switchRole('jungle','manual')");await settle();["Lissandra","Nautilus","Kog'Maw"].forEach(x.$.addEnemy);await settle();const v=x.$.V;
  const tied=v.tied&&v.tied.map(p=>v.res.ranking.find(e=>e.pick===p));const risk=tied&&new Set(tied.map(e=>Math.min(0,...e.why.map(w=>w.v)).toFixed(3))).size>1;t(risk,"précondition : égalité départagée par le risque ("+(v.tied||[]).join("=")+")");
  if(risk){const note=text(x.d.querySelector(".tie-group .note"));t(/pire critère|aucun critère ne le pénalise/.test(note)&&!/alphab|n'a pas de sens/.test(note),"B-04 : la cause affichée est le risque ("+note+")");
   const ana=text(x.d.querySelector(".tab-body"));t(!/n'a pas de sens/.test(ana)&&/pire critère|aucun critère ne le pénalise/.test(ana),"B-04 : même cause dans l'analyse");

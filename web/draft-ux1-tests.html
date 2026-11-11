@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests UX-1</title></head><body><pre id="out"></pre>
+<!-- UX-1 : comportements et retours visibles, sur la vraie page. Chaque vérification échoue sur la 3.0.0 avant UX-1 (main 4dd76f9). -->
+<!-- Lancement : tools\run-v215-tests.ps1 -Page draft-ux1-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const PROFILES={mid:{role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]},none:null};
+async function open(profile,panel,W=1280,H=720,extra=""){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(PROFILES[profile]));localStorage.setItem("draftPatch","16.22");const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html"+(panel?"?panel="+panel:"?x=1")+extra;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(350);const w=f.contentWindow;w.eval("window.$={get V(){return V},get state(){return state},get PROFILES(){return PROFILES},commit,rerender,addEnemy,myRole,hostState}");return {f,w,d:f.contentDocument,$:w.$};}
+const close=x=>x.f.remove();
+const settle=()=>wait(150);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const q=(x,s)=>x.d.querySelector(`[data-test="${s}"]`);
+const key=(x,el,k)=>{el.dispatchEvent(new x.w.KeyboardEvent("keydown",{key:k,bubbles:true,cancelable:true}));};
+const FOUR=["Ornn","Sion","Ahri","Jinx"];
+
+(async()=>{
+// ---------- F7 : Échap dans le champ vide n'efface aucune donnée ----------
+{const x=await open("mid");FOUR.forEach(x.$.addEnemy);await settle();const add=x.d.getElementById("add");add.focus();key(x,add,"Escape");await settle();
+ t(x.$.state.enemies.join()===FOUR.join(),"F7 Échap dans le champ vide : aucun adversaire retiré ("+x.$.state.enemies.length+"/4)");
+ key(x,x.d.body,"Escape");await settle();t(x.$.state.enemies.length===4,"F7 Échap hors du champ : aucun adversaire retiré");close(x);}
+
+// ---------- F8 : Nouvelle draft et Retour arrière proposent « Annuler » ----------
+{const x=await open("mid");FOUR.forEach(x.$.addEnemy);await settle();x.w.eval("setMid('Ahri')");await settle();const before=JSON.stringify([x.$.state.enemies,x.$.state.manualMid,x.$.state.roleOf]);
+ q(x,"new-draft").click();await settle();t(x.$.state.enemies.length===0,"F8 Nouvelle draft vide la draft");
+ const undo=q(x,"undo");t(!!undo&&/Annuler/.test(text(undo)),"F8 Nouvelle draft : « Annuler » proposé ("+text(undo)+")");
+ if(undo){q(x,"undo-action").click();await settle();t(JSON.stringify([x.$.state.enemies,x.$.state.manualMid,x.$.state.roleOf])===before,"F8 Annuler rétablit la draft exacte");t(!q(x,"undo"),"F8 l'annonce disparaît après l'annulation");}
+ x.d.activeElement&&x.d.activeElement.blur();key(x,x.d.body,"Backspace");await settle();t(x.$.state.enemies.length===3,"F8 Retour arrière retire le dernier adversaire");
+ const u2=q(x,"undo");t(!!u2&&/Retrait de Jinx/.test(text(u2)),"F8 Retour arrière : annonce et « Annuler » ("+text(u2)+")");
+ if(u2){q(x,"undo-action").click();await settle();t(x.$.state.enemies.join()===FOUR.join(),"F8 Annuler remet le champion retiré");}
+ close(x);}
+
+// ---------- F5 : modifier le pool d'un autre rôle ne change pas le rôle joué ----------
+{const x=await open("mid",null,1280,900,"&tab=settings");await settle();const shown=x.$.V.shown;
+ q(x,"pool-role-top").click();await settle();t(x.$.myRole()==="mid","F5 voir le pool Top laisse Mid joué ("+x.$.myRole()+")");
+ const note=q(x,"pool-editing");t(!!note&&/Ton rôle joué reste Mid/.test(text(note)),"F5 la page dit quel pool est modifié et quel rôle reste joué ("+text(note)+")");
+ const chip=x.d.querySelector('[data-test="pool-add"]');const name=chip&&chip.dataset.champion;if(chip)chip.click();await settle();
+ t(x.$.myRole()==="mid"&&x.$.V.shown===shown,"F5 ajouter "+name+" au pool Top ne change ni le rôle joué ni le conseil");
+ t(x.$.PROFILES.roles.top.pool.length===1,"F5 le champion est bien enregistré dans le pool Top");
+ const play=q(x,"pool-play-role");t(!!play,"F5 bouton explicite pour jouer ce rôle");if(play){play.click();await settle();t(x.$.myRole()==="top","F5 « Jouer ce rôle » change le rôle joué");}
+ close(x);}
+
+// ---------- F6 : aucune saisie perdue sans message, sans rôle ----------
+{const x=await open("none",null,1280,900,"&tab=settings");await settle();const s=q(x,"pool-search");
+ t(!!s&&s.disabled,"F6 sans rôle : la recherche du pool est désactivée");t(/Choisis d'abord ton rôle/.test(text(q(x,"settings"))+" "+(s?s.placeholder:"")),"F6 sans rôle : la consigne le dit");
+ q(x,"pool-role-mid").click();await settle();t(!q(x,"pool-search").disabled&&x.$.myRole()==="mid","F6 premier rôle choisi : il devient le rôle joué, la recherche s'ouvre");close(x);}
+
+// ---------- Retours visibles : pool enregistré, retrait annulable ----------
+{const x=await open("mid",null,1280,900,"&tab=settings");await settle();const chip=x.d.querySelector('[data-test="pool-add"]');const name=chip.dataset.champion;chip.click();await settle();
+ t(new RegExp("Enregistré : "+name+" ajouté au pool Mid\\.").test(text(q(x,"pool-saved"))),"retour : ajout enregistré ("+text(q(x,"pool-saved"))+")");
+ x.d.querySelector(`[data-test="pool-remove"][data-champion="${name}"]`).click();await settle();
+ t(new RegExp(name+" retiré du pool Mid\\.").test(text(q(x,"pool-saved")))&&!!q(x,"pool-undo"),"retour : retrait annoncé avec « Annuler »");
+ const pu=q(x,"pool-undo");if(pu){pu.click();await settle();}t(!!pu&&x.$.PROFILES.roles.mid.pool.includes(x.w.eval("pickId")(name)),"retour : Annuler remet le champion dans le pool");close(x);}
+
+// ---------- Modale : aucun champ derrière les réglages ----------
+{const x=await open("mid",null,1280,720);q(x,"open-settings").click();await settle();const add=x.d.getElementById("add");add.focus();
+ t(x.d.activeElement!==add,"modale : la recherche d'adversaire derrière les réglages ne prend pas le focus");
+ t(q(x,"app").hasAttribute("inert"),"modale : la fenêtre derrière est inerte");q(x,"settings-close").click();await settle();t(!q(x,"app").hasAttribute("inert"),"modale fermée : la fenêtre redevient active");close(x);}
+
+// ---------- États vides et messages internes ----------
+{const x=await open("mid",null,1280,720,"&tab=parties");await settle();const body=text(x.d.body);t(!/draft-import-stats\.bat/.test(body),"Parties vide : plus de consigne « draft-import-stats.bat »");t(/historique Riot/.test(text(q(x,"stats-empty"))),"Parties vide : la consigne dit où importer ("+text(q(x,"stats-empty"))+")");close(x);}
+{const x=await open("mid",null,1280,900,"&tab=settings");await settle();x.d.querySelectorAll("details").forEach(d=>d.open=true);await settle();const body=text(x.d.body);
+ t(!/Licence non confirmée/.test(body),"Sources : plus de « Licence non confirmée »");t(!/absente/i.test(body),"Sources : plus de « absente » dès le premier lancement");close(x);}
+
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
+</script></body></html>

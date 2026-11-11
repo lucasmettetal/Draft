@@ -102,7 +102,7 @@ const DATA_PROVIDERS = [
   },
   {
     id:"meraki-roles", label:"Rôles, référence livrée", kind:"estimate", provides:["roles"], source:"Meraki Analytics",
-    terms:"Licence non confirmée : à vérifier avant de la présenter comme une source autorisée.",
+    terms:"Conditions de réutilisation à confirmer : sert seulement de référence d'appoint.",
     rolePrior(id) { return typeof ROLE_RATES !== "undefined" && ROLE_RATES.champions[id] ? { row: ROLE_RATES.champions[id], patch: ROLE_RATES.patch } : null; },
     describe() {
       if (typeof ROLE_RATES === "undefined") return { available:false, note:"Non livrée dans cette version : les rôles habituels écrits à la main prennent le relais." };

@@ -317,7 +317,7 @@ public static class Autostart
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); return; }
+            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); if (Id == "full") app.OnMainWindowClosed(); return; }
             base.OnFormClosing(e);
         }
 
@@ -428,7 +428,7 @@ public static class Autostart
             menu.Items.Add(miMatchups);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(miAutostart);
-            miUpdate = new ToolStripMenuItem("Rechercher une mise à jour...", null, (s, e) => CheckForUpdate());
+            miUpdate = new ToolStripMenuItem("Rechercher une mise à jour...", null, (s, e) => CheckForUpdate(true));
             menu.Items.Add(miUpdate);
             menu.Items.Add("Quitter", null, (s, e) => Quit());
             tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DRAFT", Visible = true, ContextMenuStrip = menu };
@@ -1727,15 +1727,20 @@ public static class Autostart
             if (!support.Contains("Support") || support.Contains("Mid")) problem += "le texte d'adversaire ignore le rôle (" + support + ") ; ";
             await run("resetDraft(); 1");
 
-            // 7. La croix masque la fenêtre sans quitter l'application.
+            // 7. La croix masque la fenêtre sans quitter l'application, et le dit par une bulle : une fois par session (UX-1).
             OpenFull("");
             await findWindow();
+            int balloons = BalloonCount;
             f.Close();
             await Task.Delay(200);
             if (f.Visible || f.IsDisposed || Quitting) problem += "la croix ne masque pas proprement ; ";
+            if (BalloonCount != balloons + 1 || LastBalloon != BalloonClosed) problem += "fermée par la croix, aucune bulle ne dit que DRAFT reste actif (" + LastBalloon + ") ; ";
             OpenFull("");
             await findWindow();
             if (!f.Visible || !await waitFor("document.querySelector('[data-test=\"app\"]')")) problem += "réouverture impossible ; ";
+            f.Close();
+            await Task.Delay(200);
+            if (BalloonCount != balloons + 1) problem += "la bulle de fermeture revient à chaque fermeture ; ";
             f.Hide();
 
             // 7 bis. Fermeture par un autre programme (WM_CLOSE brut) : la fenêtre doit seulement être masquée,
@@ -1813,6 +1818,7 @@ public static class Autostart
                 File.WriteAllText(Path.Combine(dataDir, "draft-stats.js"), safe, new UTF8Encoding(false));
                 File.WriteAllText(Path.Combine(webDir, "draft-stats.js"), safe, new UTF8Encoding(false));
                 foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.Reload();
+                Notify(BalloonStatsImported, ToolTipIcon.Info);
             }
         }
 
@@ -1829,7 +1835,7 @@ public static class Autostart
                 case "hideAll": ToggleManual(); break;
                 case "updateRoles": ToggleRiotUpdate(false); break;
                 case "updateMatchups": ToggleRiotUpdate(true); break;
-                case "checkUpdate": CheckForUpdate(); break;
+                case "checkUpdate": CheckForUpdate(false); break;
                 case "importHistory": ToggleHistoryImport(); break;
                 case "setProfile":
                 {
@@ -1911,6 +1917,30 @@ public static class Autostart
 
         void SetUpdateStatus(string text) { updateStatus = text; RefreshUi(); }
 
+        // ---------- Retours visibles hors de la fenêtre (audit UX, problème 7) ----------
+        // Textes regroupés ici pour l'extraction du catalogue (native.balloon.*).
+        public const string BalloonClosed = "DRAFT reste actif près de l'horloge. Pour rouvrir cette fenêtre : clic droit sur son icône, puis « Analyse détaillée ».";
+        public const string BalloonStatsImported = "Statistiques importées : elles s'affichent dans l'onglet Parties de la fenêtre DRAFT.";
+        public string LastBalloon = "";
+        public int BalloonCount;
+        bool closeHintShown;
+
+        // Une bulle près de l'horloge. Retenue pour les tests ; jamais affichée en mode silencieux.
+        void Notify(string text, ToolTipIcon icon)
+        {
+            LastBalloon = text;
+            BalloonCount++;
+            if (!opts.Silent && tray != null) tray.ShowBalloonTip(5000, "DRAFT", text, icon);
+        }
+
+        // La croix masque la fenêtre principale sans quitter : on le dit une fois par session, pas à chaque fermeture.
+        public void OnMainWindowClosed()
+        {
+            if (closeHintShown || Quitting) return;
+            closeHintShown = true;
+            Notify(BalloonClosed, ToolTipIcon.Info);
+        }
+
         // Jamais pendant une draft, une partie, un import ou un calcul : l'application redémarre.
         string UpdateBlocked()
         {
@@ -1919,9 +1949,10 @@ public static class Autostart
             return null;
         }
 
-        public void CheckForUpdate()
+        // fromMenu : lancée depuis le menu de l'icône, la recherche répond par une bulle, réglages ouverts ou non.
+        public void CheckForUpdate(bool fromMenu)
         {
-            RunUpdate(new GitHubUpdateSource(), info => MessageBox.Show("La version " + info.Version.ToString(3) + " est disponible (tu as la " + AppUpdater.Current.ToString(3) + ").\n\nDRAFT va la télécharger, la vérifier, puis redémarrer. Tes profils, ton historique et tes réglages sont conservés.\n\nInstaller maintenant ?", "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+            RunUpdate(new GitHubUpdateSource(), fromMenu, info => MessageBox.Show("La version " + info.Version.ToString(3) + " est disponible (tu as la " + AppUpdater.Current.ToString(3) + ").\n\nDRAFT va la télécharger, la vérifier, puis redémarrer. Tes profils, ton historique et tes réglages sont conservés.\n\nInstaller maintenant ?", "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
         }
 
         // Relance avec les mêmes options : un essai isolé reste sur son dossier de données.
@@ -1939,11 +1970,11 @@ public static class Autostart
             return string.Join(" ", args);
         }
 
-        async void RunUpdate(IUpdateSource source, Func<UpdateInfo, bool> confirm)
+        async void RunUpdate(IUpdateSource source, bool notify, Func<UpdateInfo, bool> confirm)
         {
             if (updateCts != null) return;
             string blocked = UpdateBlocked();
-            if (blocked != null) { SetUpdateStatus(blocked); return; }
+            if (blocked != null) { SetUpdateStatus(blocked); if (notify) Notify(blocked, ToolTipIcon.Warning); return; }
             CancellationTokenSource cts = new CancellationTokenSource();
             updateCts = cts;
             string done = null;
@@ -1982,12 +2013,22 @@ public static class Autostart
                 if (done != null && !Quitting)
                 {
                     SetUpdateStatus(done);
+                    if (notify && done != "") Notify(done, done.StartsWith("DRAFT est à jour") || done.StartsWith("La version") ? ToolTipIcon.Info : ToolTipIcon.Warning);
                     if (opts.TestUpdate != null) { if (opts.Out != null) File.WriteAllText(opts.Out, "RESULTAT : " + done); Quit(); }
                 }
             }
         }
 
-        public async void TestUpdate(string localFile) { await Task.Delay(100); RunUpdate(new LocalUpdateSource(localFile), info => true); }
+        public async void TestUpdate(string localFile) { await Task.Delay(100); RunUpdate(new LocalUpdateSource(localFile), false, info => true); }
+
+        // Mise à jour lancée « depuis le menu », sur une source simulée : renvoie la bulle affichée (vide si aucune).
+        public async Task<string> TestUpdateFromMenu(IUpdateSource source)
+        {
+            int before = BalloonCount;
+            RunUpdate(source, true, info => false);
+            for (int i = 0; i < 100 && (updateCts != null || BalloonCount == before); i++) await Task.Delay(30);
+            return BalloonCount == before ? "" : LastBalloon;
+        }
 
         public void AnnounceRolledBack()
         {
@@ -2026,6 +2067,17 @@ public static class Autostart
     static class EndToEnd
     {
         public const string FakeTitle = "DraftMid-FauxClient-Test";
+
+        // Source de mise à jour simulée : aucune connexion, aucun téléchargement.
+        class StubUpdateSource : IUpdateSource
+        {
+            public Version Latest = AppUpdater.Current;
+            public Exception Fail;
+            public string PublicKey { get { return ""; } }
+            public Task<string> SignatureAsync(UpdateInfo info, CancellationToken ct) { return Task.FromResult(""); }
+            public Task<UpdateInfo> LatestAsync(CancellationToken ct) { if (Fail != null) throw Fail; return Task.FromResult(new UpdateInfo { Version = Latest, Tag = "v" + Latest.ToString(3) }); }
+            public Task DownloadAsync(UpdateInfo info, string path, IProgress<long> progress, CancellationToken ct) { throw new InvalidOperationException("aucun téléchargement en test"); }
+        }
 
         class FakeClient : Form
         {
@@ -2251,6 +2303,13 @@ public static class Autostart
             t(detailProblem == "", "Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (" + app.DetailOpenReport + ") " + detailProblem);
             string securityProblem = await app.TestPageSecurity();
             t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
+            // Mise à jour lancée depuis le menu de l'icône : chaque issue répond par une bulle, réglages fermés (UX-1).
+            string upToDate = await app.TestUpdateFromMenu(new StubUpdateSource());
+            t(upToDate == "DRAFT est à jour (version " + AppUpdater.Current.ToString(3) + ").", "Mise à jour depuis le menu : bulle « DRAFT est à jour » (" + upToDate + ")");
+            string available = await app.TestUpdateFromMenu(new StubUpdateSource { Latest = new Version(99, 0, 0) });
+            t(available == "La version 99.0.0 est disponible.", "Mise à jour depuis le menu, installation refusée : bulle « version disponible » (" + available + ")");
+            string failed = await app.TestUpdateFromMenu(new StubUpdateSource { Fail = new System.Net.WebException("test") });
+            t(failed == "GitHub ne répond pas. Vérifie ta connexion, puis réessaie.", "Mise à jour depuis le menu, réseau absent : bulle d'erreur en clair (" + failed + ")");
         }
 
         static string s_keyReport = "";
@@ -2298,6 +2357,8 @@ public static class Autostart
                 s.AppendLine("MESURE : panneaux visibles " + appear.ElapsedMilliseconds + " ms après la détection");
                 await Task.Delay(300);
                 t(app.PanelsShown && app.CurrentPhase == Phase.Draft, "4. Début de draft : panneaux affichés");
+                string blockedBalloon = await app.TestUpdateFromMenu(new StubUpdateSource { Latest = new Version(99, 0, 0) });
+                t(blockedBalloon.StartsWith("Une draft ou une partie est en cours"), "Mise à jour depuis le menu pendant une draft : bulle « relance après » (" + blockedBalloon + ")");
                 t(app.PanelFor("left").Visible && app.PanelFor("right").Visible, "4. Les deux panneaux sont visibles");
                 Native.RECT c = app.Tracker.Rect, l = rectOfLeft(), r = rectOfRight();
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
