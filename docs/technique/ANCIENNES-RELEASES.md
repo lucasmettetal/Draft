@@ -6,7 +6,7 @@
 
 | Élément | Constat |
 |---|---|
-| Releases publiques | V2.6.0 à V2.10.0, puis V2.14.0 (sans Meraki), V2.16.0 et V2.16.1, la dernière (« Latest ») |
+| Releases publiques | V2.6.0 à V2.10.0, puis V2.14.0 (sans Meraki), V2.16.0, V2.16.1 et V2.16.2, la dernière (« Latest ») |
 | Référence Meraki | Vérifiée dans l'exécutable de la V2.10.0. Le fichier est aussi dans les sources de la V2.6.0, donc les releases intermédiaires la contiennent probablement. Exécutables intermédiaires non inspectés |
 | Droits de redistribution | **À clarifier.** La licence MIT du dépôt de Meraki couvre son code, et rien ne couvre `championrates.json` |
 | Bilans personnels | Retirés du code en V2.13, donc présents dans ces versions plus anciennes |
