@@ -1,156 +1,231 @@
-# Mesure la détection de l'adversaire direct, sur des données séparées de celles du modèle. Rien n'est publié.
-# - Parties réservées par le calcul des rôles, s'il y en a : de vraies compositions, jamais comptées dans le modèle.
-# - Sinon, simulation : les observations sont coupées en deux, l'une pour le modèle, l'autre pour tirer les drafts.
-#   Les rôles y sont tirés indépendamment : ce n'est PAS une mesure sur de vraies drafts, et le résultat le dit.
+# Mesure l'attribution des rôles adverses, pour les cinq rôles, sans modifier le moteur. Aucun appel réseau, aucune clé.
+# Le moteur est copié tel quel dans un dossier de travail et lancé dans Chrome sans interface.
+#
+# Drafts mesurées :
+# - par défaut : équipes SYNTHÉTIQUES tirées depuis la fiche écrite (web/draft-role-sheet.js). Le générateur est le modèle
+#   lui-même : c'est une borne haute, pas la précision réelle.
+# - avec -StatePath (ou -LocalState) : les vraies compositions mises de côté par le calcul des rôles (réserve), jamais
+#   comptées dans les rôles. Le fichier est lu en lecture seule, via une copie dans le dossier de travail.
+# Données des rôles (le modèle) : la fiche écrite seule, et en plus le calcul live si -LiveFile est donné.
+# Aucune composition n'est affichée ni écrite hors du dossier de travail : seulement des agrégats.
+#
+# Exemples :
+#   pwsh -File tools/run-accuracy-tests.ps1
+#   pwsh -File tools/run-accuracy-tests.ps1 -LocalState -LiveFile "$env:LOCALAPPDATA\DraftMid\draft-role-rates-live.js"
+#   pwsh -File tools/run-accuracy-tests.ps1 -CompareRef main
 param(
-  [string]$DataDir = (Join-Path $env:LOCALAPPDATA 'DraftMid'),
-  [string]$BaselineTag = 'v2.10.0',
-  [string]$Work = (Join-Path $env:TEMP 'draftmid-accuracy'),
-  [int]$PerSize = 600
+  [string]$StatePath,
+  [switch]$LocalState,
+  [string]$LiveFile,
+  [string]$CompareRef,
+  [int]$Teams = 2000,
+  [int]$MaxHoldout = 4000,
+  [int]$Seed = 20261110,
+  [string]$Work = (Join-Path $env:TEMP 'draft-role-accuracy'),
+  [string]$OutJson,
+  [switch]$SkipTests
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $web = Join-Path $repo 'web'
+$cases = Join-Path $repo 'tests\roles'
+$appData = Join-Path $env:LOCALAPPDATA 'DraftMid'
+
+# Le dossier de l'application n'est jamais un dossier de travail : rien n'y est écrit.
+$fullWork = [IO.Path]::GetFullPath($Work)
+if ($fullWork.StartsWith([IO.Path]::GetFullPath($appData), [StringComparison]::OrdinalIgnoreCase)) { throw "Dossier de travail refusé : $Work est dans le dossier de l'application." }
+
+if ($LocalState -and -not $StatePath) { $StatePath = Join-Path $appData 'draft-role-rates-state.json' }
+if ($StatePath -and -not (Test-Path -LiteralPath $StatePath -PathType Leaf)) {
+  Write-Host "Réserve introuvable : $StatePath"
+  Write-Host "Ce fichier n'existe qu'après un calcul « Mettre à jour les rôles » fait avec la version 2.12 ou plus récente."
+  Write-Host "Aucune mesure sur de vraies parties n'est possible sur ce PC. Rien n'a été mesuré."
+  exit 2
+}
+if ($LiveFile -and -not (Test-Path -LiteralPath $LiveFile -PathType Leaf)) { throw "Fichier de rôles live introuvable : $LiveFile" }
+
 $chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $chrome) { throw 'Chrome introuvable.' }
-$liveFile = Join-Path $DataDir 'draft-role-rates-live.js'
-if (-not (Test-Path $liveFile)) { throw "Aucun calcul de rôles dans $DataDir : lance d'abord « Mettre à jour les rôles »." }
 
 Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Work | Out-Null
-foreach ($f in 'draft-engine.js', 'draft-data.js', 'draft-champions.js', 'draft-role-sheet.js', 'draft-role-rates.js') { Copy-Item (Join-Path $web $f) $Work }
-Copy-Item $liveFile (Join-Path $Work 'live-all.js')
-# Copie octet pour octet : un tube PowerShell abîmerait les accents.
-$p = Start-Process git -ArgumentList '-C', "`"$repo`"", 'show', "${BaselineTag}:web/draft-engine.js" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Work 'engine-base.js') -Wait
-if ($p.ExitCode -ne 0) { throw "Moteur $BaselineTag introuvable." }
+$utf8 = [Text.UTF8Encoding]::new($false)
 
-$holdout = @()
-$statePath = Join-Path $DataDir 'draft-role-rates-state.json'
-if (Test-Path $statePath) { $state = Get-Content $statePath -Raw -Encoding UTF8 | ConvertFrom-Json; if ($state.Holdout) { $holdout = @($state.Holdout) } }
-[IO.File]::WriteAllText((Join-Path $Work 'holdout.js'), 'const HOLDOUT = ' + ($(if ($holdout.Count) { ConvertTo-Json -InputObject $holdout -Depth 3 -Compress } else { '[]' })) + ';', [Text.UTF8Encoding]::new($false))
+if (-not $SkipTests) {
+  & (Join-Path $PSScriptRoot 'run-role-tests.ps1') -Work (Join-Path $Work 'tests')
+  if ($LASTEXITCODE) { throw 'Tests de non-régression des rôles en échec : mesure arrêtée.' }
+  ''
+}
 
-function Invoke-Page($name, $html, $budget) {
-  [IO.File]::WriteAllText((Join-Path $Work "$name.html"), $html, [Text.UTF8Encoding]::new($false))
-  $prof = Join-Path $Work "pf-$name"; $out = Join-Path $Work "$name.dom"
-  $url = 'file:///' + ((Join-Path $Work "$name.html") -replace '\\', '/')
+function Invoke-Page($dir, $name, $budget) {
+  $prof = Join-Path $Work "pf-$((Split-Path $dir -Leaf))-$name"; $out = Join-Path $dir "$name.dom"
+  $url = 'file:///' + ((Join-Path $dir "$name.html") -replace '\\', '/')
   $a = @('--headless=new', '--disable-gpu', '--no-first-run', '--allow-file-access-from-files', "--user-data-dir=`"$prof`"", "--virtual-time-budget=$budget", '--dump-dom', "`"$url`"")
   $q = Start-Process $chrome -ArgumentList $a -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError "$out.err"
-  [void]$q.WaitForExit(240000)
+  [void]$q.WaitForExit(600000)
   Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like "*$prof*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
   $m = [regex]::Match([IO.File]::ReadAllText($out), '<pre id="out">([\s\S]*?)</pre>')
-  if (-not $m.Groups[1].Value) { throw "Aucun résultat pour $name." }
-  [Net.WebUtility]::HtmlDecode($m.Groups[1].Value)
+  if (-not $m.Groups[1].Value) { throw "Aucun résultat pour $name ($dir)." }
+  $r = [Net.WebUtility]::HtmlDecode($m.Groups[1].Value) | ConvertFrom-Json -Depth 20
+  if ($r.erreur) { throw "Erreur dans la page $name : $($r.erreur)" }
+  $r
+}
+$head = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre><script>try { localStorage.clear(); } catch (e) {} window.addEventListener("error", e => { document.getElementById("out").textContent = JSON.stringify({ erreur: e.message + " (" + (e.filename || "").split("/").pop() + ":" + e.lineno + ")" }); });</script>'
+$engineFiles = 'draft-champions.js', 'draft-role-sheet.js', 'draft-engine.js', 'draft-data.js'
+$engineTags = ($engineFiles | ForEach-Object { "<script src=`"$_`"></script>" }) -join ''
+
+function New-EngineDir($dir, $ref) {
+  New-Item -ItemType Directory -Force $dir | Out-Null
+  foreach ($f in $engineFiles) {
+    if (-not $ref) { Copy-Item (Join-Path $web $f) $dir; continue }
+    # Copie octet pour octet : un tube PowerShell abîmerait les accents.
+    $p = Start-Process git -ArgumentList '-C', "`"$repo`"", 'show', "`"${ref}:web/$f`"" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $dir $f) -RedirectStandardError (Join-Path $dir "$f.err") -Wait
+    if ($p.ExitCode -ne 0) { throw "web/$f introuvable dans $ref." }
+  }
 }
 
-$profileTag = '<script>localStorage.setItem("draftProfile", JSON.stringify({ role:"mid", pool:["TF","Fizz","Kog''Maw","Xerath"] }));localStorage.setItem("draftPatch","16.22");</script>'
-# Générateur : graine fixe, liste figée dans un fichier, identique pour toutes les versions comparées.
-$gen = @'
-<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre>
-<script src="live-all.js"></script><script src="holdout.js"></script><script src="draft-champions.js"></script>
-PROFILE<script src="engine-base.js"></script>
-<script>
-function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const rng = mulberry(20261104), int = n => Math.floor(rng() * n);
-const display = {}; NAMES.forEach(n => { const k = norm(n); display[({ wukong:"monkeyking", renataglasc:"renata" })[k] || k] = n; });
-const live = window.ROLE_RATES_LIVE.champions, ids = Object.keys(live).filter(k => display[k]);
-const train = {}, test = {};
-ids.forEach(k => { train[k] = [0,0,0,0,0]; test[k] = [0,0,0,0,0]; live[k].forEach((v, r) => { for (let i = 0; i < v; i++) (rng() < .5 ? train : test)[k][r]++; }); });
-const real = HOLDOUT.length > 0;
-const pick = r => { const total = ids.reduce((s, k) => s + test[k][r], 0); let x = rng() * total; for (const k of ids) { x -= test[k][r]; if (x < 0) return k; } return ids[ids.length - 1]; };
-const team = () => { if (real) return HOLDOUT[int(HOLDOUT.length)]; for (;;) { const t = [0,1,2,3,4].map(pick); if (new Set(t).size === 5) return t; } };
-const drafts = [];
-[1,2,3,4,5].forEach(size => { for (let i = 0; i < PERSIZE; i++) {
-  const t = team(), order = [0,1,2,3,4]; for (let j = 4; j > 0; j--) { const k = int(j + 1); [order[j], order[k]] = [order[k], order[j]]; }
-  if (!t.every(k => display[k])) { i--; continue; }
-  const shown = order.slice(0, size).map(r => display[t[r]]);
-  drafts.push({ team:shown, truth:display[t[2]], revealed:shown.includes(display[t[2]]), size });
-} });
-document.getElementById("out").textContent = JSON.stringify({ real, drafts, train: { updated: window.ROLE_RATES_LIVE.updated, games: Math.round(window.ROLE_RATES_LIVE.games / 2), champions: real ? live : train } });
-</script></body></html>
-'@
-$fixed = (Invoke-Page 'gen' ($gen.Replace('PROFILE', $profileTag).Replace('PERSIZE', "$PerSize")) 30000) | ConvertFrom-Json
-$drafts = $fixed.drafts
-[IO.File]::WriteAllText((Join-Path $Work 'fixed.js'), 'const FIXED = ' + (ConvertTo-Json -InputObject $drafts -Depth 4 -Compress) + ';', [Text.UTF8Encoding]::new($false))
-$trainJson = ConvertTo-Json -InputObject $fixed.train -Depth 4 -Compress
-[IO.File]::WriteAllText((Join-Path $Work 'live-train.js'), "window.ROLE_RATES_LIVE = $trainJson;", [Text.UTF8Encoding]::new($false))
-# Même données au format V2.12 : la V2.10 doit les lire à l'identique si tu reviens en arrière.
-$v2 = $fixed.train | Select-Object *, @{n='version';e={2}}, @{n='regions';e={@('Test')}}, @{n='patches';e={ @{ '16.22' = @{ games = $fixed.train.games; collected = $fixed.train.updated; champions = $fixed.train.champions } } }}
-[IO.File]::WriteAllText((Join-Path $Work 'live-v2.js'), "window.ROLE_RATES_LIVE = $(ConvertTo-Json -InputObject $v2 -Depth 6 -Compress);", [Text.UTF8Encoding]::new($false))
-
-$eval = @'
-<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre>
-RATES LIVE<script src="draft-champions.js"></script><script src="draft-role-sheet.js"></script>
-PROFILE<script src="ENGINE"></script>EXTRA<script src="fixed.js"></script>
-<script>
-const isNew = typeof opponentBelief === "function";
-const rows = FIXED.map(d => {
-  const guess = guessMid(d.team), truthMid = d.revealed ? d.truth : null;
-  const row = { g: guess };
-  // Mêmes règles, adversaire imposé : doit rester identique d'une version à l'autre.
-  row.rules = analyze(d.team, truthMid, true).ranking.map(p => p.pick + ":" + p.score.toFixed(3)).join();
-  let ranking;
-  if (isNew) {
-    const b = opponentBelief(d.team), s = beliefScenarios(b);
-    row.i = identifiedOpponent(d.team); row.c = b.confidence; row.h = s.map(x => x.mid); row.p = b.candidates.length ? b.candidates[0].p : 0;
-    ranking = analyze(d.team, row.i, true, s).ranking;
-  } else ranking = analyze(d.team, guess, true).ranking;
-  // Regret : ce que le pick choisi perd, une fois le vrai adversaire connu, avec les mêmes règles.
-  const truthRank = analyze(d.team, truthMid, true).ranking;
-  row.pick = ranking.length ? ranking[0].pick : null;
-  const chosen = truthRank.find(p => p.pick === row.pick);
-  row.regret = chosen ? truthRank[0].score - chosen.score : 0;
-  return row;
-});
-document.getElementById("out").textContent = JSON.stringify(rows);
-</script></body></html>
-'@
-function Measure-Variant($name, $engine, $rates, $live, $isNew) {
-  $page = $eval.Replace('RATES', $(if ($rates) { '<script src="draft-role-rates.js"></script>' } else { '' })).Replace('LIVE', $(if ($live) { "<script src=`"$live`"></script>" } else { '' })).Replace('PROFILE', $profileTag).Replace('ENGINE', $engine).Replace('EXTRA', $(if ($isNew) { '<script src="draft-data.js"></script>' } else { '' }))
-  , ((Invoke-Page $name $page 120000) | ConvertFrom-Json)
+# ---------- 1. Drafts figées ----------
+$gen = Join-Path $Work 'generation'
+New-EngineDir $gen $null
+$genConf = [ordered]@{ mode = 'fiche'; seed = $Seed; count = $Teams }
+$sourceText = "SYNTHÉTIQUE : $Teams équipes tirées depuis la fiche écrite (générateur = modèle, borne haute)."
+if ($StatePath) {
+  $copy = Join-Path $Work 'etat-copie.json'
+  Copy-Item -LiteralPath $StatePath $copy
+  $state = Get-Content -LiteralPath $copy -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 10
+  $holdout = @($state.Holdout | Where-Object { $_ })
+  if (-not $holdout.Count) {
+    Write-Host "Le fichier d'état existe, mais sa réserve est vide : $StatePath"
+    Write-Host 'Les parties mises de côté n''existent qu''après un calcul de rôles fait avec la version 2.12 ou plus récente. Rien n''a été mesuré.'
+    exit 2
+  }
+  $genConf = [ordered]@{ mode = 'reserve'; seed = $Seed; max = $MaxHoldout; synthetique = [bool]$state.Synthetique; holdout = $holdout }
+  $sourceText = if ($state.Synthetique) { "RÉSERVE SYNTHÉTIQUE (fichier de test marqué « Synthetique »), $($holdout.Count) équipes." } else { "RÉSERVE RÉELLE (données locales réelles), $($holdout.Count) équipes lues ; ordre de révélation tiré au hasard (graine $Seed)." }
 }
-function Wilson($k, $n) { if (-not $n) { return '-' }; $z = 1.96; $p = $k / $n; $d = 1 + $z * $z / $n; $c = ($p + $z * $z / (2 * $n)) / $d; $m = $z * [Math]::Sqrt($p * (1 - $p) / $n + $z * $z / (4 * $n * $n)) / $d; '{0:0} % [{1:0}-{2:0}]' -f (100 * $p), (100 * ($c - $m)), (100 * ($c + $m)) }
-function Report($title, $rows, $field) {
-  "--- $title"
-  foreach ($size in 1..5) {
-    $ok = 0; $bad = 0; $none = 0; $hiddenNamed = 0; $hidden = 0; $regret = 0.0; $n = 0
-    for ($i = 0; $i -lt $rows.Count; $i++) {
-      $d = $drafts[$i]; if ($d.size -ne $size) { continue }; $n++; $regret += $rows[$i].regret; $v = $rows[$i].$field
-      if (-not $d.revealed) { $hidden++; if ($v) { $hiddenNamed++ }; continue }
-      if (-not $v) { $none++ } elseif ($v -eq $d.truth) { $ok++ } else { $bad++ }
+[IO.File]::WriteAllText((Join-Path $gen 'gen-conf.js'), 'window.ROLE_GEN = ' + (ConvertTo-Json -InputObject $genConf -Depth 5 -Compress) + ';', $utf8)
+Copy-Item (Join-Path $cases 'generer-drafts.js') $gen
+[IO.File]::WriteAllText((Join-Path $gen 'gen.html'), $head + $engineTags + '<script src="gen-conf.js"></script><script src="generer-drafts.js"></script></body></html>', $utf8)
+$drafts = Invoke-Page $gen 'gen' 60000
+if (-not @($drafts.teams).Count) { throw 'Aucune équipe utilisable : rien à mesurer.' }
+$draftsJs = 'window.ROLE_DRAFTS = ' + (ConvertTo-Json -InputObject $drafts -Depth 6 -Compress) + ';'
+
+# ---------- 2. Mesure, variante par variante, sur les mêmes drafts ----------
+$variants = [ordered]@{ 'actuel-fiche' = @{ ref = $null; live = $false } }
+if ($LiveFile) { $variants['actuel-live'] = @{ ref = $null; live = $true } }
+if ($CompareRef) {
+  $variants["$CompareRef-fiche"] = @{ ref = $CompareRef; live = $false }
+  if ($LiveFile) { $variants["$CompareRef-live"] = @{ ref = $CompareRef; live = $true } }
+}
+$results = [ordered]@{}
+foreach ($name in $variants.Keys) {
+  $v = $variants[$name]; $dir = Join-Path $Work ($name -replace '[^\w-]', '_')
+  New-EngineDir $dir $v.ref
+  [IO.File]::WriteAllText((Join-Path $dir 'drafts.js'), $draftsJs, $utf8)
+  Copy-Item (Join-Path $cases 'mesure-roles.js'), (Join-Path $cases 'cas-atypiques.js') $dir
+  $liveTag = ''
+  if ($v.live) { Copy-Item -LiteralPath $LiveFile (Join-Path $dir 'draft-role-rates-live.js'); $liveTag = '<script src="draft-role-rates-live.js"></script>' }
+  [IO.File]::WriteAllText((Join-Path $dir 'mesure.html'), $head + $liveTag + $engineTags + '<script src="drafts.js"></script><script src="cas-atypiques.js"></script><script src="mesure-roles.js"></script></body></html>', $utf8)
+  $results[$name] = Invoke-Page $dir 'mesure' 600000
+}
+
+# ---------- 3. Rapport ----------
+$Roles = 'top', 'jungle', 'mid', 'adc', 'support'
+$RoleLabel = @{ top = 'Top'; jungle = 'Jungle'; mid = 'Mid'; adc = 'ADC'; support = 'Support' }
+function Wilson($k, $n) {
+  if (-not $n) { return '-' }
+  $z = 1.96; $p = $k / $n; $d = 1 + $z * $z / $n; $c = ($p + $z * $z / (2 * $n)) / $d; $m = $z * [Math]::Sqrt($p * (1 - $p) / $n + $z * $z / (4 * $n * $n)) / $d
+  '{0:0.0} % [{1:0.0}-{2:0.0}]' -f (100 * $p), (100 * [Math]::Max([double]0, $c - $m)), (100 * [Math]::Min([double]1, $c + $m))
+}
+function Pct($k, $n) { if (-not $n) { '-' } else { '{0:0.0} %' -f (100 * $k / $n) } }
+function Sum-Bins($list) { $b = 0..9 | ForEach-Object { @{ n = 0; p = 0.0; y = 0.0 } }; foreach ($x in $list) { for ($i = 0; $i -lt 10; $i++) { $b[$i].n += $x[$i].n; $b[$i].p += $x[$i].p; $b[$i].y += $x[$i].y } }; $b }
+function Show-Bins($b) {
+  '    tranche de p   | n        | p moyenne | fréquence observée'
+  for ($i = 0; $i -lt 10; $i++) { if ($b[$i].n) { '    [{0:0.0} ; {1:0.0}{2}   | {3,-8} | {4:0.000}     | {5:0.000}' -f ($i / 10), (($i + 1) / 10), $(if ($i -eq 9) { ']' } else { '[' }), $b[$i].n, ($b[$i].p / $b[$i].n), ($b[$i].y / $b[$i].n) } }
+}
+$summary = [ordered]@{}
+$report = foreach ($name in $results.Keys) {
+  $r = $results[$name]
+  "=================== Variante $name"
+  "Drafts : $sourceText"
+  "Modèle : fiche écrite" + $(if ($r.live.charge) { " + calcul live" + $(if ($r.live.synthetique) { ' (fichier SYNTHÉTIQUE de test)' } else { " ($($r.live.parties) parties)" }) } else { ' seule' })
+  "Équipes mesurées : $($r.equipes)" + $(if ($r.ecartees) { " (écartées : $($r.ecartees), champion inconnu ou équipe incomplète)" } else { '' })
+  ''
+  '--- Rôle par rôle : le 1er candidat (ou « pas encore choisi ») est-il le vrai titulaire ? (égalités exactes : crédit partagé)'
+  foreach ($s in 1..5) {
+    $t = $r.tailles."$s"
+    $cells = for ($k = 0; $k -lt 5; $k++) { "$($RoleLabel[$Roles[$k]]) $(Wilson $t.role[$k].ok $t.role[$k].n)" + $(if ($t.role[$k].ties) { " (égalités $($t.role[$k].ties))" } else { '' }) }
+    "  $s révélé(s), n=$($t.n) : " + ($cells -join ' | ')
+    "     Brier moyen $('{0:0.000}' -f ($t.brier / (5 * $t.n))) | log-loss moyenne $('{0:0.000}' -f ($t.logloss / (5 * $t.n))) | champions au rôle « probable » $(Pct $t.status.probable.n ($t.status.probable.n + $t.status.indetermine.n)), justes $(Wilson $t.status.probable.ok $t.status.probable.n) | « indéterminé » justes $(Wilson $t.status.indetermine.ok $t.status.indetermine.n)"
+  }
+  $c = $r.tailles.'5'.complete
+  "  Assignation complète juste (5 révélés, répartition la plus probable sur 120) : $(Wilson $c.ok $c.n)" + $(if ($c.ties) { " (égalités exactes : $($c.ties))" } else { '' })
+  "     par rôle : " + ((0..4 | ForEach-Object { "$($RoleLabel[$Roles[$_]]) $(Pct $r.tailles.'5'.completeRole[$_] $c.n)" }) -join ' | ')
+  ''
+  '--- Classes de MESURE (seuils : probable ≥ 0,6 ; possible 0,2 à 0,6 ; écarté < 0,2), toutes tailles, paires champion × rôle'
+  foreach ($k in 'probable', 'possible', 'ecarte') {
+    $n = 0; $y = 0; foreach ($s in 1..5) { $n += $r.tailles."$s".pairs.$k.n; $y += $r.tailles."$s".pairs.$k.y }
+    "  $(@{ probable = 'probable'; possible = 'possible'; ecarte = 'écarté' }[$k]) : $n paires ($(Pct $n (5 * ((1..5 | ForEach-Object { $r.tailles."$_".n * $_ }) | Measure-Object -Sum).Sum))) | rôle réel $(Wilson $y $n)"
+  }
+  ''
+  '--- Calibration rôle par rôle (toutes tailles, options = champions révélés + « pas encore choisi »)'
+  Show-Bins (Sum-Bins (1..5 | ForEach-Object { , $r.tailles."$_".calib }))
+  ''
+  '--- Adversaire direct, par rôle du joueur'
+  foreach ($role in $Roles) {
+    "  Profil $($RoleLabel[$role])"
+    $agg = @{ n = 0; named = 0; namedOk = 0; hidden = 0; hiddenNamed = 0; faible = 0; brier = 0.0; ll = 0.0; top1 = 0.0 }
+    foreach ($s in 1..5) {
+      $p = $r.profils.$role."$s"
+      foreach ($f in 'n', 'named', 'namedOk', 'hidden', 'hiddenNamed', 'top1') { $agg[$f] += $p.$f }; $agg.faible += $p.conf.faible.n; $agg.brier += $p.brier; $agg.ll += $p.logloss
+      "    $s révélé(s) n=$($p.n) : 1er candidat juste $(Wilson $p.top1 $p.n) | confiance faible $(Wilson $p.conf.faible.n $p.n) | moyenne $($p.conf.moyenne.n) | élevée $($p.conf.'élevée'.n) | nommé $(Pct $p.named $p.n), juste $(Wilson $p.namedOk $p.named) | pas révélé $($p.hidden) -> nommé à tort $(Wilson $p.hiddenNamed $p.hidden) | vrai cas gardé $(Pct $p.covered $p.n) | Brier $('{0:0.000}' -f ($p.brier / $p.n)) | log-loss $('{0:0.000}' -f ($p.logloss / $p.n))"
     }
-    $named = $ok + $bad
-    "  $size champion(s) : revele $($ok+$bad+$none) -> juste $ok, faux $bad, aucun $none | juste quand un nom est donne : $(Wilson $ok $named) | pas revele $hidden -> nomme a tort $(Wilson $hiddenNamed $hidden) | regret moyen $('{0:0.00}' -f ($regret / [Math]::Max(1, $n)))"
+    $sl = @{}; foreach ($k in 'probable', 'possible', 'ecarte') { $sl[$k] = @{ n = 0; y = 0 }; foreach ($s in 1..5) { $sl[$k].n += $r.profils.$role."$s".slot.$k.n; $sl[$k].y += $r.profils.$role."$s".slot.$k.y } }
+    "    1er candidat nommé par classe : probable $($sl.probable.n), juste $(Wilson $sl.probable.y $sl.probable.n) | possible $($sl.possible.n), juste $(Wilson $sl.possible.y $sl.possible.n) | sous 0,2 : $($sl.ecarte.n), juste $(Wilson $sl.ecarte.y $sl.ecarte.n)"
+    $summary["$name|$role"] = [ordered]@{ variante = $name; profil = $role; n = $agg.n; top1 = $agg.top1 / $agg.n; faible = $agg.faible / $agg.n; nomme = $agg.named / $agg.n; nommeJuste = $(if ($agg.named) { $agg.namedOk / $agg.named } else { $null }); nommeATort = $(if ($agg.hidden) { $agg.hiddenNamed / $agg.hidden } else { $null }); brier = $agg.brier / $agg.n; logloss = $agg.ll / $agg.n; top1_5 = $r.profils.$role.'5'.top1 / $r.profils.$role.'5'.n }
+  }
+  '  (La calibration de l''adversaire direct est celle de la colonne du même rôle ci-dessus : mêmes options, mêmes probabilités.)'
+  ''
+  '--- Champions suivis, par rôle réel (toutes tailles ; 5 révélés entre parenthèses)'
+  foreach ($f in $r.focus) {
+    $rows = @($r.champions | Where-Object { $_.name -eq $f.name })
+    $parts = if ($f.parts) { ((0..4 | ForEach-Object { "$($RoleLabel[$Roles[$_]]) $('{0:0.00}' -f $f.parts[$_])" }) -join ' ') } else { 'aucune' }
+    "  $($f.name) [parts du modèle : $parts ; qualité $($f.qualite)]"
+    if (-not $rows.Count) { '     aucune apparition dans ces drafts' }
+    foreach ($x in $rows) { "     joué $($RoleLabel[$x.role]) : n=$($x.n), rôle juste $(Wilson $x.ok $x.n), p moyenne du vrai rôle $('{0:0.00}' -f ($x.p / $x.n))" + $(if ($x.n5) { " (5 révélés : n=$($x.n5), juste $(Pct $x.ok5 $x.n5))" } else { '' }) }
+  }
+  $worst = @($r.champions | Where-Object { $_.n -ge 30 } | Sort-Object { $_.ok / $_.n }, { -$_.n } | Select-Object -First 12)
+  '  Champion × rôle les moins bien attribués (n ≥ 30)'
+  foreach ($x in $worst) { "     $($x.name) joué $($RoleLabel[$x.role]) : n=$($x.n), rôle juste $(Wilson $x.ok $x.n), p moyenne $('{0:0.00}' -f ($x.p / $x.n))" }
+  ''
+  '--- Champions flex'
+  "  Fiche écrite : $($r.ficheTotal) champions, $($r.ficheUnRole) avec un seul rôle, $(@($r.flexFiche).Count) avec plusieurs : " + ((@($r.flexFiche) | ForEach-Object { "$($_.name) ($($_.code))" }) -join ', ')
+  "  Sans fiche : $(@($r.sansFiche) -join ', ')"
+  "  Flex selon le modèle (au moins deux rôles à p ≥ 0,2) : $(@($r.flexModele).Count) : " + ((@($r.flexModele) | ForEach-Object { "$($_.name) ($((@($_.roles) | ForEach-Object { $RoleLabel[$_] }) -join '/'))" }) -join ', ')
+  '  Égalités exactes (parts identiques, impossibles à départager sans autre information) :'
+  foreach ($g in $r.egalites) { "     $((0..4 | ForEach-Object { '{0:0.00}' -f $g.parts[$_] }) -join '/') : $(@($g.champions).Count) champions : $(@($g.champions) -join ', ')" }
+  ''
+  '--- Cas atypiques SYNTHÉTIQUES (rôles attendus annotés à la main)'
+  $ok = 0; $tot = 0; $oppOk = 0; $wrong = 0
+  foreach ($x in $r.cas) {
+    $lines = @($x.lignes | Where-Object { $null -ne $_.ok })
+    $ok += ($lines | Measure-Object ok -Sum).Sum; $tot += $lines.Count; if ($x.adversaireJuste) { $oppOk++ }; if ($x.nommeATort) { $wrong++ }
+    "  $($x.id) [profil $($RoleLabel[$x.profil])$(if ($x.corrections) { ', correction' })] : adversaire attendu $(if ($x.adversaireAttendu) { $x.adversaireAttendu } else { 'pas encore choisi' }), affiché $(if ($x.identifie) { $x.identifie } else { 'personne' }) (confiance $($x.confiance)) | " + (($lines | ForEach-Object { "$($_.name)=$($RoleLabel[$_.attendu]) p $('{0:0.00}' -f $_.pAttendu) $(@{ probable = 'probable'; possible = 'possible'; ecarte = 'écarté' }[$_.classe])" }) -join ', ')
+  }
+  "  Rôles annotés retrouvés en 1er : $('{0:0.0}' -f $ok) sur $tot | adversaire affiché conforme à l'annotation (ou personne si non révélé) : $oppOk sur $(@($r.cas).Count) | adversaire nommé à tort : $wrong"
+  $summary["$name|cas"] = [ordered]@{ variante = $name; rolesJustes = $ok; roles = $tot; adversaireConforme = $oppOk; cas = @($r.cas).Count; nommeATort = $wrong }
+  ''
+}
+$report
+if (@($results.Keys).Count -gt 1) {
+  '=================== Comparaison des variantes (toutes tailles, mêmes drafts)'
+  foreach ($role in $Roles) {
+    "  Profil $($RoleLabel[$role])"
+    foreach ($name in $results.Keys) { $s = $summary["$name|$role"]; '    {0,-22} 1er candidat {1:0.0} % (5 révélés {2:0.0} %) | faible {3:0.0} % | nommé juste {4} | nommé à tort {5} | Brier {6:0.000} | log-loss {7:0.000}' -f $name, (100 * $s.top1), (100 * $s.top1_5), (100 * $s.faible), $(if ($null -ne $s.nommeJuste) { '{0:0.0} %' -f (100 * $s.nommeJuste) } else { '-' }), $(if ($null -ne $s.nommeATort) { '{0:0.0} %' -f (100 * $s.nommeATort) } else { '-' }), $s.brier, $s.logloss }
   }
 }
-"Source des drafts : " + $(if ($fixed.real) { "VRAIES compositions réservées, ordre de révélation tiré au hasard." } else { "SIMULATION : observations séparées, rôles tirés indépendamment. Pas une mesure sur de vraies drafts." })
-"Drafts : $($drafts.Count), modele : $($fixed.train.games) parties"
-$v = [ordered]@{}
-$v['base-live'] = Measure-Variant 'base-live' 'engine-base.js' $true 'live-train.js' $false
-$v['new-live'] = Measure-Variant 'new-live' 'draft-engine.js' $true 'live-train.js' $true
-$v['base-ref'] = Measure-Variant 'base-ref' 'engine-base.js' $true $null $false
-$v['new-ref'] = Measure-Variant 'new-ref' 'draft-engine.js' $true $null $true
-$v['new-sheet'] = Measure-Variant 'new-sheet' 'draft-engine.js' $false $null $true
-$v['new-sheet-live'] = Measure-Variant 'new-sheet-live' 'draft-engine.js' $false 'live-train.js' $true
-$v['base-v2'] = Measure-Variant 'base-v2' 'engine-base.js' $true 'live-v2.js' $false
-
-Report "$BaselineTag, avec parties, suppose" $v['base-live'] 'g'
-Report 'V2.12, avec parties, affiche' $v['new-live'] 'i'
-Report "$BaselineTag, Meraki seul, suppose" $v['base-ref'] 'g'
-Report 'V2.12, Meraki seul, affiche' $v['new-ref'] 'i'
-Report 'V2.12, sans Meraki ni parties (roles ecrits), affiche' $v['new-sheet'] 'i'
-Report 'V2.12, sans Meraki, avec parties, affiche' $v['new-sheet-live'] 'i'
-foreach ($k in 'new-live', 'new-ref', 'new-sheet') {
-  "--- Confiance $k (toutes tailles) : le nom affiche est-il juste, le vrai cas est-il dans les hypotheses ?"
-  foreach ($c in 'élevée', 'moyenne', 'faible') {
-    $n = 0; $hit = 0; $cov = 0; $rows = $v[$k]
-    for ($i = 0; $i -lt $rows.Count; $i++) { if ($rows[$i].c -ne $c) { continue }; $n++; if ($rows[$i].i -and $rows[$i].i -eq $drafts[$i].truth) { $hit++ }; if ((@($rows[$i].h) -contains $drafts[$i].truth) -or (-not $drafts[$i].revealed -and (@($rows[$i].h) -contains $null))) { $cov++ } }
-    if ($n) { "  $c : $n drafts | nom juste $(Wilson $hit $n) | vrai cas garde $(Wilson $cov $n)" }
-  }
+[IO.File]::WriteAllLines((Join-Path $Work 'rapport.txt'), [string[]]$report, $utf8)
+if ($OutJson) {
+  $agg = [ordered]@{ date = (Get-Date -Format 'yyyy-MM-dd'); source = $sourceText; seed = $Seed; variantes = $results; resume = $summary }
+  [IO.File]::WriteAllText($OutJson, (ConvertTo-Json -InputObject $agg -Depth 20), $utf8)
 }
-'--- Non-regression'
-$same = 0; for ($i = 0; $i -lt $drafts.Count; $i++) { if ($v['base-live'][$i].rules -eq $v['new-live'][$i].rules) { $same++ } }
-"Scores identiques a adversaire impose ($BaselineTag / V2.12) : $same sur $($drafts.Count)"
-$same = 0; for ($i = 0; $i -lt $drafts.Count; $i++) { if ($v['base-live'][$i].g -eq $v['base-v2'][$i].g -and $v['base-live'][$i].rules -eq $v['base-v2'][$i].rules) { $same++ } }
-"$BaselineTag lit le nouveau format de donnees a l'identique : $same sur $($drafts.Count)"
-$diff = 0; for ($i = 0; $i -lt $drafts.Count; $i++) { if ($v['base-live'][$i].pick -ne $v['new-live'][$i].pick) { $diff++ } }
-"Pick conseille different ($BaselineTag / V2.12, avec parties) : $diff sur $($drafts.Count)"
+"Rapport complet : $(Join-Path $Work 'rapport.txt')"

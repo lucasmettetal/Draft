@@ -57,7 +57,7 @@ Voir [validation](VALIDATION.md).
 |---|---|
 | `web/draft-tests.html` | Moteur, dans un navigateur |
 | `tools/run-layout-tests.ps1` | Rendu, jusqu'à 29 tailles par état |
-| `tools/run-accuracy-tests.ps1` | Déduction du mid |
+| `tools/run-accuracy-tests.ps1` | Mesure de l'estimation des rôles adverses, pour les cinq rôles (voir MESURE-ROLES.md) |
 | `tools/run-ux-shots.ps1` | Captures comparables |
 | `DRAFT-Portable.exe --selftest` | Tests natifs |
 | `DRAFT-Portable.exe --e2e` | Vraies fenêtres, faux client |

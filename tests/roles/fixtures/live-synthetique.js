@@ -1,0 +1,4 @@
+// Fichier de TEST SYNTHÉTIQUE au format de draft-role-rates-live.js. Chiffres inventés pour vérifier l'outil : aucune valeur réelle.
+window.ROLE_RATES_LIVE = {"version":2,"synthetique":true,"updated":"2026-11-04","games":400,"days":14,"regions":["Test"],
+"champions":{"kogmaw":[0,0,40,160,0],"xerath":[0,0,120,0,110],"lux":[0,0,90,0,150],"quinn":[120,60,0,0,0],"jinx":[0,0,0,200,0],"thresh":[0,0,0,0,200]},
+"patches":{"16.22":{"games":400,"collected":"2026-11-04","champions":{"kogmaw":[0,0,40,160,0],"xerath":[0,0,120,0,110],"lux":[0,0,90,0,150],"quinn":[120,60,0,0,0],"jinx":[0,0,0,200,0],"thresh":[0,0,0,0,200]}}}};
