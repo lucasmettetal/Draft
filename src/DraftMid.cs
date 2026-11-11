@@ -1355,11 +1355,18 @@ public static class Autostart
                 if (!await waitIn(p, "state.enemies.join() === 'Ahri,Sion,Vi'", 3000)) problem += "draft de départ absente du panneau " + p.Id + " ; ";
             if (problem != "") { visibility.Manual = manualBefore; ApplyVisibility(); return problem; }
 
-            int lost = 0, notShown = 0;
+            int lost = 0, notShown = 0, lostOnClose = 0;
             for (int k = 0; k < openings; k++)
             {
                 PanelForm full;
-                if (panels.TryGetValue("full", out full) && full.Visible) full.Hide();
+                if (panels.TryGetValue("full", out full) && full.Visible)
+                {
+                    // Fermeture de la grande fenêtre : les panneaux gardent la draft.
+                    full.Hide();
+                    await Task.Delay(150);
+                    foreach (PanelForm p in sources)
+                        if (await run(p, "state.enemies.join()") != Expected) { lostOnClose++; await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1"); await Task.Delay(300); break; }
+                }
                 OpenFull(k % 2 == 0 ? "analyse" : "compare");
                 for (int i = 0; i < 200 && !(panels.TryGetValue("full", out full) && full.Visible && full.Ready.IsCompleted); i++) await Task.Delay(50);
                 // La grande fenêtre doit afficher la vraie draft, puis laisser le temps à une éventuelle diffusion parasite.
@@ -1368,8 +1375,9 @@ public static class Autostart
                 foreach (PanelForm p in sources)
                     if (await run(p, "state.enemies.join()") != Expected) { lost++; await run(sources[0], "draftApi.reset(); ['Ahri','Sion','Vi'].forEach(c => draftApi.add(c)); 1"); await Task.Delay(300); break; }
             }
-            DetailOpenReport = openings + " ouvertures (Analyse détaillée / Comparer), " + lost + " perte(s) de draft, " + notShown + " fenêtre(s) sans la draft";
+            DetailOpenReport = openings + " ouvertures (Analyse détaillée / Comparer), " + lost + " perte(s) de draft, " + lostOnClose + " perte(s) à la fermeture, " + notShown + " fenêtre(s) sans la draft";
             if (lost > 0) problem += lost + " perte(s) de draft sur " + openings + " ouvertures ; ";
+            if (lostOnClose > 0) problem += lostOnClose + " perte(s) de draft à la fermeture de la grande fenêtre ; ";
             if (notShown > 0) problem += notShown + " ouverture(s) sans la draft en cours ; ";
 
             // Simulateur : Draft aléatoire reste dans la grande fenêtre, la draft en cours n'est pas touchée.
