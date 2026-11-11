@@ -271,16 +271,17 @@ UI-260 | index.html:2292-2293 | Réglages, matchups | re:(^Matchups$|Sous \d+ pa
 UI-261 | index.html:2297-2299 | Réglages, boutons Riot | re:^(Arrêter le calcul|Mettre à jour les rôles|Mettre à jour les matchups)$
 UI-262 | index.html:2302-2304 | Réglages, journal | re:^(Journal|Pour récupérer un ancien journal, importe son fichier ici\. Rien n'est supprimé\.|Importer un journal)$
 UI-263 | index.html:2308-2310 | Réglages, avancé | re:^(Avancé|Journal de diagnostic de la détection \(chiffres seulement\))$
-UI-264 | index.html:2408-2412 | Barre du haut | re:^(Patch \d+\.\d+|Draft aléatoire|Nouvelle draft)$
+UI-264 | index.html:2408-2412 | Barre du haut (UX-2 : « Nouvelle simulation » pendant une simulation) | re:^(Patch \d+\.\d+|Draft aléatoire|Nouvelle draft|Nouvelle simulation)$
 UI-265 | index.html:788,1303,2000,2174 | Noms des rôles (lignes adverses, sélecteur, réglages) | re:^(Top|Jungle|Mid|ADC|Support)( \d+)?$
 UI-266 | index.html:2014,2406 | Marque | DRAFT
 UI-267 | index.html:1835 | Barre de victoires (aria) | re:^.+ : \d+V \d+D$
 UI-269 | index.html:1866,1869 | Statistiques : nom du compte importé (donnée) | re:^[^ ]+#[^ ]+$
 UI-268 | index.html:2311 | Réglages avancés : phase et placement transmis par le programme (src/DraftDetection.cs PhaseText) | re:^(Client LoL fermé|Client ouvert, hors draft \(estimation\)|Draft en cours \(estimation\)|Partie en cours|Phase incertaine)\.
-UI-270 | index.html:2440 | Simulateur, bandeau (2.16.2) | re:^(Simulation : ta draft en cours n'est pas modifiée\.( Revenir à la draft en cours)?|Revenir à la draft en cours)$
+UI-270 | index.html:App | Simulateur, bandeau (2.16.2, boutons UX-2) | re:^(Simulation : ta draft en cours n'est pas modifiée\.|Simulation|Reprendre la draft en cours|Quitter la simulation|Copie la draft en cours dans la simulation, sans lien avec elle\.)$
 UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 champions vus (PR E, B-05) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) \? hypothèse \(\d champions? vus?\)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
-UI-273 | index.html:UndoNote | UX-1, annonce après Nouvelle draft ou Retour arrière, avec « Annuler » 5 s | re:^((Draft effacée\.|Retrait de .+\.)( Annuler)?|Annuler)$
+UI-273 | index.html:UndoNote | UX-1, annonce après Nouvelle draft ou Retour arrière, avec « Annuler » 5 s (UX-2 : simulation) | re:^((Draft effacée\.|Simulation effacée\.|Draft en cours copiée dans la simulation\.|Retrait de .+\.)( Annuler)?|Annuler)$
+UI-279 | index.html:App | UX-2, bascule de source de la fenêtre principale | re:^(Draft en cours|Simulation|Draft affichée|Draft en cours Simulation)$
 UI-274 | index.html:ProfileCard | UX-1, pool d'un autre rôle que le rôle joué | re:^((Tu modifies le pool (Top|Jungle|Mid|ADC|Support)\. Ton rôle joué reste (Top|Jungle|Mid|ADC|Support)\.)( Jouer ce rôle)?|Jouer ce rôle)$
 UI-275 | index.html:ProfileCard | UX-1, pool enregistré ou retrait annulable | re:^((Enregistré : .+ ajouté au pool (Top|Jungle|Mid|ADC|Support)\.)|(.+ retiré du pool (Top|Jungle|Mid|ADC|Support)\.)( Annuler)?|Annuler)$
 UI-276 | index.html:ProfileCard | UX-1, aucun rôle choisi : recherche désactivée | re:^Choisis d'abord ton rôle(, puis ajoute tes champions\.)?$
@@ -984,6 +985,11 @@ async function special() {
     ["Ahri", "Sion"].forEach(n => y.$.addEnemy(n)); await settle();
     const nd = y.d.querySelector('[data-test="new-draft"]'); if (nd) { nd.click(); await settle(); collect(y.d, current); }
     close(y);
+    // UX-2 : simulation, copie de la draft en cours, nouvelle simulation.
+    const z = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 720); current = "ux2 simulation";
+    ["Ahri", "Sion"].forEach(n => z.$.addEnemy(n)); await settle();
+    for (const s of ["source-sim", "resume-live", "new-draft"]) { const b = z.d.querySelector(`[data-test="${s}"]`); if (b) { b.click(); await settle(); collect(z.d, current); } }
+    close(z);
   }
   // Sans profil, puis rôle sans champion.
   {

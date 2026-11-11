@@ -26,6 +26,11 @@
 
   .app { display:grid; grid-template-rows:52px minmax(0,1fr); height:100vh; }
   .top { display:flex; align-items:center; gap:14px; padding:0 18px; background:var(--surface); border-bottom:1px solid var(--line); }
+.source-switch { margin:0; }
+.sim-band { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:6px 18px; background:rgba(212,179,106,.10); border-bottom:1px solid var(--gold); color:var(--text); font-size:13px; }
+.sim-band p { margin:0; }
+.sim-band .grow { flex:1; }
+.sim-band b { color:var(--gold); font-weight:600; }
   .brand { font:20px var(--condensed); letter-spacing:.02em; }
   .brand b { color:var(--accent); font-weight:inherit; }
   .patch { color:var(--muted); font-size:12.5px; }
@@ -617,7 +622,8 @@
   }
   @media (max-width:1100px) {
     .app { height:auto; min-height:100vh; }
-    .top { position:sticky; top:0; z-index:30; }
+    .top { position:sticky; top:0; z-index:30; gap:8px; padding:0 10px; }
+.top .ghost-btn, .top .seg-tab { padding-left:8px; padding-right:8px; }
     .desk { grid-template-columns:minmax(280px,340px) minmax(0,1fr); }
     .col-left { border-right:1px solid var(--line); overflow:visible; }
     .col-mid { overflow:visible; }
@@ -964,13 +970,23 @@ function savePrefs(change) {
   commit();
 }
 
+// Pendant une simulation, la draft en cours continue d'être suivie à part (liveCopy) : on y revient, ou on la copie, sans attendre.
+let liveCopy = null;
+function snapshotLive() {
+  const copy = { kind:"state", action:null, prefs:JSON.parse(JSON.stringify(PREFS)), profile:PROFILE ? JSON.parse(JSON.stringify(PROFILE)) : null };
+  SHARED.forEach(k => { copy[k] = state[k] === undefined ? undefined : JSON.parse(JSON.stringify(state[k])); });
+  return copy;
+}
 if (channel) channel.onmessage = e => {
   const m = e.data;
   // Seule une page qui connaît la vraie draft répond : deux pages qui s'ouvrent en même temps ne s'écrasent pas.
   if (m.kind === "hello") { if (synced && !simulating) publish(null); return; }
   if (m.kind !== "state") return;
   synced = true;
-  if (simulating) return;
+  if (simulating) { liveCopy = m; rerender(); return; }
+  applyRemote(m);
+};
+function applyRemote(m) {
   SHARED.forEach(k => { state[k] = m[k]; });
   PROFILES = loadProfiles(localStorage, PREFS);
   if (m.profile) applyProfile(m.profile);
@@ -978,7 +994,7 @@ if (channel) channel.onmessage = e => {
   state.lastAction = m.action;
   computeVerdict();
   rerender();
-};
+}
 
 // Les événements simulés passent par les mêmes opérations que la saisie.
 const draftApi = {
@@ -1016,20 +1032,41 @@ function applyDetected(ids) {
   riotProvider.update(ids.map(id => toName(CHAMPION_IDS[id])).filter(n => ROSTER[n] !== undefined));
 }
 // Simulation à la main : aucune lecture du client, et rien n'entre dans le relevé de validation.
+// Entrer en simulation : la draft en cours est mise de côté (liveCopy), la simulation part vide.
+function startSimulation() {
+  if (simulating) return;
+  liveCopy = snapshotLive();
+  simulating = true;
+  clearUndo();
+  resetDraft();
+}
 function startRandomDraft() {
   const names = randomDraft();
   if (!names) return;
-  simulating = true;
+  startSimulation();
   resetDraft();
   names.forEach(addEnemy);
 }
+// « Reprendre la draft en cours » : copie la draft réelle dans la simulation. Aucun lien : la suite ne change que la simulation.
+function resumeLiveInSimulation() {
+  if (!simulating || !liveCopy) return;
+  withUndo("Draft en cours copiée dans la simulation.", () => {
+    ["enemies", "manualMid", "roleOf"].forEach(k => { state[k] = liveCopy[k] === undefined ? undefined : JSON.parse(JSON.stringify(liveCopy[k])); });
+    state.held = null; state.current = null; state.targetRole = null; state.selected = null; state.notice = null;
+    state.lastAction = null;
+    commit();
+  });
+}
 
-// Retour à la draft en cours : la simulation est effacée, puis l'état des autres fenêtres est redemandé.
+// Retour à la draft en cours : la simulation est effacée, la draft en cours suivie à part revient tout de suite,
+// puis l'état des autres fenêtres est redemandé. Rien n'est diffusé : la vraie draft n'est jamais écrasée.
 function leaveSimulation() {
   if (!simulating) return;
   clearUndo();
-  resetDraft();
+  if (!liveCopy) resetDraft();
   simulating = false;
+  if (liveCopy) applyRemote(Object.assign({}, liveCopy, { action:null }));
+  liveCopy = null;
   rerender();
   if (channel) channel.postMessage({ kind:"hello" });
 }
@@ -2028,8 +2065,19 @@ const PartiesTab = () => html`<div><${JournalTab} /><${StatsTab} /></div>`;
 // Comparer et Règles restent des vues d'Analyse : leurs anciens liens (?tab=compare, ?tab=rules) y mènent toujours.
 const ANALYSE_VIEWS = [["criteria", "Critères", CriteriaView], ["compare", "Comparer", CompareTab], ["rules", "Règles", RulesTab]];
 const urlTab = () => new URLSearchParams(location.search).get("tab");
+// Onglet demandé (adresse, ou « Détails » d'un panneau) : les onglets repartent de lui à chaque demande (navId), sans recharger la page.
+let navTarget = urlTab(), navId = 0;
+// source "live" : « Détails » depuis l'overlay montre la vraie draft. Une simulation en cours est quittée, rien n'est réinitialisé.
+function openViewInPage(tab, source) {
+  if (source === "live") leaveSimulation();
+  navTarget = tab || null;
+  navId++;
+  history.replaceState(null, "", `?panel=full${tab ? `&tab=${tab}` : ""}`);
+  rerender();
+  setTimeout(focusAdd, 0);
+}
 function AnalyseTab() {
-  const [view, setView] = useState(() => ANALYSE_VIEWS.some(v => v[0] === urlTab()) ? urlTab() : "criteria");
+  const [view, setView] = useState(() => ANALYSE_VIEWS.some(v => v[0] === navTarget) ? navTarget : "criteria");
   const Current = ANALYSE_VIEWS.find(v => v[0] === view)[2];
   return html`<div>
     <div className="seg-tabs" role="group" aria-label="Vue de l'analyse">
@@ -2041,7 +2089,7 @@ function AnalyseTab() {
 const TABS = [["plan", "Plan", PlanTab], ["analyse", "Analyse", AnalyseTab], ["coach", "Conseils", CoachTab], ["matchups", "Duel", MatchupsTab], ["parties", "Parties", PartiesTab]];
 
 function SidePanel() {
-  const [tab, setTab] = useState(() => { const t = urlTab(); return TABS.some(x => x[0] === t) ? t : ANALYSE_VIEWS.some(v => v[0] === t) ? "analyse" : "plan"; });
+  const [tab, setTab] = useState(() => { const t = navTarget; return TABS.some(x => x[0] === t) ? t : ANALYSE_VIEWS.some(v => v[0] === t) ? "analyse" : "plan"; });
   const Current = TABS.find(t => t[0] === tab)[2];
   return html`<aside className="col col-right">
     <${PlanBlock} />
@@ -2494,6 +2542,8 @@ function App() {
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
         if (m.kind === "openSettings") setShowSettings(true);
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
+        // Ouverture d'un onglet sans recharger la page (« Détails », « Comparer ») : la draft affichée reste, aucune diffusion.
+        if (m.kind === "openView") { openViewInPage(m.tab || "", m.source || ""); window.__openViewSeen = m.token || 0; }
       });
       hostSend({ cmd:"getHost" });
     }
@@ -2527,14 +2577,23 @@ function App() {
         <span className="patch">Patch ${ddVersion.split(".").slice(0, 2).join(".")}</span>
         <span className="grow"></span>
         <button type="button" className="ghost-btn" data-test="open-settings" onClick=${() => setShowSettings(true)}>Réglages</button>
+        <div className="seg-tabs source-switch" role="group" aria-label="Draft affichée">
+          <button type="button" className=${`seg-tab${simulating ? "" : " on"}`} aria-pressed=${!simulating} data-test="source-live" onClick=${leaveSimulation}>Draft en cours</button>
+          <button type="button" className=${`seg-tab${simulating ? " on" : ""}`} aria-pressed=${simulating} data-test="source-sim" onClick=${startSimulation}>Simulation</button>
+        </div>
         <button type="button" className="ghost-btn" data-test="random-draft" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
-        <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${() => withUndo("Draft effacée.", resetDraft)}>Nouvelle draft</button>
+        <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${() => withUndo(simulating ? "Simulation effacée." : "Draft effacée.", resetDraft)}>${simulating ? "Nouvelle simulation" : "Nouvelle draft"}</button>
       </header>
-      ${simulating ? html`<p className="small" role="status" data-test="simulation" data-simulation=${true}>Simulation : ta draft en cours n'est pas modifiée. <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>Revenir à la draft en cours</button></p>` : null}
+      ${simulating ? html`<div className="sim-band" role="status" data-test="simulation" data-simulation=${true}>
+        <p><b>Simulation</b> : ta draft en cours n'est pas modifiée.</p>
+        <span className="grow"></span>
+        <button type="button" className="ghost-btn" data-test="resume-live" disabled=${!liveCopy || !(liveCopy.enemies || []).length} title="Copie la draft en cours dans la simulation, sans lien avec elle." onClick=${resumeLiveInSimulation}>Reprendre la draft en cours</button>
+        <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>Quitter la simulation</button>
+      </div>` : null}
       <div className="desk">
         <${EnemyPanel} />
         <main className="col col-mid"><${Stage} /><${Ranking} /></main>
-        <${SidePanel} />
+        <${SidePanel} key=${navId} />
       </div>
       <${MobileBar} />
     </div>
