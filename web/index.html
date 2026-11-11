@@ -676,6 +676,112 @@
     .patch { display:none; }
     .plan-row { grid-template-columns:62px 1fr; }
   }
+  /* ---------- Fenêtre principale à cinq sections (UX-3, COMPOSANTS-V3) ---------- */
+  /* Échelle réduite : 12, 13, 15, 18, 24, 34 px. Espacements de 4 en 4. Rayons : étiquette 4, contrôle 6, boîte 10. */
+  :root { --hover:#1e2938; --line-strong:#5f7088; --accent-soft:#0e2a2a; --accent-line:#1f4a4a; --gold-soft:#2a2312; --gold-line:#5a4a22;
+    --fs-xs:12px; --fs-sm:13px; --fs-md:15px; --fs-lg:18px; --fs-xl:24px; --fs-2xl:34px;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --r-tag:4px; --r-ctl:6px; --r-box:10px; --nav-w:216px; }
+  .shell { display:grid; grid-template-columns:var(--nav-w) minmax(0,1fr); height:100vh; }
+  .nav { display:flex; flex-direction:column; min-height:0; overflow:auto; padding:var(--s4) var(--s3); background:var(--surface); border-right:1px solid var(--line); }
+  .nav-brand { display:flex; align-items:center; gap:var(--s2); padding:0 var(--s2) var(--s5); }
+  .nav-brand .p-logo { width:20px; height:20px; color:var(--accent); }
+  .nav-brand .brand { font:var(--fs-xl)/1 var(--condensed); letter-spacing:0; }
+  .nav-brand small { margin-left:auto; padding:1px 6px; border:1px solid var(--line-strong); border-radius:var(--r-tag); color:var(--muted); font-size:var(--fs-xs); }
+  .nav-list { display:flex; flex-direction:column; gap:2px; }
+  .nav-grow { flex:1; min-height:var(--s4); }
+  .nav-link { position:relative; display:flex; align-items:center; gap:var(--s3); width:100%; min-height:40px; padding:0 var(--s3); background:transparent; border:0; border-radius:var(--r-ctl); color:var(--muted); font-size:var(--fs-md); text-align:left; }
+  .nav-link:hover { background:var(--hover); color:var(--text); }
+  .nav-link[aria-current="page"] { background:var(--raised); color:var(--text); }
+  .nav-link[aria-current="page"]::before { content:""; position:absolute; left:calc(-1 * var(--s3)); top:8px; bottom:8px; width:3px; border-radius:0 3px 3px 0; background:var(--accent); }
+  .nav-link[aria-current="page"] .nav-icon { color:var(--accent); }
+  .nav-icon { flex:none; width:18px; height:18px; }
+  .nav-state { display:grid; gap:var(--s2); margin-top:var(--s3); padding:var(--s3); border:1px solid var(--line); border-radius:var(--r-box); font-size:var(--fs-sm); }
+  .nav-line { display:flex; align-items:center; gap:var(--s2); min-width:0; }
+  .nav-line .lbl { font-weight:600; }
+  .nav-line .val { margin-left:auto; color:var(--muted); white-space:nowrap; }
+  .nav-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--muted); }
+  .nav-dot.good { background:var(--accent); } .nav-dot.wait { background:var(--gold); } .nav-dot.bad { background:var(--threat); }
+  .nav-role-icon { display:inline-flex; width:14px; height:14px; color:var(--accent); }
+  .nav-role-icon svg { width:14px; height:14px; }
+  .nav-legal { padding:var(--s3) var(--s2) 0; color:var(--muted); font-size:var(--fs-xs); line-height:1.4; }
+
+  .view { min-width:0; min-height:0; overflow:auto; }
+  .view-sim { overflow:hidden; }
+  .view .app { height:100%; }
+  .top .seg-tab { white-space:nowrap; }
+  /* La navigation prend 216 px : colonnes latérales un peu plus étroites, classement sur deux lignes jusqu'à 1 500 px. */
+  @media (min-width:1101px) { .view .desk { grid-template-columns:clamp(270px,21vw,420px) minmax(0,1fr) clamp(290px,23vw,440px); } }
+  @media (min-width:1101px) and (max-width:1500px) { .view .rank-list { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .view-title { margin:0; font:var(--fs-lg)/1.15 var(--condensed); white-space:nowrap; }
+  .view-page { max-width:1180px; margin:0 auto; padding:var(--s5) var(--s6) var(--s6); }
+  .view-head { display:flex; align-items:flex-end; gap:var(--s4); margin-bottom:var(--s5); }
+  .view-head h1 { margin:0; font:var(--fs-xl)/1.15 var(--condensed); }
+  .view-head p { margin:var(--s1) 0 0; color:var(--muted); font-size:var(--fs-sm); }
+  .view-tools { display:flex; gap:var(--s2); margin-left:auto; }
+  .box { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-box); }
+  .box-pad { padding:var(--s4) var(--s5) var(--s5); }
+  .box-title { margin:0 0 var(--s1); font:var(--fs-lg)/1.2 var(--condensed); }
+  .box-sub { margin:0 0 var(--s4); color:var(--muted); font-size:var(--fs-sm); }
+  .box h3 { margin:var(--s4) 0 var(--s1); color:var(--text); font:var(--fs-md) var(--condensed); }
+  .box select { min-height:30px; padding:3px 6px; background:var(--bg); border:1px solid var(--line-strong); border-radius:var(--r-ctl); }
+  .box input[type=file] { max-width:100%; min-height:28px; }
+  .empty-note { margin:var(--s2) 0; padding:var(--s3) var(--s4); background:var(--bg); border:1px dashed var(--line-strong); border-radius:var(--r-ctl); color:var(--muted); font-size:var(--fs-sm); }
+
+  .home-ready { max-width:760px; padding:var(--s5) var(--s5) var(--s5); }
+  .home-title { margin:0; font:var(--fs-2xl)/1.15 var(--condensed); }
+  .home-lead { margin:var(--s2) 0 var(--s4); color:var(--muted); font-size:var(--fs-md); max-width:62ch; }
+  .checks { margin:0 0 var(--s5); border-top:1px solid var(--line); }
+  .check { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:var(--s3); padding:var(--s3) 0; border-bottom:1px solid var(--line); }
+  .check b { display:block; font-size:var(--fs-md); }
+  .check p { margin:2px 0 0; color:var(--muted); font-size:var(--fs-sm); overflow-wrap:anywhere; }
+  .check-mark { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--line-strong); border-radius:50%; color:var(--muted); }
+  .check.ok .check-mark { border-color:var(--accent); color:var(--accent); }
+  .check.todo .check-mark { border-color:var(--gold); color:var(--gold); }
+  .check-mark svg { width:16px; height:16px; }
+  .home-actions { margin:0; }
+  .home-actions .cta { margin:0; }
+
+  .pool-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr); gap:var(--s4); align-items:start; }
+  .pool-grid h3:first-child { margin-top:0; }
+  .pool-grid .set-card { margin:0; padding:0; background:none; border:0; }
+  .stats-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(280px,1fr); gap:var(--s4); align-items:start; }
+  .stats-side { display:grid; gap:var(--s4); }
+  .set-page { display:grid; grid-template-columns:220px minmax(0,1fr); gap:var(--s5); align-items:start; }
+  .subnav { position:sticky; top:0; display:grid; gap:2px; }
+  .subnav-link { display:flex; align-items:center; gap:var(--s3); min-height:38px; padding:var(--s1) var(--s3); background:transparent; border:0; border-radius:var(--r-ctl); color:var(--muted); font-size:var(--fs-md); text-align:left; }
+  .subnav-link:hover { background:var(--hover); color:var(--text); }
+  .subnav-link.on { background:var(--raised); color:var(--text); box-shadow:inset 3px 0 0 var(--accent); }
+  .subnav-link .nav-icon { width:16px; height:16px; }
+  .set-body .set-check, .set-body .set-line { font-size:var(--fs-md); }
+  .set-body .set-more { margin-top:var(--s4); }
+
+  @media (max-width:1100px) {
+    :root { --nav-w:92px; }
+    .nav { padding:var(--s3) var(--s2); }
+    .nav-brand { justify-content:center; padding:0 0 var(--s4); }
+    .nav-brand .brand, .nav-brand small { display:none; }
+    .nav-link { flex-direction:column; justify-content:center; gap:4px; min-height:58px; padding:6px 4px; font-size:var(--fs-xs); line-height:1.2; text-align:center; }
+    .nav-link[aria-current="page"]::before { left:calc(-1 * var(--s2)); }
+    .nav-state { padding:var(--s2); }
+    .nav-line { justify-content:center; }
+    .nav-line .lbl, .nav-line .val { display:none; }
+    .nav-legal { display:none; }
+    .view-page { padding:var(--s4) var(--s5) var(--s5); }
+    .view-sim { overflow:auto; }
+    .view .app { height:auto; }
+    .pool-grid, .stats-grid { grid-template-columns:minmax(0,1fr); }
+    .set-page { grid-template-columns:170px minmax(0,1fr); gap:var(--s4); }
+    .home-title { font-size:var(--fs-xl); }
+  }
+  /* Fenêtre étroite : le titre « Simulateur » est déjà marqué dans la navigation ; la barre garde ses commandes. */
+  @media (max-width:900px) { .top .view-title { display:none; } }
+  @media (max-width:720px) {
+    .set-page { grid-template-columns:minmax(0,1fr); }
+    .subnav { position:static; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .view-page { padding:var(--s4); }
+    .check { grid-template-columns:28px minmax(0,1fr); }
+    .check .ghost-btn { grid-column:2; justify-self:start; }
+  }
 </style>
 </head>
 <body>
@@ -2065,7 +2171,6 @@ const RulesTab = () => html`<div>
   <p className="legal">Outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games.</p>
 </div>`;
 
-const PartiesTab = () => html`<div><${JournalTab} /><${StatsTab} /></div>`;
 // Comparer et Règles restent des vues d'Analyse : leurs anciens liens (?tab=compare, ?tab=rules) y mènent toujours.
 const ANALYSE_VIEWS = [["criteria", "Critères", CriteriaView], ["compare", "Comparer", CompareTab], ["rules", "Règles", RulesTab]];
 const urlTab = () => new URLSearchParams(location.search).get("tab");
@@ -2074,11 +2179,13 @@ let navTarget = urlTab(), navId = 0;
 // source "live" : « Détails » depuis l'overlay montre la vraie draft. Une simulation en cours est quittée, rien n'est réinitialisé.
 function openViewInPage(tab, source) {
   if (source === "live") leaveSimulation();
+  // Sections de la fenêtre (UX-3) et anciens noms : « settings », « parties ». Le reste est un onglet du Simulateur.
+  if (tab === "settings") { goView("settings"); return; }
+  if (tab === "parties") { goView("stats"); return; }
+  if (VIEWS.includes(tab)) { goView(tab); return; }
   navTarget = tab || null;
   navId++;
-  history.replaceState(null, "", `?panel=full${tab ? `&tab=${tab}` : ""}`);
-  rerender();
-  setTimeout(focusAdd, 0);
+  goView("sim");
 }
 function AnalyseTab() {
   const [view, setView] = useState(() => ANALYSE_VIEWS.some(v => v[0] === navTarget) ? navTarget : "criteria");
@@ -2090,7 +2197,8 @@ function AnalyseTab() {
     <${Current} />
   </div>`;
 }
-const TABS = [["plan", "Plan", PlanTab], ["analyse", "Analyse", AnalyseTab], ["coach", "Conseils", CoachTab], ["matchups", "Duel", MatchupsTab], ["parties", "Parties", PartiesTab]];
+const TABS = [["plan", "Plan", PlanTab], ["analyse", "Analyse", AnalyseTab], ["coach", "Conseils", CoachTab], ["matchups", "Duel", MatchupsTab]];
+// L'ancien onglet « Parties » (journal et statistiques importées) est devenu la section Mes statistiques (UX-3).
 
 function SidePanel() {
   const [tab, setTab] = useState(() => { const t = navTarget; return TABS.some(x => x[0] === t) ? t : ANALYSE_VIEWS.some(v => v[0] === t) ? "analyse" : "plan"; });
@@ -2380,8 +2488,125 @@ function DataSources() {
   </details>`;
 }
 
-function Settings({ onClose }) {
+// ---------- Fenêtre principale : cinq sections (UX-3) ----------
+// Adresses : ?view=home|pool|sim|stats|settings (&section= pour les Réglages). Alias gardés une version : ?tab=settings, ?tab=parties,
+// et les onglets du Simulateur (?tab=analyse, compare, coach...). Les nouveaux textes passent par t() (web/i18n/fr.js).
+const VIEWS = ["home", "pool", "sim", "stats", "settings"];
+const SETTINGS_SECTIONS = ["general", "league", "display", "data", "updates", "diag"];
+function viewFromAddress() {
+  const q = new URLSearchParams(location.search), v = q.get("view"), tab = q.get("tab");
+  if (VIEWS.includes(v)) return v;
+  if (tab === "settings") return "settings";
+  if (tab === "parties") return "stats";
+  return "sim";
+}
+let uiView = viewFromAddress(), uiBack = "sim";
+let uiSection = (() => { const s = new URLSearchParams(location.search).get("section"); return SETTINGS_SECTIONS.includes(s) ? s : "general"; })();
+function goView(view, section) {
+  if (!VIEWS.includes(view)) return;
+  if (view === "settings" && uiView !== "settings") uiBack = uiView;
+  uiView = view;
+  if (SETTINGS_SECTIONS.includes(section)) uiSection = section;
+  if (PANEL === "full") history.replaceState(null, "", `?panel=full&view=${view}${view === "settings" ? `&section=${uiSection}` : ""}`);
+  rerender();
+  if (view === "sim") setTimeout(focusAdd, 0);
+}
+
+// Icônes de navigation : SVG en ligne, trait de 1,8 px, couleur du texte. Les icônes de rôle (ROLE_PATHS) restent.
+const NAV_PATHS = {
+  home: "M3.5 9.5 10 4l6.5 5.5V16a1 1 0 0 1-1 1H12v-4.5H8V17H4.5a1 1 0 0 1-1-1z",
+  pool: "M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z",
+  sim: "M6.5 4.2v11.6L16 10z",
+  stats: "M4 16.5v-6M10 16.5v-12M16 16.5v-8",
+  settings: "M10 7a3 3 0 1 0 0 6 3 3 0 1 0 0-6zM10 2v2.2M10 15.8V18M2 10h2.2M15.8 10H18M4.3 4.3l1.6 1.6M14.1 14.1l1.6 1.6M4.3 15.7l1.6-1.6M14.1 5.9l1.6-1.6",
+  check: "M5 10.5 8.5 14 15 6.5",
+  dot: "M10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z"
+};
+const NavIcon = ({ name }) => html`<svg className="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d=${NAV_PATHS[name]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+const NAV_LCU = { connected:["good", "nav.state.lcu.connected"], waiting:["wait", "nav.state.lcu.waiting"], failed:["bad", "nav.state.lcu.failed"], off:["idle", "nav.state.lcu.off"] };
+
+function MainNav() {
+  const item = v => html`<button key=${v} type="button" className="nav-link" data-test=${`nav-${v}`} aria-current=${uiView === v ? "page" : undefined} onClick=${() => goView(v)}>
+    <${NavIcon} name=${v} /><span>${t(`nav.${v}`)}</span></button>`;
+  const lcu = hostState.available ? (NAV_LCU[hostState.lcuStatus] || NAV_LCU.off) : null;
+  const role = PROFILES.active;
+  return html`<nav className="nav" aria-label=${t("nav.label")}>
+    <div className="nav-brand" data-test="brand"><${LogoMark} /><span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span><small>${t("nav.beta")}</small></div>
+    <div className="nav-list">${["home", "pool", "sim", "stats"].map(item)}</div>
+    <span className="nav-grow"></span>
+    ${item("settings")}
+    <div className="nav-state" data-test="nav-state">
+      <p className="nav-line" title=${t("nav.state.league")}><i className=${`nav-dot ${lcu ? lcu[0] : "idle"}`} aria-hidden="true"></i><span className="lbl">${t("nav.state.league")}</span><span className="val">${lcu ? t(lcu[1]) : t("nav.state.lcu.browser")}</span></p>
+      <p className="nav-line" data-test="nav-role" title=${t("nav.state.role")}>${role ? html`<span className="nav-role-icon"><${RoleIcon} role=${role} /></span>` : html`<i className="nav-dot wait" aria-hidden="true"></i>`}<span className="lbl">${t("nav.state.role")}</span><span className="val">${role ? ROLE_NAMES[role] : t("nav.state.noRole")}</span></p>
+    </div>
+    <p className="nav-legal">${t("nav.legal", { version:APP_VERSION })}</p>
+  </nav>`;
+}
+
+// En-tête commun : titre de section, phrase d'aide, outils à droite.
+const ViewHead = ({ title, sub, tools }) => html`<header className="view-head">
+  <div><h1 id="view-title">${title}</h1>${sub ? html`<p>${sub}</p>` : null}</div>
+  ${tools ? html`<div className="view-tools">${tools}</div>` : null}
+</header>`;
+
+function HomeCheck({ ok, title, hint, action, onAction, test }) {
+  return html`<li className=${`check${ok ? " ok" : " todo"}`} data-test=${test}>
+    <span className="check-mark"><${NavIcon} name=${ok ? "check" : "dot"} /></span>
+    <div><b>${title}</b><p>${hint}</p></div>
+    <button type="button" className="ghost-btn" onClick=${onAction}>${action}</button>
+  </li>`;
+}
+
+function HomeView() {
+  const role = PROFILES.active, count = role ? PROFILES.roles[role].pool.length : 0;
+  const lcu = hostState.available ? (LCU_STATES[hostState.lcuStatus] || LCU_STATES.off) : null;
+  const ready = !!role && count > 0;
+  return html`<div className="view-page">
+    <${ViewHead} title=${t("nav.home")} sub=${t("home.sub")} />
+    <section className="box home-ready" data-test="home-ready" aria-labelledby="home-ready-title">
+      <h2 id="home-ready-title" className="home-title">${t(ready ? "home.ready.title" : "home.todo.title")}</h2>
+      <p className="home-lead">${t(ready ? "home.ready.idle" : "home.todo.lead")}</p>
+      <ul className="checks">
+        <${HomeCheck} test="home-check-league" ok=${!!lcu && hostState.lcuStatus === "connected"} title=${t(lcu && hostState.lcuStatus === "connected" ? "home.check.league.ok" : "home.check.league.manual")}
+          hint=${lcu ? lcu[1] : t("home.check.league.browser")} action=${t("home.action.league")} onAction=${() => goView("settings", "league")} />
+        <${HomeCheck} test="home-check-pool" ok=${ready} title=${role ? tp("home.check.pool", count, { role:ROLE_NAMES[role] }) : t("home.check.noRole")}
+          hint=${role ? (count ? PROFILES.roles[role].pool.map(label).join(", ") : t("home.check.poolEmpty")) : t("home.check.noRoleHint")} action=${t("home.action.pool")} onAction=${() => goView("pool")} />
+        <${HomeCheck} test="home-check-panels" ok=${!hostState.available || !!hostState.autoDraft} title=${t(!hostState.available || hostState.autoDraft ? "home.check.panels.auto" : "home.check.panels.manual")}
+          hint=${t(hostState.hotkey ? "home.check.panels.hotkey" : "home.check.panels.menu")} action=${t("home.action.display")} onAction=${() => goView("settings", "display")} />
+      </ul>
+      <p className="home-actions"><button type="button" className="cta" data-test="home-simulate" onClick=${() => { startSimulation(); goView("sim"); }}>${t("home.action.simulate")}</button></p>
+    </section>
+  </div>`;
+}
+
+function MyPicks() {
   const toggleExcluded = p => savePrefs({ excluded: PREFS.excluded.includes(p) ? PREFS.excluded.filter(x => x !== p) : PREFS.excluded.concat(p) });
+  return html`<section className="box box-pad" data-test="my-picks">
+    <h2 className="box-title">${t("pool.picks.title", { role:PROFILES.active ? ROLE_NAMES[PROFILES.active] : t("nav.state.noRole") })}</h2>
+    <h3>Mes picks</h3>
+    ${PICKS.length ? html`<p className="set-hint flush">Exclure pour l'instant :</p>
+    <div className="set-row">${PICKS.map(p => html`<label key=${p} className="set-check"><input type="checkbox" checked=${PREFS.excluded.includes(p)} onChange=${() => toggleExcluded(p)} /> ${label(p)}</label>`)}</div>
+    <label className="set-line">En cas d'égalité, mettre en premier
+      <select value=${PREFS.favorite || ""} onChange=${e => savePrefs({ favorite: e.target.value || null })}>
+        <option value="">Aucun</option>
+        ${PICKS.map(p => html`<option key=${p} value=${p}>${label(p)}</option>`)}
+      </select>
+    </label>` : html`<p className="empty-note">${t("pool.picks.empty")}</p>`}
+  </section>`;
+}
+
+function PoolView() {
+  return html`<div className="view-page">
+    <${ViewHead} title=${t("nav.pool")} sub=${t("pool.sub")} />
+    <div className="pool-grid">
+      <section className="box box-pad"><${ProfileCard} /></section>
+      <${MyPicks} />
+    </div>
+  </div>`;
+}
+
+function JournalImport() {
+  const [importNote, setImportNote] = useState("");
   const importJournal = e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -2396,91 +2621,152 @@ function Settings({ onClose }) {
       publish(null);
     }).catch(() => setImportNote("Ce fichier n'est pas un journal DRAFT : rien n'a été modifié."));
   };
-  const [importNote, setImportNote] = useState("");
-  // Échap ferme les réglages sans effacer la draft en cours.
+  return html`<details className="set-more" data-test="journal-import">
+    <summary>${t("stats.oldFile.title")}</summary>
+    <h3>Journal</h3>
+    <p className="small">Pour récupérer un ancien journal, importe son fichier ici. Rien n'est supprimé.</p>
+    <p><input type="file" data-test="import-journal" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
+    ${importNote ? html`<p className="small" data-test="journal-import-note">${importNote}</p>` : null}
+  </details>`;
+}
+
+function StatsView() {
+  const h = window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? window.DRAFT_HISTORY : null;
+  return html`<div className="view-page">
+    <${ViewHead} title=${t("nav.stats")} sub=${t("stats.sub")} />
+    <div className="stats-grid">
+      <section className="box box-pad" data-test="stats-journal"><h2 className="box-title">${t("stats.journal.title")}</h2><${JournalTab} /></section>
+      <div className="stats-side">
+        <section className="box box-pad" data-test="stats-history">
+          <h2 className="box-title">${t("stats.history.title")}</h2>
+          <p className="small">${h ? `${h.rows.length} parties importées${h.generated ? ` le ${new Date(h.generated).toLocaleDateString("fr-FR")}` : ""}.` : "Rien d'importé pour l'instant."} ${t("stats.history.where")}</p>
+          <p className="set-row"><button type="button" className="ghost-btn" data-test="stats-history-manage" onClick=${() => goView("settings", "data")}>${t("stats.history.manage")}</button></p>
+        </section>
+        <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} /><${JournalImport} /></section>
+      </div>
+    </div>
+  </div>`;
+}
+
+const SECTION_ICONS = { general:"settings", league:"check", display:"pool", data:"stats", updates:"sim", diag:"dot" };
+const HostOnly = () => html`<p className="empty-note" data-test="settings-host-only">${t("settings.hostOnly")}</p>`;
+
+function SettingsSection({ id }) {
+  const host = hostState.available;
+  if (id === "general") return html`<div>
+    <${CoachLevel} />
+    <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Compter sur une frontline dans mon équipe</label>
+    ${host ? html`<label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> Démarrer avec Windows</label>` : null}
+  </div>`;
+  if (id === "league") return host ? html`<div>
+    <h3>Détection de la draft</h3>
+    <div className=${`set-card${hostState.lcuEnabled ? " on" : ""}`}>
+      <label className="set-check set-main"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> Lire la draft depuis le client LoL</label>
+      <p className="set-hint">Recommandé : les panneaux s'ouvrent au bon moment et les adversaires se remplissent seuls. Lecture seule, rien n'est modifié dans le client.</p>
+      <p className=${`lcu-state ${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[0]}`} role="status"><i aria-hidden="true"></i>${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[1]}</p>
+      <p className="set-hint">Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques.</p>
+      <label className="set-row coach-level"><span>Quand LoL t'attribue un autre rôle</span>
+        <select value=${PREFS.autoRole} onChange=${e => savePrefs({ autoRole:e.target.value })}>
+          <option value="suggest">Me proposer de changer</option><option value="auto">Changer de profil</option><option value="off">Ne rien faire</option>
+        </select></label>
+      <p className="set-hint">Seulement si la lecture du client est active et que LoL indique ton poste. Rien n'est déduit de ton champion.</p>
+    </div>
+  </div>` : html`<${HostOnly} />`;
+  if (id === "display") return host ? html`<div>
+    <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> Afficher les panneaux automatiquement pendant la draft</label>
+    <p className="set-hint">${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
+    <h3>Fenêtres</h3>
+    <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Coller les panneaux au client LoL</label>
+    <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Un seul panneau</label>
+    <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
+  </div>` : html`<${HostOnly} />`;
+  if (id === "data") return html`<div>
+    ${host ? html`<div>
+      <h3>Mon historique Riot</h3>
+      <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? `${window.DRAFT_HISTORY.rows.length} parties importées${window.DRAFT_HISTORY.generated ? ` le ${new Date(window.DRAFT_HISTORY.generated).toLocaleDateString("fr-FR")}` : ""}.` : "Rien d'importé pour l'instant."} Sert à afficher ton expérience, jamais à changer le classement. Tu saisis ta clé toi-même : elle n'est pas enregistrée.</p>
+      ${hostState.historyStatus ? html`<p className="small" role="status">${hostState.historyStatus}</p>` : null}
+      <p className="set-row">
+        <button type="button" className="ghost-btn" data-test="import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? "Arrêter l'import" : hostState.historyHasMore ? "Importer plus de parties" : "Importer mon historique Riot"}</button>
+      </p>
+      <h3>Rôles des champions</h3>
+      <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : (typeof ROLE_RATES !== "undefined" ? `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.` : "Pas encore calculés : les rôles habituels écrits à la main servent de repère.")} Ils servent à deviner ton vis-à-vis et à placer les adversaires dans leurs rôles.</p>
+      <h3>Matchups</h3>
+      <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? `Bilans calculés pour le rôle ${ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"]} : relance le calcul pour ton rôle actuel.` : window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games}`).join(", ")}.` : "Pas encore de bilans calculés."} Sous ${MATCHUP_MIN_GAMES} parties, le matchup n'utilise pas le bilan.</p>
+      <p className="small" role="status">${hostState.rolesStatus || ""}</p>
+      <p className="set-row">
+        ${hostState.rolesRunning
+          ? html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Arrêter le calcul</button>`
+          : html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Mettre à jour les rôles</button>
+              <button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateMatchups" })}>Mettre à jour les matchups</button>`}
+      </p>
+    </div>` : null}
+    <${DataSources} />
+  </div>`;
+  if (id === "updates") return host ? html`<div>
+    <p className="small">Version ${APP_VERSION}. DRAFT ne contacte GitHub que lorsque tu cliques.</p>
+    ${hostState.updateStatus ? html`<p className="small" role="status" data-test="update-status">${hostState.updateStatus}</p>` : null}
+    <p className="set-row"><button type="button" className="ghost-btn" data-test="check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? "Mise à jour en cours..." : "Rechercher une mise à jour"}</button></p>
+  </div>` : html`<${HostOnly} />`;
+  return html`<div>
+    <p className="small brand-sub">DRAFT ${APP_VERSION} bêta : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.</p>
+    ${host ? html`<div>
+      <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
+      <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
+    </div>` : null}
+  </div>`;
+}
+
+function SettingsPage({ onClose }) {
+  // Échap ramène à la section précédente sans effacer la draft en cours (comme l'ancienne fenêtre des réglages).
   useEffect(() => {
     const onEscape = e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
     document.addEventListener("keydown", onEscape, true);
     return () => document.removeEventListener("keydown", onEscape, true);
   }, [onClose]);
-  return html`<div className="settings-back" onClick=${e => { if (e.target === e.currentTarget) onClose(); }}>
-    <section className="settings" data-test="settings" role="dialog" aria-modal="true" aria-label="Réglages">
-      <p className="small brand-sub">DRAFT ${APP_VERSION} bêta : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.</p>
-      <header className="sec-title">Réglages <button type="button" className="ghost-btn" data-test="settings-close" autoFocus=${true} onClick=${onClose}>Fermer</button></header>
-      <${ProfileCard} />
-      <${CoachLevel} />
-      ${hostState.available ? html`<div>
-        <h3>Mise à jour</h3>
-        <p className="small">Version ${APP_VERSION}. DRAFT ne contacte GitHub que lorsque tu cliques.</p>
-        ${hostState.updateStatus ? html`<p className="small" role="status" data-test="update-status">${hostState.updateStatus}</p>` : null}
-        <p className="set-row"><button type="button" className="ghost-btn" data-test="check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? "Mise à jour en cours..." : "Rechercher une mise à jour"}</button></p>
-      </div>` : null}
-      ${hostState.available ? html`<div>
-        <h3>Mon historique Riot</h3>
-        <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? `${window.DRAFT_HISTORY.rows.length} parties importées${window.DRAFT_HISTORY.generated ? ` le ${new Date(window.DRAFT_HISTORY.generated).toLocaleDateString("fr-FR")}` : ""}.` : "Rien d'importé pour l'instant."} Sert à afficher ton expérience, jamais à changer le classement. Tu saisis ta clé toi-même : elle n'est pas enregistrée.</p>
-        ${hostState.historyStatus ? html`<p className="small" role="status">${hostState.historyStatus}</p>` : null}
-        <p className="set-row">
-          <button type="button" className="ghost-btn" data-test="import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? "Arrêter l'import" : hostState.historyHasMore ? "Importer plus de parties" : "Importer mon historique Riot"}</button>
-        </p>
-      </div>` : null}
-      ${hostState.available ? html`<div>
-        <h3>Détection de la draft</h3>
-        <div className=${`set-card${hostState.lcuEnabled ? " on" : ""}`}>
-          <label className="set-check set-main"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> Lire la draft depuis le client LoL</label>
-          <p className="set-hint">Recommandé : les panneaux s'ouvrent au bon moment et les adversaires se remplissent seuls. Lecture seule, rien n'est modifié dans le client.</p>
-          <p className=${`lcu-state ${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[0]}`} role="status"><i aria-hidden="true"></i>${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[1]}</p>
-          <p className="set-hint">Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques.</p>
-          <label className="set-row coach-level"><span>Quand LoL t'attribue un autre rôle</span>
-            <select value=${PREFS.autoRole} onChange=${e => savePrefs({ autoRole:e.target.value })}>
-              <option value="suggest">Me proposer de changer</option><option value="auto">Changer de profil</option><option value="off">Ne rien faire</option>
-            </select></label>
-          <p className="set-hint">Seulement si la lecture du client est active et que LoL indique ton poste. Rien n'est déduit de ton champion.</p>
-        </div>
-        <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> Afficher les panneaux automatiquement pendant la draft</label>
-        <p className="set-hint">${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
-        <h3>Fenêtres</h3>
-        <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Coller les panneaux au client LoL</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Un seul panneau</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
-        <label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> Démarrer avec Windows</label>
-      </div>` : null}
-      <h3>Mes picks</h3>
-      <p className="set-hint flush">Exclure pour l'instant :</p>
-      <div className="set-row">${PICKS.map(p => html`<label key=${p} className="set-check"><input type="checkbox" checked=${PREFS.excluded.includes(p)} onChange=${() => toggleExcluded(p)} /> ${label(p)}</label>`)}</div>
-      <label className="set-line">En cas d'égalité, mettre en premier
-        <select value=${PREFS.favorite || ""} onChange=${e => savePrefs({ favorite: e.target.value || null })}>
-          <option value="">Aucun</option>
-          ${PICKS.map(p => html`<option key=${p} value=${p}>${label(p)}</option>`)}
-        </select>
-      </label>
-      <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Compter sur une frontline dans mon équipe</label>
+  const section = uiSection;
+  return html`<div className="view-page" data-test="settings">
+    <${ViewHead} title=${t("nav.settings")} sub=${t("settings.sub")}
+      tools=${html`<button type="button" className="ghost-btn" data-test="settings-close" autoFocus=${true} onClick=${onClose}>Fermer</button>`} />
+    <div className="set-page">
+      <div className="subnav" role="tablist" aria-label=${t("settings.sectionsLabel")}>
+        ${SETTINGS_SECTIONS.map(s => html`<button key=${s} type="button" role="tab" aria-selected=${s === section} data-test=${`settings-section-${s}`} className=${`subnav-link${s === section ? " on" : ""}`} onClick=${() => goView("settings", s)}>
+          <${NavIcon} name=${SECTION_ICONS[s]} /><span>${t(`settings.section.${s}`)}</span></button>`)}
+      </div>
+      <section className="box box-pad set-body" role="tabpanel" data-test=${`settings-body-${section}`} aria-labelledby="set-title">
+        <h2 id="set-title" className="box-title">${t(`settings.section.${section}`)}</h2>
+        <p className="box-sub">${t(`settings.${section}.sub`)}</p>
+        <${SettingsSection} id=${section} />
+      </section>
+    </div>
+  </div>`;
+}
 
-      ${hostState.available ? html`<div>
-        <h3>Rôles des champions</h3>
-        <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : (typeof ROLE_RATES !== "undefined" ? `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.` : "Pas encore calculés : les rôles habituels écrits à la main servent de repère.")} Ils servent à deviner ton vis-à-vis et à placer les adversaires dans leurs rôles.</p>
-        <h3>Matchups</h3>
-        <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? `Bilans calculés pour le rôle ${ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"]} : relance le calcul pour ton rôle actuel.` : window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games}`).join(", ")}.` : "Pas encore de bilans calculés."} Sous ${MATCHUP_MIN_GAMES} parties, le matchup n'utilise pas le bilan.</p>
-        <p className="small" role="status">${hostState.rolesStatus || ""}</p>
-        <p className="set-row">
-          ${hostState.rolesRunning
-            ? html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Arrêter le calcul</button>`
-            : html`<button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateRoles" })}>Mettre à jour les rôles</button>
-                <button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"updateMatchups" })}>Mettre à jour les matchups</button>`}
-        </p>
-      </div>` : null}
-      <h3>Journal</h3>
-      <p className="small">Pour récupérer un ancien journal, importe son fichier ici. Rien n'est supprimé.</p>
-      <p><input type="file" data-test="import-journal" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
-      ${importNote ? html`<p className="small" data-test="journal-import-note">${importNote}</p>` : null}
-      <${DataSources} />
-      <details className="set-more">
-        <summary>Avancé</summary>
-        ${hostState.available ? html`<div>
-          <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
-          <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
-        </div>` : null}
-      </details>
-    </section>
+function SimView() {
+  return html`<div className="app" data-test="view-sim-body">
+    <header className="top">
+      <h1 id="view-title" className="view-title">${t("nav.sim")}</h1>
+      <${RoleSwitch} />
+      <span className="patch">Patch ${ddVersion.split(".").slice(0, 2).join(".")}</span>
+      <span className="grow"></span>
+      <div className="seg-tabs source-switch" role="group" aria-label="Draft affichée">
+        <button type="button" className=${`seg-tab${simulating ? "" : " on"}`} aria-pressed=${!simulating} data-test="source-live" onClick=${leaveSimulation}>Draft en cours</button>
+        <button type="button" className=${`seg-tab${simulating ? " on" : ""}`} aria-pressed=${simulating} data-test="source-sim" onClick=${startSimulation}>Simulation</button>
+      </div>
+      <button type="button" className="ghost-btn" data-test="random-draft" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
+      <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${() => withUndo(simulating ? "Simulation effacée." : "Draft effacée.", resetDraft)}>${simulating ? "Nouvelle simulation" : "Nouvelle draft"}</button>
+    </header>
+    ${simulating ? html`<div className="sim-band" role="status" data-test="simulation" data-simulation=${true}>
+      <p><b>Simulation</b> : ta draft en cours n'est pas modifiée.</p>
+      <span className="grow"></span>
+      <button type="button" className="ghost-btn" data-test="resume-live" disabled=${!liveCopy || !(liveCopy.enemies || []).length} title="Copie la draft en cours dans la simulation, sans lien avec elle." onClick=${resumeLiveInSimulation}>Reprendre la draft en cours</button>
+      <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>Quitter la simulation</button>
+    </div>` : null}
+    <div className="desk">
+      <${EnemyPanel} />
+      <div className="col col-mid"><${Stage} /><${Ranking} /></div>
+      <${SidePanel} key=${navId} />
+    </div>
+    <${MobileBar} />
   </div>`;
 }
 
@@ -2509,15 +2795,11 @@ const isTextEntry = el => !!el && (el.isContentEditable || ["INPUT", "TEXTAREA",
 
 function App() {
   const [, force] = useReducer(x => x + 1, 0);
-  const [showSettings, setShowSettings] = useState(() => new URLSearchParams(location.search).get("tab") === "settings");
   // Ouverts pendant une draft, les réglages sont seuls à l'écran : les fermer referme la fenêtre, pour ne rien laisser devant le client.
   const settingsWindow = useRef(IS_HOST && new URLSearchParams(location.search).get("solo") === "1");
   const closeSettings = useCallback(() => {
-    setShowSettings(false);
-    // Une relance de la page ne doit pas rouvrir les réglages.
-    if (new URLSearchParams(location.search).get("tab") === "settings") history.replaceState(null, "", "?panel=full");
-    if (settingsWindow.current) { settingsWindow.current = false; hostSend({ cmd:"closeFull" }); }
-    else setTimeout(focusAdd, 0);
+    if (settingsWindow.current) { settingsWindow.current = false; goView(uiBack === "settings" ? "sim" : uiBack); hostSend({ cmd:"closeFull" }); return; }
+    goView(uiBack === "settings" ? "sim" : uiBack);
   }, []);
   useEffect(() => {
     rerender = force;
@@ -2544,16 +2826,17 @@ function App() {
         if (m.kind === "draftStart") { clearUndo(); leaveSimulation(); resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
-        if (m.kind === "openSettings") setShowSettings(true);
+        // Message gardé une version (alias) : ouvre la section Réglages.
+        if (m.kind === "openSettings") goView("settings");
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
-        // Ouverture d'un onglet sans recharger la page (« Détails », « Comparer ») : la draft affichée reste, aucune diffusion.
+        // Ouverture d'une section ou d'un onglet sans recharger la page (« Détails », « Comparer ») : la draft affichée reste, aucune diffusion.
         if (m.kind === "openView") { openViewInPage(m.tab || "", m.source || ""); window.__openViewSeen = m.token || 0; }
       });
       hostSend({ cmd:"getHost" });
     }
     const onKey = e => {
-      // Les raccourcis de la page ne valent que pour elle : pas derrière les réglages, ni pendant une saisie.
-      if (document.querySelector(".settings")) return;
+      // Les raccourcis de la saisie ne valent que dans le Simulateur, et jamais pendant une saisie.
+      if (uiView !== "sim") return;
       const active = document.activeElement;
       const add = document.getElementById("add");
       const inField = isTextEntry(active);
@@ -2571,35 +2854,12 @@ function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
-  // Réglages ouverts : la fenêtre derrière est inerte (inert), aucun de ses champs ne reçoit le focus ni la saisie.
+  const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolView} />` : uiView === "stats" ? html`<${StatsView} />`
+    : uiView === "settings" ? html`<${SettingsPage} onClose=${closeSettings} />` : html`<${SimView} />`;
   return html`<${MotionConfig} reducedMotion="user">
-    ${showSettings ? html`<${Settings} onClose=${closeSettings} />` : null}
-    <div className="app" data-test="app" inert=${showSettings ? "" : undefined}>
-      <header className="top">
-        <span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span>
-        <${RoleSwitch} />
-        <span className="patch">Patch ${ddVersion.split(".").slice(0, 2).join(".")}</span>
-        <span className="grow"></span>
-        <button type="button" className="ghost-btn" data-test="open-settings" onClick=${() => setShowSettings(true)}>Réglages</button>
-        <div className="seg-tabs source-switch" role="group" aria-label="Draft affichée">
-          <button type="button" className=${`seg-tab${simulating ? "" : " on"}`} aria-pressed=${!simulating} data-test="source-live" onClick=${leaveSimulation}>Draft en cours</button>
-          <button type="button" className=${`seg-tab${simulating ? " on" : ""}`} aria-pressed=${simulating} data-test="source-sim" onClick=${startSimulation}>Simulation</button>
-        </div>
-        <button type="button" className="ghost-btn" data-test="random-draft" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
-        <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${() => withUndo(simulating ? "Simulation effacée." : "Draft effacée.", resetDraft)}>${simulating ? "Nouvelle simulation" : "Nouvelle draft"}</button>
-      </header>
-      ${simulating ? html`<div className="sim-band" role="status" data-test="simulation" data-simulation=${true}>
-        <p><b>Simulation</b> : ta draft en cours n'est pas modifiée.</p>
-        <span className="grow"></span>
-        <button type="button" className="ghost-btn" data-test="resume-live" disabled=${!liveCopy || !(liveCopy.enemies || []).length} title="Copie la draft en cours dans la simulation, sans lien avec elle." onClick=${resumeLiveInSimulation}>Reprendre la draft en cours</button>
-        <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>Quitter la simulation</button>
-      </div>` : null}
-      <div className="desk">
-        <${EnemyPanel} />
-        <main className="col col-mid"><${Stage} /><${Ranking} /></main>
-        <${SidePanel} key=${navId} />
-      </div>
-      <${MobileBar} />
+    <div className="shell" data-test="app">
+      <${MainNav} />
+      <main className=${`view view-${uiView}`} data-test=${`view-${uiView}`} aria-labelledby="view-title">${view}</main>
     </div>
   <//>`;
 }
