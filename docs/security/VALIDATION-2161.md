@@ -2,7 +2,7 @@
 
 *Branche `release/2.16.1`, partie de `main` (`db60272`, fusion de la PR #3). Le commit final est indiqué dans la PR. Rapport du 10 novembre 2026. Il ne contient aucun secret. DRAFT n'est pas « 100 % sécurisé » : ce document dit ce qui a été vérifié et ce qui reste ouvert.*
 
-**État :** candidate prête. **Ni tag ni release `v2.16.1` n'ont été créés.** Les scénarios qui exigent une release publique sont **en attente de ton autorisation** (§7).
+**État :** **DRAFT 2.16.1 est publiée et signée** (10 novembre 2026). PR #4 fusionnée en `78519fb`, dont le contenu est identique au commit audité `3e8731d` ; tag `v2.16.1` posé sur `78519fb`. Résultats des tests réels au §11.
 
 ## 1. Modifications apportées
 
@@ -98,7 +98,7 @@ Elles viennent de la PR #3. Détail dans [AUDIT-SECURITE-216.md](AUDIT-SECURITE-
 | Semgrep 1.185.0 | 38 alertes `unsafe-path-combine`, toutes déjà classées faux positifs (tests et noms fixes). Aucune nouvelle |
 | Gitleaks 8.30.1 | Historique (toutes branches) et fichiers : **aucune fuite** |
 
-## 7. Protocole de publication et test réel (en attente de ton accord)
+## 7. Protocole de publication et test réel (prévu avant publication ; ce qui a été fait est au §11)
 
 Tout se fait sur une **copie** de la 2.16.0 officielle, avec un dossier de données de test : ton installation et tes données ne sont pas touchées.
 
@@ -167,3 +167,41 @@ La clé est un fichier XML en clair dans `%APPDATA%\DRAFT-signature`, accessible
 2. **Me laisser faire les scénarios A, B et E** dans le dossier d'essai, et éventuellement C en réel.
 3. **Décider pour la clé** (§8).
 4. **Sécuriser le compte GitHub** (R2).
+
+## 11. Publication et tests réels (10 novembre 2026)
+
+### Publication
+| Étape | Résultat |
+|---|---|
+| PR #4 : tête de branche égale au commit audité `3e8731d`, 8 fichiers attendus, build et CodeQL au vert, 0 alerte | **Vérifié** avant la fusion |
+| Fusion (squash, avec contrôle de la tête) | `78519fb`. Contenu **identique** à celui de `3e8731d` |
+| Tag `v2.16.1` sur `78519fb` | Créé ; release compilée et publiée par GitHub Actions (job `release`) |
+| Fichiers publiés | `DRAFT-Portable.exe` et `DRAFT-Setup.exe` (identiques, version 2.16.1.0), `DRAFT-Portable.exe.sig` |
+| Empreintes | Les 3 fichiers téléchargés correspondent au `digest` GitHub |
+| Tests natifs de l'exécutable publié | 263 réussis, 0 échec |
+| Signature | Faite sur ce PC par `tools/sign-release.ps1`, avec la clé existante, sans l'afficher ni la déplacer ; elle a été vérifiée par l'exécutable avant l'envoi |
+| Signature publiée, revérifiée après téléchargement | **Valide** pour la 2.16.0 officielle et pour la 2.16.1 publiée ; **refusée** pour un autre tag |
+| Anciennes releases (v2.16.0, v2.14.0) | **Inchangées** : mêmes fichiers, mêmes dates |
+
+### Tests réellement effectués (environnement isolé : copie de la 2.16.0 officielle, copie de données de test, clé de registre d'essai)
+| Scénario | Comment | Résultat |
+|---|---|---|
+| Détection de la release **non signée** | La 2.16.0 officielle lit le vrai GitHub (`--test-update-live`) | `OK v2.16.1 plus-recent=True signee=False` |
+| **C — signatures invalides** (sans rien publier) | Exécutables **officiels** 2.16.0 et 2.16.1 avec la clé publique réelle : signature d'une autre clé, fichier modifié d'un octet, vraie signature présentée pour un autre tag, signature illisible ; plus la vraie signature, faite en local | **10/10** : les 4 cas invalides refusés et la vraie signature acceptée, par les deux versions. Les tests natifs de la 2.16.1 publiée couvrent aussi le chemin complet (« fausse signature, fichier supprimé sans jamais être lancé ») |
+| Détection de la release **signée** | La 2.16.0 officielle lit le vrai GitHub | `OK v2.16.1 plus-recent=True signee=True` |
+| **B — mise à jour** de la 2.16.0 officielle vers **l'exécutable 2.16.1 publié** | Vrai mécanisme de la 2.16.0 : vérification, autotest de la candidate, échange, redémarrage, confirmation. Seule la recherche sur GitHub est remplacée par une source locale (`--test-update`) pointant sur le fichier publié | **Réussi.** L'exécutable devient **identique au fichier publié** (2.16.1.0) ; la nouvelle version redémarre et relit les données. Il ne reste ni `.ancien`, ni `.maj.exe`, ni dossier d'autotest |
+| Conservation des données | État relevé avant et après, et empreinte de l'historique | Identique : profil Mid (3 champions), 96 parties, réglages relus ; `draft-history.js` inchangé |
+| **E — application à jour** | La 2.16.1 mise à jour lit le vrai GitHub ; puis son bouton face à la même version | `plus-recent=False signee=True` ; « **DRAFT est à jour (version 2.16.1).** » |
+| **D — retour en arrière** | Fait avant la publication, depuis la 2.16.0 officielle (§5) : la candidate plante ou se fige à l'ouverture | La 2.16.0 est remise en place et relancée |
+| Installation principale et données personnelles | Processus et fichiers vérifiés pendant les tests | **Non touchées** |
+
+### Scénarios non testés
+- **A en réel (clic) :** le refus d'une release non signée par le bouton de la 2.16.0 n'a pas été rejoué par un clic. Le scénario a été abandonné à ta demande pour ne pas bloquer la publication. Seule la détection `signee=False` a été vue en réel ; le refus est couvert par les tests natifs.
+- **B par le vrai bouton (clic, puis « Oui ») :** le téléchargement depuis GitHub et la vérification de la signature publiée ont été testés **séparément** (lecture réelle, signature publiée vérifiée), et l'échange avec le fichier publié par la source locale. L'enchaînement complet n'a pas été déclenché par un clic. Windows interdit à un script de prendre le premier plan, et rien n'a été forcé.
+- **C en public :** volontairement non fait. Aucune fausse signature n'a été publiée.
+- **D depuis la 2.16.1 publiée :** le retour en arrière a été éprouvé depuis la 2.16.0 officielle, pas encore depuis la 2.16.1 publiée. Le code de mise à jour est le même, à l'exception du plafonnement des réponses.
+
+### Pour faire le clic réel facultatif (B par le bouton)
+1. Lancer la copie 2.16.0 officielle d'essai : `dist-beta\officielle-2160\DRAFT-Portable.exe --data <dossier vide> --no-hotkey --no-auto-panels --run-key Software\DRAFT-EssaiReel\Run` (sur une **copie**, jamais sur ton installation).
+2. Clic droit sur l'icône **DRAFT** → **Rechercher une mise à jour...** → **Oui**.
+3. Attendre le message « Mise à jour installée : version 2.16.1 » et la nouvelle icône.
