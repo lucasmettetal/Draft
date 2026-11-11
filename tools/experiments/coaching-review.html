@@ -23,6 +23,6 @@ const CASES=[
 const levels=["beginner","intermediate","advanced"];
 const out=[];
 levels.forEach(level=>CASES.forEach(([nom,role,pool,enemies,o])=>{applyProfile({role,pool});const a=coachingAdvice(Object.assign({enemies,level},o));const s=coachingSummary(Object.assign({enemies,level},o));const c=coachingContext(Object.assign({enemies},o));
- out.push({nom,level,role,pool,enemies,pick:a.pick,rival:a.rival,opp:a.opponent,conf:a.confidence,scores:c.ranking.map(p=>label(p.pick)+" "+p.score.toFixed(2)),raisons:c.entry?c.entry.criteria.filter(x=>x.impact!==0).map(x=>x.label+" "+x.impact.toFixed(1)):[],court:a.short,headline:s.headline,items:a.items.map(i=>({id:i.id,basis:i.basisLabel,v:i.verification,title:i.title,text:i.text,limits:i.limits,ev:i.evidence}))});}));
+ out.push({nom,level,role,pool,enemies,pick:a.pick,rival:a.rival,opp:a.opponent,conf:typeof confidenceWord==="function"?confidenceWord(a.confidence):a.confidence,scores:c.ranking.map(p=>label(p.pick)+" "+p.score.toFixed(2)),raisons:c.entry?c.entry.criteria.filter(x=>x.impact!==0).map(x=>x.label+" "+x.impact.toFixed(1)):[],court:a.short,headline:s.headline,items:a.items.map(i=>({id:i.id,basis:i.basisLabel,v:i.verification,title:i.title,text:i.text,limits:i.limits,ev:i.evidence}))});}));
 document.getElementById("out").textContent=JSON.stringify(out);
 </script></body></html>
