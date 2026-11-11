@@ -236,10 +236,10 @@ UI-225 | index.html:2140 | Import réussi | Profils importés.{x}L'état précé
 UI-226 | index.html:2142 | Import illisible | Fichier illisible : rien n'a été modifié.
 UI-227 | index.html:2148 | Annulation de l'import | Profils précédents restaurés.
 UI-228 | index.html:2151-2153 | Boutons des profils | re:^(Exporter mes profils|Importer|Importer des profils|Annuler le dernier import)$
-UI-229 | index.html:2170 | Réglages, titre | Mes profils
-UI-230 | index.html:2172 | Réglages, sans profil | Choisis ton rôle et tes champions pour obtenir un conseil.
-UI-231 | index.html:2173,2176 | Réglages (aria) | re:^(Mon rôle|Mes champions)$
-UI-232 | index.html:2178 | Réglages, pool vide | Aucun champion pour l'instant.
+UI-229 | index.html:2170 | Réglages, titre [non affiché] (retiré en UX-4, Mon pool) | Mes profils
+UI-230 | index.html:2172 | Réglages, sans profil [non affiché] (retiré en UX-4, Mon pool) | Choisis ton rôle et tes champions pour obtenir un conseil.
+UI-231 | index.html:2173,2176 | Réglages (aria) [non affiché] (retiré en UX-4, Mon pool) | re:^(Mon rôle|Mes champions)$
+UI-232 | index.html:2178 | Réglages, pool vide [non affiché] (retiré en UX-4, Mon pool) | Aucun champion pour l'instant.
 UI-233 | index.html:2180 | Réglages, recherche de champion | re:^(Ajouter un champion|Ajouter un champion : ahri, tf, kata\.\.\.)$
 UI-234 | index.html:2184 | Réglages, recherche sans résultat | Aucun champion trouvé.
 UI-235 | index.html:2186 | Réglages, rôle sans champion | Aucun champion pour ce rôle : ajoute-en pour obtenir un conseil.
@@ -262,8 +262,8 @@ UI-251 | index.html:2264-2266 | Réglages, rôle attribué | re:^(Quand LoL t'at
 UI-252 | index.html:2268 | Réglages, rôle attribué | Seulement si la lecture du client est active et que LoL indique ton poste. Rien n'est déduit de ton champion.
 UI-253 | index.html:2270-2276 | Réglages, fenêtres | re:^(Afficher les panneaux automatiquement pendant la draft|Fenêtres|Coller les panneaux au client LoL|Un seul panneau|Toujours au premier plan|Démarrer avec Windows)$
 UI-254 | index.html:2271 | Réglages, raccourci | affiche ou masque les panneaux à tout moment.
-UI-255 | index.html:2278-2279 | Réglages, picks | re:^(Mes picks|Exclure pour l'instant :)$
-UI-256 | index.html:2281 | Réglages, favori (PR C) | En cas d'égalité, mettre en premier
+UI-255 | index.html:2278-2279 | Réglages, picks [non affiché] (remplacé par le tableau de Mon pool, UX-4) | re:^(Mes picks|Exclure pour l'instant :)$
+UI-256 | index.html:2281 | Réglages, favori (PR C) [non affiché] (remplacé par le tableau de Mon pool, UX-4) | En cas d'égalité, mettre en premier
 UI-257 | index.html:2287 | Réglages, frontline allié (PR C) | Compter sur une frontline dans mon équipe
 UI-258 | index.html:2338-2339 | Réglages, rôles (PR E) | re:(Rôles des champions|Ils servent à deviner ton vis-à-vis et à placer les adversaires dans leurs rôles\.)
 UI-259 | index.html:2291 | Réglages, rôles non calculés | Pas encore calculés : les rôles habituels écrits à la main servent de repère.
@@ -288,12 +288,16 @@ UI-282 | index.html:MainNav (fr.js nav.legal) | UX-3, mention de la navigation |
 UI-283 | index.html:HomeView (fr.js home.*) | UX-3, Accueil : titres | re:^(Ce qu'il faut savoir avant ta prochaine draft\.|Tout est prêt pour ta prochaine draft|Aucune draft en cours\. Les panneaux s'ouvriront à côté du client dès la sélection des champions\.|Il reste une étape avant ta prochaine draft|Choisis ton rôle et tes champions : DRAFT s'en sert pour chaque conseil\.)$
 UI-284 | index.html:HomeView (fr.js home.check.*) | UX-3, Accueil : vérifications | re:^(Client League connecté|Lecture du client désactivée|Disponible dans l'application DRAFT\.|Rôle joué : (Top|Jungle|Mid|ADC|Support), \d+ champions?|Aucun champion dans ce pool pour l'instant\.|Aucun rôle choisi|Choisis ton rôle, puis ajoute tes champions\.|Panneaux automatiques|Panneaux à afficher toi-même|Pour les afficher ou les masquer à tout moment : Ctrl\+Alt\+D\.|Pour les afficher ou les masquer : menu de l'icône DRAFT\.)$
 UI-285 | index.html:HomeView (fr.js home.action.*) | UX-3, Accueil : boutons | re:^(Connexion League|Modifier mon pool|Affichage|Simuler une draft)$
-UI-287 | index.html:PoolView (fr.js pool.*) | UX-3, Mon pool | re:^(Chaque rôle garde ses champions\. Modifier un pool ne change pas ton rôle joué\.|Rôle joué : (Top|Jungle|Mid|ADC|Support|aucun)|Ajoute des champions au pool de ton rôle joué pour en exclure ou choisir un favori\.)$
+UI-287 | index.html:PoolPage (fr.js pool.sub) | UX-3, Mon pool : phrase | Chaque rôle garde ses champions. Modifier un pool ne change pas ton rôle joué.
 UI-288 | index.html:StatsView (fr.js stats.*) | UX-3, Mes statistiques | re:^(Ton journal DRAFT et ton historique Riot, au même endroit\.|Journal des drafts|Historique Riot|L'import se fait dans Réglages, rubrique Données et confidentialité\.|Gérer l'import|Statistiques importées|Importer un ancien fichier)$
 UI-289 | index.html:StatsView | UX-3, Mes statistiques : historique (texte existant + renvoi) | re:^(\d+ parties importées( le \d\d/\d\d/\d{4})?\.|Rien d'importé pour l'instant\.) L'import se fait dans Réglages, rubrique Données et confidentialité\.$
 UI-290 | index.html:SettingsPage (fr.js settings.*) | UX-3, Réglages : rubriques | re:^(Six rubriques\. Chaque changement est enregistré tout de suite\.|Rubriques des réglages|Ce réglage n'existe que dans l'application DRAFT\.|Général|Connexion League|Affichage et fenêtres|Données et confidentialité|Mises à jour|Diagnostic et informations)$
 UI-291 | index.html:SettingsPage (fr.js settings.*.sub) | UX-3, Réglages : phrase de chaque rubrique | re:^(Ce qui vaut partout dans DRAFT\.|Lecture de la draft dans le client, rôle attribué par League\.|Les panneaux pendant la draft, et leur place à l'écran\.|Rôles, matchups, historique et sources\. Rien ne quitte ton PC sans ton action\.|La version installée, et la recherche d'une nouvelle version\.|Pour comprendre la détection et signaler un problème\.)$
 UI-292 | index.html:SimView | UX-3, titre de la barre du Simulateur | Simulateur
+UI-294 | index.html:PoolPage (fr.js pool.*) | UX-4, Mon pool : rôle joué et rôles | re:^(Rôle joué|Utilisé pour tes conseils et dans les panneaux\.|Rôles|Joué|Top|Jungle|Mid|ADC|Support|Ton pool|Pool (Top|Jungle|Mid|ADC|Support)( \d+ champions?)?|\d+ champions?|(Top|Jungle|Mid|ADC|Support) Joué)$
+UI-295 | index.html:PoolPage (fr.js pool.search.*, pool.table.*) | UX-4, Mon pool : recherche et tableau | re:^(Nom ou surnom : « tf », « kata », « mf »\. Entrée ajoute le premier résultat\.|déjà dans le pool|.+ déjà dans le pool|Champion|Préféré à égalité|Exclu pour l'instant|Retirer du pool|Préférer .+ à égalité|Exclure .+ pour l'instant|Le favori ne départage que des champions à égalité exacte\. Un champion exclu reste dans le pool : il n'est simplement pas conseillé pour l'instant\. Ces choix valent pour ce rôle seulement\.)$
+UI-296 | index.html:PoolPage (fr.js pool.saved.*) | UX-4, Mon pool : confirmations | re:^Enregistré : (.+ préféré à égalité en|aucun favori en|.+ exclu pour l'instant en|.+ de nouveau conseillé en) (Top|Jungle|Mid|ADC|Support)\.$
+UI-297 | index.html:PoolPage (fr.js pool.suggest.*, pool.backup.title) | UX-4, Mon pool : suggestions et sauvegarde | re:^(Souvent joués en (Top|Jungle|Mid|ADC|Support)|Un clic les ajoute au pool (Top|Jungle|Mid|ADC|Support)\.|Souvent joués en (Top|Jungle|Mid|ADC|Support) Un clic les ajoute au pool (Top|Jungle|Mid|ADC|Support)\.|Sauvegarde des profils)$
 UI-274 | index.html:ProfileCard | UX-1, pool d'un autre rôle que le rôle joué | re:^((Tu modifies le pool (Top|Jungle|Mid|ADC|Support)\. Ton rôle joué reste (Top|Jungle|Mid|ADC|Support)\.)( Jouer ce rôle)?|Jouer ce rôle)$
 UI-275 | index.html:ProfileCard | UX-1, pool enregistré ou retrait annulable | re:^((Enregistré : .+ ajouté au pool (Top|Jungle|Mid|ADC|Support)\.)|(.+ retiré du pool (Top|Jungle|Mid|ADC|Support)\.)( Annuler)?|Annuler)$
 UI-276 | index.html:ProfileCard | UX-1, aucun rôle choisi : recherche désactivée | re:^Choisis d'abord ton rôle(, puis ajoute tes champions\.)?$
@@ -996,6 +1000,9 @@ async function special() {
     const x = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&view=pool"); current = "ux1 pool";
     const q = s => x.d.querySelector(`[data-test="${s}"]`);
     for (const s of ["pool-role-top", "pool-add", "pool-remove"]) { const b = q(s); if (b) { b.click(); await settle(); collect(x.d, current); } }
+    // UX-4 : favori et exclusion par rôle, recherche qui signale un champion déjà présent.
+    for (const s of ["pool-role-mid", "pool-favorite", "pool-favorite", "pool-exclude", "pool-exclude"]) { const b = q(s); if (b) { b.click(); await settle(); collect(x.d, current); } }
+    { const s = q("pool-search"); if (s) { const set = Object.getOwnPropertyDescriptor(x.w.HTMLInputElement.prototype, "value").set; set.call(s, "fiz"); s.dispatchEvent(new x.w.Event("input", { bubbles:true })); await settle(); collect(x.d, current); } }
     close(x);
     const y = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 720); current = "ux1 annuler";
     ["Ahri", "Sion"].forEach(n => y.$.addEnemy(n)); await settle();
