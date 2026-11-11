@@ -6,7 +6,7 @@ Pendant la sélection, DRAFT classe les champions que tu joues face à la compos
 
 ## ⬇️ Télécharger
 
-**Version 2.16.1 bêta** · Windows 10 ou 11
+**Version 2.16.2 bêta** · Windows 10 ou 11
 
 | | Fichier | Pour qui |
 |---|---|---|
@@ -73,8 +73,9 @@ Politique complète : [confidentialité](https://draft-website-ashy.vercel.app/c
 
 | Version | État |
 |---|---|
-| **2.16.1** (DRAFT) | **Dernière release.** Correctifs de sécurité (voir [l'audit](docs/security/AUDIT-SECURITE-216.md)) |
-| 2.16.0 (DRAFT) | Profils par rôle, poste attribué, mise à jour intégrée. Se met à jour vers la 2.16.1 depuis l'application |
+| **2.16.2** (DRAFT) | **Dernière release.** Stabilité : la draft en cours n'est plus effacée par Analyse détaillée, Comparer ou le simulateur ; connexion au client LoL lancé en administrateur ; diagnostic de connexion LoL ; fermeture des réglages (voir [le détail](docs/technique/BUGS-LCU-REGLAGES.md)) |
+| 2.16.1 (DRAFT) | Correctifs de sécurité (voir [l'audit](docs/security/AUDIT-SECURITE-216.md)). Se met à jour vers la 2.16.2 depuis l'application |
+| 2.16.0 (DRAFT) | Profils par rôle, poste attribué, mise à jour intégrée. Se met à jour vers la dernière version depuis l'application |
 | 2.14.0 (DraftMid) | Release précédente, sans Meraki ni mise à jour intégrée |
 | 2.6 à 2.10 (DraftMid) | **Déconseillées** : elles peuvent contenir des données Meraki aux droits de redistribution non clarifiés. Voir [leur statut](docs/technique/ANCIENNES-RELEASES.md) |
 

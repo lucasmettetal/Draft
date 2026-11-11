@@ -22,8 +22,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DRAFT")]
 [assembly: AssemblyDescription("DRAFT : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.")]
 [assembly: AssemblyProduct("DRAFT")]
-[assembly: AssemblyVersion("2.16.1.0")]
-[assembly: AssemblyFileVersion("2.16.1.0")]
+[assembly: AssemblyVersion("2.16.2.0")]
+[assembly: AssemblyFileVersion("2.16.2.0")]
 
 namespace DraftMid
 {
@@ -2640,7 +2640,7 @@ public static class Autostart
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DRAFT");
-                k.SetValue("DisplayVersion", "2.16.1");
+                k.SetValue("DisplayVersion", "2.16.2");
                 k.SetValue("Publisher", "DRAFT");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
