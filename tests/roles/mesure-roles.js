@@ -74,7 +74,7 @@
         const ob = opponentBelief(shown), id = identifiedOpponent(shown), sc = beliefScenarios(ob);
         const at = idx.indexOf(ri), truth = at >= 0 ? shown[at] : null;
         P.n++; if (truth) P.revealed++; else P.hidden++;
-        const C = P.conf[ob.confidence]; C.n++; if (id && id === truth) C.ok++;
+        const C = P.conf[typeof confidenceWord === "function" ? confidenceWord(ob.confidence) : ob.confidence]; C.n++; if (id && id === truth) C.ok++;
         if (id) { P.named++; if (id === truth) P.namedOk++; if (!truth) P.hiddenNamed++; }
         if (sc.some(x => x.mid === truth)) P.covered++;
         const opts = ob.candidates.map(c => ({ name:c.name, p:c.p })).concat({ name:null, p:ob.unrevealed });
@@ -122,7 +122,7 @@
         ok: want >= 0 ? credit(row, want).ok : null, classe: want >= 0 ? classOf(row[want]) : null };
     });
     return { id:c.id, profil:c.profil, synthetique:c.synthetique === true, taille:c.equipe.length, corrections:c.corrections || null,
-      lignes:rows, confiance:ob.confidence, identifie:id, adversaireAttendu:expectedOpp,
+      lignes:rows, confiance:typeof confidenceWord === "function" ? confidenceWord(ob.confidence) : ob.confidence, identifie:id, adversaireAttendu:expectedOpp,
       adversaireJuste: id === expectedOpp, nommeATort: !!id && id !== expectedOpp };
   });
   document.getElementById("out").textContent = JSON.stringify(out);

@@ -31,7 +31,7 @@ function executer(scn, o = {}) {
   const res = analyze(adv, mid, SUPPOSE_FRONT, fixe ? null : hypotheses);
   const rb = roleBelief(adv, {});
   return {
-    mid, confiance: belief.confidence, candidat: belief.candidates[0] ? belief.candidates[0].name : null,
+    mid, confiance: typeof confidenceWord === "function" ? confidenceWord(belief.confidence) : belief.confidence, candidat: belief.candidates[0] ? belief.candidates[0].name : null,
     hypotheses: hypotheses ? hypotheses.map(h => ({ mid: h.mid, p: arrondi(h.p) })) : null,
     marginales: Object.fromEntries(rb.team.map((nom, i) => [nom, rb.marginals[i].map(v => arrondi(v))])),
     parts: rb.team.map((_, i) => rb.evidence[i].shares),

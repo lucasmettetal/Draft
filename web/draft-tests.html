@@ -183,17 +183,17 @@ const PURE = { vi:[0,300,0,0,0], garen:[300,0,0,0,0], jinx:[0,0,0,300,0], thresh
 unitBlock("Déduction des rôles", "Toutes les répartitions sont pesées, sans rendre un rôle rare impossible ni afficher une certitude que les données ne donnent pas.", t => {
   withRoles({ "16.22": bucket(Object.assign({}, PURE, { ezreal:[0,0,8,292,0], yasuo:[150,0,150,0,0], yone:[150,0,150,0,0], vladimir:[150,0,150,0,0] })) }, "16.22", () => {
     let b = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]);
-    t(pOf(b, "Ahri") > .9 && b.confidence === "élevée", "1. un champion presque toujours mid : très probable");
+    t(pOf(b, "Ahri") > .9 && b.confidence === "high", "1. un champion presque toujours mid : très probable");
     t(pOf(b, "Garen") < 1 && beliefScenarios(b)[0].mid === "Ahri", "1. la recommandation repose sur lui seul");
     b = opponentBelief(["Vladimir"]);
-    t(Math.abs(b.candidates[0].share - .5) < .15 && b.confidence !== "élevée", "2. flex Top/Mid seul : aucune certitude");
+    t(Math.abs(b.candidates[0].share - .5) < .15 && b.confidence !== "high", "2. flex Top/Mid seul : aucune certitude");
     b = opponentBelief(["Vladimir", "Garen", "Vi", "Jinx", "Thresh"]);
     t(pOf(b, "Vladimir") > .8, "2. le même flex devient mid quand le top est pris");
     b = opponentBelief(["Garen", "Vi", "Ezreal", "Jinx", "Thresh"]);
     t(guessMid(["Garen", "Vi", "Ezreal", "Jinx", "Thresh"]) === "Ezreal" && pOf(b, "Ezreal") > .5, "3. un ADC devient mid si l'autre ADC occupe sa place");
     t(opponentBelief(["Ezreal"]).candidates[0].share > 0, "3. un rôle rare n'est jamais impossible");
     b = opponentBelief(["Yasuo", "Yone", "Vi", "Jinx", "Thresh"]);
-    t(b.confidence === "faible" && beliefScenarios(b).length >= 2 && Math.abs(pOf(b, "Yasuo") - pOf(b, "Yone")) < .1, "4 et 12. deux répartitions presque égales : confiance faible, les deux sont gardées");
+    t(b.confidence === "low" && beliefScenarios(b).length >= 2 && Math.abs(pOf(b, "Yasuo") - pOf(b, "Yone")) < .1, "4 et 12. deux répartitions presque égales : confiance faible, les deux sont gardées");
     t(identifiedOpponent(["Yasuo", "Yone", "Vi", "Jinx", "Thresh"]) === null, "confiance faible : personne n'est présenté comme l'adversaire");
     t(identifiedOpponent(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]) === "Ahri", "confiance suffisante : l'adversaire est nommé");
     t(identifiedOpponent(["Yasuo", "Yone", "Vi", "Jinx", "Thresh"], { Yone:"top" }) === "Yasuo", "une correction manuelle lève l'ambiguïté");
@@ -235,7 +235,7 @@ unitBlock("Fraîcheur et méta", "Le patch actuel passe d'abord, l'ancien sert d
     const e = roleEvidence("Ahri");
     t(e.quality === "old" || e.quality === "thin", "8. données très anciennes : signalées comme telles");
     t(e.games === 300, "8. rien n'est supprimé");
-    t(opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]).confidence !== "élevée", "8. confiance plafonnée sur des données anciennes");
+    t(opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]).confidence !== "high", "8. confiance plafonnée sur des données anciennes");
     t(dataReport().find(r => r.id === "riot-roles").stale, "8. la source est marquée ancienne dans les réglages");
   });
   withRoles({ "16.22": bucket({ thresh:[0,0,3,0,0] }) }, "16.22", () => {
@@ -270,15 +270,15 @@ unitBlock("Sources", "Une source absente fait baisser la confiance, sans casser 
     t(!live.available && live.games === null && live.patch === null, "11. source absente : aucun patch ni nombre inventés");
     t(typeof ROLE_RATES === "undefined" ? !report.find(r => r.id === "meraki-roles").available : report.find(r => r.id === "meraki-roles").stale && report.find(r => r.id === "meraki-roles").games === null, "la référence Meraki est absente, ou marquée ancienne si elle est présente");
     t(report.find(r => r.id === "written-matchups").kind === "heuristic" && report.find(r => r.id === "riot-roles").kind === "observed" && report.find(r => r.id === "meraki-roles").kind === "estimate", "observé, estimation et règle écrite restent distincts");
-    t(opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]).confidence !== "élevée", "avec la seule référence, la confiance reste plafonnée");
+    t(opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]).confidence !== "high", "avec la seule référence, la confiance reste plafonnée");
     t(analyze(["Garen", "Vi", "Ahri", "Jinx", "Thresh"], guessMid(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]), true).ranking.length === 4, "le conseil continue de fonctionner");
     const meraki = DATA_PROVIDERS.find(p => p.id === "meraki-roles"), written = DATA_PROVIDERS.find(p => p.id === "written-roles"), prior = meraki.rolePrior, sheet = written.rolePrior;
     meraki.rolePrior = () => null;
     const noMeraki = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]);
-    t(pOf(noMeraki, "Ahri") > .5 && noMeraki.confidence !== "élevée" && analyze(["Garen"], null, true).ranking.length === 4, "Meraki retiré : les rôles écrits à la main prennent le relais, confiance plafonnée");
+    t(pOf(noMeraki, "Ahri") > .5 && noMeraki.confidence !== "high" && analyze(["Garen"], null, true).ranking.length === 4, "Meraki retiré : les rôles écrits à la main prennent le relais, confiance plafonnée");
     written.rolePrior = () => null;
     const b = opponentBelief(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]);
-    t(b.confidence === "faible" && identifiedOpponent(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]) === null && guessMid(["Garen", "Vi"]) === null && analyze(["Garen"], null, true).ranking.length === 4, "11. plus aucune donnée de rôle : personne n'est désigné, sans erreur");
+    t(b.confidence === "low" && identifiedOpponent(["Garen", "Vi", "Ahri", "Jinx", "Thresh"]) === null && guessMid(["Garen", "Vi"]) === null && analyze(["Garen"], null, true).ranking.length === 4, "11. plus aucune donnée de rôle : personne n'est désigné, sans erreur");
     meraki.rolePrior = prior; written.rolePrior = sheet;
   });
   withRoles(null, null, () => { t(ageOf(null, null).age === null, "âge impossible à connaître : il reste inconnu"); });

@@ -126,7 +126,7 @@
     applyProfile({ role:c.profil, pool:["Garen"] });
     const b = roleBelief(c.equipe, c.corrections), ob = opponentBelief(c.equipe, c.corrections);
     snapshot[c.id] = {
-      marginaux: b.marginals.map(row => row.map(r4)), libres: b.vacant.map(r4), confiance: ob.confidence,
+      marginaux: b.marginals.map(row => row.map(r4)), libres: b.vacant.map(r4), confiance: typeof confidenceWord === "function" ? confidenceWord(ob.confidence) : ob.confidence,
       nomme: identifiedOpponent(c.equipe, c.corrections), suppose: guessMid(c.equipe, c.corrections),
       hypotheses: beliefScenarios(ob).map(s => [s.mid, r4(s.p)])
     };

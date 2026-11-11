@@ -863,7 +863,7 @@ async function fullTour(x, where, deep) {
   if (deep) {
     await clickTab(x, "analyse", "rules"); collect(x.d, where + " règles");
     await clickTab(x, "plan");
-    for (const phase of ["Mid game", "Teamfights"]) { const b = [...x.d.querySelectorAll(".seg-tab")].find(e => text(e) === phase); if (b) { b.click(); await settle(); collect(x.d, where + " plan"); } }
+    for (const phase of ["mid", "fight"]) { const b = x.d.querySelector(`[data-test="plan-phase-${phase}"]`); if (b) { b.click(); await settle(); collect(x.d, where + " plan"); } }
     await clickTab(x, "matchups"); collect(x.d, where + " duel");
     await clickTab(x, "parties"); collect(x.d, where + " parties");
     for (const level of ["intermediate", "advanced"]) { x.$.savePrefs({ coachLevel:level }); await settle(); await clickTab(x, "coach"); collect(x.d, where + " conseils " + level); }
@@ -968,15 +968,17 @@ async function special() {
     const r = await open(null, "right", 320, 720); await settle(); collect(r.d, "sans profil panneau"); close(r);
     x.w.eval("switchRole('top','manual')"); await settle(); collect(x.d, "rôle vide"); close(x);
     const s = await open(null, null, 1280, 900, "&tab=settings"); current = "réglages sans profil"; await settle(); collect(s.d, current);
-    const role = [...s.d.querySelectorAll(".role-pick button")].find(b => text(b).startsWith("Support")); if (role) { role.click(); await settle(); collect(s.d, current); }
-    const search = s.d.querySelector(".pool-search"); if (search) { const set = Object.getOwnPropertyDescriptor(s.w.HTMLInputElement.prototype, "value").set; set.call(search, "zzzz"); search.dispatchEvent(new s.w.Event("input", { bubbles:true })); await settle(); collect(s.d, current); }
+    const role = s.d.querySelector('[data-test="pool-role-support"]'); if (role) { role.click(); await settle(); collect(s.d, current); }
+    const search = s.d.querySelector('[data-test="pool-search"]'); if (search) { const set = Object.getOwnPropertyDescriptor(s.w.HTMLInputElement.prototype, "value").set; set.call(search, "zzzz"); search.dispatchEvent(new s.w.Event("input", { bubbles:true })); await settle(); collect(s.d, current); }
     close(s);
   }
   // Import de profils et de journal : fichiers fictifs, déposés dans les champs de fichier de la page.
   {
     const x = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 900, "&tab=settings"); current = "imports";
-    const drop = async (input, name, content) => { if (!input) { res.errors.push("imports : champ absent"); return; } const dt = new x.w.DataTransfer(); dt.items.add(new x.w.File([content], name, { type:"application/json" })); input.files = dt.files; input.dispatchEvent(new x.w.Event("change", { bubbles:true })); await wait(500); await settle(); collect(x.d, current); };
-    const profileInput = () => x.d.querySelector('input[aria-label="Importer des profils"]'), journalInput = () => x.d.querySelector('input[aria-label="Importer un journal"]');
+    // La lecture du fichier est asynchrone : on attend que le message change (au plus 4 s), sinon le relevé lirait le message précédent.
+    const notes = () => [...x.d.querySelectorAll('[role="status"], .small')].map(text).join("|");
+    const drop = async (input, name, content) => { if (!input) { res.errors.push("imports : champ absent"); return; } const before = notes(); const dt = new x.w.DataTransfer(); dt.items.add(new x.w.File([content], name, { type:"application/json" })); input.files = dt.files; input.dispatchEvent(new x.w.Event("change", { bubbles:true })); for (let i = 0; i < 80 && notes() === before; i++) await wait(50); await settle(); collect(x.d, current); };
+    const profileInput = () => x.d.querySelector('[data-test="import-profiles"]'), journalInput = () => x.d.querySelector('[data-test="import-journal"]');
     await drop(profileInput(), "vide.json", "");
     await drop(profileInput(), "faux.json", "{pas du json");
     await drop(profileInput(), "autre.json", JSON.stringify({ format:"autre" }));
@@ -990,7 +992,7 @@ async function special() {
     const config = x.w.eval("exportConfig(PROFILES, PREFS, APP_VERSION)");
     const parsed = JSON.parse(config); if (parsed.roles) { parsed.roles.top = { pool:["Darius", "Garen"], excluded:[], favorite:"Ornn" }; delete parsed.roles.support; }
     await drop(profileInput(), "profils.json", JSON.stringify(parsed));
-    const undo = [...x.d.querySelectorAll("button")].find(b => text(b) === "Annuler le dernier import"); if (undo) { undo.click(); await settle(); collect(x.d, current); }
+    const undo = x.d.querySelector('[data-test="undo-profiles-import"]'); if (undo) { undo.click(); await settle(); collect(x.d, current); }
     await drop(journalInput(), "journal.json", "{}");
     await drop(journalInput(), "journal.json", JSON.stringify([{ id:1, date:"2026-10-01T10:00:00Z", picked:"Fizz", suggested:"TF", enemies:["Ahri"], mid:"Ahri", result:"win" }]));
     close(x);

@@ -1329,7 +1329,7 @@ public static class Autostart
             if (!await wait("typeof PROFILES !== 'undefined' && hostState.available && PROFILES.roles.jungle.pool.join()==='Viego,Lee Sin'")) return "(copie de secours non relue)";
             await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
             TestSetAssignedRole("jungle");
-            if (!await wait("state.assignedRole==='jungle' && myRole()==='mid' && document.querySelector('.role-hint')")) return "(proposition absente)";
+            if (!await wait("state.assignedRole==='jungle' && myRole()==='mid' && document.querySelector('[data-test=\"role-hint\"]')")) return "(proposition absente)";
             await run("savePrefs({autoRole:'auto'}); 1");
             TestSetAssignedRole(null);
             TestSetAssignedRole("jungle");
@@ -1341,8 +1341,8 @@ public static class Autostart
             await run("savePrefs({autoRole:'suggest'}); resetRoleSession(); 1");
             // Après un rechargement, les réglages doivent toujours s'ouvrir par le bouton du panneau.
             OpenFull("settings");
-            if (!await wait("document.querySelector('.settings')")) return "(réglages impossibles à ouvrir après rechargement : " + await run("location.search + ' ' + document.readyState") + ")";
-            await run("document.querySelector('.settings .sec-title .ghost-btn').click(); 1");
+            if (!await wait("document.querySelector('[data-test=\"settings\"]')")) return "(réglages impossibles à ouvrir après rechargement : " + await run("location.search + ' ' + document.readyState") + ")";
+            await run("document.querySelector('[data-test=\"settings-close\"]').click(); 1");
             return "";
         }
 
@@ -1407,17 +1407,19 @@ public static class Autostart
             // Simulateur : Draft aléatoire reste dans la grande fenêtre, la draft en cours n'est pas touchée.
             PanelForm f;
             panels.TryGetValue("full", out f);
-            if (f != null && await waitIn(f, "document.querySelector('[data-random-draft]')", 3000))
+            if (f != null && await waitIn(f, "document.querySelector('[data-test=\"random-draft\"]')", 3000))
             {
-                await run(f, "document.querySelector('[data-random-draft]').click(); 1");
-                if (!await waitIn(f, "state.enemies.length === 5 && !!document.querySelector('[data-simulation]')", 3000)) problem += "le simulateur ne se lance pas ou n'est pas signalé ; ";
+                await run(f, "document.querySelector('[data-test=\"random-draft\"]').click(); 1");
+                if (!await waitIn(f, "state.enemies.length === 5 && !!document.querySelector('[data-test=\"simulation\"]')", 3000)) problem += "le simulateur ne se lance pas ou n'est pas signalé ; ";
                 await Task.Delay(400);
                 foreach (PanelForm p in sources) if (await run(p, "state.enemies.join()") != Expected) { problem += "Draft aléatoire écrase la draft du panneau " + p.Id + " ; "; break; }
+                // La draft aléatoire peut contenir Jinx : on compare toute la simulation, avant et après l'ajout dans le panneau.
+                string simulated = await run(f, "state.enemies.join()");
                 await run(sources[0], "draftApi.add('Jinx'); 1");
                 await Task.Delay(300);
-                if (await run(f, "state.enemies.includes('Jinx')") == "true") problem += "la simulation est modifiée par la draft en cours ; ";
-                await run(f, "document.querySelector('[data-simulation] button').click(); 1");
-                if (!await waitIn(f, "state.enemies.join() === 'Ahri,Sion,Vi,Jinx' && !document.querySelector('[data-simulation]')", 3000)) problem += "Revenir à la draft en cours ne la retrouve pas ; ";
+                if (await run(f, "state.enemies.join()") != simulated) problem += "la simulation est modifiée par la draft en cours ; ";
+                await run(f, "document.querySelector('[data-test=\"leave-simulation\"]').click(); 1");
+                if (!await waitIn(f, "state.enemies.join() === 'Ahri,Sion,Vi,Jinx' && !document.querySelector('[data-test=\"simulation\"]')", 3000)) problem += "Revenir à la draft en cours ne la retrouve pas ; ";
             }
             else problem += "(grande fenêtre absente pour le simulateur) ";
 
@@ -1480,12 +1482,12 @@ public static class Autostart
             PanelForm f = null;
             for (int i = 0; i < 200 && !(panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted); i++) await Task.Delay(50);
             if (f == null || f.View.CoreWebView2 == null) return "(réglages absents)";
-            const string Find = "[...document.querySelectorAll('.settings button')].find(b => /historique Riot|plus de parties/.test(b.textContent))";
+            const string Find = "document.querySelector('[data-test=\"import-history\"]')";
             bool found = false;
             for (int i = 0; i < 120 && !found; i++) { found = await f.View.CoreWebView2.ExecuteScriptAsync("!!(" + Find + ")") == "true"; if (!found) await Task.Delay(50); }
             if (!found)
             {
-                string pageText = await f.View.CoreWebView2.ExecuteScriptAsync("(document.querySelector('.settings') ? 'réglages ouverts : ' : 'réglages fermés : ') + location.search + ' | ' + document.body.innerText.slice(0, 160)");
+                string pageText = await f.View.CoreWebView2.ExecuteScriptAsync("(document.querySelector('[data-test=\"settings\"]') ? 'réglages ouverts : ' : 'réglages fermés : ') + location.search + ' | ' + document.body.innerText.slice(0, 160)");
                 return "(bouton absent des réglages : " + pageText + ")";
             }
             string file = await f.View.CoreWebView2.ExecuteScriptAsync("(window.DRAFT_HISTORY && window.DRAFT_HISTORY.rows.length) || 0");
@@ -1573,19 +1575,19 @@ public static class Autostart
                 await Task.Delay(keyPause);
             };
             Func<string, Task> type = async word => { foreach (char c in word) await press(c.ToString(), "Key" + char.ToUpperInvariant(c), char.ToUpperInvariant(c), c.ToString()); };
-            const string Search = "document.querySelector('.pool-search')", Close = "document.querySelector('.settings .sec-title .ghost-btn')";
+            const string Search = "document.querySelector('[data-test=\"pool-search\"]')", Close = "document.querySelector('[data-test=\"settings-close\"]')";
 
             // 1. Fenêtre principale ouverte, puis Réglages : elle n'est ni rechargée, ni masquée.
             OpenFull("");
             await findWindow();
-            if (!await waitFor("document.querySelector('.app')")) return "fenêtre principale absente ; ";
+            if (!await waitFor("document.querySelector('[data-test=\"app\"]')")) return "fenêtre principale absente ; ";
             string profileBefore = await run("localStorage.getItem('draftProfile')");
             await run("window.keepMark = 1; state.enemies.length || addEnemy('Sett'); 1");
             await waitFor("state.enemies.length > 0");
             OpenFull("settings");
             if (!await waitFor(Close)) return "réglages absents ; ";
             if (await run("window.keepMark === 1") != "true") problem += "la page principale est rechargée à l'ouverture ; ";
-            if (await run("[...document.querySelectorAll('.settings button')].some(b => b.textContent.includes('Rechercher une mise à jour'))") != "true") problem += "bouton de mise à jour absent ; ";
+            if (await run("!!document.querySelector('[data-test=\"check-update\"]')") != "true") problem += "bouton de mise à jour absent ; ";
 
             // 2. Les frappes vont au champ actif, et nulle part ailleurs.
             await waitFor("state.enemies.length > 0 || addEnemy('Sett') || true");
@@ -1623,26 +1625,26 @@ public static class Autostart
             await run("(() => { const v = " + Search + "; v.focus(); return 1; })()");
             await type("ri");
             await press("Enter", "Enter", 13, "\\r");
-            if (!await waitFor("[...document.querySelectorAll('.pool-chip.on')].some(b => b.textContent.includes('Ahri'))")) problem += "Entrée ne sélectionne pas le champion ; ";
+            if (!await waitFor("!!document.querySelector('[data-test=\"pool-remove\"][data-champion=\"Ahri\"]')")) problem += "Entrée ne sélectionne pas le champion ; ";
             if (!(await run("localStorage.getItem('draftProfile')")).Contains("Ahri")) problem += "le champion n'est pas enregistré ; ";
             if (await run(Search + ".value") != "\"\"") problem += "la recherche ne se vide pas ; ";
             if (await run("document.activeElement === " + Search) != "true") problem += "le focus quitte la recherche après la sélection ; ";
-            await run("document.querySelector('.pool-chip.on[aria-label=\"Retirer Ahri\"]').click(); 1");
+            await run("document.querySelector('[data-test=\"pool-remove\"][data-champion=\"Ahri\"]').click(); 1");
             await Task.Delay(150);
             if (await run("localStorage.getItem('draftProfile')") != profileBefore) problem += "le profil n'est pas rétabli après retrait ; ";
 
             // 4. Échap et Fermer ne ferment que les réglages, et le focus revient à la fenêtre principale.
-            await run("document.querySelector('.settings .sec-title .ghost-btn').focus(); 1");
+            await run(Close + ".focus(); 1");
             await press("Escape", "Escape", 27, "");
-            if (!await waitFor("!document.querySelector('.settings')")) problem += "Échap ne ferme pas les réglages ; ";
+            if (!await waitFor("!document.querySelector('[data-test=\"settings\"]')")) problem += "Échap ne ferme pas les réglages ; ";
             if (await run("state.enemies.join()") != enemiesBefore) problem += "Échap efface la draft ; ";
             OpenFull("settings");
             await waitFor(Close);
             await run(Close + ".click(); 1");
-            if (!await waitFor("!document.querySelector('.settings')")) problem += "Fermer ne ferme pas les réglages ; ";
+            if (!await waitFor("!document.querySelector('[data-test=\"settings\"]')")) problem += "Fermer ne ferme pas les réglages ; ";
             await Task.Delay(200);
             if (!f.Visible) problem += "Fermer masque la fenêtre principale ; ";
-            if (await run("!!document.querySelector('.app') && window.keepMark === 1") != "true") problem += "la page principale est perdue ; ";
+            if (await run("!!document.querySelector('[data-test=\"app\"]') && window.keepMark === 1") != "true") problem += "la page principale est perdue ; ";
             await press("a", "KeyA", 65, "a");
             if (await run("(document.getElementById('add') || {}).value") != "\"a\"") problem += "la fenêtre principale ne reçoit plus le clavier ; ";
 
@@ -1652,7 +1654,7 @@ public static class Autostart
             await findWindow();
             await waitFor(Close);
             await run(Close + ".click(); 1");
-            await waitFor("!document.querySelector('.settings')");
+            await waitFor("!document.querySelector('[data-test=\"settings\"]')");
             await Task.Delay(300);
             if (!f.Visible) problem += "depuis le menu, Fermer masque toute la fenêtre ; ";
 
@@ -1674,14 +1676,14 @@ public static class Autostart
             //    fermer les réglages doit ramener à la fenêtre principale, pas la faire disparaître.
             OpenFull("");
             await findWindow();
-            await waitFor("document.querySelector('.app')");
+            await waitFor("document.querySelector('[data-test=\"app\"]')");
             f.View.CoreWebView2.Reload();
             OpenFull("settings");
             await waitFor(Close);
             await Task.Delay(300);
             await waitFor(Close);
             await run(Close + ".click(); 1");
-            await waitFor("!document.querySelector('.settings')");
+            await waitFor("!document.querySelector('[data-test=\"settings\"]')");
             await Task.Delay(300);
             if (!f.Visible) problem += "fenêtre principale ouverte, page en rechargement : Fermer fait disparaître la fenêtre principale ; ";
 
@@ -1701,14 +1703,14 @@ public static class Autostart
             // Simulation : le bouton de la page de draft donne une draft complète, différente à chaque clic.
             OpenFull("");
             await findWindow();
-            await waitFor("document.querySelector('[data-random-draft]')");
-            await run("document.querySelector('[data-random-draft]').click(); 1");
+            await waitFor("document.querySelector('[data-test=\"random-draft\"]')");
+            await run("document.querySelector('[data-test=\"random-draft\"]').click(); 1");
             if (!await waitFor("state.enemies.length === 5 && V.shown")) problem += "Draft aléatoire ne remplit pas la draft ; ";
             string firstDraft = await run("state.enemies.join()");
             bool changed = false;
             for (int i = 0; i < 5 && !changed; i++)
             {
-                await run("document.querySelector('[data-random-draft]').click(); 1");
+                await run("document.querySelector('[data-test=\"random-draft\"]').click(); 1");
                 await Task.Delay(100);
                 changed = await run("state.enemies.join()") != firstDraft && await run("state.enemies.length") == "5";
             }
@@ -1717,10 +1719,10 @@ public static class Autostart
 
             // Les mots disent ce que fait l'application, et suivent le rôle du joueur.
             await run("resetDraft(); ['Yasuo','Yone','Lee Sin','Jinx','Thresh'].forEach(addEnemy); 1");
-            await waitFor("state.enemies.length === 5 && document.querySelector('.stage-body .cta')");
-            if (await run("document.querySelector('.stage-body .cta').textContent.includes('Je joue')") != "true") problem += "le bouton de choix ne dit pas « Je joue » ; ";
-            if (await run("![...document.querySelectorAll('.badge')].some(b => b.textContent.includes('Provisoire'))") != "true") problem += "un badge mélange encore les incertitudes ; ";
-            if (await run("!document.querySelector('.res') || !!state.current") != "true") problem += "les boutons de résultat s'affichent sans choix ; ";
+            await waitFor("state.enemies.length === 5 && document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]')");
+            if (await run("document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]').textContent.includes('Je joue')") != "true") problem += "le bouton de choix ne dit pas « Je joue » ; ";
+            if (await run("![...document.querySelectorAll('[data-test=\"badge\"]')].some(b => b.textContent.includes('Provisoire'))") != "true") problem += "un badge mélange encore les incertitudes ; ";
+            if (await run("!document.querySelector('[data-test=\"result-buttons\"]') || !!state.current") != "true") problem += "les boutons de résultat s'affichent sans choix ; ";
             string support = await run("(() => { const before = PROFILE; applyProfile({ role:'support', pool:['Lux', 'Soraka'] }); computeVerdict(); const text = hypothesisText(); applyProfile(before); computeVerdict(); return text; })()");
             if (!support.Contains("Support") || support.Contains("Mid")) problem += "le texte d'adversaire ignore le rôle (" + support + ") ; ";
             await run("resetDraft(); 1");
@@ -1733,7 +1735,7 @@ public static class Autostart
             if (f.Visible || f.IsDisposed || Quitting) problem += "la croix ne masque pas proprement ; ";
             OpenFull("");
             await findWindow();
-            if (!f.Visible || !await waitFor("document.querySelector('.app')")) problem += "réouverture impossible ; ";
+            if (!f.Visible || !await waitFor("document.querySelector('[data-test=\"app\"]')")) problem += "réouverture impossible ; ";
             f.Hide();
 
             // 7 bis. Fermeture par un autre programme (WM_CLOSE brut) : la fenêtre doit seulement être masquée,
@@ -1752,7 +1754,7 @@ public static class Autostart
             else
             {
                 if (!await waitFor(Close)) problem += "fenêtre recréée sans les réglages ; ";
-                else { await run(Close + ".click(); 1"); await waitFor("!document.querySelector('.settings')"); }
+                else { await run(Close + ".click(); 1"); await waitFor("!document.querySelector('[data-test=\"settings\"]')"); }
                 f.Hide();
             }
             return problem;
@@ -1772,7 +1774,7 @@ public static class Autostart
                 {
                     await Task.Delay(50);
                     if (open.IsDisposed || open.View.CoreWebView2 == null) return;
-                    if (await open.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.settings')") == "true") return;
+                    if (await open.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"settings\"]')") == "true") return;
                 }
                 // La fenêtre principale était déjà à l'écran : fermer les réglages doit y revenir, jamais la masquer (pas de solo=1).
                 open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings");
@@ -1879,7 +1881,7 @@ public static class Autostart
                 await target.Ready;
                 for (int i = 0; i < 120; i++)
                 {
-                    if (await target.View.CoreWebView2.ExecuteScriptAsync("typeof V !== \"undefined\" && !!document.querySelector(\".panel\")") == "true") break;
+                    if (await target.View.CoreWebView2.ExecuteScriptAsync("typeof V !== \"undefined\" && !!document.querySelector('[data-test=\"panel\"]')") == "true") break;
                     await Task.Delay(50);
                 }
                 log.AppendLine("PRET apres " + Program.Clock.ElapsedMilliseconds + " ms depuis le lancement");
@@ -2160,8 +2162,8 @@ public static class Autostart
             // Les deux sont 100 % mid dans Meraki : personne n'est désigné. Les rôles écrits à la main, eux, les départagent.
             bool withMeraki = (await js("typeof ROLE_RATES !== 'undefined'")) == "true";
             t(withMeraki
-                ? midGuess == "null" && (await js("V.confidence === 'faible' && V.res.ranking[0].byScenario.length >= 2 && hypothesisText().includes('pas identifié')")) == "true"
-                : midGuess.Contains("Ahri") && (await js("V.confidence !== 'élevée'")) == "true", "Scénario 7. Sett, Galio, Ahri : aucune certitude affichée (" + midGuess + ")");
+                ? midGuess == "null" && (await js("V.confidence === 'low' && V.res.ranking[0].byScenario.length >= 2 && !V.hypothesis.main && unnamedState() === 'unidentified'")) == "true"
+                : midGuess.Contains("Ahri") && (await js("V.confidence !== 'high'")) == "true", "Scénario 7. Sett, Galio, Ahri : aucune certitude affichée (" + midGuess + ")");
             t((await js("state.manualMid === null")) == "true", "Scénario 7. Aucune correction manuelle inventée");
             t((await js("V.reasons.length > 0")) == "true", "Le verdict affiche ses raisons (d'abord " + shownBefore + ")");
 
@@ -2481,7 +2483,7 @@ public static class Autostart
                 t(app.PanelsShown && app.CurrentPhase == Phase.Draft, "LCU simulé : ChampSelect affiche les panneaux dès la première lecture");
                 PanelForm rp = app.PanelFor("right");
                 Func<string, Task<string>> js = async code => await rp.View.CoreWebView2.ExecuteScriptAsync(code);
-                for (int i = 0; i < 100 && await js("typeof V !== \"undefined\" && !!document.querySelector(\".panel\")") != "true"; i++) await Task.Delay(50);
+                for (int i = 0; i < 100 && await js("typeof V !== \"undefined\" && !!document.querySelector('[data-test=\"panel\"]')") != "true"; i++) await Task.Delay(50);
                 await Task.Delay(400);
                 await app.PollLcuOnce();
                 string enemies = "";

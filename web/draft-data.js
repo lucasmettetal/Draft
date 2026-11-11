@@ -347,21 +347,26 @@ function opponentBelief(team, fixed) {
   return { candidates, unrevealed, confidence:beliefConfidence(candidates, unrevealed) };
 }
 
+// Confiance sur l'adversaire direct : un code technique (low, medium, high), jamais un mot affiché.
+// Le relevé de validation (CSV) et les instantanés des bancs gardent l'ancien mot français, par cette table.
+const CONFIDENCE_WORD = { low:"faible", medium:"moyenne", high:"élevée" };
+const confidenceWord = code => CONFIDENCE_WORD[code] || code;
+
 function beliefConfidence(candidates, unrevealed) {
   const top = candidates[0];
-  if (!top || !top.known) return "faible";
+  if (!top || !top.known) return "low";
   const rival = Math.max(candidates[1] ? candidates[1].p : 0, unrevealed);
   let level = top.p >= .75 && top.p - rival >= .5 ? 2 : top.p >= .5 && top.p - rival >= .15 ? 1 : 0;
   // Avec des données fragiles, la répartition peut sembler nette sans l'être vraiment.
   if (top.quality !== "observed") level = Math.min(level, 1);
-  return ["faible", "moyenne", "élevée"][level];
+  return ["low", "medium", "high"][level];
 }
 
 // Ce que l'interface a le droit de présenter comme l'adversaire. Sans confiance suffisante, personne n'est désigné :
 // les hypothèses restent pesées dans le classement, mais aucune n'est affichée comme un fait.
 function identifiedOpponent(team, fixed) {
   const belief = opponentBelief(team, fixed);
-  return belief.confidence === "faible" ? null : guessMid(team, fixed);
+  return belief.confidence === "low" ? null : guessMid(team, fixed);
 }
 
 // Hypothèses à évaluer : les adversaires plausibles, et « pas encore choisi » s'il reste une vraie chance.
@@ -375,11 +380,11 @@ function beliefScenarios(belief) {
   return kept.map(s => ({ mid:s.mid, p:s.p / sum }));
 }
 
-// Texte des hypothèses, sans pourcentage : la précision des données ne le justifierait pas.
+// Hypothèses, sans pourcentage : la précision des données ne le justifierait pas.
+// others : des noms de champions seulement. notYet : il reste une vraie chance que l'adversaire ne soit pas encore choisi.
 function beliefHypothesis(belief, mid) {
   const others = belief.candidates.filter(c => c.known && c.name !== mid && c.p >= .2).map(c => c.name).slice(0, 2);
-  if (belief.unrevealed >= .2) others.push("pas encore choisi");
-  return { main:mid, others };
+  return { main:mid, others, notYet:belief.unrevealed >= .2 };
 }
 
 // ---------- Simulation ----------

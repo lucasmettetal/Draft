@@ -101,8 +101,9 @@ function coachRangeDuel(c) {
 }
 
 // Même échelle que l'interface pour ton vis-à-vis nommé : presque sûr, probable, ou hypothèse avec 1 ou 2 champions vus.
-// Seul le mot change : le seuil pour nommer l'adversaire reste celui du moteur.
-const coachOpponentWord = c => c.manual || !c.opponent ? null : c.n <= 2 ? "hypothèse" : c.belief.confidence === "élevée" ? "presque sûr" : "probable";
+// Seul le mot change : le seuil pour nommer l'adversaire reste celui du moteur. Codes guess, likely, sure ; mot par COACH_OPPONENT_WORD.
+const COACH_OPPONENT_WORD = { guess:"hypothèse", likely:"probable", sure:"presque sûr" };
+const coachOpponentLevel = c => c.manual || !c.opponent ? null : c.n <= 2 ? "guess" : c.belief.confidence === "high" ? "sure" : "likely";
 
 // Prépare tout ce que les règles lisent. Un champion inconnu du moteur reste à part, sans chiffre inventé.
 function coachingContext(input) {
@@ -229,7 +230,7 @@ const COACH_RULES = [
       const cr = c.crit("matchup");
       return cr && cr.impact !== 0 ? { cr } : null;
     },
-    build: (c, d) => { const good = d.cr.impact > 0, word = coachOpponentWord(c); return { title:`${c.pick} contre ${c.opponent}${word && word !== "presque sûr" ? ` (${word})` : ""} : ${good ? "plutôt un bon choix" : "un matchup difficile"}`,
+    build: (c, d) => { const good = d.cr.impact > 0, level = coachOpponentLevel(c); return { title:`${c.pick} contre ${c.opponent}${level && level !== "sure" ? ` (${COACH_OPPONENT_WORD[level]})` : ""} : ${good ? "plutôt un bon choix" : "un matchup difficile"}`,
       text:[good ? `Le tableau de DRAFT place ${c.pick} parmi les bons choix contre ${c.opponent}.` : `Le tableau de DRAFT déconseille ${c.pick} contre ${c.opponent}. Si ce choix reste devant, c'est pour le reste de la draft.`,
         `${d.cr.text}, selon un tableau écrit à la main. C'est le critère au plus gros poids du calcul.`,
         `${d.cr.text} : avis écrit à la main (${coachNum(d.cr.impact)} points), sans statistiques ni patch. Un bilan calculé le remplacera dès ${MATCHUP_MIN_GAMES} parties utiles.`],
@@ -420,8 +421,8 @@ const COACH_RULES = [
 
   // ----- Données et limites -----
   { id:"limits.opponent-assumed", category:"limits", priority:58, basis:"estimate",
-    when: c => !c.manual && c.opponent && coachOpponentWord(c) !== "presque sûr" ? {} : null,
-    build: c => { const word = coachOpponentWord(c), thin = word === "hypothèse"; return { title:thin ? `${c.opp} ? ${c.opponent}, hypothèse à vérifier` : `${c.opp} d'en face : ${c.opponent} (probable), à vérifier`,
+    when: c => !c.manual && c.opponent && coachOpponentLevel(c) !== "sure" ? {} : null,
+    build: c => { const thin = coachOpponentLevel(c) === "guess"; return { title:thin ? `${c.opp} ? ${c.opponent}, hypothèse à vérifier` : `${c.opp} d'en face : ${c.opponent} (probable), à vérifier`,
       text:[`DRAFT pense que c'est ${c.opponent}, sans certitude. Si tu sais que c'est un autre champion, corrige-le.`,
         `${thin ? `Hypothèse avec ${c.n} champion${c.n > 1 ? "s" : ""} vu${c.n > 1 ? "s" : ""}` : "Probable"} : déduit des rôles habituels. Une correction change le matchup pris en compte.`,
         `Déduction probabiliste sur les rôles habituels (${thin ? `hypothèse, ${c.n} champion${c.n > 1 ? "s" : ""} vu${c.n > 1 ? "s" : ""}` : "probable"}), jamais une donnée du client. Sa qualité dépend de l'âge des données de rôles.`] }; } },
@@ -431,7 +432,7 @@ const COACH_RULES = [
       text:[`Aucune fiche pour ce champion : il n'entre pas dans ce conseil. Regarde ses sorts en jeu.`],
       limits:"Rien n'est inventé pour un champion sans fiche." }) },
   { id:"limits.rules-only", category:"limits", priority:34, basis:"general", minLevel:3,
-    when: c => c.entry && !c.entry.criteria.some(x => x.key === "matchup" && /parties/.test(x.text)) ? {} : null,
+    when: c => c.entry && !c.entry.criteria.some(x => x.key === "matchup" && x.live) ? {} : null,
     build: () => ({ title:"Ce classement repose sur des règles, pas sur des statistiques",
       text:[`Aucun bilan de vraies parties n'intervient ici.`, `Le score vient de règles et de fiches écrites à la main, sans mesure.`,
         `Le score additionne des règles écrites à la main, sur des fiches sans statistiques. Il sert à comparer tes picks : ce n'est ni un winrate, ni une probabilité, et il ne dépend pas de la méta actuelle.`] }) },
@@ -558,7 +559,7 @@ function coachingAdvice(input) {
 // Résumé pour l'interface : une ligne, une explication facultative, un risque, un conseil pour apprendre, et leur provenance.
 function coachingSummary(input) {
   const a = coachingAdvice(Object.assign({}, input, { fundamentals:true }));
-  const risky = i => i.category !== "personal" && ((i.stance && !i.stance.relative && i.stance.sign < 0) || i.id === "matchup.range" && /te touche/.test(i.title) || i.id === "matchup.assassin");
+  const risky = i => i.category !== "personal" && ((i.stance && !i.stance.relative && i.stance.sign < 0) || i.id === "matchup.range" && i.evidence[0].theirs > i.evidence[0].mine || i.id === "matchup.assassin");
   const tie = a.items.find(i => i.id === "draft.tie");
   const risk = a.items.find(risky) || null;
   const main = a.items.find(i => i.category === "decision" && i.id !== "draft.incomplete" && i !== risk) || a.items.find(i => i.category !== "fundamentals" && i !== risk) || null;

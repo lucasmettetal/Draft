@@ -859,7 +859,7 @@ function computeVerdict() {
     midAlt: belief ? midSwapEffect(state.enemies, mid, shown, PREFS.assumeFront, belief.candidates.filter(c => c.p >= SCENARIO_MIN).map(c => c.name)) : null,
     belief, confidence: belief ? belief.confidence : null,
     hypothesis: belief && n ? beliefHypothesis(belief, mid) : null,
-    provisional: !!belief && n > 0 && (belief.confidence === "faible" || !!(scenarios && scenarios.length > 1 && scenarios.some(sc => analyze(state.enemies, sc.mid, PREFS.assumeFront).ranking[0].pick !== res.ranking[0].pick))),
+    provisional: !!belief && n > 0 && (belief.confidence === "low" || !!(scenarios && scenarios.length > 1 && scenarios.some(sc => analyze(state.enemies, sc.mid, PREFS.assumeFront).ranking[0].pick !== res.ranking[0].pick))),
     personal: personalLine(shown, mid),
     without: without && without.pick !== shown && !(scenarios && scenarios.length > 1) ? without.pick : null,
     bans: suggestBans(),
@@ -1244,7 +1244,7 @@ function SearchBox() {
   };
   const target = state.targetRole ? `Prochain champion : ${ROLE_LABEL[state.targetRole]}` : "";
   return html`<div className="search">
-    <input id="add" type="search" value=${value} disabled=${full} autoComplete="off" spellCheck="false"
+    <input id="add" data-test="enemy-search" type="search" value=${value} disabled=${full} autoComplete="off" spellCheck="false"
       aria-label="Ajouter un champion adverse"
       placeholder=${full ? "Draft complète" : (target || "Ajouter un adversaire : ahri, tf, kata...")}
       onChange=${e => { setValue(e.target.value); setSel(0); setOpen(true); }}
@@ -1266,8 +1266,9 @@ function sendValidationRow() {
   const corrections = (manual ? [`${state.manualMid}=${myRole()}`] : []).concat(Object.keys(state.roleOf || {}).filter(n => state.enemies.includes(n)).map(n => `${n}=${state.roleOf[n]}`));
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   hostSend({ cmd:"logDraft", row:[
-    myRole(), PICKS.map(label).join(","), state.enemies.join(","), V.mid || "", manual ? "manuel" : V.confidence || "",
-    V.hypothesis ? V.hypothesis.others.join(",") : "", V.tied ? V.tied.map(label).join("=") : label(V.shown), V.rival ? label(V.rival.pick) : "", V.provisional ? "oui" : "non",
+    myRole(), PICKS.map(label).join(","), state.enemies.join(","), V.mid || "", manual ? "manuel" : confidenceWord(V.confidence) || "",
+    // Colonnes inchangées pour tools/validation-report.ps1 : mot français de la confiance, « pas encore choisi » en fin de liste.
+    V.hypothesis ? V.hypothesis.others.concat(V.hypothesis.notYet ? ["pas encore choisi"] : []).join(",") : "", V.tied ? V.tied.map(label).join("=") : label(V.shown), V.rival ? label(V.rival.pick) : "", V.provisional ? "oui" : "non",
     corrections.join(","), entry && entry.picked ? label(entry.picked) : ""
   ],
   // Colonne roles_predits, écrite en fin de ligne : prédiction du modèle seul, sans les corrections (elles sont dans « corrections »).
@@ -1281,18 +1282,22 @@ const OPPONENT_HELP = "Le client ne donne pas les rôles adverses : cet adversai
 // Une seule échelle pour ton vis-à-vis (docs/technique/GLOSSAIRE-LOL.md §3) : presque sûr, probable, hypothèse
 // (1 ou 2 champions vus), pas identifié, pas encore choisi. Le mot suit la confiance calculée ; le seuil pour nommer ne change pas ici.
 const seenText = n => `${n} champion${n > 1 ? "s" : ""} vu${n > 1 ? "s" : ""}`;
+// Codes : "guess" (1 ou 2 champions vus), "likely", "sure". Le mot affiché vient de OPPONENT_LEVEL_WORD.
+const OPPONENT_LEVEL_WORD = { guess:"hypothèse", likely:"probable", sure:"presque sûr" };
 function opponentLevel() {
   if (!V.mid) return null;
-  if (V.n <= 2) return "hypothèse";
-  return V.confidence === "élevée" ? "presque sûr" : "probable";
+  if (V.n <= 2) return "guess";
+  return V.confidence === "high" ? "sure" : "likely";
 }
-// Personne de nommé : « pas encore choisi » si aucun candidat plausible n'est révélé et qu'il reste une vraie chance
-// qu'il ne soit pas encore pris (ou si rien n'est révélé), sinon « pas identifié ».
-function unnamedWord() {
+// Personne de nommé : « pas encore choisi » (code "unrevealed") si aucun candidat plausible n'est révélé et qu'il reste une vraie chance
+// qu'il ne soit pas encore pris (ou si rien n'est révélé), sinon « pas identifié » (code "unidentified").
+function unnamedState() {
   const h = V.hypothesis;
-  if (!V.n) return "pas encore choisi";
-  return h && h.others.includes("pas encore choisi") && !h.others.some(o => o !== "pas encore choisi") ? "pas encore choisi" : "pas identifié";
+  if (!V.n) return "unrevealed";
+  return h && h.notYet && !h.others.length ? "unrevealed" : "unidentified";
 }
+const UNNAMED_WORD = { unrevealed:"pas encore choisi", unidentified:"pas identifié" };
+const unnamedWord = () => UNNAMED_WORD[unnamedState()];
 // Analyse, vis-à-vis pas nommé. Fidèle au calcul : avec des hypothèses, le critère matchup du pick affiché est leur moyenne pondérée.
 function matchupUncertainText() {
   const shownEntry = V.res.ranking.find(p => p.pick === V.shown);
@@ -1304,21 +1309,21 @@ function matchupUncertainText() {
 function opponentTag() {
   const level = opponentLevel();
   if (!level) return `${oppName()} ? pas identifié`;
-  return level === "hypothèse" ? `${oppName()} ? hypothèse (${seenText(V.n)})` : `${oppName()} d'en face (${level})`;
+  return level === "guess" ? `${oppName()} ? hypothèse (${seenText(V.n)})` : `${oppName()} d'en face (${OPPONENT_LEVEL_WORD[level]})`;
 }
 
 // Les hypothèses restent courtes, sans pourcentage : la qualité des données ne permet pas mieux.
 function hypothesisText() {
   const h = V.hypothesis;
   if (!h) return "";
-  const notYet = h.others.includes("pas encore choisi");
-  const named = h.others.filter(o => o !== "pas encore choisi");
+  const notYet = h.notYet;
+  const named = h.others;
   if (!h.main && !named.length) return `${oppName()} d'en face : ${unnamedWord()}.`;
   if (!h.main) return `${oppName()} d'en face : pas identifié (${named.join(" ou ")}${notYet ? ", ou pas encore choisi" : ""}).`;
   const rest = named.length ? `, sinon ${named.join(" ou ")}${notYet ? " ou pas encore choisi" : ""}` : notYet ? ", sinon pas encore choisi" : "";
   const level = opponentLevel();
-  if (level === "hypothèse") return `${oppName()} ? ${h.main}, hypothèse (${seenText(V.n)})${rest}.`;
-  return `${oppName()} d'en face : ${h.main} (${level})${rest}.`;
+  if (level === "guess") return `${oppName()} ? ${h.main}, hypothèse (${seenText(V.n)})${rest}.`;
+  return `${oppName()} d'en face : ${h.main} (${OPPONENT_LEVEL_WORD[level]})${rest}.`;
 }
 
 // Incertitude sur l'adversaire direct : une ligne à part, d'une autre couleur que « Choix serré », qui porte sur le conseil.
@@ -1342,20 +1347,20 @@ function RoleRow({ role, name, assumed, info }) {
   const label = name
     ? `${ROLE_LABEL[role]} : ${name}. ${state.selected && state.selected !== name ? `Échanger avec ${state.selected}` : "Sélectionner pour changer de rôle"}`
     : `${ROLE_LABEL[role]} vide. ${state.selected ? `Y placer ${state.selected}` : "Choisir ce rôle pour le prochain champion"}`;
-  return html`<div className=${cls}>
+  return html`<div className=${cls} data-test="enemy-row" data-slot=${role}>
     <button type="button" className="role-hit" aria-label=${label} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
     ${flash ? html`<${motion.span} key=${flash.id} className=${`role-flash ${flash.kind}`} aria-hidden="true" initial=${{ opacity:.45 }} animate=${{ opacity:0 }} transition=${{ duration:.35 }} />` : null}
     <span className="role-icon"><${RoleIcon} role=${role} />${ROLE_LABEL[role]}</span>
     ${name ? html`<${motion.span} key=${name} layoutId=${`who-${name}`} initial=${{ scale:.86, opacity:.4 }} animate=${{ scale:1, opacity:1 }} transition=${SNAP} className="who-wrap">
         <${Portrait} name=${name} size=${44} />
         <span className="role-who">
-          <span className="role-name" title=${name}>${name}</span>
+          <span className="role-name" data-test="enemy-name" title=${name}>${name}</span>
           <span className="role-traits" title=${traitsOf(name)}>${isMid && assumed ? html`<b className="assumed">${opponentTag()}</b> ` : !isMid && roleTag(info) ? html`<b className="role-flex">${roleTag(info)}</b> ` : ""}${traitsOf(name)}</span>
         </span>
       <//>
       <span className="role-tools">
         ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${`Placer ${name} ${oppAt()}`} onClick=${() => setMid(name)}>${oppName()}</button>` : null}
-        <button type="button" className="mini x" aria-label=${`Retirer ${name}`} onClick=${() => removeEnemy(name)}>×</button>
+        <button type="button" className="mini x" data-test="enemy-remove" aria-label=${`Retirer ${name}`} onClick=${() => removeEnemy(name)}>×</button>
       </span>`
     : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? "Tape son nom" : html`Ajouter<span className="em">${role === "adc" ? " l'ADC" : ` le ${ROLE_LABEL[role]}`}</span>`}</span>`}
   </div>`;
@@ -1395,7 +1400,7 @@ function EnemyPanel() {
   return html`<aside className="col col-left" aria-label="Composition adverse">
     <h2 className="sec-title">Composition adverse <small>${V.n} sur 5</small></h2>
     <${SearchBox} />
-    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
+    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} data-test="draft-hint" initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
     <${LayoutGroup}>
       <div className="roles">
         ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
@@ -1509,7 +1514,7 @@ function CoachLine() {
   return html`<section className="coach-line" aria-label="Conseil">
     ${item.id === "draft.tie" ? null : html`<b>${item.title}</b>`}
     ${shortAdvice(item.text) ? html`<p>${shortAdvice(item.text)}</p>` : null}
-    <button type="button" className="link-btn" onClick=${() => openDetail("coach")}>Voir les conseils</button>
+    <button type="button" className="link-btn" data-test="open-coach" onClick=${() => openDetail("coach")}>Voir les conseils</button>
   </section>`;
 }
 // Sur une ligne à part : le nombre de parties n'est ni une recommandation, ni une preuve de niveau.
@@ -1564,7 +1569,7 @@ function CoachTab() {
 function Stage() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   if (V.none) {
-    return html`<section className="stage" aria-label="Recommandation"><div className="stage-body">
+    return html`<section className="stage" data-test="stage" aria-label="Recommandation"><div className="stage-body">
       <div className="champ-name">Aucun pick</div>
       <p className="note">${noPickText()}</p>
     </div></section>`;
@@ -1573,10 +1578,10 @@ function Stage() {
   const picked = entry && entry.picked === V.shown;
   const stagger = { hidden:{}, show:{ transition:{ staggerChildren:.045, delayChildren:.03 } } };
   if (V.tied) {
-    return html`<section className="stage stage-tie" aria-label="Recommandation">
+    return html`<section className="stage stage-tie" data-test="stage" aria-label="Recommandation">
       <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
       <div className="stage-body">
-        <div className="badges"><span className="badge close">Égalité</span>${V.n < 5 ? html`<span className="badge">${V.n}/5 adversaires</span>` : null}</div>
+        <div className="badges"><span data-test="badge" className="badge close">Égalité</span>${V.n < 5 ? html`<span data-test="badge" className="badge">${V.n}/5 adversaires</span>` : null}</div>
         <${TieGroup} detailed=${true} />
         ${V.rival ? html`<div className="alt-line"><em>Sinon</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
         <div className="stage-notes"><${CoachLine} /><${FamiliarLine} /><${OpponentLine} /></div>
@@ -1584,7 +1589,7 @@ function Stage() {
     </section>`;
   }
   const item = { hidden:{ y:10, opacity:.4 }, show:{ y:0, opacity:1, transition:ARRIVE } };
-  return html`<section className="stage" aria-label="Recommandation">
+  return html`<section className="stage" data-test="stage" aria-label="Recommandation">
     <${SplashStack} name=${name} />
     <div className="scrim"></div>
     ${V.change ? html`<${motion.p} key=${V.change.id} className="change" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
@@ -1593,8 +1598,8 @@ function Stage() {
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <${motion.div} key=${name} className="stage-body" variants=${stagger} initial="hidden" animate="show">
       <${motion.div} className="badges" variants=${item}>
-        ${V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
-        ${V.n < 5 ? html`<span className="badge">${V.n}/5 adversaires</span>` : null}
+        ${V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
+        ${V.n < 5 ? html`<span data-test="badge" className="badge">${V.n}/5 adversaires</span>` : null}
       <//>
       <${motion.div} className=${`champ-name${name.length > 18 ? " long" : ""}`} variants=${item}>${name}<//>
       ${V.rival ? html`<${motion.div} className="alt-line" variants=${item}>
@@ -1615,7 +1620,7 @@ function Stage() {
           ${V.without ? html`<p className="note">Sans frontline : <b>${label(V.without)}</b></p>` : null}
         </details>` : null}
       <//>
-      <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
+      <${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
         <${motion.span} key=${picked ? "done" : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${picked ? `${name} noté` : `Je joue ${name}`}<//>
       <//>
     <//>
@@ -1676,7 +1681,7 @@ const Faces = ({ names, empty }) => names.length
 
 function ResultButtons({ id, result, disabled }) {
   const opts = [["win", "Victoire"], ["loss", "Défaite"], ["skip", "Ignorer"]];
-  return html`<div className="results">
+  return html`<div className="results" data-test="result-buttons">
     ${opts.map(([key, text]) => html`<${motion.button} key=${key} type="button" disabled=${disabled} data-result=${key} aria-pressed=${result === key}
       whileHover=${disabled ? undefined : { y:-1 }} whileTap=${disabled ? undefined : { scale:.97 }} animate=${result === key ? { scale:[1, 1.05, 1] } : { scale:1 }} transition=${{ duration:.22 }} className=${`res ${key}${result === key ? " on" : ""}`} onClick=${() => setResult(id, key)}>${text}<//>`)}
   </div>`;
@@ -1714,7 +1719,7 @@ function PlanTab() {
   const plan = buildPlan(playing, V.res.counts, V.mid, slots.jungle);
   return html`<div>
     <div className="seg-tabs" role="group" aria-label="Phase de jeu">
-      ${PHASES.map(([key, text]) => html`<button key=${key} type="button" aria-pressed=${phase === key} className=${`seg-tab${phase === key ? " on" : ""}`} onClick=${() => setPhase(key)}>${text}</button>`)}
+      ${PHASES.map(([key, text]) => html`<button key=${key} type="button" data-test=${`plan-phase-${key}`} aria-pressed=${phase === key} className=${`seg-tab${phase === key ? " on" : ""}`} onClick=${() => setPhase(key)}>${text}</button>`)}
     </div>
     <${motion.ul} key=${phase + playing} className="tips" initial=${{ opacity:.4, y:4 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>
       ${plan[phase].map(tip => html`<li key=${tip}>${tip}</li>`)}
@@ -2022,7 +2027,7 @@ function MobileBar() {
   if (V.tied) return html`<div className="mobile-bar"><span className="mobile-name">Égalité : ${V.tied.map(label).join(", ")}</span></div>`;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${label(V.shown)} size=${32} />${label(V.shown)}</span>
-    <${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je joue"}<//>
+    <${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je joue"}<//>
   </div>`;
 }
 
@@ -2045,15 +2050,15 @@ function RoleSwitch() {
   const suggestion = roleSuggestion();
   return html`<div className="role-switch-wrap">
     <div className="role-switch" role="group" aria-label="Rôle actif">
-      <span className="role-now">${PROFILES.active ? ROLE_NAMES[PROFILES.active] : "Rôle ?"}</span>
-      ${PROFILE_ROLES.map(r => html`<button key=${r} type="button" data-role=${r} aria-pressed=${PROFILES.active === r}
+      <span className="role-now" data-test="role-now">${PROFILES.active ? ROLE_NAMES[PROFILES.active] : "Rôle ?"}</span>
+      ${PROFILE_ROLES.map(r => html`<button key=${r} type="button" data-role=${r} data-test=${`role-switch-${r}`} aria-pressed=${PROFILES.active === r}
         className=${`role-btn${PROFILES.active === r ? " on" : ""}${state.assignedRole === r ? " assigned" : ""}`}
         title=${`${ROLE_NAMES[r]}${PROFILES.roles[r].pool.length ? ` : ${PROFILES.roles[r].pool.length} champion${PROFILES.roles[r].pool.length > 1 ? "s" : ""}` : " : aucun champion"}${state.assignedRole === r ? " (attribué par LoL)" : ""}`}
         aria-label=${`Passer au profil ${ROLE_NAMES[r]}`} onClick=${() => switchRole(r, "manual")}><${RoleIcon} role=${r} /></button>`)}
     </div>
-    ${suggestion ? html`<p className="role-hint" role="status">LoL t'attribue ${ROLE_NAMES[suggestion]}.
-      <button type="button" className="link-btn" onClick=${() => switchRole(suggestion, "manual")}>Passer à ${ROLE_NAMES[suggestion]}</button>
-      <button type="button" className="link-btn" aria-label="Ignorer" onClick=${() => { state.roleDismissed = suggestion; publish(null); }}>Ignorer</button></p>` : null}
+    ${suggestion ? html`<p className="role-hint" data-test="role-hint" role="status">LoL t'attribue ${ROLE_NAMES[suggestion]}.
+      <button type="button" className="link-btn" data-test="role-hint-switch" onClick=${() => switchRole(suggestion, "manual")}>Passer à ${ROLE_NAMES[suggestion]}</button>
+      <button type="button" className="link-btn" data-test="role-hint-dismiss" aria-label="Ignorer" onClick=${() => { state.roleDismissed = suggestion; publish(null); }}>Ignorer</button></p>` : null}
   </div>`;
 }
 
@@ -2062,9 +2067,9 @@ function TitleBar() {
     <${LogoMark} /><span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span>
     <span className="grow"></span>
     ${IS_HOST ? html`<span className="p-tools">
-      <button type="button" className="p-btn" title=${hostState.compact ? "Deux panneaux" : "Panneau unique"} aria-label=${hostState.compact ? "Passer à deux panneaux" : "Passer au panneau unique"} onClick=${() => hostSend({ cmd:"toggleCompact" })}>${hostState.compact ? "⧉" : "▭"}</button>
-      <button type="button" className="p-btn" title="Réglages" aria-label="Ouvrir les réglages" onClick=${() => openDetail("settings")}>⚙</button>
-      <button type="button" className="p-btn" title="Masquer" aria-label="Masquer les panneaux" onClick=${() => hostSend({ cmd:"hideAll" })}>×</button>
+      <button type="button" className="p-btn" data-test="panel-toggle-compact" title=${hostState.compact ? "Deux panneaux" : "Panneau unique"} aria-label=${hostState.compact ? "Passer à deux panneaux" : "Passer au panneau unique"} onClick=${() => hostSend({ cmd:"toggleCompact" })}>${hostState.compact ? "⧉" : "▭"}</button>
+      <button type="button" className="p-btn" data-test="panel-settings" title="Réglages" aria-label="Ouvrir les réglages" onClick=${() => openDetail("settings")}>⚙</button>
+      <button type="button" className="p-btn" data-test="panel-hide" title="Masquer" aria-label="Masquer les panneaux" onClick=${() => hostSend({ cmd:"hideAll" })}>×</button>
     </span>` : null}
   </header>`;
 }
@@ -2075,7 +2080,7 @@ const shownIsFirst = () => { const first = V.res.ranking[0]; return !first || fi
 function VerdictPanel() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
-  if (V.none) return html`<div className="p-body"><p className="p-empty">${noPickText()}</p><button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"openFull", tab:"settings" })}>Choisir mon profil</button></div>`;
+  if (V.none) return html`<div className="p-body"><p className="p-empty" data-test="no-pick">${noPickText()}</p><button type="button" className="ghost-btn" data-test="choose-profile" onClick=${() => hostSend({ cmd:"openFull", tab:"settings" })}>Choisir mon profil</button></div>`;
   const name = label(V.shown);
   const c = V.res.counts;
   // À égalité, un danger ou un plan propre au premier nom le désignerait à tort : seul ce qui vaut pour tous reste affiché.
@@ -2088,8 +2093,8 @@ function VerdictPanel() {
   return html`<div className="p-body">
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <div className="p-status">
-      ${V.tied ? html`<span className="badge close">Égalité</span>` : V.n ? html`<span className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
-      ${unknown ? html`<span className="badge">${V.n}/5 adversaires</span>` : null}
+      ${V.tied ? html`<span data-test="badge" className="badge close">Égalité</span>` : V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
+      ${unknown ? html`<span data-test="badge" className="badge">${V.n}/5 adversaires</span>` : null}
     </div>
     ${V.tied ? html`<${TieGroup} detailed=${false} />` : html`<section className="p-reco" aria-label="Champion conseillé">
       <${SplashStack} name=${name} />
@@ -2100,7 +2105,7 @@ function VerdictPanel() {
       <//>
     </section>`}
     ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}><b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}</${motion.p}>` : null}
-    ${V.rival ? html`<button type="button" className="p-alt" title="Comparer ces deux champions" onClick=${() => openDetail("compare")}>
+    ${V.rival ? html`<button type="button" className="p-alt" data-test="open-compare" title="Comparer ces deux champions" onClick=${() => openDetail("compare")}>
       <${Portrait} name=${label(V.rival.pick)} size=${40} />
       <span className="p-alt-text"><small>${V.tied ? "Sinon" : V.clear ? "Alternative" : shownIsFirst() ? "Presque à égalité" : "Devant de peu"}</small>${label(V.rival.pick)}</span>
       <span aria-hidden="true">›</span>
@@ -2125,8 +2130,8 @@ function VerdictPanel() {
       ${playing ? html`<section className="p-win"><b>Gagne si</b><p>${winCondition(playing, c)}</p></section>` : html`<p className="note">Choisis un champion pour voir son plan.</p>`}
     </details>
     <div className="p-actions">
-      ${V.tied ? null : html`<${motion.button} type="button" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} noté` : `Je joue ${name}`}<//>`}
-      <button type="button" className="ghost-btn" onClick=${() => openDetail("analyse")}>Analyse<span className="opt-word"> détaillée</span></button>
+      ${V.tied ? null : html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} noté` : `Je joue ${name}`}<//>`}
+      <button type="button" className="ghost-btn" data-test="open-analysis" onClick=${() => openDetail("analyse")}>Analyse<span className="opt-word"> détaillée</span></button>
     </div>
     ${entry || pending ? html`<div>
       ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b></p>` : null}
@@ -2199,9 +2204,9 @@ function ProfileBackup() {
     setNote("Profils précédents restaurés."); refresh(x => x + 1);
   };
   return html`<div className="set-row profile-backup">
-    <button type="button" className="ghost-btn" onClick=${download}>Exporter mes profils</button>
-    <label className="ghost-btn file-btn">Importer<input type="file" accept=".json,application/json" aria-label="Importer des profils" onChange=${load} /></label>
-    ${latestProfilesBackup(localStorage) ? html`<button type="button" className="ghost-btn" onClick=${undo}>Annuler le dernier import</button>` : null}
+    <button type="button" className="ghost-btn" data-test="export-profiles" onClick=${download}>Exporter mes profils</button>
+    <label className="ghost-btn file-btn">Importer<input type="file" data-test="import-profiles" accept=".json,application/json" aria-label="Importer des profils" onChange=${load} /></label>
+    ${latestProfilesBackup(localStorage) ? html`<button type="button" className="ghost-btn" data-test="undo-profiles-import" onClick=${undo}>Annuler le dernier import</button>` : null}
     ${note ? html`<p className="small" role="status">${note}</p>` : null}
   </div>`;
 }
@@ -2222,16 +2227,16 @@ function ProfileCard() {
     <div className=${`set-card${PROFILE ? " on" : ""}`}>
       ${PROFILE ? null : html`<p className="set-main">Choisis ton rôle et tes champions pour obtenir un conseil.</p>`}
       <div className="role-pick" role="group" aria-label="Mon rôle">
-        ${ROLE_ORDER.map(r => html`<button key=${r} type="button" className=${`ghost-btn${role === r ? " on" : ""}`} aria-pressed=${role === r} onClick=${() => pickRole(r)}>${ROLE_NAMES[r]}${PROFILES.roles[r].pool.length ? html` <small>${PROFILES.roles[r].pool.length}</small>` : null}</button>`)}
+        ${ROLE_ORDER.map(r => html`<button key=${r} type="button" data-test=${`pool-role-${r}`} className=${`ghost-btn${role === r ? " on" : ""}`} aria-pressed=${role === r} onClick=${() => pickRole(r)}>${ROLE_NAMES[r]}${PROFILES.roles[r].pool.length ? html` <small>${PROFILES.roles[r].pool.length}</small>` : null}</button>`)}
       </div>
       <div className="pool-list" aria-label="Mes champions">
-        ${pool.map(n => html`<button key=${n} type="button" className="pool-chip on" title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { apply(role, pool.filter(x => x !== n)); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span><b aria-hidden="true">×</b></button>`)}
+        ${pool.map(n => html`<button key=${n} type="button" data-test="pool-remove" data-champion=${n} className="pool-chip on" title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { apply(role, pool.filter(x => x !== n)); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span><b aria-hidden="true">×</b></button>`)}
         ${pool.length ? null : html`<span className="set-hint flush">Aucun champion pour l'instant.</span>`}
       </div>
-      <input ref=${searchRef} className="pool-search" type="search" value=${query} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder="Ajouter un champion : ahri, tf, kata..."
+      <input ref=${searchRef} className="pool-search" data-test="pool-search" type="search" value=${query} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder="Ajouter un champion : ahri, tf, kata..."
         onChange=${e => setQuery(e.target.value)} onKeyDown=${e => { if (e.key === "Enter") { e.preventDefault(); if (choices[0]) { apply(role, pool.concat(choices[0])); setQuery(""); } } }} />
       ${role || key ? html`<div className="pool-list">
-        ${choices.map(n => html`<button key=${n} type="button" className="pool-chip" onClick=${() => { apply(role, pool.concat(n)); setQuery(""); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`)}
+        ${choices.map(n => html`<button key=${n} type="button" data-test="pool-add" data-champion=${n} className="pool-chip" onClick=${() => { apply(role, pool.concat(n)); setQuery(""); backToSearch(); }}><${Portrait} name=${n} size=${24} /><span>${n}</span></button>`)}
         ${key && !choices.length ? html`<span className="set-hint flush">Aucun champion trouvé.</span>` : null}
       </div>` : null}
       ${role && !pool.length ? html`<p className="set-hint flush">Aucun champion pour ce rôle : ajoute-en pour obtenir un conseil.</p>` : null}
@@ -2286,23 +2291,23 @@ function Settings({ onClose }) {
     return () => document.removeEventListener("keydown", onEscape, true);
   }, [onClose]);
   return html`<div className="settings-back" onClick=${e => { if (e.target === e.currentTarget) onClose(); }}>
-    <section className="settings" role="dialog" aria-modal="true" aria-label="Réglages">
+    <section className="settings" data-test="settings" role="dialog" aria-modal="true" aria-label="Réglages">
       <p className="small brand-sub">DRAFT ${APP_VERSION} bêta : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.</p>
-      <header className="sec-title">Réglages <button type="button" className="ghost-btn" autoFocus=${true} onClick=${onClose}>Fermer</button></header>
+      <header className="sec-title">Réglages <button type="button" className="ghost-btn" data-test="settings-close" autoFocus=${true} onClick=${onClose}>Fermer</button></header>
       <${ProfileCard} />
       <${CoachLevel} />
       ${hostState.available ? html`<div>
         <h3>Mise à jour</h3>
         <p className="small">Version ${APP_VERSION}. DRAFT ne contacte GitHub que lorsque tu cliques.</p>
-        ${hostState.updateStatus ? html`<p className="small" role="status">${hostState.updateStatus}</p>` : null}
-        <p className="set-row"><button type="button" className="ghost-btn" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? "Mise à jour en cours..." : "Rechercher une mise à jour"}</button></p>
+        ${hostState.updateStatus ? html`<p className="small" role="status" data-test="update-status">${hostState.updateStatus}</p>` : null}
+        <p className="set-row"><button type="button" className="ghost-btn" data-test="check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? "Mise à jour en cours..." : "Rechercher une mise à jour"}</button></p>
       </div>` : null}
       ${hostState.available ? html`<div>
         <h3>Mon historique Riot</h3>
         <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? `${window.DRAFT_HISTORY.rows.length} parties importées${window.DRAFT_HISTORY.generated ? ` le ${new Date(window.DRAFT_HISTORY.generated).toLocaleDateString("fr-FR")}` : ""}.` : "Rien d'importé pour l'instant."} Sert à afficher ton expérience, jamais à changer le classement. Tu saisis ta clé toi-même : elle n'est pas enregistrée.</p>
         ${hostState.historyStatus ? html`<p className="small" role="status">${hostState.historyStatus}</p>` : null}
         <p className="set-row">
-          <button type="button" className="ghost-btn" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? "Arrêter l'import" : hostState.historyHasMore ? "Importer plus de parties" : "Importer mon historique Riot"}</button>
+          <button type="button" className="ghost-btn" data-test="import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? "Arrêter l'import" : hostState.historyHasMore ? "Importer plus de parties" : "Importer mon historique Riot"}</button>
         </p>
       </div>` : null}
       ${hostState.available ? html`<div>
@@ -2352,8 +2357,8 @@ function Settings({ onClose }) {
       </div>` : null}
       <h3>Journal</h3>
       <p className="small">Pour récupérer un ancien journal, importe son fichier ici. Rien n'est supprimé.</p>
-      <p><input type="file" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
-      ${importNote ? html`<p className="small">${importNote}</p>` : null}
+      <p><input type="file" data-test="import-journal" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
+      ${importNote ? html`<p className="small" data-test="journal-import-note">${importNote}</p>` : null}
       <${DataSources} />
       <details className="set-more">
         <summary>Avancé</summary>
@@ -2377,7 +2382,7 @@ function CompactEnemies() {
 }
 
 function PanelApp() {
-  return html`<div className=${`panel panel-${PANEL}`}>
+  return html`<div className=${`panel panel-${PANEL}`} data-test="panel">
     <${TitleBar} />
     ${PANEL !== "left" ? html`<${RoleSwitch} />` : null}
     ${PANEL === "left" ? html`<${EnemyPanel} />` : null}
@@ -2452,17 +2457,17 @@ function App() {
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
   return html`<${MotionConfig} reducedMotion="user">
     ${showSettings ? html`<${Settings} onClose=${closeSettings} />` : null}
-    <div className="app">
+    <div className="app" data-test="app">
       <header className="top">
         <span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span>
         <${RoleSwitch} />
         <span className="patch">Patch ${ddVersion.split(".").slice(0, 2).join(".")}</span>
         <span className="grow"></span>
-        <button type="button" className="ghost-btn" onClick=${() => setShowSettings(true)}>Réglages</button>
-        <button type="button" className="ghost-btn" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
-        <button type="button" className="ghost-btn" disabled=${!state.enemies.length} onClick=${resetDraft}>Nouvelle draft</button>
+        <button type="button" className="ghost-btn" data-test="open-settings" onClick=${() => setShowSettings(true)}>Réglages</button>
+        <button type="button" className="ghost-btn" data-test="random-draft" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
+        <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${resetDraft}>Nouvelle draft</button>
       </header>
-      ${simulating ? html`<p className="small" role="status" data-simulation=${true}>Simulation : ta draft en cours n'est pas modifiée. <button type="button" className="ghost-btn" onClick=${leaveSimulation}>Revenir à la draft en cours</button></p>` : null}
+      ${simulating ? html`<p className="small" role="status" data-test="simulation" data-simulation=${true}>Simulation : ta draft en cours n'est pas modifiée. <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>Revenir à la draft en cours</button></p>` : null}
       <div className="desk">
         <${EnemyPanel} />
         <main className="col col-mid"><${Stage} /><${Ranking} /></main>

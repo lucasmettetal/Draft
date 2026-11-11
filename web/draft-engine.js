@@ -191,21 +191,24 @@ function compoOf(enemies) {
   };
 }
 
-// Renvoie [note, explication], ou null si le critère n'a rien à dire pour ce pick.
+// Renvoie [note, explication], ou null si le critère n'a rien à dire pour ce pick. Le matchup ajoute un troisième élément :
+// live (bilan de vraies parties) et short (la même explication sans « contre {adversaire} », pour nommer une hypothèse).
 const RULES = {
   matchup(p, c, x) {
     const live = liveMatchup(p, x.mid);
     if (live) {
       const percent = Math.round(live.gap * 100);
       const note = Math.max(-4 / 3, Math.min(4 / 3, live.gap / MATCHUP_FULL_GAP));
-      return [note, `${percent ? `${percent > 0 ? "+" : ""}${percent} % contre ${x.mid}` : `Sans écart net contre ${x.mid}`} sur ${live.games} parties${live.recent ? "" : " (patchs précédents)"}`];
+      const games = ` sur ${live.games} parties${live.recent ? "" : " (patchs précédents)"}`;
+      const gap = percent ? `${percent > 0 ? "+" : ""}${percent} %` : "Sans écart net";
+      return [note, `${gap} contre ${x.mid}${games}`, { live:true, short:`${gap}${games}` }];
     }
     const m = matchupOf(x.mid);
     if (!m || !WRITTEN_PICKS.includes(p)) return null;
-    if (avoidedPicks(m).includes(p)) return [-4 / 3, `À éviter contre ${x.mid}`];
-    if (m.first === p) return [1, `1er choix contre ${x.mid}`];
-    if (m.second === p) return [.5, `2e choix contre ${x.mid}`];
-    return [0, `Pas d'avis marqué contre ${x.mid}`];
+    if (avoidedPicks(m).includes(p)) return [-4 / 3, `À éviter contre ${x.mid}`, { short:"À éviter" }];
+    if (m.first === p) return [1, `1er choix contre ${x.mid}`, { short:"1er choix" }];
+    if (m.second === p) return [.5, `2e choix contre ${x.mid}`, { short:"2e choix" }];
+    return [0, `Pas d'avis marqué contre ${x.mid}`, { short:"Pas d'avis marqué" }];
   },
   blind(p, c, x) {
     if (x.mid || !WRITTEN_PICKS.includes(p) || myRole() !== "mid") return null;
@@ -279,7 +282,10 @@ function evaluatePick(pick, compo, ctx) {
   const criteria = CRITERIA.map(def => {
     const rated = RULES[def.key](pick, compo, ctx);
     if (!rated) return null;
-    return { key:def.key, label:def.label, v:rated[0], impact:rated[0] * def.weight, text:rated[1] };
+    const criterion = { key:def.key, label:def.label, v:rated[0], impact:rated[0] * def.weight, text:rated[1] };
+    if (rated[2] && rated[2].live) criterion.live = true;
+    if (rated[2] && rated[2].short !== undefined) criterion.short = rated[2].short;
+    return criterion;
   }).filter(Boolean);
   return {
     pick,
@@ -289,9 +295,11 @@ function evaluatePick(pick, compo, ctx) {
   };
 }
 
-// « Si c'est Yasuo : 1er choix ». Le nom de l'hypothèse remplace « contre Yasuo » dans le texte de la règle.
-function scenarioText(mid, text) {
-  const short = mid ? text.replace(` contre ${mid}`, "") : text;
+// « Si c'est Yasuo : 1er choix ». Le nom de l'hypothèse remplace « contre Yasuo » : la règle fournit sa forme courte (short).
+// Texte seulement : aucune note ne dépend de cette fonction.
+function scenarioText(mid, c) {
+  const text = c.text;
+  const short = !mid ? text : c.short !== undefined ? c.short : text.replace(` contre ${mid}`, "");
   return `${mid ? `Si c'est ${mid}` : "S'il n'est pas encore choisi"} : ${short.charAt(0).toLowerCase()}${short.slice(1)}`;
 }
 const joinScenarioTexts = parts => parts.map((x, i) => i ? x.text.charAt(0).toLowerCase() + x.text.slice(1) : x.text).join(" ; ");
@@ -304,8 +312,12 @@ function evaluateScenarios(pick, compo, hasFront, scenarios) {
     if (!found.length) return null;
     const v = found.reduce((sum, x) => sum + x.s.p * x.c.v, 0);
     // Textes seulement : quand les hypothèses ne disent pas la même chose, chacune est nommée, avec le signe de sa propre note.
-    const parts = found.filter((x, i) => found.findIndex(y => y.c.text === x.c.text) === i).slice(0, 2).map(x => ({ mid:x.s.mid, v:x.c.v, text:scenarioText(x.s.mid, x.c.text) }));
-    return { key:def.key, label:def.label, v, impact:v * def.weight, text:parts.length > 1 ? joinScenarioTexts(parts) : found[0].c.text, parts:parts.length > 1 ? parts : null };
+    const distinct = found.filter((x, i) => found.findIndex(y => y.c.text === x.c.text) === i).slice(0, 2);
+    const parts = distinct.map(x => ({ mid:x.s.mid, v:x.c.v, text:scenarioText(x.s.mid, x.c) }));
+    const criterion = { key:def.key, label:def.label, v, impact:v * def.weight, text:parts.length > 1 ? joinScenarioTexts(parts) : found[0].c.text, parts:parts.length > 1 ? parts : null };
+    // Bilan de vraies parties dans ce qui est affiché : les hypothèses nommées, ou la seule explication.
+    if (parts.length > 1 ? distinct.some(x => x.c.live) : found[0].c.live) criterion.live = true;
+    return criterion;
   }).filter(Boolean);
   return {
     pick, criteria,

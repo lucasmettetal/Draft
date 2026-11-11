@@ -269,7 +269,7 @@ function uncertaintySection(x) {
   if (enemiesCount > 0 && enemiesCount < 5) out.push(masteryItem("uncertainty.incomplete", "uncertainty", "general", `Il reste ${5 - enemiesCount} adversaire${5 - enemiesCount > 1 ? "s" : ""} à voir`, "Ce conseil peut encore changer.", null));
   // Même échelle que l'interface : probable, ou hypothèse avec 1 ou 2 champions vus ; pas identifié, pas encore choisi.
   const thin = enemiesCount <= 2;
-  if (opponent && !result.manual && (thin || result.belief.confidence !== "élevée")) out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", thin ? `${oppName()} ? ${opponent}, hypothèse` : `${oppName()} d'en face : ${opponent} (probable)`, "DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.", "Ce n'est pas une information du client."));
+  if (opponent && !result.manual && (thin || result.belief.confidence !== "high")) out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", thin ? `${oppName()} ? ${opponent}, hypothèse` : `${oppName()} d'en face : ${opponent} (probable)`, "DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.", "Ce n'est pas une information du client."));
   if (enemiesCount > 0 && !opponent) {
     const named = result.belief.candidates.some(c => c.known && c.p >= .2);
     out.push(masteryItem("uncertainty.no-opponent", "uncertainty", "estimate", `${oppName()} d'en face : ${!named && result.belief.unrevealed >= .2 ? "pas encore choisi" : "pas identifié"}`, "Le conseil ne peut pas encore porter sur un matchup précis.", null));
