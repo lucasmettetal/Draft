@@ -1,0 +1,31 @@
+// EXAMPLE catalog (tools/i18n prototype, never shipped). English derives from French, never the other way.
+// The key "native.only.fr" is missing on purpose: it tests the French fallback.
+window.DRAFT_I18N_EN = {
+"_meta": {"lang": "en", "name": "English", "version": 1},
+"nav.tab.plan": "Plan",
+"nav.tab.analysis": "Analysis",
+"nav.tab.coach": "Tips",
+"settings.language.label": "Language",
+"settings.language.auto": "Automatic (Windows)",
+"advice.card.playButton": "Play {champion}",
+"advice.card.playButtonDone": "{champion} logged",
+"advice.help.play": "Logs this pick in your journal. Nothing is sent to the League client: you lock in your champion yourself.",
+"advice.card.badgeClear": "Clear pick",
+"advice.card.badgeClose": "Close call",
+"advice.change.overtakes": "{champion} moves ahead of {other}",
+"advice.tie.title": {"one": "{count} pick tied on score", "other": "{count} picks tied on score"},
+"draft.search.noMatch": "No champion matches \"{query}\".",
+"draft.search.placeholder": "Add an enemy: ahri, tf, kata...",
+"enemy.slot.nextRole": "Next champion: {role}",
+"engine.reason.squishyTargets": "{count} squishy carries to punish: {champions}",
+"settings.journal.imported": {"one": "{count} game added to your journal.", "other": "{count} games added to your journal."},
+"settings.riot.keyNotSaved": "You enter your key yourself: it is never saved.",
+"error.import.unreadable": "Unreadable file: nothing was changed.",
+"literal.braces": "Braces {{ and }} are written doubled.",
+"native.menu.quit": "Quit",
+"native.menu.settings": "Settings",
+"native.dialog.updateAvailable": "Version {version} is available (you have {current}).\n\nDRAFT will download it, verify it, then restart. Your profiles, history and settings are kept.\n\nInstall now?",
+"native.riot.dialog.keyLabel": "Riot key (hidden, never saved):",
+"native.history.status.progress": "Importing history: {done} of {total} games",
+"native.phase.draft": "Draft in progress (estimate)"
+};

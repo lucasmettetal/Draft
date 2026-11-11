@@ -1,0 +1,32 @@
+// Catalogue d'EXEMPLE (prototype tools/i18n, jamais livré). Format décrit dans docs/i18n/FORMAT-CATALOGUE.md.
+// Français : langue de référence. Une clé par ligne, triées par zone. Données seulement : relu comme du JSON strict.
+window.DRAFT_I18N_FR = {
+"_meta": {"lang": "fr", "name": "Français", "version": 1},
+"nav.tab.plan": "Plan",
+"nav.tab.analysis": "Analyse",
+"nav.tab.coach": "Conseils",
+"settings.language.label": "Langue",
+"settings.language.auto": "Automatique (Windows)",
+"advice.card.playButton": "Je joue {champion}",
+"advice.card.playButtonDone": "{champion} noté",
+"advice.help.play": "Note ce choix dans ton journal. Rien n'est envoyé au client LoL : tu verrouilles toi-même ton champion.",
+"advice.card.badgeClear": "Choix net",
+"advice.card.badgeClose": "Choix serré",
+"advice.change.overtakes": "{champion} passe devant {other}",
+"advice.tie.title": {"one": "{count} pick à égalité de score", "other": "{count} picks à égalité de score"},
+"draft.search.noMatch": "Aucun champion ne correspond à « {query} ».",
+"draft.search.placeholder": "Ajouter un adversaire : ahri, tf, kata...",
+"enemy.slot.nextRole": "Prochain champion : {role}",
+"engine.reason.squishyTargets": "{count} carrys fragiles à punir : {champions}",
+"settings.journal.imported": {"one": "{count} partie ajoutée à ton journal.", "other": "{count} parties ajoutées à ton journal."},
+"settings.riot.keyNotSaved": "Tu saisis ta clé toi-même : elle n'est pas enregistrée.",
+"error.import.unreadable": "Fichier illisible : rien n'a été modifié.",
+"literal.braces": "Les accolades {{ et }} s'écrivent doublées.",
+"native.menu.quit": "Quitter",
+"native.menu.settings": "Réglages",
+"native.dialog.updateAvailable": "La version {version} est disponible (tu as la {current}).\n\nDRAFT va la télécharger, la vérifier, puis redémarrer. Tes profils, ton historique et tes réglages sont conservés.\n\nInstaller maintenant ?",
+"native.riot.dialog.keyLabel": "Clé Riot (masquée, jamais enregistrée) :",
+"native.history.status.progress": "Import de l'historique : {done} sur {total} parties",
+"native.phase.draft": "Draft en cours (estimation)",
+"native.only.fr": "Clé présente seulement en français (test du repli)"
+};
