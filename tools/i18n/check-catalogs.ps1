@@ -1,4 +1,4 @@
-# Vérifie des catalogues de traduction (format : docs/i18n/FORMAT-CATALOGUE.md ; tests : docs/i18n/TESTS.md).
+﻿# Vérifie des catalogues de traduction (format : docs/i18n/FORMAT-CATALOGUE.md ; tests : docs/i18n/TESTS.md).
 # Contrôles : forme « window.DRAFT_I18N_XX = {objet JSON}; » précédée seulement de commentaires « // », une clé par ligne,
 # pas de clé en double, noms de clés, pas de HTML, valeurs non vides, mêmes clés que la référence,
 # mêmes {variables} par clé, formes de pluriel requises par la langue, longueurs maximales par emplacement.

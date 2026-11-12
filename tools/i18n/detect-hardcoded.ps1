@@ -1,4 +1,4 @@
-# Détecteur de textes visibles écrits en dur (préparation de l'internationalisation, voir docs/i18n/TESTS.md).
+﻿# Détecteur de textes visibles écrits en dur (préparation de l'internationalisation, voir docs/i18n/TESTS.md).
 # Lit web/*.js, web/index.html et src/*.cs, sans rien modifier, sans réseau, sans exécuter la page.
 # Une chaîne est « candidate » si elle ressemble à un texte montré au joueur : lettres accentuées, au moins deux mots,
 # texte entre balises d'un gabarit html``, attribut title / aria-label / placeholder, ou argument d'un appel d'affichage
