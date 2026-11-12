@@ -813,7 +813,7 @@ public static class Autostart
             importer.Progress = (done, total, account) =>
             {
                 if (done % 5 != 0 && done != total) return;
-                ui.Post(_ => { if (historyCts != null && !historyCts.IsCancellationRequested) { historyStatus = new Msg("native.history.progress", "done", done, "total", total); RefreshUi(); } }, null);
+                ui.Post(_ => { if (historyCts != null && !historyCts.IsCancellationRequested) { historyStatus = new Msg("native.history.progress", "done", done, "count", total); RefreshUi(); } }, null);
             };
             HistoryImportResult r = await Task.Run(() => importer.Run(cts.Token));
             historyCts = null;
@@ -936,7 +936,7 @@ public static class Autostart
             {
                 if (done - shown < 10 && done < total) return;
                 shown = done;
-                ui.Post(_ => { if (rolesCts == null || rolesCts.IsCancellationRequested) return; rolesStatus = new Msg(matchups ? "native.roles.progressMatchups" : "native.roles.progressRoles", "done", done, "total", total); RefreshUi(); }, null);
+                ui.Post(_ => { if (rolesCts == null || rolesCts.IsCancellationRequested) return; rolesStatus = new Msg(matchups ? "native.roles.progressMatchups" : "native.roles.progressRoles", "done", done, "count", total); RefreshUi(); }, null);
             };
             RoleUpdateResult r = await Task.Run(() => updater.Run(cts.Token));
             rolesCts = null;
@@ -950,9 +950,9 @@ public static class Autostart
                 ReloadRolesIfIdle();
             }
             rolesStatus = r.UpToDate ? new Msg(matchups ? "native.roles.upToDateMatchups" : "native.roles.upToDateRoles")
-                : r.Saved ? new Msg(matchups ? "native.roles.savedMatchups" : "native.roles.savedRoles", "games", r.Games, "champions", r.Champions)
+                : r.Saved ? new Msg(matchups ? "native.roles.savedMatchups" : "native.roles.savedRoles", "games", r.Games, "count", r.Champions)
                 : r.Error != null ? r.Error
-                : new Msg("native.roles.stoppedFew", "games", r.Games);
+                : new Msg("native.roles.stoppedFew", "count", r.Games);
             if (r.Saved && r.Error != null) rolesStatus = new Msg("native.status.join", "first", rolesStatus, "second", r.Error);
             if (r.Error != null && !r.Saved) riotQueueStopped = true;
             Notify(rolesStatus, r.Saved || r.UpToDate ? ToolTipIcon.Info : ToolTipIcon.Warning);
@@ -3399,15 +3399,17 @@ public static class Autostart
             t(Strings.Lang == "en" && MenuText.Open == "Open DRAFT" && Strings.T("native.update.downloading", "percent", 45) == "Downloading: 45%", "Langue : textes anglais du programme");
             t(new Msg("native.history.summary", "count", 1, "total", 3).ToString() == "1 game added, 3 in total." && new Msg("native.history.summary", "count", 0, "total", 3).ToString() == "0 games added, 3 in total.", "Langue : pluriel anglais (0 au pluriel)");
             t(new Msg("native.history.done", "summary", new Msg("native.history.summary", "count", 2, "total", 5)).ToString() == "Import complete: 2 games added, 5 in total.", "Langue : message dans un message");
+            t(new Msg("native.history.progress", "done", 1, "count", 1).ToString() == "Importing history: 1 of 1 game" && new Msg("native.roles.savedMatchups", "games", 200, "count", 1).ToString() == "Matchups updated: 200 games, 1 champion." && new Msg("native.history.rateLimit", "count", 1).ToString() == "Riot rate limit reached: resuming in 1 second. Nothing is lost.", "Langue : singulier anglais des états du programme");
             Strings.Use("fr");
             t(new Msg("native.history.done", "summary", new Msg("native.history.summary", "count", 0, "total", 5)).ToString() == "Import terminé : 0 partie ajoutée, 5 au total.", "Langue : pluriel français (0 au singulier), texte identique à avant");
+            t(new Msg("native.history.rateLimit", "count", 1).ToString() == "Limite de requêtes de Riot atteinte : reprise dans 1 seconde. Rien n'est perdu." && new Msg("native.roles.stoppedFew", "count", 1).ToString() == "Calcul arrêté : 1 partie, trop peu pour remplacer les données actuelles." && new Msg("native.history.progress", "done", 40, "count", 120).ToString() == "Import de l'historique : 40 sur 120 parties", "Langue : singulier français des états du programme, pluriel inchangé");
             Dictionary<string, object> json = new Msg("native.history.done", "summary", new Msg("native.history.summary", "count", 2, "total", 5)).Json();
             t((string)json["key"] == "native.history.done" && ((Dictionary<string, object>)json["vars"])["summary"] is Dictionary<string, object>, "Langue : un état est envoyé à la page en { key, vars }");
             // Repli : clé absente en anglais -> français, signalé ; absente partout -> [clé].
             Strings.Missing.Clear();
             Strings.Load("en", code => code == "en" ? "window.DRAFT_I18N_EN = {\"native.menu.quit\":\"Quit\"};" : Strings.Embedded(code));
             t(Strings.Lang == "en" && Strings.T("native.menu.quit") == "Quit" && Strings.T("native.menu.open") == "Ouvrir DRAFT" && Strings.Missing.Contains("clé absente (en) : native.menu.open"), "Langue : clé absente en anglais, repli sur le français signalé en mode test");
-            t(Strings.T("native.cle.inconnue") == "[native.cle.inconnue]" && Strings.Missing.Contains("clé absente (fr) : native.cle.inconnue"), "Langue : clé absente partout, [clé] visible et signalée");
+            t(Strings.T("inconnue.cle.test") == "[inconnue.cle.test]" && Strings.Missing.Contains("clé absente (fr) : inconnue.cle.test"), "Langue : clé absente partout, [clé] visible et signalée");
             // Catalogue piégé : refusé, tout le programme reste en français.
             Strings.Missing.Clear();
             Strings.Load("en", code => code == "en" ? "window.DRAFT_I18N_EN = {\"native.menu.quit\":\"Quit\"}; fetch('https://exemple.test');" : Strings.Embedded(code));
