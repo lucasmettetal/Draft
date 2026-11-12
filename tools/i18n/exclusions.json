@@ -31,6 +31,10 @@
       "raison": "données Riot (Data Dragon)"
     },
     {
+      "motif": "web/draft-i18n.js",
+      "raison": "fonctions de traduction : seuls des messages du mode test pour le développeur (console)"
+    },
+    {
       "motif": "web/draft-role-sheet.js",
       "raison": "données (rôles habituels en lettres codées)"
     }
@@ -62,6 +66,21 @@
       "nom": "erreur-interne",
       "motif": "throw new Error\\(",
       "raison": "erreur JavaScript interne, jamais affichée (ex. RiotDraftProvider)"
+    },
+    {
+      "nom": "releve-validation",
+      "motif": "validation-report\\.ps1|CONFIDENCE_WORD",
+      "raison": "valeurs du relevé de validation (CSV) : colonnes et mots restent en français technique, lus par tools/validation-report.ps1"
+    },
+    {
+      "nom": "terme-coaching",
+      "motif": "terms:\\[",
+      "raison": "identifiants de termes du lexique (COACH_TERMS) : données, pas textes ; la définition affichée est dans le catalogue"
+    },
+    {
+      "nom": "demarrage-sans-page",
+      "motif": "getElementById\\(\"root\"\\)\\.innerHTML",
+      "raison": "message affiché avant React quand les fichiers de la page manquent : le catalogue peut lui-même manquer, il reste fixe"
     },
     {
       "nom": "catalogue",
@@ -131,6 +150,7 @@
       "Riot Games",
       "OP.GG",
       "Meraki",
+      "Meraki Analytics",
       "WebView2",
       "Microsoft Edge WebView2",
       "Ctrl+Alt+D",

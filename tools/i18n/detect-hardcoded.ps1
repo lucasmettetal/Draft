@@ -1,15 +1,16 @@
-﻿# Détecteur de textes visibles écrits en dur (préparation de l'internationalisation, voir docs/i18n/TESTS.md).
+# Détecteur de textes visibles écrits en dur (préparation de l'internationalisation, voir docs/i18n/TESTS.md).
 # Lit web/*.js, web/index.html et src/*.cs, sans rien modifier, sans réseau, sans exécuter la page.
 # Une chaîne est « candidate » si elle ressemble à un texte montré au joueur : lettres accentuées, au moins deux mots,
 # texte entre balises d'un gabarit html``, attribut title / aria-label / placeholder, ou argument d'un appel d'affichage
 # natif (MessageBox.Show, ToolStripMenuItem, ShowBalloonTip, Text = ...). Les exclusions sont dans exclusions.json.
-# Après l'extraction (I18N-1 à I18N-3), le garde-fou de CI sera : 0 chaîne candidate hors exclusions (-Max 0).
+# Garde-fou de CI : depuis I18N-1, 0 chaîne candidate hors exclusions dans web/ (-Only web/ -Max 0) ; src/ suit en I18N-3.
 # Exemples :
 #   tools\i18n\detect-hardcoded.ps1                         (résumé par fichier)
 #   tools\i18n\detect-hardcoded.ps1 -Detail                 (chaque chaîne, fichier:ligne)
 #   tools\i18n\detect-hardcoded.ps1 -Json sortie.json       (rapport machine)
 #   tools\i18n\detect-hardcoded.ps1 -Max 0                  (échoue s'il reste une chaîne en dur)
 #   tools\i18n\detect-hardcoded.ps1 -Baseline ancien.json -Max 0   (échoue seulement sur les chaînes nouvelles)
+#   tools\i18n\detect-hardcoded.ps1 -Only web/ -Max 0       (page seulement : garde-fou de CI depuis I18N-1 ; le natif suit en I18N-3)
 #   tools\i18n\detect-hardcoded.ps1 -SelfTest               (vérifie l'analyseur sur des cas écrits à la main)
 param(
   [string]$Root = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
@@ -19,7 +20,8 @@ param(
   [switch]$ShowExcluded,
   [int]$Max = -1,
   [string]$Baseline = '',
-  [switch]$SelfTest
+  [switch]$SelfTest,
+  [string]$Only = ''
 )
 $ErrorActionPreference = 'Stop'
 
@@ -412,6 +414,7 @@ function Invoke-Detector([string]$root) {
   $report = [ordered]@{ root = $root; date = (Get-Date).ToString('s'); fichiers = [ordered]@{}; chaines = @(); exclues = @() }
   foreach ($f in ($files | Sort-Object FullName -Unique)) {
     $rel = $f.FullName.Substring($root.Length).TrimStart('\', '/').Replace('\', '/')
+    if ($Only -and -not $rel.StartsWith($Only)) { continue }
     $skip = $cfg.fichiersIgnores | Where-Object { Test-Like $rel $_.motif } | Select-Object -First 1
     if ($skip) { $report.fichiers[$rel] = [ordered]@{ ignore = $skip.raison }; continue }
     $text = [IO.File]::ReadAllText($f.FullName)

@@ -1,5 +1,7 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests I18N-0</title></head><body><pre id="out"></pre>
-<!-- I18N-0 : fonctions de traduction (draft-i18n.js) sur un catalogue de test, puis la vraie page en mode test (&i18ncheck=1). -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests I18N</title></head><body><pre id="out"></pre>
+<!-- I18N-0 : fonctions de traduction (draft-i18n.js) sur un catalogue de test, puis la vraie page en mode test (&i18ncheck=1).
+     I18N-1 : pluriels du vrai catalogue comparés aux anciennes formules (0, 1, 2, 3, 5, 21), repli et mode test sur la vraie page,
+     aucune clé ni variable manquante dans chaque vue. -->
 <!-- Lancement : tools\run-v215-tests.ps1 -Page draft-i18n-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
 <script>
 const res={ok:0,ko:[],notes:{}};const t0=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
@@ -20,8 +22,50 @@ const parts=tx("test.overtakes",{champion:{b:"Ahri"},other:"Zed"});t0(parts.leng
 t0(t("nexiste.pas")==="[nexiste.pas]"&&I18N.missing().some(m=>m.includes("nexiste.pas")),"clé absente : [clé] visible et relevée");
 t0(t("test.play",{})==="Je joue {champion}"&&I18N.missing().some(m=>m.includes("variable absente : champion")),"variable absente : visible et relevée");
 t0(Object.isFrozen(I18N),"I18N ne peut pas être modifié par un autre script");
-// La vraie page : catalogue chargé, aucune clé manquante, anglais non sélectionnable.
-for(const q of ["?x=1&i18ncheck=1","?x=1&i18ncheck=1&lang=en","?panel=right&i18ncheck=1"]){
+// I18N-1 : les pluriels du vrai catalogue donnent exactement les anciens textes (formules d'avant l'extraction, recopiées).
+const real=await new Promise(r=>{const f=document.createElement("iframe");f.src="index.html?i18ncheck=1";f.onload=()=>r(f);document.body.appendChild(f);});
+await wait(300);const R=real.contentWindow.I18N;
+const s=n=>n>1?"s":"";
+const OLD=[
+ ["draft.seen",{},n=>`${n} champion${s(n)} vu${s(n)}`],
+ ["journal.import.added",{},n=>`${n} partie${n>1?"s ajoutées":" ajoutée"} à ton journal.`],
+ ["analysis.incomplete",{},n=>`Draft incomplète : ${n} adversaire${s(n)} sur 5.`],
+ ["advice.tie.more",{},n=>`Et ${n} autre${s(n)} dans Analyse.`],
+ ["role.switch.title",{role:"Mid"},n=>`Mid : ${n} champion${s(n)}`],
+ ["data.summary.stale",{},n=>`${n} ancienne${s(n)}`],
+ ["data.summary.missing",{},n=>`${n} pas encore disponible${s(n)}`],
+ ["coach.names.more",{names:"A, B, C"},n=>`A, B, C et ${n} autre${n+3>4?"s":""}`],
+ ["coach.reason.more",{text:"2 x : A"},n=>`2 x : A et ${n} autre${s(n)}`],
+ ["coach.draft.incomplete.title",{},n=>`Il reste ${n} adversaire${s(n)} à voir`],
+ ["coach.draft.incomplete.l2",{},n=>`La lecture de la composition se fait sur ${n} champion${s(n)} seulement : les comptes de frontline et de CC peuvent encore bouger.`],
+ ["coach.draft.incomplete.l3",{},n=>`Les critères à seuil ne se déclenchent pas encore tous, et ${n} rôle${n>1?"s restent":" reste"} ouvert${s(n)} dans le calcul des hypothèses.`],
+ ["coach.limits.opponentAssumed.l2thin",{},n=>`Hypothèse avec ${n} champion${s(n)} vu${s(n)} : déduit des rôles habituels. Une correction change le matchup pris en compte.`],
+ ["coach.limits.opponentAssumed.l3thin",{},n=>`Déduction probabiliste sur les rôles habituels (hypothèse, ${n} champion${s(n)} vu${s(n)}), jamais une donnée du client. Sa qualité dépend de l'âge des données de rôles.`],
+ ["coach.personal.tooFew.l1",{},n=>`${n} partie${s(n)} sur ce champion : trop peu pour dire comment ce champion te réussit.`],
+ ["coach.personal.tooFew.l2",{min:30},n=>`${n} partie${s(n)} : aucune tendance personnelle n'est tirée sous 30 parties.`],
+ ["mastery.uncertainty.incomplete.title",{},n=>`Il reste ${n} adversaire${s(n)} à voir`],
+ ["mastery.experience.games",{champion:"Ahri"},n=>`${n} partie${s(n)} sur Ahri dans ce rôle.`],
+ ["mastery.experience.gamesRecent",{champion:"Ahri",recent:4},n=>`${n} partie${s(n)} sur Ahri dans ce rôle, dont 4 ces 30 derniers jours.`],
+ ["mastery.uncertainty.smallSample.title",{champion:"Ahri"},n=>`${n} partie${s(n)} sur Ahri : trop peu pour conclure`],
+ ["mastery.uncertainty.smallSample.l1",{games:9},n=>`${n} victoire${s(n)} sur 9 : trop peu pour savoir si ce champion te réussit.`],
+ ["mastery.uncertainty.changed.text",{label:"Refonte"},n=>`Refonte : ${n} partie${s(n)} seulement depuis. Ton expérience passée n'est peut-être plus aussi utile.`],
+ ["mastery.uncertainty.opponentUnknown.l2",{champion:"Ahri"},n=>`${n} rencontre${s(n)} avec Ahri dans ton historique.`],
+ ["mastery.uncertainty.opponentUnknown.l3",{},n=>`${n} rencontre${s(n)} sur ce couple : aucune tendance personnelle n'est tirée.`],
+ ["mastery.compromise.severalFamiliar",{champions:"A et B"},n=>` A et B ${n>1?"sont":"est"} presque au même niveau d'expérience.`],
+ ["engine.blind.safe",{total:24},n=>`Sûr en blind, mauvais dans ${n} matchup${s(n)} sur 24 du tableau`],
+ ["engine.blind.risky",{total:24},n=>`Risqué en blind, mauvais dans ${n} matchup${s(n)} sur 24 du tableau`]
+];
+let plural=0;
+for(const [key,vars,old] of OLD)for(const n of [0,1,2,3,5,21]){const got=R.tp(key,n,vars),want=old(n);plural++;t0(got===want,`pluriel ${key} (${n}) : « ${got} » au lieu de « ${want} »`);}
+// Écart de score en décimal : l'ancien code mettait « s » à partir de 2 (Math.abs(gap) >= 2), comme la règle française.
+for(const g of [0,0.5,1,1.5,1.99,2,2.5,-3]){const dec=g.toFixed(1).replace(".",",");const got=R.tp("mastery.compromise.gap.l3",Math.abs(g),{gap:dec,champions:"A",threshold:2});const want=`Écart de score de ${dec} point${Math.abs(g)>=2?"s":""} en faveur de A (seuil de 2 pour un choix net). Aucune conversion entre parties jouées et points : c'est à toi de trancher.`;plural++;t0(got===want,`pluriel décimal (${g}) : « ${got} »`);}
+res.notes.pluriels=plural;
+// Repli : une clé absente reste visible ([clé]) ; une variable absente reste {nom} ; tout est relevé en mode test.
+t0(R.t("cle.inconnue.test")==="[cle.inconnue.test]"&&R.missing().some(m=>m.includes("cle.inconnue.test")),"vraie page : clé absente visible et relevée en mode test");
+t0(R.t("coach.list.and",{first:"A"})==="A et {last}"&&R.missing().some(m=>m.includes("variable absente : last")),"vraie page : variable absente visible et relevée");
+real.remove();
+// La vraie page : catalogue chargé, aucune clé manquante, anglais et pseudo-langue non sélectionnables.
+for(const q of ["?x=1&i18ncheck=1","?x=1&i18ncheck=1&lang=en","?x=1&lang=qps","?x=1&i18ncheck=1&lang=qps","?panel=right&i18ncheck=1","?panel=left&i18ncheck=1","?panel=compact&i18ncheck=1","?panel=full&view=pool&i18ncheck=1","?panel=full&view=stats&i18ncheck=1","?panel=full&view=sim&tab=coach&i18ncheck=1","?panel=full&view=settings&section=data&i18ncheck=1","?panel=full&view=settings&section=diag&i18ncheck=1"]){
   const f=document.createElement("iframe");f.width=1280;f.height=720;f.src="index.html"+q;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(500);const w=f.contentWindow;
   t0(!!w.I18N&&w.I18N.lang==="fr","page "+q+" : traduction chargée, français");
   t0(!!w.DRAFT_I18N_FR&&w.DRAFT_I18N_FR._meta&&w.DRAFT_I18N_FR._meta.lang==="fr","page "+q+" : catalogue français chargé");

@@ -969,7 +969,7 @@ if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof
   document.getElementById("root").innerHTML = '<p style="padding:24px;max-width:60ch">DRAFT ne peut pas démarrer : le dossier <b>draft-vendor</b> ou le fichier <b>draft-engine.js</b> est introuvable. Replace-les à côté de ce fichier, puis recharge la page.</p>';
   throw new Error("fichiers de DRAFT introuvables");
 }
-// Textes des nouveaux écrans : t(), tp() et tx() lisent web/i18n/fr.js (draft-i18n.js). Les textes existants n'y passent pas encore.
+// Tous les textes de la page : t(), tp() et tx() lisent web/i18n/fr.js (draft-i18n.js, chargé avant le moteur). Dates : fmtDate.
 const { t, tp, tx, fmtDate } = window.I18N;
 const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, boardKey: null };
 

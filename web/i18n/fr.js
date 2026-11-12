@@ -1,6 +1,7 @@
 // Catalogue français de DRAFT : langue de référence. Données seulement, relues comme du JSON strict (DataScripts.Canonical).
-// Format : docs/i18n/FORMAT-CATALOGUE.md. Une clé par ligne, triées par zone. Seuls les NOUVEAUX écrans y ajoutent leurs textes :
-// les textes existants restent dans le code jusqu'à leur extraction (I18N-1).
+// Format : docs/i18n/FORMAT-CATALOGUE.md. Une clé par ligne, triées par zone. Depuis I18N-1, tous les textes de la page y sont :
+// index.html (t, tp, tx) et le moteur (I18N.t, I18N.tp). Contrôle des clés et variables utilisées : tools/i18n/check-catalogs.ps1 -Code.
+// Messages de sécurité, à traduire mot pour mot : tools/i18n/securite.json. Les textes natifs (clés native.*) arrivent en I18N-3.
 window.DRAFT_I18N_FR = {
 "_meta": {"lang": "fr", "name": "Français", "version": 1},
 "nav.label": "Navigation principale",
