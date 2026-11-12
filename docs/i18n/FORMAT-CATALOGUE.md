@@ -135,3 +135,27 @@ Prototype : `tools/i18n/i18n-runtime.js` (non chargé par DRAFT).
 - Une clé n'est jamais construite (`"nav." + v`) : on écrit une table de clés complètes, pour que le contrôle les retrouve.
 - Pseudo-langue : `tools/run-layout-tests.ps1 -Lang qps` (copie de test seulement, jamais livrée ni proposée au joueur).
 - Assemblages gardés tels quels pour ne changer aucun mot, à revoir en I18N-2 : minuscule forcée en début de raison (`coachReason`, `scenarioText`), retrait de « contre {champion} » dans une raison du moteur, liste « {first} et {last} », séparateur « ou », « {count} parties » sans pluriel là où le texte actuel n'en a pas.
+
+## 9. État après I18N-2 (anglais complet, pas encore proposé)
+
+- `web/i18n/en.js` : toutes les clés de `fr.js` (1 325), mêmes `{variables}`, pluriels `one`/`other`. Chargé par une balise statique après `fr.js` ; relu par `DataScripts.Canonical` à l'extraction (`DRAFT_I18N_EN`), comme le français.
+- L'anglais **n'est pas sélectionnable** : `draft-i18n.js` ne l'ouvre qu'en mode test (`&lang=en&i18ncheck=1`). Le sélecteur arrive avec I18N-3.
+- Assemblages du § 8 résolus, sans changer un mot du français (relevé identique à `main`) :
+
+| Avant (I18N-1) | Après (I18N-2) |
+|---|---|
+| `role.at.*` (« au top ») inséré par `{roleAt}` | Une phrase complète par rôle : `engine.whenBetter.opponent.<rôle>`, `engine.plan.lane.unknown.<rôle>`, `enemy.row.toRole.<rôle>`, `draft.notice.opponent.<rôle>` (tables `OPP_KEYS`, `oppText()`) |
+| `enemy.row.add` « Ajouter{what} » + « ␣le {role} » | `enemy.row.add` « Ajouter {what} » + `enemy.row.addTarget.<rôle>` (« le Top », « l'ADC ») |
+| `list.orSeparator` « ␣ou␣ », `coach.list.and`, `mastery.list.and`, `", "` en dur | `list.or` « {a} ou {b} », `list.and` « {first} et {last} », `list.comma` ; fonctions `I18N.listOr`, `I18N.listAnd` |
+| `coachReason` relit « N … : A, B » dans le texte | Le moteur note les listes coupées à trois noms (`listedText`, `hiddenNames`) ; `coachReason` ne lit plus le texte |
+| `scenarioText` retire `engine.scenario.against` ; « ␣;␣ » en dur | Forme courte fournie par chaque règle qui nomme l'adversaire (`short`) ; `engine.scenario.join` « {first} ; {second} » |
+| Casse forcée par `charAt(0)` | `I18N.upperFirst`, `I18N.lowerFirst` (même règle en français et en anglais : sentence case) |
+| `coachNum`, `masteryDecimal`, `String(x).replace(".", ",")` | `I18N.fmtDecimal`, `I18N.fmtNumber` : virgule en français, point en anglais |
+| `frDate`, `frTime` (`fr-FR` en dur) | `I18N.fmtDate`, `I18N.fmtTime` : « 11/11/2026 », « 14:05 » ; anglais « Nov 11, 2026 », « 2:05 PM » |
+| « {count} parties » sans pluriel, `{count} {unit}`, « patch(s) conservé(s) » | Pluriels (`tp`) : `stats.old.imported`, `settings.data.history.count(On)`, `data.riotRoles.patches`, `data.line.observations` (sans `data.unit.games`), `coachTab.exp.*`, `coachTab.familiarValue`, `advice.familiar.line`, `coachTab.history.imported(On)`, `journal.dots.aria`. Le français garde exactement son texte (même forme `one` et `other`) ; corriger son singulier est une décision de style à part. |
+
+- Gardés, car complets dans les deux langues : `advice.change.trigger` (« {trigger} : » / « {trigger}: », étiquette en gras), `stats.record` (« {wins}V {losses}D » / « {wins}W {losses}L »), `coach.or`, `coach.orComma`.
+- Ailleurs, l'anglais évite l'accord d'un nom avec un nombre qui n'est pas `{count}` (« Won {wins} of {games} games »).
+- Textes natifs encore en français dans la page (`hostState` : phase, placement, mise à jour, import) : traduits par I18N-3 (clés `native.*`).
+- Contrôles : `check-catalogs.ps1 -Reference web\i18n\fr.js -Target web\i18n\en.js -Code . -Security tools\i18n\securite.json` (CI) ; relevé anglais `tools\extract-ui-messages.ps1 -Lang en -All` puis `tools\i18n\check-english.ps1` (clés absentes, français visible hors noms propres) ; `tools\run-layout-tests.ps1 -Lang en` (débordements réels, clés absentes, français visible) ; `draft-i18n-tests.html` (formats, listes, phrases par rôle, logique indépendante du texte, en français et en anglais).
+- Longueurs : `tools/i18n/longueurs.json` vise aussi les vrais emplacements serrés (badges, bouton « Je joue », onglets, rangs).
