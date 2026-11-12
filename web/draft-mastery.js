@@ -41,18 +41,18 @@ function importedHistory() {
 }
 
 // ---------- Complexité : cinq notions distinctes, et « inconnu » quand rien ne les mesure ----------
-const DIFFICULTY_LIMIT = "Note de Riot non documentée et parfois contredite par celle du client : une indication, pas une mesure.";
+const DIFFICULTY_LIMIT = I18N.t("mastery.difficulty.limit");
 function championComplexity(name) {
   const official = typeof CHAMPION_OFFICIAL !== "undefined" ? CHAMPION_OFFICIAL.champions[name] : null;
   // Riot publie 0 pour quelques champions : cela veut dire absent, pas facile.
   const note = official && official.difficulty > 0 ? official.difficulty : null;
   return {
     champion: name,
-    official: { value:note, scale:"1-10", source:"Riot, Data Dragon", version:official ? CHAMPION_OFFICIAL.version : null, status:note === null ? "unknown" : "known", limit:DIFFICULTY_LIMIT },
-    mechanical: { value:null, status:"unknown", limit:"Aucune source autorisée ne la mesure." },
+    official: { value:note, scale:"1-10", source:I18N.t("mastery.difficulty.source"), version:official ? CHAMPION_OFFICIAL.version : null, status:note === null ? "unknown" : "known", limit:DIFFICULTY_LIMIT },
+    mechanical: { value:null, status:"unknown", limit:I18N.t("mastery.difficulty.mechanicalLimit") },
     pickup: { tier: note === null ? null : note <= DIFFICULTY_ACCESSIBLE ? "accessible" : note < DIFFICULTY_DEMANDING ? "moderate" : "demanding", status:note === null ? "unknown" : "proxy",
-      limit:"Déduit de la seule note de Riot : ce n'est pas une mesure de la prise en main." },
-    curve: { value:null, status:"unmeasured", limit:"Aucune courbe de maîtrise mesurée. Il en faudrait une par champion, sur beaucoup de joueurs." }
+      limit:I18N.t("mastery.difficulty.pickupLimit") },
+    curve: { value:null, status:"unmeasured", limit:I18N.t("mastery.difficulty.curveLimit") }
   };
 }
 
@@ -122,7 +122,7 @@ function familiarityProfile(rows, options = {}) {
     e.trend = performanceTrend(g);
     e.kda = contextKda(g);
     const change = changes[e.champion];
-    e.changed = change && change.time ? { label:change.label || "Modifié", gamesSince:g.filter(x => (x.time || 0) >= change.time).length } : null;
+    e.changed = change && change.time ? { label:change.label || I18N.t("mastery.changed.default"), gamesSince:g.filter(x => (x.time || 0) >= change.time).length } : null;
     e.versus = {};
     g.forEach(x => (x.enemies || []).forEach(en => { const n = masteryName(en); if (n) e.versus[n] = (e.versus[n] || 0) + 1; }));
     delete e.games;
@@ -210,108 +210,108 @@ function mostFamiliar(rows) {
 
 // ---------- Présentation : théorie, expérience et incertitude restent séparées ----------
 const MASTERY_REVIEWED = "2026-11-05";
-const MASTERY_BASIS = { official:"Donnée officielle de Riot", measured:"Mesuré sur tes parties", smallSample:"Petit échantillon de tes parties", estimate:"Estimation", heuristic:"Règle écrite à la main", general:"Principe général" };
-const pluralGames = n => `${n} partie${n > 1 ? "s" : ""}`;
-const masteryPct = v => `${Math.round(v * 100)} %`;
+const MASTERY_BASIS = { official:I18N.t("mastery.basis.official"), measured:I18N.t("mastery.basis.measured"), smallSample:I18N.t("mastery.basis.smallSample"), estimate:I18N.t("mastery.basis.estimate"), heuristic:I18N.t("mastery.basis.heuristic"), general:I18N.t("mastery.basis.general") };
+// Nombres de parties : pluriels du catalogue (tp).
+const masteryPct = v => I18N.t("mastery.percent", { value: Math.round(v * 100) });
 const masteryDecimal = (v, n = 1) => v.toFixed(n).replace(".", ",");
 const masteryItem = (id, section, basis, title, text, limits, extra) => Object.assign({ id, section, title, text, basis, basisLabel:MASTERY_BASIS[basis], limits:limits || null, reviewed:MASTERY_REVIEWED, verification:"human" }, extra || {});
 const byLevel = (level, texts) => texts[Math.min(level, texts.length) - 1];
-const nameList = names => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
+const nameList = names => names.length < 2 ? names.join("") : I18N.t("mastery.list.and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1] });
 
 function theorySection(x) {
   const { top, level, opponent } = x, out = [];
   const best = top.reasons.filter(c => c.impact > 0 && c.text).sort((a, b) => b.impact - a.impact)[0];
-  if (x.names.length > 1) out.push(masteryItem("theory.tie", "theory", "heuristic", `Égalité : ${nameList(x.names)}`, byLevel(level, [
-    "Les règles de DRAFT ne les séparent pas dans cette draft.", "Même score sur la draft : ces règles ne permettent pas de les distinguer.", `Score identique (${masteryDecimal(top.score)}). L'ordre affiché ne porte aucune information.`]), "Ce n'est pas une preuve qu'ils se valent en jeu."));
-  if (best) out.push(masteryItem("theory.reason", "theory", "heuristic", `Pourquoi ${top.name} en théorie`, byLevel(level, [
-    `La raison principale : ${coachReason(signedText(best, 1) || best.text)}.`, `« ${best.label} » pèse le plus : ${coachReason(signedText(best, 1) || best.text)}.`, `Critère le plus lourd : « ${best.label} » (+${masteryDecimal(best.impact)}).`]), "Règle écrite à la main, pas une statistique."));
-  else if (!x.enemiesCount) out.push(masteryItem("theory.empty", "theory", "general", "Pas encore d'adversaire", "Sans adversaire visible, la théorie n'a presque rien à comparer.", null));
-  else out.push(masteryItem("theory.none", "theory", "heuristic", `${top.name} sur cette draft`, "Aucune règle ne le met particulièrement en avant ici.", "Les fiches sont écrites à la main et parfois incomplètes."));
+  if (x.names.length > 1) out.push(masteryItem("theory.tie", "theory", "heuristic", I18N.t("mastery.theory.tie.title", { champions: nameList(x.names) }), byLevel(level, [
+    I18N.t("mastery.theory.tie.l1"), I18N.t("mastery.theory.tie.l2"), I18N.t("mastery.theory.tie.l3", { score: masteryDecimal(top.score) })]), I18N.t("mastery.theory.tie.limit")));
+  if (best) out.push(masteryItem("theory.reason", "theory", "heuristic", I18N.t("mastery.theory.reason.title", { champion: top.name }), byLevel(level, [
+    I18N.t("mastery.theory.reason.l1", { reason: coachReason(signedText(best, 1) || best.text) }), I18N.t("mastery.theory.reason.l2", { criterion: best.label, reason: coachReason(signedText(best, 1) || best.text) }), I18N.t("mastery.theory.reason.l3", { criterion: best.label, impact: masteryDecimal(best.impact) })]), I18N.t("mastery.limit.rule")));
+  else if (!x.enemiesCount) out.push(masteryItem("theory.empty", "theory", "general", I18N.t("mastery.theory.empty.title"), I18N.t("mastery.theory.empty.text"), null));
+  else out.push(masteryItem("theory.none", "theory", "heuristic", I18N.t("mastery.theory.none.title", { champion: top.name }), I18N.t("mastery.theory.none.text"), I18N.t("mastery.theory.none.limit")));
   const worst = top.reasons.filter(c => c.impact <= -2).sort((a, b) => a.impact - b.impact)[0];
-  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", `Le risque de ${top.name}`, `${(signedText(worst, -1) || worst.text).charAt(0).toUpperCase()}${(signedText(worst, -1) || worst.text).slice(1)}.`, "Règle écrite à la main, pas une statistique."));
+  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", I18N.t("mastery.theory.risk.title", { champion: top.name }), I18N.t("mastery.sentence", { text: `${(signedText(worst, -1) || worst.text).charAt(0).toUpperCase()}${(signedText(worst, -1) || worst.text).slice(1)}` }), I18N.t("mastery.limit.rule")));
   const stat = providedMatchup(top.name, opponent, x.role);
   if (stat) {
-    out.push(masteryItem("theory.matchup-stat", "theory", "measured", `${top.name} contre ${opponent} : statistique externe`, byLevel(level, [
-      `Les statistiques sont ${stat.gap > 0 ? "plutôt favorables" : "plutôt défavorables"} sur ${stat.games} parties. Elles n'entrent pas dans le classement.`, `Écart ramené vers la référence : ${masteryDecimal(stat.gap * 100)} points, ${stat.games} parties, source ${stat.provider}.`, `Écart ${masteryDecimal(stat.gap * 100)} points, ${stat.games} parties, patch ${stat.patch || "inconnu"}, rang ${stat.rank || "inconnu"}, région ${stat.region || "inconnue"}, source ${stat.provider}.`]), "Ces joueurs peuvent connaître ce champion mieux que toi.", { provider:stat.provider, license:stat.license }));
-    if (stat.gap > 0 && (!top.familiarity || top.familiarity.count < FAMILIARITY_STEPS.learning)) out.push(masteryItem("theory.matchup-to-exploit", "theory", "estimate", "Favorable, mais à exploiter", `Ces statistiques supposent de savoir jouer ${top.name}. Aucune donnée ne dit quelle part de cet avantage revient à un joueur qui le découvre.`, "Statistiques non ajustées à ton expérience."));
+    out.push(masteryItem("theory.matchup-stat", "theory", "measured", I18N.t("mastery.theory.stat.title", { champion: top.name, opponent }), byLevel(level, [
+      I18N.t(stat.gap > 0 ? "mastery.theory.stat.l1.favorable" : "mastery.theory.stat.l1.unfavorable", { games: stat.games }), I18N.t("mastery.theory.stat.l2", { gap: masteryDecimal(stat.gap * 100), games: stat.games, provider: stat.provider }), I18N.t("mastery.theory.stat.l3", { gap: masteryDecimal(stat.gap * 100), games: stat.games, patch: stat.patch || I18N.t("mastery.unknown"), rank: stat.rank || I18N.t("mastery.unknown"), region: stat.region || I18N.t("mastery.unknownF"), provider: stat.provider })]), I18N.t("mastery.theory.stat.limit"), { provider:stat.provider, license:stat.license }));
+    if (stat.gap > 0 && (!top.familiarity || top.familiarity.count < FAMILIARITY_STEPS.learning)) out.push(masteryItem("theory.matchup-to-exploit", "theory", "estimate", I18N.t("mastery.theory.exploit.title"), I18N.t("mastery.theory.exploit.text", { champion: top.name }), I18N.t("mastery.theory.exploit.limit")));
   }
   // La difficulté enrichit le conseil, sans jamais changer le score.
   const tier = top.complexity.pickup.tier, note = top.complexity.official.value;
-  if (tier === "accessible" && (!top.familiarity || top.familiarity.count < FAMILIARITY_STEPS.learning)) out.push(masteryItem("theory.accessible", "theory", "official", `${top.name} paraît accessible`, byLevel(level, [
-    `Riot note sa difficulté ${note}/10 : ce champion peut convenir pour découvrir le rôle.`, `Note Riot ${note}/10. Cela ne dit rien de sa force dans cette draft.`, `Note Riot ${note}/10, sans effet sur le score.`]), DIFFICULTY_LIMIT));
-  if (tier === "demanding" && !top.learning && (!top.familiarity || top.familiarity.count < FAMILIARITY_STEPS.learning)) out.push(masteryItem("theory.demanding", "theory", "official", `${top.name} peut demander de la pratique`, byLevel(level, [
-    `Riot note sa difficulté ${note}/10 : il faut parfois plusieurs parties pour en tirer le meilleur. Si tu as envie de l'apprendre, c'est un choix valable.`, `Note Riot ${note}/10 : prévois un temps de prise en main si tu le découvres. Ce champion reste un choix valable.`, `Note Riot ${note}/10, sans effet sur le score. La vitesse d'apprentissage réelle n'est pas mesurée.`]), DIFFICULTY_LIMIT));
-  if (tier === null && !top.familiarity && CHAMPION_OFFICIAL.champions[top.name]) out.push(masteryItem("theory.difficulty-unknown", "theory", "official", `Difficulté de ${top.name} inconnue`, "Riot ne publie pas de note exploitable dans ces données. Ce n'est ni un signe de facilité, ni de difficulté.", null));
+  if (tier === "accessible" && (!top.familiarity || top.familiarity.count < FAMILIARITY_STEPS.learning)) out.push(masteryItem("theory.accessible", "theory", "official", I18N.t("mastery.theory.accessible.title", { champion: top.name }), byLevel(level, [
+    I18N.t("mastery.theory.accessible.l1", { note }), I18N.t("mastery.theory.accessible.l2", { note }), I18N.t("mastery.theory.difficulty.l3", { note })]), DIFFICULTY_LIMIT));
+  if (tier === "demanding" && !top.learning && (!top.familiarity || top.familiarity.count < FAMILIARITY_STEPS.learning)) out.push(masteryItem("theory.demanding", "theory", "official", I18N.t("mastery.theory.demanding.title", { champion: top.name }), byLevel(level, [
+    I18N.t("mastery.theory.demanding.l1", { note }), I18N.t("mastery.theory.demanding.l2", { note }), I18N.t("mastery.theory.demanding.l3", { note })]), DIFFICULTY_LIMIT));
+  if (tier === null && !top.familiarity && CHAMPION_OFFICIAL.champions[top.name]) out.push(masteryItem("theory.difficulty-unknown", "theory", "official", I18N.t("mastery.theory.difficultyUnknown.title", { champion: top.name }), I18N.t("mastery.theory.difficultyUnknown.text"), null));
   return out;
 }
 
 function experienceSection(x) {
   const { top, familiar, level, profile } = x, out = [];
   if (!profile || !profile.available) return out;
-  const describe = r => r.familiarity ? `${pluralGames(r.familiarity.count)} sur ${r.name} dans ce rôle${r.familiarity.recentGames ? `, dont ${r.familiarity.recentGames} ces 30 derniers jours` : ""}.` : `Aucune partie importée sur ${r.name} dans ce rôle.`;
+  const describe = r => r.familiarity ? I18N.tp(r.familiarity.recentGames ? "mastery.experience.gamesRecent" : "mastery.experience.games", r.familiarity.count, { champion: r.name, recent: r.familiarity.recentGames }) : I18N.t("mastery.experience.none", { champion: r.name });
   const same = familiar && familiar.row === top;
-  out.push(masteryItem("experience.strategic", "experience", top.familiarity && top.familiarity.count < RESULT_MIN_GAMES ? "smallSample" : "measured", `Ton expérience sur ${top.name}`, describe(top), top.familiarity ? "Le nombre de parties ne dit pas si tu joues bien ce champion." : "Tes parties plus anciennes ou dans d'autres modes ne sont pas visibles ici."));
-  if (familiar && !same) out.push(masteryItem("experience.familiar", "experience", "measured", `Le plus joué : ${familiar.row.name}`, describe(familiar.row), "Le plus joué n'est pas forcément celui qui te réussit le mieux."));
-  if (top.learning) out.push(masteryItem("experience.learning", "experience", "general", `Tu apprends ${top.name}`, "Tu l'as marqué en apprentissage : quelques parties plus difficiles sont normales.", null));
+  out.push(masteryItem("experience.strategic", "experience", top.familiarity && top.familiarity.count < RESULT_MIN_GAMES ? "smallSample" : "measured", I18N.t("mastery.experience.strategic.title", { champion: top.name }), describe(top), I18N.t(top.familiarity ? "mastery.experience.strategic.limit" : "mastery.experience.strategic.limitNone")));
+  if (familiar && !same) out.push(masteryItem("experience.familiar", "experience", "measured", I18N.t("mastery.experience.familiar.title", { champion: familiar.row.name }), describe(familiar.row), I18N.t("mastery.experience.familiar.limit")));
+  if (top.learning) out.push(masteryItem("experience.learning", "experience", "general", I18N.t("mastery.experience.learning.title", { champion: top.name }), I18N.t("mastery.experience.learning.text"), null));
   const e = top.familiarity;
-  if (e && e.resultGap !== null) out.push(masteryItem("experience.results", "experience", "measured", e.clear ? `Résultats de ${top.name} : écart à vérifier` : `Résultats de ${top.name} : pas d'écart net`, byLevel(level, [
-    `${e.wins} victoires sur ${e.count}, contre ${masteryPct(e.reference)} sur tes autres champions de ce rôle. ${e.clear ? "L'écart semble réel, mais d'autres raisons peuvent l'expliquer." : "L'écart peut venir du hasard."}`,
-    `${masteryPct(e.wins / e.count)} sur ${e.count} parties (intervalle ${masteryPct(e.interval[0])} à ${masteryPct(e.interval[1])}), contre ${masteryPct(e.reference)} sur tes autres champions.`,
-    `Écart ramené vers ta moyenne : ${e.resultGap >= 0 ? "+" : ""}${masteryDecimal(e.resultGap * 100)} points de pourcentage. Sans contrôle de la date, du matchup ou du niveau.`]), "Corrélation sur tes parties : pas une preuve de cause à effet."));
-  if (e && e.trend && (e.trend.status === "up" || e.trend.status === "down") && level >= 2) out.push(masteryItem("experience.trend", "experience", "measured", `${top.name} : résultats ${e.trend.status === "up" ? "en hausse" : "en baisse"}`, byLevel(level, ["", `${masteryPct(e.trend.older)} sur tes parties les plus anciennes, ${masteryPct(e.trend.newer)} sur les plus récentes.`, `${masteryPct(e.trend.older)} puis ${masteryPct(e.trend.newer)} (z = ${masteryDecimal(e.trend.z)}).`]), "Le niveau des parties et le patch peuvent aussi l'expliquer."));
+  if (e && e.resultGap !== null) out.push(masteryItem("experience.results", "experience", "measured", I18N.t(e.clear ? "mastery.experience.results.clear" : "mastery.experience.results.unclear", { champion: top.name }), byLevel(level, [
+    I18N.t(e.clear ? "mastery.experience.results.l1.clear" : "mastery.experience.results.l1.unclear", { wins: e.wins, count: e.count, reference: masteryPct(e.reference) }),
+    I18N.t("mastery.experience.results.l2", { rate: masteryPct(e.wins / e.count), count: e.count, low: masteryPct(e.interval[0]), high: masteryPct(e.interval[1]), reference: masteryPct(e.reference) }),
+    I18N.t("mastery.experience.results.l3", { gap: `${e.resultGap >= 0 ? "+" : ""}${masteryDecimal(e.resultGap * 100)}` })]), I18N.t("mastery.experience.results.limit")));
+  if (e && e.trend && (e.trend.status === "up" || e.trend.status === "down") && level >= 2) out.push(masteryItem("experience.trend", "experience", "measured", I18N.t(e.trend.status === "up" ? "mastery.experience.trend.up" : "mastery.experience.trend.down", { champion: top.name }), byLevel(level, ["", I18N.t("mastery.experience.trend.l2", { older: masteryPct(e.trend.older), newer: masteryPct(e.trend.newer) }), I18N.t("mastery.experience.trend.l3", { older: masteryPct(e.trend.older), newer: masteryPct(e.trend.newer), z: masteryDecimal(e.trend.z) })]), I18N.t("mastery.experience.trend.limit")));
   return out;
 }
 
 function uncertaintySection(x) {
   const { top, familiar, level, profile, result, opponent, enemiesCount } = x, out = [];
-  if (!profile || !profile.available) out.push(masteryItem("uncertainty.no-history", "uncertainty", "general", "Aucun historique importé", byLevel(level, [
-    "DRAFT ne sait pas ce que tu connais déjà : ce conseil ne porte que sur la draft.", "Sans import, aucune expérience n'est connue.", "L'absence d'historique n'est pas lue comme un manque d'expérience."]), null));
-  if (enemiesCount > 0 && enemiesCount < 5) out.push(masteryItem("uncertainty.incomplete", "uncertainty", "general", `Il reste ${5 - enemiesCount} adversaire${5 - enemiesCount > 1 ? "s" : ""} à voir`, "Ce conseil peut encore changer.", null));
+  if (!profile || !profile.available) out.push(masteryItem("uncertainty.no-history", "uncertainty", "general", I18N.t("mastery.uncertainty.noHistory.title"), byLevel(level, [
+    I18N.t("mastery.uncertainty.noHistory.l1"), I18N.t("mastery.uncertainty.noHistory.l2"), I18N.t("mastery.uncertainty.noHistory.l3")]), null));
+  if (enemiesCount > 0 && enemiesCount < 5) out.push(masteryItem("uncertainty.incomplete", "uncertainty", "general", I18N.tp("mastery.uncertainty.incomplete.title", 5 - enemiesCount), I18N.t("mastery.uncertainty.incomplete.text"), null));
   // Même échelle que l'interface : probable, ou hypothèse avec 1 ou 2 champions vus ; pas identifié, pas encore choisi.
   const thin = enemiesCount <= 2;
-  if (opponent && !result.manual && (thin || result.belief.confidence !== "high")) out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", thin ? `${oppName()} ? ${opponent}, hypothèse` : `${oppName()} d'en face : ${opponent} (probable)`, "DRAFT le déduit des rôles habituels. Si tu sais que c'est un autre champion, corrige-le.", "Ce n'est pas une information du client."));
+  if (opponent && !result.manual && (thin || result.belief.confidence !== "high")) out.push(masteryItem("uncertainty.opponent", "uncertainty", "estimate", I18N.t(thin ? "mastery.uncertainty.opponent.thin" : "mastery.uncertainty.opponent.probable", { role: oppName(), champion: opponent }), I18N.t("mastery.uncertainty.opponent.text"), I18N.t("mastery.uncertainty.opponent.limit")));
   if (enemiesCount > 0 && !opponent) {
     const named = result.belief.candidates.some(c => c.known && c.p >= .2);
-    out.push(masteryItem("uncertainty.no-opponent", "uncertainty", "estimate", `${oppName()} d'en face : ${!named && result.belief.unrevealed >= .2 ? "pas encore choisi" : "pas identifié"}`, "Le conseil ne peut pas encore porter sur un matchup précis.", null));
+    out.push(masteryItem("uncertainty.no-opponent", "uncertainty", "estimate", I18N.t(!named && result.belief.unrevealed >= .2 ? "mastery.uncertainty.noOpponent.notYet" : "mastery.uncertainty.noOpponent.unknown", { role: oppName() }), I18N.t("mastery.uncertainty.noOpponent.text"), null));
   }
-  if (opponent && !liveMatchup(top.pick, opponent) && !matchupOf(opponent) && !providedMatchup(top.name, opponent, x.role)) out.push(masteryItem("uncertainty.no-matchup", "uncertainty", "general", `${top.name} contre ${opponent} : aucune donnée`, "Ni statistique, ni tableau pour ce couple : le matchup n'entre pas dans ce conseil. Rien n'est estimé à sa place.", null));
+  if (opponent && !liveMatchup(top.pick, opponent) && !matchupOf(opponent) && !providedMatchup(top.name, opponent, x.role)) out.push(masteryItem("uncertainty.no-matchup", "uncertainty", "general", I18N.t("mastery.uncertainty.noMatchup.title", { champion: top.name, opponent }), I18N.t("mastery.uncertainty.noMatchup.text"), null));
   const e = top.familiarity;
-  if (e && e.count < RESULT_MIN_GAMES) out.push(masteryItem("uncertainty.small-sample", "uncertainty", "smallSample", `${pluralGames(e.count)} sur ${top.name} : trop peu pour conclure`, byLevel(level, [
-    `${e.wins} victoire${e.wins > 1 ? "s" : ""} sur ${e.count} : trop peu pour savoir si ce champion te réussit.`, `Intervalle à 95 % : ${masteryPct(e.interval[0])} à ${masteryPct(e.interval[1])}.`, `Intervalle à 95 % : ${masteryPct(e.interval[0])} à ${masteryPct(e.interval[1])}. Aucun résultat n'est interprété sous ${RESULT_MIN_GAMES} parties.`]), null));
+  if (e && e.count < RESULT_MIN_GAMES) out.push(masteryItem("uncertainty.small-sample", "uncertainty", "smallSample", I18N.tp("mastery.uncertainty.smallSample.title", e.count, { champion: top.name }), byLevel(level, [
+    I18N.tp("mastery.uncertainty.smallSample.l1", e.wins, { games: e.count }), I18N.t("mastery.uncertainty.smallSample.l2", { low: masteryPct(e.interval[0]), high: masteryPct(e.interval[1]) }), I18N.t("mastery.uncertainty.smallSample.l3", { low: masteryPct(e.interval[0]), high: masteryPct(e.interval[1]), min: RESULT_MIN_GAMES })]), null));
   [top, familiar && familiar.row].filter((r, i, l) => r && l.indexOf(r) === i).forEach(r => {
     const f = r.familiarity;
-    if (f && f.rusty) out.push(masteryItem(`uncertainty.rusty.${r.name}`, "uncertainty", "measured", `Pas de partie récente sur ${r.name}`, `Ta dernière partie importée dans ce rôle date de ${f.daysSince} jours. Le jeu a pu changer entre-temps.`, null));
-    if (f && f.changed && f.changed.gamesSince < FAMILIARITY_STEPS.learning) out.push(masteryItem(`uncertainty.changed.${r.name}`, "uncertainty", "estimate", `${r.name} a changé`, `${f.changed.label} : ${pluralGames(f.changed.gamesSince)} seulement depuis. Ton expérience passée n'est peut-être plus aussi utile.`, "La liste des changements est fournie à la main."));
+    if (f && f.rusty) out.push(masteryItem(`uncertainty.rusty.${r.name}`, "uncertainty", "measured", I18N.t("mastery.uncertainty.rusty.title", { champion: r.name }), I18N.t("mastery.uncertainty.rusty.text", { days: f.daysSince }), null));
+    if (f && f.changed && f.changed.gamesSince < FAMILIARITY_STEPS.learning) out.push(masteryItem(`uncertainty.changed.${r.name}`, "uncertainty", "estimate", I18N.t("mastery.uncertainty.changed.title", { champion: r.name }), I18N.tp("mastery.uncertainty.changed.text", f.changed.gamesSince, { label: f.changed.label }), I18N.t("mastery.uncertainty.changed.limit")));
   });
   if (opponent && profile && profile.available) {
     const note = championComplexity(opponent).official.value, seen = e && e.versus[opponent] || 0;
-    if (note !== null && note >= DIFFICULTY_DEMANDING && seen < DUEL_SEEN_GAMES) out.push(masteryItem("uncertainty.opponent-unknown", "uncertainty", "estimate", `${opponent} peut surprendre`, byLevel(level, [
-      `Ce matchup peut être difficile si tu ne connais pas ses compétences. Regarde ses sorts avant de lancer la partie.`, `${seen ? `${seen} rencontre${seen > 1 ? "s" : ""}` : "Aucune rencontre"} avec ${top.name} dans ton historique.`, `${seen} rencontre${seen > 1 ? "s" : ""} sur ce couple : aucune tendance personnelle n'est tirée.`]), "Tu as pu jouer ou rencontrer ce champion ailleurs."));
+    if (note !== null && note >= DIFFICULTY_DEMANDING && seen < DUEL_SEEN_GAMES) out.push(masteryItem("uncertainty.opponent-unknown", "uncertainty", "estimate", I18N.t("mastery.uncertainty.opponentUnknown.title", { champion: opponent }), byLevel(level, [
+      I18N.t("mastery.uncertainty.opponentUnknown.l1"), seen ? I18N.tp("mastery.uncertainty.opponentUnknown.l2", seen, { champion: top.name }) : I18N.t("mastery.uncertainty.opponentUnknown.l2None", { champion: top.name }), I18N.tp("mastery.uncertainty.opponentUnknown.l3", seen)]), I18N.t("mastery.uncertainty.opponentUnknown.limit")));
   }
   return out;
 }
 
 function compromiseOf(x) {
   const { best:top, familiar, level, names, profile, result, chosen } = x;
-  if (!top) return { kind:"none", text:"Aucun champion disponible dans ton pool." };
-  if (chosen && !names.includes(chosen.name)) return { kind:"chosen", text:`Tu regardes ${chosen.name}. La draft met plutôt en avant ${nameList(names)} : ton choix reste possible, voici ce qu'il implique.` };
-  if (!profile || !profile.available) return { kind:"no-history", text:"Sans historique, seule la lecture de la draft est disponible." };
-  if (!familiar) return { kind:"no-familiar", text:`Aucun champion de ce pool n'a au moins ${FAMILIAR_MIN_GAMES} parties dans ce rôle : seule la lecture de la draft est disponible.` };
-  const f = familiar.row.name, severalFamiliar = familiar.close.length ? ` ${nameList(familiar.close)} ${familiar.close.length > 1 ? "sont" : "est"} presque au même niveau d'expérience.` : "";
+  if (!top) return { kind:"none", text:I18N.t("mastery.compromise.none") };
+  if (chosen && !names.includes(chosen.name)) return { kind:"chosen", text:I18N.t("mastery.compromise.chosen", { champion: chosen.name, champions: nameList(names) }) };
+  if (!profile || !profile.available) return { kind:"no-history", text:I18N.t("mastery.compromise.noHistory") };
+  if (!familiar) return { kind:"no-familiar", text:I18N.t("mastery.compromise.noFamiliar", { min: FAMILIAR_MIN_GAMES }) };
+  const f = familiar.row.name, severalFamiliar = familiar.close.length ? I18N.tp("mastery.compromise.severalFamiliar", familiar.close.length, { champions: nameList(familiar.close) }) : "";
   // Le nom affiché peut être maintenu alors qu'un autre mène de peu : la lecture de la draft parle du vrai 1er.
   const lead = !chosen && x.lead ? x.lead : top, heads = !chosen && x.lead ? [x.lead.name].concat(x.lead.tiedWith) : names;
-  if (familiar.row === lead) return { kind:"same", text:`${f} ressort sur la draft, et c'est aussi ton champion le plus joué.${severalFamiliar}` };
+  if (familiar.row === lead) return { kind:"same", text:I18N.t("mastery.compromise.same", { champion: f, more: severalFamiliar }) };
   if (heads.includes(f) && heads.length > 1) {
     const near = familiar.close.filter(n => heads.includes(n));
     return { kind:"tie", tieBreak:result.tieBreak, text:near.length
-      ? `Égalité sur la draft entre ${nameList(heads)}, et ton expérience sur ${nameList([f].concat(near))} est proche. Rien ne les sépare : à toi de voir.`
-      : `Égalité sur la draft entre ${nameList(heads)}. ${f} est ton champion le plus joué : c'est un argument, à toi de voir.` };
+      ? I18N.t("mastery.compromise.tieNear", { champions: nameList(heads), near: nameList([f].concat(near)) })
+      : I18N.t("mastery.compromise.tie", { champions: nameList(heads), champion: f }) };
   }
   const gap = lead.score - familiar.row.score, big = gap >= HOLD_GAP, head = nameList(heads);
   return { kind:big ? "gap-large" : "gap-small", gap:+gap.toFixed(2), text:byLevel(level, [
-    big ? `La draft penche nettement vers ${head}. ${f} est simplement le champion que tu as le plus joué : à toi de peser.` : `La draft penche légèrement vers ${head}. ${f} est le champion que tu as le plus joué : les deux lectures se défendent.`,
-    `${big ? "Écart net" : "Écart faible"} sur la draft en faveur de ${head}. ${f} a plus de parties, ce qui ne prédit pas son efficacité ici.`,
-    `Écart de score de ${masteryDecimal(gap)} point${Math.abs(gap) >= 2 ? "s" : ""} en faveur de ${head} (seuil de ${HOLD_GAP} pour un choix net). Aucune conversion entre parties jouées et points : c'est à toi de trancher.`]) + severalFamiliar };
+    I18N.t(big ? "mastery.compromise.gapLarge.l1" : "mastery.compromise.gapSmall.l1", { champions: head, champion: f }),
+    I18N.t(big ? "mastery.compromise.gapLarge.l2" : "mastery.compromise.gapSmall.l2", { champions: head, champion: f }),
+    I18N.tp("mastery.compromise.gap.l3", Math.abs(gap), { gap: masteryDecimal(gap), champions: head, threshold: HOLD_GAP })]) + severalFamiliar };
 }
 
 // Point d'entrée de la présentation. Le classement renvoyé reste celui du moteur : rien n'est décidé à la place du joueur.
@@ -331,9 +331,9 @@ function playerChoices(input) {
   return {
     version:1, level:input.level || "beginner", role:result.role, opponent:result.opponent, confidence:result.manual ? "manuel" : result.belief.confidence,
     // Le meilleur choix de la draft, et lui seul : le score ne dépend ni du joueur, ni de la difficulté.
-    strategic:{ champions:names, score:+best.score.toFixed(2), tied:names.length > 1, label:names.length > 1 ? "Égalité sur la draft" : lead ? `Conseil affiché (${lead.name} mène de peu)` : "Meilleur choix pour la draft", source:MASTERY_BASIS.heuristic, leader:lead ? lead.name : null },
+    strategic:{ champions:names, score:+best.score.toFixed(2), tied:names.length > 1, label:names.length > 1 ? I18N.t("mastery.strategic.tie") : lead ? I18N.t("mastery.strategic.held", { champion: lead.name }) : I18N.t("mastery.strategic.best"), source:MASTERY_BASIS.heuristic, leader:lead ? lead.name : null },
     // Le plus joué : ce n'est pas une évaluation de performance.
-    familiar:familiar ? { champion:familiar.row.name, games:familiar.row.familiarity.count, recentGames:familiar.row.familiarity.recentGames, daysSince:familiar.row.familiarity.daysSince, rusty:familiar.row.familiarity.rusty, usefulExperience:+familiar.row.experience.toFixed(1), strategicRank:familiar.row.strategicRank + 1, close:familiar.close, label:"Le plus joué", source:MASTERY_BASIS.measured, isPerformance:false } : null,
+    familiar:familiar ? { champion:familiar.row.name, games:familiar.row.familiarity.count, recentGames:familiar.row.familiarity.recentGames, daysSince:familiar.row.familiarity.daysSince, rusty:familiar.row.familiarity.rusty, usefulExperience:+familiar.row.experience.toFixed(1), strategicRank:familiar.row.strategicRank + 1, close:familiar.close, label:I18N.t("mastery.familiar.label"), source:MASTERY_BASIS.measured, isPerformance:false } : null,
     explained:top.name, compromise:compromiseOf(x), tieBreak:result.tieBreak,
     theory:theorySection(x), experience:experienceSection(x), uncertainty:uncertaintySection(x),
     experienceTable:rows.map(r => ({ champion:r.name, games:r.familiarity ? r.familiarity.count : 0, recentGames:r.familiarity ? r.familiarity.recentGames : 0, daysSince:r.familiarity ? r.familiarity.daysSince : null, usefulExperience:+r.experience.toFixed(1) })),
