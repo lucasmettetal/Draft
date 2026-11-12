@@ -1078,6 +1078,7 @@
 <script src="draft-role-rates-live.js"></script>
 <script src="draft-matchups-live.js"></script>
 <script src="i18n/fr.js"></script>
+<script src="i18n/en.js"></script>
 <script src="draft-i18n.js"></script>
 <script src="draft-champions.js"></script>
 <script src="draft-role-sheet.js"></script>
@@ -1184,6 +1185,8 @@ function syncCurrentEntry() {
 let rerender = () => {};
 let V = null;
 const ROLE_LABEL = { top:t("role.name.top"), jungle:t("role.name.jungle"), mid:t("role.name.mid"), adc:t("role.name.adc"), support:t("role.name.support") };
+// « Ajouter le Top », « Ajouter l'ADC » : l'article change avec le rôle et la langue, d'où une clé complète par rôle.
+const ADD_TARGET_KEYS = { top:"enemy.row.addTarget.top", jungle:"enemy.row.addTarget.jungle", mid:"enemy.row.addTarget.mid", adc:"enemy.row.addTarget.adc", support:"enemy.row.addTarget.support" };
 
 // Les rôles affichés suivent la répartition la plus probable du calcul (likelyAssignment, tirée de roleBelief).
 // Ils servent à l'affichage ; seul l'adversaire direct influence le classement. L'adversaire affiché et les corrections sont respectés.
@@ -1544,7 +1547,7 @@ function setMid(name) {
   state.manualMid = name;
   state.selected = null;
   state.targetRole = null;
-  state.lastAction = t("draft.notice.opponent", { champion: name, roleAt: oppAt() });
+  state.lastAction = oppText("notice", { champion: name });
   state.notice = state.lastAction;
   commit();
   focusAdd();
@@ -1777,10 +1780,10 @@ function hypothesisText() {
   const notYet = h.notYet;
   const named = h.others;
   if (!h.main && !named.length) return t(unnamedState() === "unrevealed" ? "draft.hyp.unrevealed" : "draft.hyp.unidentified", { role: oppName() });
-  if (!h.main) return t(notYet ? "draft.hyp.unidentifiedNamesNotYet" : "draft.hyp.unidentifiedNames", { role: oppName(), names: named.join(t("list.orSeparator")) });
+  if (!h.main) return t(notYet ? "draft.hyp.unidentifiedNamesNotYet" : "draft.hyp.unidentifiedNames", { role: oppName(), names: I18N.listOr(named) });
   const rest = named.length ? (notYet ? "elseNotYet" : "else") : notYet ? "notYet" : "none";
   const level = opponentLevel();
-  const vars = { role: oppName(), champion: h.main, seen: seenText(V.n), level: OPPONENT_LEVEL_WORD[level], names: named.join(t("list.orSeparator")) };
+  const vars = { role: oppName(), champion: h.main, seen: seenText(V.n), level: OPPONENT_LEVEL_WORD[level], names: I18N.listOr(named) };
   if (level === "guess") return t({ none:"draft.hyp.guess", else:"draft.hyp.guessElse", elseNotYet:"draft.hyp.guessElseNotYet", notYet:"draft.hyp.guessNotYet" }[rest], vars);
   return t({ none:"draft.hyp.level", else:"draft.hyp.levelElse", elseNotYet:"draft.hyp.levelElseNotYet", notYet:"draft.hyp.levelNotYet" }[rest], vars);
 }
@@ -1818,10 +1821,10 @@ function RoleRow({ role, name, assumed, info }) {
         </span>
       <//>
       <span className="role-tools">
-        ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${t("enemy.row.toMid", { champion: name, roleAt: oppAt() })} onClick=${() => setMid(name)}>${oppName()}</button>` : null}
+        ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${oppText("toRole", { champion: name })} onClick=${() => setMid(name)}>${oppName()}</button>` : null}
         <button type="button" className="mini x" data-test="enemy-remove" aria-label=${t("enemy.row.remove", { champion: name })} onClick=${() => removeEnemy(name)}>×</button>
       </span>`
-    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? t("enemy.row.typeName") : tx("enemy.row.add", { what: html`<span className="em">${role === "adc" ? t("enemy.row.addAdc") : t("enemy.row.addRole", { role: ROLE_LABEL[role] })}</span>` })}</span>`}
+    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? t("enemy.row.typeName") : tx("enemy.row.add", { what: html`<span className="em">${t(ADD_TARGET_KEYS[role])}</span>` })}</span>`}
   </div>`;
 }
 
@@ -1987,7 +1990,7 @@ const FAMILIAR_HELP = t("advice.familiar.help");
 function FamiliarLine() {
   const c = coachData().choices;
   if (!c || !c.familiar) return null;
-  return html`<p className="familiar-line" title=${FAMILIAR_HELP}><span>${t("advice.familiar.label")}</span> ${t("advice.familiar.line", { champion: c.familiar.champion, count: c.familiar.games })}</p>`;
+  return html`<p className="familiar-line" title=${FAMILIAR_HELP}><span>${t("advice.familiar.label")}</span> ${tp("advice.familiar.line", c.familiar.games, { champion: c.familiar.champion })}</p>`;
 }
 
 function AdviceItem({ item }) {
@@ -2018,13 +2021,13 @@ function CoachTab() {
     <p className="small coach-level-note" data-test="coach-level-note">${t("sim.coachLevel", { level:LEVEL_NAMES[PREFS.coachLevel] || LEVEL_NAMES.beginner })} <button type="button" className="link-btn" data-test="coach-level-change" onClick=${() => goView("settings", "general")}>${t("sim.coachLevelChange")}</button></p>
     ${choices ? html`<section className="choice-block" aria-label=${t("coachTab.choiceLabel")}>
       <div className="choice-row"><span>${choices.strategic.label}</span><b>${choices.strategic.champions.join(", ")}</b></div>
-      <div className="choice-row" title=${FAMILIAR_HELP}><span>${t("coachTab.familiar")}</span><b>${choices.familiar ? t("coachTab.familiarValue", { champion: choices.familiar.champion, count: choices.familiar.games }) : t("coachTab.notEnough")}</b></div>
+      <div className="choice-row" title=${FAMILIAR_HELP}><span>${t("coachTab.familiar")}</span><b>${choices.familiar ? tp("coachTab.familiarValue", choices.familiar.games, { champion: choices.familiar.champion }) : t("coachTab.notEnough")}</b></div>
       <p className="small">${choices.compromise.text}</p>
     </section>` : null}
     ${played.length ? html`<h3>${t("coachTab.experience")}</h3>
-      <ul className="exp-list">${played.map(r => html`<li key=${r.champion}><b>${r.champion}</b> ${t(r.recentGames ? "coachTab.exp.gamesRecent" : r.daysSince !== null ? "coachTab.exp.gamesLast" : "coachTab.exp.games", { count: r.games, recent: r.recentGames, days: r.daysSince })}</li>`)}</ul>
+      <ul className="exp-list">${played.map(r => html`<li key=${r.champion}><b>${r.champion}</b> ${tp(r.recentGames ? "coachTab.exp.gamesRecent" : r.daysSince !== null ? "coachTab.exp.gamesLast" : "coachTab.exp.games", r.games, { recent: r.recentGames, days: r.daysSince })}</li>`)}</ul>
       ${unplayed.length ? html`<p className="small">${t("coachTab.unplayed", { champions: unplayed.join(", ") })}</p>` : null}` : null}
-    <p className="small">${info ? t(info.generated ? "coachTab.history.importedOn" : "coachTab.history.imported", { date: info.generated ? fmtDate(info.generated) : "", count: info.rows.length }) : t("coachTab.history.none")} ${t("coachTab.history.note")}</p>
+    <p className="small">${info ? tp(info.generated ? "coachTab.history.importedOn" : "coachTab.history.imported", info.rows.length, { date: info.generated ? fmtDate(info.generated) : "" }) : t("coachTab.history.none")} ${t("coachTab.history.note")}</p>
     ${checked.length ? html`<h3>${t("coachTab.checked")}</h3><ul className="advice-list">${checked.map(i => html`<${AdviceItem} key=${i.id} item=${i} />`)}</ul>` : null}
     ${toConfirm.length ? html`<h3>${t("coachTab.toConfirm")}</h3>
       <p className="small">${t("coachTab.toConfirmNote")}</p>
@@ -2382,7 +2385,7 @@ const StatsTable = ({ title, groups }) => html`<div>
 function StatsTab() {
   if (!STAT_ROWS.length) return html`<p className="small" data-test="stats-empty">${t("stats.old.empty")}</p>`;
   return html`<div>
-    <p className="small">${t("stats.old.imported", { date: fmtDate(STATS.generated), count: STAT_ROWS.length })}</p>
+    <p className="small">${tp("stats.old.imported", STAT_ROWS.length, { date: fmtDate(STATS.generated) })}</p>
     ${groupRows(STAT_ROWS, r => r.acct).map(account => {
       const offPool = account.rows.filter(r => !inPool(r.champ));
       return html`<div key=${account.name}>
@@ -2410,7 +2413,7 @@ function JournalTab() {
   const other = tally(played.filter(x => x.picked !== x.suggested));
   return html`<div>
     ${played.length ? html`<h3>${t("journal.recent")}</h3>
-      <div className="history" role="img" aria-label=${t("journal.dots.aria", { wins: played.filter(x => x.result === "win").length, count: played.length })}>
+      <div className="history" role="img" aria-label=${tp("journal.dots.aria", played.length, { wins: played.filter(x => x.result === "win").length })}>
         ${played.slice(-20).map((x, i) => html`<${motion.span} key=${x.id} className=${`game ${x.result}`} title=${t(x.result === "win" ? "journal.dot.win" : "journal.dot.loss", { champion: label(x.picked) })} initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${{ ...QUICK, delay:i * .012 }}><//>`)}
       </div>
       <${WinBars} title=${t("stats.byChampion.title")} groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
@@ -2445,7 +2448,7 @@ const RulesTab = () => html`<div>
   <h3>${t("rules.weights.title")}</h3>
   <p className="small">${t("rules.weights.text")}</p>
   <table><thead><tr><th>${t("analysis.matrix.criterion")}</th><th>${t("rules.weights.weight")}</th><th>${t("rules.weights.source")}</th></tr></thead><tbody>
-    ${CRITERIA.map(c => html`<tr key=${c.key}><td>${c.label}</td><td>${String(c.weight).replace(".", ",")}</td><td>${c.source}</td></tr>`)}
+    ${CRITERIA.map(c => html`<tr key=${c.key}><td>${c.label}</td><td>${I18N.fmtNumber(c.weight)}</td><td>${c.source}</td></tr>`)}
   </tbody></table>
   <h3>${t("rules.sources.title")}</h3>
   <ul className="plain">
@@ -2722,7 +2725,7 @@ function DataSources() {
     <summary>${stale && missing ? t("data.summary.two", { a: tp("data.summary.stale", stale), b: tp("data.summary.missing", missing) }) : stale || missing ? t("data.summary.one", { a: stale ? tp("data.summary.stale", stale) : tp("data.summary.missing", missing) }) : t("data.summary.title")}</summary>
     <ul className="data-list">${report.map(r => html`<li key=${r.id} className=${r.available ? "" : "off"}>
       <b>${r.label}</b> <span className="data-kind">${r.kindLabel}</span>${r.stale ? html` <span className="data-old">${t("data.old")}</span>` : null}${r.available ? null : html` <span className="data-old">${t("data.notYet")}</span>`}
-      <p>${[t("data.line.source", { source: r.source }), !r.available || r.kind === "heuristic" ? "" : t(r.stale ? "data.line.patchOld" : "data.line.patch", { patch: r.patch || t("data.unknown"), age: r.age }), r.collected ? t("data.line.date", { date: dateOf(r.collected) }) : "", !r.available || r.kind === "official" || r.kind === "heuristic" ? "" : r.games === null ? t("data.line.notMeasured") : t("data.line.observations", { count: r.games, unit: r.unit }), r.region ? t("data.line.region", { region: r.region }) : "", r.rank ? t("data.line.rank", { rank: r.rank }) : "", r.uncertainty ? t("data.line.uncertainty", { level: r.uncertainty }) : ""].filter(Boolean).join(" ")}</p>
+      <p>${[t("data.line.source", { source: r.source }), !r.available || r.kind === "heuristic" ? "" : t(r.stale ? "data.line.patchOld" : "data.line.patch", { patch: r.patch || t("data.unknown"), age: r.age }), r.collected ? t("data.line.date", { date: dateOf(r.collected) }) : "", !r.available || r.kind === "official" || r.kind === "heuristic" ? "" : r.games === null ? t("data.line.notMeasured") : tp("data.line.observations", r.games), r.region ? t("data.line.region", { region: r.region }) : "", r.rank ? t("data.line.rank", { rank: r.rank }) : "", r.uncertainty ? t("data.line.uncertainty", { level: r.uncertainty }) : ""].filter(Boolean).join(" ")}</p>
       <p>${r.note}${r.available ? ` ${r.terms}` : ""}</p>
     </li>`)}</ul>
     ${changes.length ? html`<h3>${t("data.roleChanges")}</h3>
@@ -2812,8 +2815,9 @@ function storeOnboarding(change) {
   try { localStorage.setItem(ONBOARDING_KEY, JSON.stringify(Object.assign(onboarding(), change))); } catch (e) {}
   rerender();
 }
-const frDate = d => new Date(d).toLocaleDateString("fr-FR");
-const frTime = d => new Date(d).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+// Dates et heures selon la langue (draft-i18n.js) : en français, rendu identique à avant.
+const frDate = d => fmtDate(d);
+const frTime = d => I18N.fmtTime(d);
 // État de la lecture du client : « browser » hors application, « unavailable » si la version l'a coupée.
 function leagueState() {
   if (!hostState.available) return "browser";
@@ -3277,7 +3281,7 @@ function SettingsSection({ id }) {
   if (id === "data") return html`<div>
     ${host ? html`<div>
       <h3>${t("settings.data.history.title")}</h3>
-      <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? t(window.DRAFT_HISTORY.generated ? "settings.data.history.countOn" : "settings.data.history.count", { count: window.DRAFT_HISTORY.rows.length, date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "" }) : t("settings.data.history.none")} ${t("settings.data.history.note")}</p>
+      <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? tp(window.DRAFT_HISTORY.generated ? "settings.data.history.countOn" : "settings.data.history.count", window.DRAFT_HISTORY.rows.length, { date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "" }) : t("settings.data.history.none")} ${t("settings.data.history.note")}</p>
       ${hostState.historyStatus ? html`<p className="small" role="status">${hostState.historyStatus}</p>` : null}
       <p className="set-row">
         <button type="button" className="ghost-btn" data-test="import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? t("stats.history.stop") : hostState.historyHasMore ? t("stats.history.more") : t("stats.history.import")}</button>

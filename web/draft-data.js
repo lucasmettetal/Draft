@@ -70,10 +70,10 @@ function describeRiotRoles() {
   const newest = dated[0];
   const noPatch = buckets.every(b => !b.patch);
   return {
-    available:true, patch: noPatch ? null : newest.patch, collected: live.updated, games: buckets.reduce((sum, b) => sum + (b.games || 0), 0), unit:I18N.t("data.unit.games"),
+    available:true, patch: noPatch ? null : newest.patch, collected: live.updated, games: buckets.reduce((sum, b) => sum + (b.games || 0), 0),
     region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:I18N.t("data.rank.silverEmerald"), age: newest.age,
     uncertainty: I18N.t(newest.age === null || newest.age >= STALE_PATCHES ? "data.uncertainty.high" : "data.uncertainty.medium"),
-    note: noPatch ? I18N.t("data.riotRoles.noPatch") : I18N.t("data.riotRoles.patches", { count: buckets.length })
+    note: noPatch ? I18N.t("data.riotRoles.noPatch") : I18N.tp("data.riotRoles.patches", buckets.length)
   };
 }
 
@@ -139,7 +139,7 @@ const DATA_PROVIDERS = [
       const buckets = riotMatchupBuckets();
       const dated = buckets.map(b => ageOf(b.patch, b.collected)).filter(x => x.age !== null).map(x => x.age);
       const age = dated.length ? Math.min(...dated) : null;
-      return { available:true, patch: Object.keys(live.patches || {}).sort((a, b) => (patchIndex(b) || 0) - (patchIndex(a) || 0))[0] || null, collected:live.updated, games:live.games, unit:I18N.t("data.unit.games"), age,
+      return { available:true, patch: Object.keys(live.patches || {}).sort((a, b) => (patchIndex(b) || 0) - (patchIndex(a) || 0))[0] || null, collected:live.updated, games:live.games, age,
         region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:I18N.t("data.rank.silverEmerald"), uncertainty: I18N.t(age === null || age >= STALE_PATCHES ? "data.uncertainty.high" : "data.uncertainty.medium"),
         note:I18N.t("data.riotMatchups.note", { role: ROLE_NAMES[live.role || "mid"], min: MATCHUP_MIN_GAMES }) };
     }
@@ -160,7 +160,7 @@ const DATA_PROVIDERS = [
     describe() {
       const stats = window.DRAFT_HISTORY || window.DRAFT_STATS;
       if (!stats || !Array.isArray(stats.rows)) return { available:false, note:I18N.t("data.personal.none") };
-      return { available:true, collected: stats.generated, games: stats.rows.length, unit:I18N.t("data.unit.games"), uncertainty:I18N.t("data.uncertainty.high"), note:I18N.t("data.personal.note") };
+      return { available:true, collected: stats.generated, games: stats.rows.length, uncertainty:I18N.t("data.uncertainty.high"), note:I18N.t("data.personal.note") };
     }
   }
 ];
@@ -174,7 +174,7 @@ function dataReport() {
     return {
       id:p.id, label:p.label, kind:p.kind, kindLabel:KIND_LABELS[p.kind], provides:p.provides, source:p.source, terms:p.terms,
       available:!!d.available, patch:d.patch || null, collected:d.collected || null, region:d.region || null, rank:d.rank || null,
-      games: typeof d.games === "number" ? d.games : null, unit:d.unit || "", uncertainty:d.uncertainty || null, note:d.note || "",
+      games: typeof d.games === "number" ? d.games : null, uncertainty:d.uncertainty || null, note:d.note || "",
       stale: typeof d.age === "number" && d.age >= STALE_PATCHES, age: typeof d.age === "number" ? d.age : null
     };
   });

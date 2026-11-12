@@ -55,25 +55,26 @@ function coachIsSolid(name) {
   const o = coachOfficial(name);
   return /t/.test(ROSTER[name] || "") || (!/a/.test(ROSTER[name] || "") && !!o && o.defense >= 6);
 }
-const coachNum = v => v.toFixed(1).replace(".", ",");
+// Une décimale, virgule en français et point en anglais (I18N.fmtDecimal).
+const coachNum = v => I18N.fmtDecimal(v, 1);
 // Phrases complètes du catalogue, mises bout à bout avec une espace (même rendu qu'avant l'extraction).
 const coachSentences = (...list) => list.filter(Boolean).join(" ");
 // Classes Riot traduites pour l'affichage. La donnée (o.tags) reste celle de Riot.
 const COACH_RIOT_CLASSES = { Fighter:I18N.t("coach.riotClass.fighter"), Marksman:I18N.t("coach.riotClass.marksman"), Mage:I18N.t("coach.riotClass.mage"), Assassin:I18N.t("coach.riotClass.assassin"), Tank:I18N.t("coach.riotClass.tank"), Support:I18N.t("coach.riotClass.support") };
 const coachRiotClass = tag => COACH_RIOT_CLASSES[tag] || tag;
-const coachList = names => names.length < 2 ? names.join("") : I18N.t("coach.list.and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1] });
+const coachList = names => I18N.listAnd(names);
 const coachRangeWord = range => range === null ? null : I18N.t(range >= 500 ? "coach.range.long" : range >= 300 ? "coach.range.medium" : "coach.range.melee");
 
 // Trois noms au plus, sans cacher qu'il y en a d'autres.
-const coachNames = names => names.length <= 3 ? coachList(names) : I18N.tp("coach.names.more", names.length - 3, { names: names.slice(0, 3).join(", ") });
+const coachNames = names => names.length <= 3 ? coachList(names) : I18N.tp("coach.names.more", names.length - 3, { names: names.slice(0, 3).join(I18N.t("list.comma")) });
 // Raison écrite par le moteur, à placer au milieu d'une phrase : sans majuscule isolée, et sans laisser croire qu'une liste coupée est complète.
 function coachReason(text, fallback) {
   if (!text) return fallback;
-  const m = text.match(/^(\d+) ([^:]+) : ([^:]+)$/);
-  let out = text;
-  if (m && m[3].split(", ").every(n => ROSTER[n] !== undefined)) { const shown = m[3].split(", ").length, total = +m[1]; if (shown < total) out = I18N.tp("coach.reason.more", total - shown, { text }); }
+  // Liste coupée à trois noms par le moteur (listedText, draft-engine.js) : le nombre de noms cachés vient du moteur, pas du texte.
+  const hidden = hiddenNames(text);
+  const out = hidden ? I18N.tp("coach.reason.more", hidden, { text }) : text;
   // Un nom de champion ou un sigle (CC, ADC, AP) garde sa majuscule.
-  return NAMES.some(n => out.startsWith(n)) || /^[A-Z]{2,}\b/.test(out) ? out : out.charAt(0).toLowerCase() + out.slice(1);
+  return NAMES.some(n => out.startsWith(n)) || /^[A-Z]{2,}\b/.test(out) ? out : I18N.lowerFirst(out);
 }
 // Pourquoi un pick est affiché en premier à score égal (tieCause, draft-engine.js). shown : le nom affiché en premier.
 function tieCauseText(cause, shown) {
@@ -87,7 +88,7 @@ function tieCauseText(cause, shown) {
   if (cause.kind === "mixed") return I18N.t("coach.tie.mixed");
   return I18N.t("coach.tie.alpha");
 }
-const coachRangeWords = names => { const w = names.map(n => coachRangeWord(coachRange(n)) || I18N.t("coach.range.unknown")); return names.length === 2 && w[0] === w[1] ? I18N.t("coach.range.both", { range: w[0] }) : names.map((n, i) => I18N.t("coach.range.each", { champion: n, range: w[i] })).join(", "); };
+const coachRangeWords = names => { const w = names.map(n => coachRangeWord(coachRange(n)) || I18N.t("coach.range.unknown")); return names.length === 2 && w[0] === w[1] ? I18N.t("coach.range.both", { range: w[0] }) : names.map((n, i) => I18N.t("coach.range.each", { champion: n, range: w[i] })).join(I18N.t("list.comma")); };
 // Champions qui changent de forme : une seule portée de base ne les décrit pas.
 const COACH_RANGE_CHANGES = ["Jayce", "Nidalee", "Elise", "Gnar", "Kayle"];
 // La portée d'attaque n'aide à préparer la voie que dans un vrai duel, entre champions dont elle décrit le jeu.
@@ -281,8 +282,8 @@ const COACH_RULES = [
     build: (c, d) => ({ title:d.names.length === 2 ? I18N.t("coach.matchup.unknown.titleTwo", { role: c.opp, champions: I18N.t("coach.or", { a: d.names[0], b: d.names[1] }) }) : d.names.length ? I18N.t("coach.matchup.unknown.titleOne", { role: c.opp, champion: d.names[0] }) : I18N.t(d.hidden ? "coach.matchup.unknown.titleNotYet" : "coach.matchup.unknown.titleNone", { role: c.opp }), terms:["portée"],
       text: d.names.length ? [
         I18N.t("coach.matchup.unknown.l1", { champions: d.names.length === 2 ? I18N.t("coach.or", { a: d.names[0], b: d.names[1] }) : d.names.join(""), ranges: coachRangeWords(d.names) }),
-        I18N.t("coach.matchup.unknown.l2", { champions: d.names.join(", "), why: I18N.t(d.weighted && d.matchup ? "coach.matchup.unknown.weighted" : d.blind ? "coach.matchup.unknown.blind" : "coach.matchup.unknown.comp"), ranges: coachRangeWords(d.names) }),
-        I18N.t(!d.weighted ? "coach.matchup.unknown.l3notWeighted" : d.hidden ? (d.matchup ? "coach.matchup.unknown.l3weightedHidden" : "coach.matchup.unknown.l3weightedHiddenNoMatchup") : (d.matchup ? "coach.matchup.unknown.l3weighted" : "coach.matchup.unknown.l3weightedNoMatchup"), { champions: d.names.join(", ") })
+        I18N.t("coach.matchup.unknown.l2", { champions: d.names.join(I18N.t("list.comma")), why: I18N.t(d.weighted && d.matchup ? "coach.matchup.unknown.weighted" : d.blind ? "coach.matchup.unknown.blind" : "coach.matchup.unknown.comp"), ranges: coachRangeWords(d.names) }),
+        I18N.t(!d.weighted ? "coach.matchup.unknown.l3notWeighted" : d.hidden ? (d.matchup ? "coach.matchup.unknown.l3weightedHidden" : "coach.matchup.unknown.l3weightedHiddenNoMatchup") : (d.matchup ? "coach.matchup.unknown.l3weighted" : "coach.matchup.unknown.l3weightedNoMatchup"), { champions: d.names.join(I18N.t("list.comma")) })
       ] : [
         I18N.t("coach.matchup.unknown.none.l1"),
         I18N.t(d.blind ? "coach.matchup.unknown.blind" : "coach.matchup.unknown.comp"),
@@ -398,8 +399,8 @@ const COACH_RULES = [
       const points = main ? I18N.t("coach.champ.points", { assets: main }) : I18N.t("coach.champ.noPoints"), rangeText = changes ? I18N.t("coach.champ.rangeVariable") : I18N.t("coach.champ.rangeValue", { value: o.range });
       return { title:I18N.t("coach.champ.title", { champion: c.pick }), terms:["portée"],
         text:[coachSentences(how, main ? points : "", risk),
-          coachSentences(I18N.t("coach.champ.classes", { classes: o.tags.map(coachRiotClass).join(", ") }), I18N.t("coach.sentence", { text: rangeText.charAt(0).toUpperCase() + rangeText.slice(1) }), points, risk),
-          coachSentences(I18N.t("coach.champ.l3", { classes: o.tags.map(coachRiotClass).join(", "), range: rangeText, difficulty: o.difficulty }), points, risk)],
+          coachSentences(I18N.t("coach.champ.classes", { classes: o.tags.map(coachRiotClass).join(I18N.t("list.comma")) }), I18N.t("coach.sentence", { text: I18N.upperFirst(rangeText) }), points, risk),
+          coachSentences(I18N.t("coach.champ.l3", { classes: o.tags.map(coachRiotClass).join(I18N.t("list.comma")), range: rangeText, difficulty: o.difficulty }), points, risk)],
         limits:I18N.t("coach.champ.limits"), evidence:[{ kind:"official", tags:o.tags, range:o.range, difficulty:o.difficulty }] };
     } },
   { id:"champ.difficulty", category:"champion", priority:44, basis:"official", maxLevel:1,

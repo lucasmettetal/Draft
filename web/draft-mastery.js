@@ -213,10 +213,11 @@ const MASTERY_REVIEWED = "2026-11-05";
 const MASTERY_BASIS = { official:I18N.t("mastery.basis.official"), measured:I18N.t("mastery.basis.measured"), smallSample:I18N.t("mastery.basis.smallSample"), estimate:I18N.t("mastery.basis.estimate"), heuristic:I18N.t("mastery.basis.heuristic"), general:I18N.t("mastery.basis.general") };
 // Nombres de parties : pluriels du catalogue (tp).
 const masteryPct = v => I18N.t("mastery.percent", { value: Math.round(v * 100) });
-const masteryDecimal = (v, n = 1) => v.toFixed(n).replace(".", ",");
+// Décimales : virgule en français, point en anglais (I18N.fmtDecimal).
+const masteryDecimal = (v, n = 1) => I18N.fmtDecimal(v, n);
 const masteryItem = (id, section, basis, title, text, limits, extra) => Object.assign({ id, section, title, text, basis, basisLabel:MASTERY_BASIS[basis], limits:limits || null, reviewed:MASTERY_REVIEWED, verification:"human" }, extra || {});
 const byLevel = (level, texts) => texts[Math.min(level, texts.length) - 1];
-const nameList = names => names.length < 2 ? names.join("") : I18N.t("mastery.list.and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1] });
+const nameList = names => I18N.listAnd(names);
 
 function theorySection(x) {
   const { top, level, opponent } = x, out = [];
@@ -228,7 +229,7 @@ function theorySection(x) {
   else if (!x.enemiesCount) out.push(masteryItem("theory.empty", "theory", "general", I18N.t("mastery.theory.empty.title"), I18N.t("mastery.theory.empty.text"), null));
   else out.push(masteryItem("theory.none", "theory", "heuristic", I18N.t("mastery.theory.none.title", { champion: top.name }), I18N.t("mastery.theory.none.text"), I18N.t("mastery.theory.none.limit")));
   const worst = top.reasons.filter(c => c.impact <= -2).sort((a, b) => a.impact - b.impact)[0];
-  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", I18N.t("mastery.theory.risk.title", { champion: top.name }), I18N.t("mastery.sentence", { text: `${(signedText(worst, -1) || worst.text).charAt(0).toUpperCase()}${(signedText(worst, -1) || worst.text).slice(1)}` }), I18N.t("mastery.limit.rule")));
+  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", I18N.t("mastery.theory.risk.title", { champion: top.name }), I18N.t("mastery.sentence", { text: I18N.upperFirst(signedText(worst, -1) || worst.text) }), I18N.t("mastery.limit.rule")));
   const stat = providedMatchup(top.name, opponent, x.role);
   if (stat) {
     out.push(masteryItem("theory.matchup-stat", "theory", "measured", I18N.t("mastery.theory.stat.title", { champion: top.name, opponent }), byLevel(level, [

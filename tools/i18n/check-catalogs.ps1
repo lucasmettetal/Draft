@@ -317,7 +317,8 @@ namespace DraftI18nKeys
 '@
   }
   $web = Join-Path (Resolve-Path $Code) 'web'
-  $skipFiles = @('draft-i18n.js', 'draft-champions.js', 'draft-champion-ids.js', 'draft-champion-official.js', 'draft-role-sheet.js', 'draft-vendor', 'draft-stats.js', 'draft-history.js', 'draft-role-rates.js', 'draft-role-rates-live.js', 'draft-matchups-live.js')
+  # draft-i18n.js est relu : ses fonctions de liste (listOr, listAnd) citent list.or, list.and et list.comma.
+  $skipFiles = @('draft-champions.js', 'draft-champion-ids.js', 'draft-champion-official.js', 'draft-role-sheet.js', 'draft-vendor', 'draft-stats.js', 'draft-history.js', 'draft-role-rates.js', 'draft-role-rates-live.js', 'draft-matchups-live.js')
   $sources = @(Get-ChildItem $web -File -Filter '*.js' | Where-Object { $skipFiles -notcontains $_.Name }) + @(Get-Item (Join-Path $web 'index.html'))
   $used = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
   $nCalls = 0; $nDynamic = 0

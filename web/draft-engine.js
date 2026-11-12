@@ -56,7 +56,14 @@ const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().repla
 // ---------- Profil du joueur : son rôle et ses champions ----------
 const PROFILE_KEY = "draftProfile";
 const ROLE_NAMES = { top:I18N.t("role.name.top"), jungle:I18N.t("role.name.jungle"), mid:I18N.t("role.name.mid"), adc:I18N.t("role.name.adc"), support:I18N.t("role.name.support") };
-const ROLE_AT = { top:I18N.t("role.at.top"), jungle:I18N.t("role.at.jungle"), mid:I18N.t("role.at.mid"), adc:I18N.t("role.at.adc"), support:I18N.t("role.at.support") };
+// Phrases qui situent ton vis-à-vis (« au top », « à la jungle »...) : une clé complète par rôle, car l'article et la préposition
+// changent d'une langue à l'autre. Les tables nomment chaque clé en entier pour que tools/i18n/check-catalogs.ps1 les retrouve.
+const OPP_KEYS = {
+  whenBetter: { top:"engine.whenBetter.opponent.top", jungle:"engine.whenBetter.opponent.jungle", mid:"engine.whenBetter.opponent.mid", adc:"engine.whenBetter.opponent.adc", support:"engine.whenBetter.opponent.support" },
+  laneUnknown: { top:"engine.plan.lane.unknown.top", jungle:"engine.plan.lane.unknown.jungle", mid:"engine.plan.lane.unknown.mid", adc:"engine.plan.lane.unknown.adc", support:"engine.plan.lane.unknown.support" },
+  toRole: { top:"enemy.row.toRole.top", jungle:"enemy.row.toRole.jungle", mid:"enemy.row.toRole.mid", adc:"enemy.row.toRole.adc", support:"enemy.row.toRole.support" },
+  notice: { top:"draft.notice.opponent.top", jungle:"draft.notice.opponent.jungle", mid:"draft.notice.opponent.mid", adc:"draft.notice.opponent.adc", support:"draft.notice.opponent.support" }
+};
 // Anciennes installations, créées avant les profils : elles gardent leurs réglages sans rien refaire.
 const FIRST_PROFILE = { role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] };
 const pickId = name => name === "Twisted Fate" ? "TF" : name;
@@ -92,7 +99,8 @@ function championsForRole(role) {
 
 const myRole = () => PROFILE ? PROFILE.role : "mid";
 const oppName = () => ROLE_NAMES[myRole()];
-const oppAt = () => ROLE_AT[myRole()];
+// Texte qui nomme ton vis-à-vis dans son rôle : which choisit la phrase (OPP_KEYS), vars ses variables.
+const oppText = (which, vars) => I18N.t(OPP_KEYS[which][myRole()], vars);
 const traitsOfPick = p => CHAMPION_TRAITS[label(p)] || "";
 const hasTrait = (p, t) => traitsOfPick(p).includes(t);
 const esc = s => s.replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
@@ -178,7 +186,16 @@ function avoidedPicks(m) {
 }
 
 const avoidCount = pick => MATCHUPS.filter(m => avoidedPicks(m).includes(pick)).length;
-const namesOf = list => list.slice(0, 3).join(", ");
+const namesOf = list => list.slice(0, 3).join(I18N.t("list.comma"));
+// Explications du moteur qui nomment une liste coupée à trois noms (« 4 carrys fragiles à punir : A, B, C ») : texte -> noms cachés.
+// coachReason (draft-coaching.js) le signale (« et 1 autre ») sans relire le texte affiché, quelle que soit la langue.
+const HIDDEN_NAMES = new Map();
+function listedText(key, list) {
+  const text = I18N.t(key, { count: list.length, champions: namesOf(list) });
+  if (list.length > 3) { if (HIDDEN_NAMES.size > 5000) HIDDEN_NAMES.clear(); HIDDEN_NAMES.set(text, list.length - 3); }
+  return text;
+}
+const hiddenNames = text => HIDDEN_NAMES.get(text) || 0;
 
 function compoOf(enemies) {
   const known = enemies.filter(n => ROSTER[n] !== "?");
@@ -221,12 +238,12 @@ const RULES = {
   targets(p, c) {
     const n = c.carries.length;
     if (hasTrait(p, "h")) {
-      if (n >= 2) return [2, I18N.t("engine.targets.many", { count: n, champions: namesOf(c.carries) })];
+      if (n >= 2) return [2, listedText("engine.targets.many", c.carries)];
       if (n === 1) return [.5, I18N.t("engine.targets.one", { champion: c.carries[0] })];
       if (c.known.length >= 4) return [-2, I18N.t("engine.targets.none")];
     }
-    if (hasTrait(p, "E") && n >= 2) return [1, I18N.t("engine.targets.catch", { count: n, champions: namesOf(c.carries) })];
-    if (hasTrait(p, "l") && n >= 2) return [.5, I18N.t("engine.targets.poke", { count: n, champions: namesOf(c.carries) })];
+    if (hasTrait(p, "E") && n >= 2) return [1, listedText("engine.targets.catch", c.carries)];
+    if (hasTrait(p, "l") && n >= 2) return [.5, listedText("engine.targets.poke", c.carries)];
     return null;
   },
   front(p, c) {
@@ -245,15 +262,15 @@ const RULES = {
   dive(p, c) {
     const n = c.divers.length;
     if (n < 2) return null;
-    if (hasTrait(p, "i")) return [n >= 3 ? -2 : -1.5, I18N.t("engine.dive.immobile", { count: n, champions: namesOf(c.divers) })];
+    if (hasTrait(p, "i")) return [n >= 3 ? -2 : -1.5, listedText("engine.dive.immobile", c.divers)];
     if (hasTrait(p, "t")) return [1, I18N.t("engine.dive.tank", { count: n })];
     if (hasTrait(p, "c")) return [1, I18N.t("engine.dive.peel", { count: n })];
     return [0, p === "Fizz" ? I18N.t("engine.dive.fizz") : p === "TF" ? I18N.t("engine.dive.tf") : I18N.t("engine.dive.survive")];
   },
   control(p, c) {
-    if (hasTrait(p, "h") && hasTrait(p, "d") && c.cc.length >= 2) return [-1.5, I18N.t("engine.control.allIn", { count: c.cc.length, champions: namesOf(c.cc) })];
+    if (hasTrait(p, "h") && hasTrait(p, "d") && c.cc.length >= 2) return [-1.5, listedText("engine.control.allIn", c.cc)];
     if (hasTrait(p, "e") && (c.cc.length >= 2 || c.engage.length >= 2)) return [.75, p === "TF" ? I18N.t("engine.control.tf") : I18N.t("engine.control.escape")];
-    if (hasTrait(p, "i") && c.engage.length >= 3) return [-.5, I18N.t("engine.control.immobile", { count: c.engage.length, champions: namesOf(c.engage) })];
+    if (hasTrait(p, "i") && c.engage.length >= 3) return [-.5, listedText("engine.control.immobile", c.engage)];
     return null;
   },
   range(p, c) {
@@ -266,7 +283,7 @@ const RULES = {
     if (hasTrait(p, "p")) return x.hasFront ? [0, I18N.t("engine.peel.front")] : [-2, I18N.t("engine.peel.noFront")];
     if (!hasTrait(p, "q")) return null;
     if (!x.hasFront && c.mobile.length >= 2) return [-2, I18N.t("engine.peel.noFrontMobile")];
-    if (c.mobile.length >= 3) return [-4 / 3, I18N.t("engine.peel.mobile", { count: c.mobile.length, champions: namesOf(c.mobile) })];
+    if (c.mobile.length >= 3) return [-4 / 3, listedText("engine.peel.mobile", c.mobile)];
     if (x.hasFront && c.divers.length <= 1 && c.mobile.length <= 1 && c.known.length >= 3) return [4 / 3, I18N.t("engine.peel.safe")];
     return null;
   },
@@ -299,10 +316,12 @@ function evaluatePick(pick, compo, ctx) {
 // Texte seulement : aucune note ne dépend de cette fonction.
 function scenarioText(mid, c) {
   const text = c.text;
-  const short = !mid ? text : c.short !== undefined ? c.short : text.replace(I18N.t("engine.scenario.against", { champion: mid }), "");
-  return I18N.t(mid ? "engine.scenario.if" : "engine.scenario.notYet", { champion: mid, text: `${short.charAt(0).toLowerCase()}${short.slice(1)}` });
+  // Seules les explications du matchup nomment l'adversaire : elles fournissent toutes leur forme courte. Aucun texte n'est relu.
+  const short = !mid || c.short === undefined ? text : c.short;
+  return I18N.t(mid ? "engine.scenario.if" : "engine.scenario.notYet", { champion: mid, text: I18N.lowerFirst(short) });
 }
-const joinScenarioTexts = parts => parts.map((x, i) => i ? x.text.charAt(0).toLowerCase() + x.text.slice(1) : x.text).join(" ; ");
+// Deux hypothèses au plus (distinct.slice(0, 2)) : « Si c'est A : ... ; si c'est B : ... ».
+const joinScenarioTexts = parts => parts.length === 2 ? I18N.t("engine.scenario.join", { first: parts[0].text, second: I18N.lowerFirst(parts[1].text) }) : parts.map(x => x.text).join(" ");
 
 // Plusieurs adversaires possibles : mêmes règles, pondérées par la probabilité de chaque hypothèse.
 function evaluateScenarios(pick, compo, hasFront, scenarios) {
@@ -519,7 +538,7 @@ function whenBetter(target, other, enemies, mid) {
   };
   const found = [];
   if (beats(enemies, mid, false)) found.push(I18N.t("engine.whenBetter.noFront"));
-  enemies.filter(n => hasMatchupData(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(I18N.t("engine.whenBetter.opponent", { roleAt: oppAt(), champion: n })); });
+  enemies.filter(n => hasMatchupData(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(oppText("whenBetter", { champion: n })); });
   if (enemies.length < 5) WHAT_IF_ADDS.forEach(([key, champ]) => { if (!enemies.includes(champ) && beats(enemies.concat(champ), mid, true)) found.push(I18N.t("engine.whenBetter.with", { what: I18N.t(key) })); });
   return found.slice(0, 3);
 }
@@ -633,7 +652,7 @@ function buildPlan(pick, compo, mid, jungler) {
     pick === "Kog'Maw" && !midDive && mid && I18N.t("engine.plan.lane.kogmaw", { champion: mid }),
     pick === "TF" && mid && I18N.t("engine.plan.lane.tf", { champion: mid }),
     !roamer && jungler && I18N.t("engine.plan.lane.gank", { champion: jungler }),
-    !mid && I18N.t("engine.plan.lane.unknown", { roleAt: oppAt() }),
+    !mid && oppText("laneUnknown"),
     role === "jungle" ? I18N.t("engine.plan.lane.jungle") : role === "support" ? I18N.t("engine.plan.lane.support") : I18N.t("engine.plan.lane.push")
   ];
   const midGame = [
