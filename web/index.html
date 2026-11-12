@@ -1281,6 +1281,9 @@ function commit() {
 const PANEL = new URLSearchParams(location.search).get("panel") || "";
 const IS_HOST = !!(window.chrome && window.chrome.webview);
 const hostSend = msg => { if (IS_HOST) window.chrome.webview.postMessage(msg); };
+// I18N-3 : textes du programme (phase, placement, import, calcul, mise à jour) reçus en { key, vars } (Msg, src/Strings.cs),
+// affichés dans la langue de la page. Une variable peut être un autre message. Un ancien texte brut est affiché tel quel.
+const nativeText = m => !m ? "" : typeof m === "string" ? m : t(m.key, Object.fromEntries(Object.entries(m.vars || {}).map(([k, v]) => [k, v && typeof v === "object" && v.key ? nativeText(v) : v])));
 const PREFS_KEY = "draftPrefs";
 const PREFS = Object.assign({ excluded:[], favorite:null, assumeFront:true, coachLevel:"beginner", autoRole:"suggest" }, (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; } })());
 ENGINE_PREFS.excluded = PREFS.excluded;
@@ -2006,6 +2009,19 @@ function CoachLevel() {
     <select value=${PREFS.coachLevel} onChange=${e => savePrefs({ coachLevel:e.target.value })}>
       <option value="beginner">${t("settings.coachLevel.beginner")}</option><option value="intermediate">${t("settings.coachLevel.intermediate")}</option><option value="advanced">${t("settings.coachLevel.advanced")}</option>
     </select></label>`;
+}
+
+// I18N-3 : langue de DRAFT. Dans l'application, le programme enregistre le réglage (settings.json, Language : auto, fr ou en)
+// et recharge la fenêtre dans la langue choisie ; hors application, la page se recharge avec ?lang=.
+function LanguageSelect() {
+  const host = hostState.available;
+  const value = host ? (hostState.language || "auto") : I18N.lang;
+  const change = v => { if (host) hostSend({ cmd:"setLanguage", value:v }); else { const q = new URLSearchParams(location.search); q.set("lang", v); location.search = q.toString(); } };
+  return html`<label className="set-row coach-level" data-test="language-row"><span>${t("settings.language.title")}</span>
+    <select data-test="language-select" value=${value} onChange=${e => change(e.target.value)}>
+      ${host ? html`<option value="auto">${t("settings.language.auto")}</option>` : null}<option value="fr" lang="fr">${t("settings.language.fr")}</option><option value="en" lang="en">${t("settings.language.en")}</option>
+    </select></label>
+    ${host ? html`<p className="set-hint" data-test="language-hint">${t("settings.language.hint")}${hostState.windowsLang ? " " + t("settings.language.detected", { language: t(hostState.windowsLang === "fr" ? "settings.language.fr" : "settings.language.en") }) : ""}</p>` : null}`;
 }
 
 function CoachTab() {
@@ -2937,7 +2953,7 @@ function HomeUpdate() {
   return html`<section className="box home-card home-quiet" data-test="home-update" aria-labelledby="home-update-title">
     <h2 id="home-update-title" className="card-kicker">${t("home.update.title")}</h2>
     <p className="card-state">${t("home.update.version", { version:APP_VERSION })}</p>
-    ${host ? html`${hostState.updateStatus ? html`<p className="card-text" role="status" data-test="home-update-status">${hostState.updateStatus}</p>` : null}
+    ${host ? html`${hostState.updateStatus ? html`<p className="card-text" role="status" data-test="home-update-status">${nativeText(hostState.updateStatus)}</p>` : null}
       <p className="card-text small" data-test="home-update-checked">${when ? t(today ? "home.update.checked" : "home.update.checkedOn", { date:frDate(when), time:frTime(when) }) : t("home.update.never")} ${t("home.update.privacy")}</p>
       <div className="card-acts"><button type="button" className="ghost-btn" data-test="home-check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${t(hostState.updateRunning ? "home.update.running" : "home.update.check")}</button></div>`
       : html`<p className="card-text">${t("home.appOnly")}</p>`}
@@ -2947,7 +2963,7 @@ function HomeUpdate() {
 function HomeData() {
   const journal = loadJournal().length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
   const role = PROFILES.active || "mid", rates = window.ROLE_RATES_LIVE, live = window.MATCHUPS_LIVE;
-  const status = hostState.historyStatus || hostState.rolesStatus;
+  const status = nativeText(hostState.historyStatus) || nativeText(hostState.rolesStatus);
   const row = (key, label, value, ok) => html`<div key=${key} className=${`data-row${ok ? " ok" : ""}`} data-test=${`home-data-${key}`}><dt>${label}</dt><dd>${value}</dd></div>`;
   return html`<section className="box home-card home-quiet home-data" data-test="home-data" aria-labelledby="home-data-title">
     <h2 id="home-data-title" className="card-kicker">${t("home.data.title")}</h2>
@@ -3182,7 +3198,7 @@ function HistoryImportBox({ detailed }) {
     <p className=${rows ? "stats-line ok" : "empty-note"} data-test="stats-history-summary">${rows
       ? tp("stats.history.imported", rows.length, { date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "?" })
       : t("stats.history.none")}</p>
-    ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${hostState.historyStatus}</p>` : null}
+    ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${nativeText(hostState.historyStatus)}</p>` : null}
     ${hostState.available
       ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="stats-import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? t("stats.history.stop") : hostState.historyHasMore ? t("stats.history.more") : t("stats.history.import")}</button></p>`
       : html`<p className="small">${t("stats.history.app")}</p>`}
@@ -3250,6 +3266,7 @@ const HostOnly = () => html`<p className="empty-note" data-test="settings-host-o
 function SettingsSection({ id }) {
   const host = hostState.available;
   if (id === "general") return html`<div>
+    <${LanguageSelect} />
     <${CoachLevel} />
     <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> ${t("settings.general.assumeFront")}</label>
     ${host ? html`<label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> ${t("settings.general.autostart")}</label>` : null}
@@ -3282,7 +3299,7 @@ function SettingsSection({ id }) {
     ${host ? html`<div>
       <h3>${t("settings.data.history.title")}</h3>
       <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? tp(window.DRAFT_HISTORY.generated ? "settings.data.history.countOn" : "settings.data.history.count", window.DRAFT_HISTORY.rows.length, { date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "" }) : t("settings.data.history.none")} ${t("settings.data.history.note")}</p>
-      ${hostState.historyStatus ? html`<p className="small" role="status">${hostState.historyStatus}</p>` : null}
+      ${hostState.historyStatus ? html`<p className="small" role="status">${nativeText(hostState.historyStatus)}</p>` : null}
       <p className="set-row">
         <button type="button" className="ghost-btn" data-test="import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? t("stats.history.stop") : hostState.historyHasMore ? t("stats.history.more") : t("stats.history.import")}</button>
       </p>
@@ -3290,7 +3307,7 @@ function SettingsSection({ id }) {
       <p className="small">${window.ROLE_RATES_LIVE ? t("settings.data.roles.live", { date: fmtDate(window.ROLE_RATES_LIVE.updated), count: window.ROLE_RATES_LIVE.games }) : (typeof ROLE_RATES !== "undefined" ? t("settings.data.roles.shipped", { patch: ROLE_RATES.patch }) : t("settings.data.roles.none"))} ${t("settings.data.roles.note")}</p>
       <h3>${t("settings.data.matchups.title")}</h3>
       <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? t("settings.data.matchups.otherRole", { role: ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"] }) : window.MATCHUPS_LIVE ? t("settings.data.matchups.live", { date: fmtDate(window.MATCHUPS_LIVE.updated), count: window.MATCHUPS_LIVE.games, pool: PICKS.map(p => t("settings.data.matchups.poolItem", { champion: label(p), count: (window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games })).join(", ") }) : t("settings.data.matchups.none")} ${t("settings.data.matchups.note", { min: MATCHUP_MIN_GAMES })}</p>
-      <p className="small" role="status">${hostState.rolesStatus || ""}</p>
+      <p className="small" role="status">${nativeText(hostState.rolesStatus)}</p>
       <p className="set-row">
         ${hostState.rolesRunning
           ? html`<button type="button" className="ghost-btn" data-test="stop-roles" onClick=${() => hostSend({ cmd:"updateRoles" })}>${t("settings.data.stopRoles")}</button>`
@@ -3302,7 +3319,7 @@ function SettingsSection({ id }) {
   </div>`;
   if (id === "updates") return host ? html`<div>
     <p className="small">${t("settings.updates.version", { version: APP_VERSION })}</p>
-    ${hostState.updateStatus ? html`<p className="small" role="status" data-test="update-status">${hostState.updateStatus}</p>` : null}
+    ${hostState.updateStatus ? html`<p className="small" role="status" data-test="update-status">${nativeText(hostState.updateStatus)}</p>` : null}
     <p className="set-row"><button type="button" className="ghost-btn" data-test="check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? t("home.update.running") : t("home.update.check")}</button></p>
   </div>` : html`<${HostOnly} />`;
   return html`<div>
@@ -3310,8 +3327,8 @@ function SettingsSection({ id }) {
     ${host ? html`<div>
       <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> ${t("settings.diag.journal")}</label>
       <dl className="facts" data-test="diag-state">
-        <dt>${t("settings.diag.phase")}</dt><dd>${hostState.phase || "-"}</dd>
-        ${hostState.placement && hostState.clientOpen !== false ? html`<dt>${t("settings.diag.placement")}</dt><dd>${hostState.placement}</dd>` : null}
+        <dt>${t("settings.diag.phase")}</dt><dd>${nativeText(hostState.phase) || "-"}</dd>
+        ${hostState.placement && hostState.clientOpen !== false ? html`<dt>${t("settings.diag.placement")}</dt><dd>${nativeText(hostState.placement)}</dd>` : null}
       </dl>
       <p className="set-row"><button type="button" className="ghost-btn" data-test="lcu-diagnostic" onClick=${() => hostSend({ cmd:"lcuDiagnostic" })}>${t("settings.diag.lcu")}</button></p>
       <p className="set-hint flush">${t("settings.diag.lcuHint")}</p>

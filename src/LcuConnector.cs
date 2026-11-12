@@ -120,16 +120,16 @@ namespace DraftMid
         static extern bool CloseHandle(IntPtr handle);
 
         // Null si le chemin est introuvable ; error donne alors la raison, sans chemin ni identifiant.
-        public static string FolderOf(int pid, out string error)
+        public static string FolderOf(int pid, out Msg error)
         {
-            error = "";
+            error = null;
             IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-            if (h == IntPtr.Zero) { error = "processus du client inaccessible (Win32 " + System.Runtime.InteropServices.Marshal.GetLastWin32Error() + ")"; return null; }
+            if (h == IntPtr.Zero) { error = new Msg("native.diag.processDenied", "code", System.Runtime.InteropServices.Marshal.GetLastWin32Error()); return null; }
             try
             {
                 StringBuilder s = new StringBuilder(1024);
                 int n = s.Capacity;
-                if (!QueryFullProcessImageName(h, 0, s, ref n)) { error = "chemin du client illisible (Win32 " + System.Runtime.InteropServices.Marshal.GetLastWin32Error() + ")"; return null; }
+                if (!QueryFullProcessImageName(h, 0, s, ref n)) { error = new Msg("native.diag.pathUnreadable", "code", System.Runtime.InteropServices.Marshal.GetLastWin32Error()); return null; }
                 return Path.GetDirectoryName(s.ToString(0, n));
             }
             finally { CloseHandle(h); }
@@ -178,57 +178,62 @@ namespace DraftMid
         public static async Task<string> RunAsync(bool optionEnabled, int clientPid, string version, string folderForTests = null)
         {
             StringBuilder sb = new StringBuilder();
-            Action<string> line = s => sb.AppendLine(s);
-            line("Diagnostic de connexion au client LoL (DRAFT " + version + ", Windows " + Environment.OSVersion.Version + ")");
-            line("Aucun mot de passe, port, chemin ni nom de joueur n'apparaît ici.");
-            line("DRAFT lancé en administrateur : " + (IsElevated() ? "oui" : "non"));
-            if (!LcuGate.Allowed(optionEnabled)) { line("Lecture du client : désactivée dans les réglages. Rien d'autre n'est vérifié."); line("Conclusion : coche « Lire la draft depuis le client LoL » dans les réglages, puis relance ce diagnostic."); return sb.ToString(); }
+            // Une ligne par clé du catalogue (native.diag.*), dans la langue du programme : le rapport se lit et s'envoie tel quel.
+            Action<string, object[]> line = (key, pairs) => sb.AppendLine(Strings.T(key, pairs));
+            line("native.diag.title", new object[] { "version", version, "windows", Environment.OSVersion.Version.ToString() });
+            line("native.diag.noSecrets", null);
+            line(IsElevated() ? "native.diag.elevatedYes" : "native.diag.elevatedNo", null);
+            if (!LcuGate.Allowed(optionEnabled)) { line("native.diag.off", null); line("native.diag.offConclusion", null); return sb.ToString(); }
             string folder = folderForTests;
             if (folder == null)
             {
-                if (clientPid <= 0) { line("Fenêtre du client : introuvable."); line("Conclusion : ouvre le client LoL, attends qu'il soit complètement chargé, puis relance ce diagnostic."); return sb.ToString(); }
-                line("Fenêtre du client : trouvée.");
+                if (clientPid <= 0) { line("native.diag.noWindow", null); line("native.diag.noWindowConclusion", null); return sb.ToString(); }
+                line("native.diag.window", null);
                 bool full;
                 try { using (Process p = Process.GetProcessById(clientPid)) { string m = p.MainModule.FileName; full = m != null; } } catch { full = false; }
-                line("Accès complet au processus du client : " + (full ? "oui" : "non : le client tourne probablement avec plus de droits que DRAFT (lancé en administrateur)"));
-                string err;
+                line(full ? "native.diag.fullAccessYes" : "native.diag.fullAccessNo", null);
+                Msg err;
                 folder = ClientProcess.FolderOf(clientPid, out err);
-                if (folder == null) { line("Dossier du client : introuvable (" + err + ")."); line("Conclusion : lance DRAFT et le client LoL avec les mêmes droits (tous deux normalement, ou tous deux en administrateur)."); return sb.ToString(); }
-                line("Dossier du client : trouvé.");
+                if (folder == null) { line("native.diag.noFolder", new object[] { "error", err }); line("native.diag.noFolderConclusion", null); return sb.ToString(); }
+                line("native.diag.folder", null);
             }
             string path = Path.Combine(folder, "lockfile");
-            if (!File.Exists(path)) { line("Lockfile : absent."); line("Conclusion : le client démarre encore, ou ce n'est pas le client de League of Legends. Réessaie une fois l'accueil du client affiché."); return sb.ToString(); }
+            if (!File.Exists(path)) { line("native.diag.noLockfile", null); line("native.diag.noLockfileConclusion", null); return sb.ToString(); }
             LockfileInfo info;
             try { using (FileStream f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) using (StreamReader r = new StreamReader(f)) info = LockfileInfo.Parse(r.ReadToEnd()); }
-            catch (Exception e) { line("Lockfile : présent mais illisible (" + e.GetType().Name + ")."); line("Conclusion : un antivirus ou des droits Windows bloquent la lecture."); return sb.ToString(); }
-            if (info == null) { line("Lockfile : format inattendu."); line("Conclusion : format du client inconnu de DRAFT. Envoie ce diagnostic."); return sb.ToString(); }
-            line("Lockfile : lisible, format valide.");
+            catch (Exception e) { line("native.diag.lockfileUnreadable", new object[] { "error", e.GetType().Name }); line("native.diag.lockfileUnreadableConclusion", null); return sb.ToString(); }
+            if (info == null) { line("native.diag.lockfileFormat", null); line("native.diag.lockfileFormatConclusion", null); return sb.ToString(); }
+            line("native.diag.lockfileOk", null);
             Uri local = new Uri("https://127.0.0.1:" + info.Port + "/");
             bool proxied = false;
             try { IWebProxy px = WebRequest.DefaultWebProxy; proxied = px != null && !px.IsBypassed(local); } catch { }
-            line("Proxy Windows pour l'adresse locale : " + (proxied ? "UTILISÉ (peut empêcher la connexion)" : "non utilisé"));
+            line(proxied ? "native.diag.proxyUsed" : "native.diag.proxyNotUsed", null);
             Stopwatch clock = Stopwatch.StartNew();
-            string tcp;
+            Msg tcp;
+            bool tcpOpen = false;
             using (TcpClient c = new TcpClient())
             {
                 try
                 {
                     Task connect = c.ConnectAsync(IPAddress.Loopback, info.Port);
-                    tcp = await Task.WhenAny(connect, Task.Delay(2000)) != connect ? "pas de réponse en 2 s" : connect.IsFaulted ? "refusée" : "ouverte (" + clock.ElapsedMilliseconds + " ms)";
+                    if (await Task.WhenAny(connect, Task.Delay(2000)) != connect) tcp = new Msg("native.diag.tcpTimeout");
+                    else if (connect.IsFaulted) tcp = new Msg("native.diag.tcpRefused");
+                    else { tcp = new Msg("native.diag.tcpOpen", "ms", clock.ElapsedMilliseconds); tcpOpen = true; }
                 }
-                catch (Exception e) { tcp = "erreur " + e.GetType().Name; }
+                catch (Exception e) { tcp = new Msg("native.diag.tcpError", "error", e.GetType().Name); }
             }
-            line("Connexion locale au client : " + tcp);
+            line("native.diag.tcp", new object[] { "result", tcp });
             foreach (int timeout in new[] { 1500, 6000 })
             {
                 LocalHttpsTransport t = new LocalHttpsTransport(info) { TimeoutMs = timeout };
                 clock.Restart();
                 string body = await t.GetAsync(LcuEndpoints.Phase);
                 string phase = body == null ? "" : LcuParser.ParsePhase(body);
-                if (body != null && phase != "") { line("Lecture de la phase (délai " + timeout + " ms) : réussie en " + clock.ElapsedMilliseconds + " ms, phase " + phase + "."); line(timeout == 1500 ? "Conclusion : la connexion fonctionne maintenant. Si le message revient, envoie ce diagnostic juste après." : "Conclusion : le client répond, mais plus lentement que le délai de DRAFT (1,5 s)."); return sb.ToString(); }
-                line("Lecture de la phase (délai " + timeout + " ms) : échec (" + (body == "" ? "réponse vide ou 404" : LocalHttpsTransport.LastError) + ") après " + clock.ElapsedMilliseconds + " ms.");
+                if (body != null && phase != "") { line("native.diag.phaseOk", new object[] { "timeout", timeout, "ms", clock.ElapsedMilliseconds, "phase", phase }); line(timeout == 1500 ? "native.diag.phaseOkConclusion" : "native.diag.phaseSlowConclusion", null); return sb.ToString(); }
+                // L'erreur réseau est un nom technique (type d'exception, code HTTP), identique dans toutes les langues.
+                line("native.diag.phaseFailed", new object[] { "timeout", timeout, "error", body == "" ? (object)new Msg("native.diag.emptyOr404") : LocalHttpsTransport.LastError, "ms", clock.ElapsedMilliseconds });
             }
-            line(proxied ? "Conclusion : le proxy Windows est le suspect principal." : tcp.StartsWith("ouverte") ? "Conclusion : le client refuse ou ne comprend pas la requête (voir l'erreur ci-dessus)." : "Conclusion : la connexion locale est bloquée (pare-feu, antivirus) ou le client n'écoute pas encore.");
+            line(proxied ? "native.diag.proxyConclusion" : tcpOpen ? "native.diag.refusedConclusion" : "native.diag.blockedConclusion", null);
             return sb.ToString();
         }
     }
@@ -424,17 +429,17 @@ namespace DraftMid
             t(!li.ToString().Contains("motdepasse"), "LCU : le mot de passe n'apparaît jamais dans un journal");
             t(LockfileInfo.Parse("abimé") == null && LockfileInfo.Parse("a:b:port:c:https") == null && LockfileInfo.Parse("a:1:50000:c:http") == null, "LCU : un lockfile invalide est refusé");
             // Dossier du client : requête limitée, sans Process.MainModule.
-            string err;
+            Msg err;
             string self = ClientProcess.FolderOf(Process.GetCurrentProcess().Id, out err);
             t(self != null && string.Equals(self, Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), StringComparison.OrdinalIgnoreCase), "LCU : dossier du client lu par requête limitée");
-            t(ClientProcess.FolderOf(-1, out err) == null && err.StartsWith("processus du client inaccessible") && !err.Contains("\\"), "LCU : processus introuvable, raison donnée sans chemin");
+            t(ClientProcess.FolderOf(-1, out err) == null && err.Key == "native.diag.processDenied" && !err.ToString().Contains("\\"), "LCU : processus introuvable, raison donnée sans chemin");
             // Processus de l'utilisateur lancé avec plus de droits (comme un client lancé en administrateur) : MainModule est refusé.
             int elevated = -1;
             foreach (Process p in Process.GetProcesses())
                 using (p)
                 {
                     if (elevated > 0) continue;
-                    try { string m = p.MainModule.FileName; } catch { string e2; if (p.SessionId == Process.GetCurrentProcess().SessionId && ClientProcess.FolderOf(p.Id, out e2) != null) elevated = p.Id; }
+                    try { string m = p.MainModule.FileName; } catch { Msg e2; if (p.SessionId == Process.GetCurrentProcess().SessionId && ClientProcess.FolderOf(p.Id, out e2) != null) elevated = p.Id; }
                 }
             t(true, elevated > 0 ? "LCU : processus à droits supérieurs (pid " + elevated + ") : MainModule refusé, dossier lu quand même" : "LCU : aucun processus à droits supérieurs sur ce PC, cas non rejoué");
             string lockDir = Path.Combine(Path.GetTempPath(), "draft-lcu-test-" + Process.GetCurrentProcess().Id);

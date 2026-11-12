@@ -85,7 +85,7 @@ namespace DraftMid
     {
         public string Mode;              // "two", "compact" ou "manual"
         public Native.RECT Left, Right, Single;
-        public string Note;
+        public Msg Note;
     }
 
     // Calcul pur, sans fenêtre : testé par --selftest sur plusieurs écrans et résolutions.
@@ -110,7 +110,7 @@ namespace DraftMid
                     Mode = "two",
                     Left = new Native.RECT(client.Left - Gap - Math.Min(ideal, leftFree), y, client.Left - Gap, y + h),
                     Right = new Native.RECT(client.Right + Gap, y, client.Right + Gap + Math.Min(ideal, rightFree), y + h),
-                    Note = "Panneaux placés de chaque côté du client."
+                    Note = new Msg("native.placement.two")
                 };
             }
             if (Math.Max(leftFree, rightFree) >= min)
@@ -120,7 +120,7 @@ namespace DraftMid
                 Native.RECT r = rightFree >= leftFree
                     ? new Native.RECT(client.Right + Gap, y, client.Right + Gap + Math.Min((int)(ideal * 1.1), rightFree), y + h)
                     : new Native.RECT(client.Left - Gap - Math.Min((int)(ideal * 1.1), leftFree), y, client.Left - Gap, y + h);
-                return new Placement { Mode = "compact", Single = r, Note = preferCompact ? "Panneau unique à côté du client." : "Pas assez de place pour deux panneaux : panneau unique." };
+                return new Placement { Mode = "compact", Single = r, Note = new Msg(preferCompact ? "native.placement.compactChosen" : "native.placement.compactNoRoom") };
             }
             foreach (Monitor other in monitors.Where(m => m != home && !m.Work.Overlaps(client)).OrderByDescending(m => m.Work.W))
             {
@@ -134,16 +134,16 @@ namespace DraftMid
                         Mode = "two",
                         Left = new Native.RECT(x, other.Work.Top, x + w, other.Work.Top + h),
                         Right = new Native.RECT(x + w + Gap, other.Work.Top, x + 2 * w + Gap, other.Work.Top + h),
-                        Note = "Pas de place autour du client : panneaux sur l'autre écran."
+                        Note = new Msg("native.placement.otherScreenTwo")
                     };
                 }
                 if (other.Work.W >= w)
                 {
                     int x = other.Work.Left < home.Work.Left ? other.Work.Right - w : other.Work.Left;
-                    return new Placement { Mode = "compact", Single = new Native.RECT(x, other.Work.Top, x + w, other.Work.Top + h), Note = "Pas de place autour du client : panneau sur l'autre écran." };
+                    return new Placement { Mode = "compact", Single = new Native.RECT(x, other.Work.Top, x + w, other.Work.Top + h), Note = new Msg("native.placement.otherScreenOne") };
                 }
             }
-            return new Placement { Mode = "manual", Note = "Pas de place autour du client : place les panneaux à la main pour ne rien couvrir." };
+            return new Placement { Mode = "manual", Note = new Msg("native.placement.manual") };
         }
 
         // Aucune place libre : un seul panneau étroit, au bord de l'écran, couvre le moins possible du client.
@@ -156,7 +156,7 @@ namespace DraftMid
             {
                 Mode = "compact",
                 Single = new Native.RECT(home.Work.Right - w, y, home.Work.Right, y + h),
-                Note = "Pas de place autour du client : panneau étroit au bord de l'écran, il en couvre une partie. Déplace-le si besoin."
+                Note = new Msg("native.placement.narrow")
             };
         }
 
@@ -187,6 +187,8 @@ namespace DraftMid
         public bool Diagnostics;
         // Lecture du client : désactivée par défaut, à cocher dans les réglages.
         public bool LcuEnabled;
+        // Langue (I18N-3) : "auto" (langue de Windows), "fr" ou "en". Absent (installations 2.x) : comme "auto".
+        public string Language;
         // Installation déjà passée aux profils : sinon, elle garde le profil d'origine sans rien refaire.
         public bool ProfileKnown;
         // Copie du profil pour le calcul des matchups, en noms de Riot. Aucune donnée personnelle.
@@ -367,21 +369,20 @@ public static class Autostart
         public void Dispose() { NativeHook.UnregisterHotKey(Handle, 1); DestroyHandle(); }
     }
 
-    // Libellés du menu de l'icône, regroupés pour le catalogue (native.menu.*, I18N-3) et identiques à ceux de la page.
+    // Libellés du menu de l'icône : catalogue (native.menu.*, I18N-3), dans la langue du programme au moment de l'affichage.
     static class MenuText
     {
-        public const string Open = "Ouvrir DRAFT";
-        public const string ShowPanels = "Afficher les panneaux";
-        public const string Simulate = "Simuler une draft";
-        public const string Detection = "Détection de la draft";
-        public const string TeachDraft = "C'est une draft : retenir cet écran";
-        public const string TeachNotDraft = "Ce n'est pas une draft : retenir cet écran";
-        public const string LcuDiagnostic = "Diagnostic de connexion LoL";
-        public const string Settings = "Réglages";
-        public const string CheckUpdate = "Rechercher une mise à jour";
-        public const string Quit = "Quitter";
-        public const string HiddenHotkey = "Panneaux masqués. Ctrl+Alt+D pour les rappeler.";
-        public const string HiddenMenu = "Panneaux masqués. Menu de l'icône, « Afficher les panneaux », pour les rappeler.";
+        public static string Open { get { return Strings.T("native.menu.open"); } }
+        public static string ShowPanels { get { return Strings.T("native.menu.showPanels"); } }
+        public static string HidePanels { get { return Strings.T("native.menu.hidePanels"); } }
+        public static string Simulate { get { return Strings.T("native.menu.simulate"); } }
+        public static string Detection { get { return Strings.T("native.menu.detection"); } }
+        public static string TeachDraft { get { return Strings.T("native.menu.teachDraft"); } }
+        public static string TeachNotDraft { get { return Strings.T("native.menu.teachNotDraft"); } }
+        public static string LcuDiagnostic { get { return Strings.T("native.menu.lcuDiagnostic"); } }
+        public static string Settings { get { return Strings.T("native.menu.settings"); } }
+        public static string CheckUpdate { get { return Strings.T("native.menu.checkUpdate"); } }
+        public static string Quit { get { return Strings.T("native.menu.quit"); } }
     }
 
     public class CompanionApp : ApplicationContext
@@ -407,10 +408,10 @@ public static class Autostart
         string shownMode = "", pendingMode = "";
         long pendingSince;
         bool panelsShown, frameValid;
-        string placementNote = "Client LoL non détecté.";
+        Msg placementNote = new Msg("native.placement.noClient");
         public bool Quitting;
         public Icon AppIcon;
-        ToolStripMenuItem miUpdate, miShow, miPhase, miOpen;
+        ToolStripMenuItem miUpdate, miShow, miPhase, miOpen, miSimulate, miDetection, miTeachDraft, miTeachNotDraft, miLcuDiagnostic, miSettings, miQuit;
         public long MoveCount;
 
         public Phase CurrentPhase { get { return machine.Current; } }
@@ -444,14 +445,19 @@ public static class Autostart
             miPhase = new ToolStripMenuItem("") { Enabled = false };
             miOpen = new ToolStripMenuItem(MenuText.Open, null, (s, e) => OpenFull("home"));
             miOpen.Font = new Font(miOpen.Font, FontStyle.Bold);
-            miShow = new ToolStripMenuItem(MenuText.ShowPanels + " (Ctrl+Alt+D)", null, (s, e) => ToggleManual());
-            ToolStripMenuItem miSimulate = new ToolStripMenuItem(MenuText.Simulate, null, (s, e) => OpenFull("simulate"));
-            ToolStripMenuItem miDetection = new ToolStripMenuItem(MenuText.Detection);
-            miDetection.DropDownItems.Add(MenuText.TeachDraft, null, (s, e) => Teach(true));
-            miDetection.DropDownItems.Add(MenuText.TeachNotDraft, null, (s, e) => Teach(false));
+            miShow = new ToolStripMenuItem(Strings.T("native.menu.showPanelsHotkey"), null, (s, e) => ToggleManual());
+            miSimulate = new ToolStripMenuItem(MenuText.Simulate, null, (s, e) => OpenFull("simulate"));
+            miDetection = new ToolStripMenuItem(MenuText.Detection);
+            miTeachDraft = new ToolStripMenuItem(MenuText.TeachDraft, null, (s, e) => Teach(true));
+            miTeachNotDraft = new ToolStripMenuItem(MenuText.TeachNotDraft, null, (s, e) => Teach(false));
+            miLcuDiagnostic = new ToolStripMenuItem(MenuText.LcuDiagnostic, null, (s, e) => ShowLcuDiagnostic());
+            miDetection.DropDownItems.Add(miTeachDraft);
+            miDetection.DropDownItems.Add(miTeachNotDraft);
             miDetection.DropDownItems.Add(new ToolStripSeparator());
-            miDetection.DropDownItems.Add(MenuText.LcuDiagnostic, null, (s, e) => ShowLcuDiagnostic());
+            miDetection.DropDownItems.Add(miLcuDiagnostic);
             miUpdate = new ToolStripMenuItem(MenuText.CheckUpdate, null, (s, e) => CheckForUpdate(true));
+            miSettings = new ToolStripMenuItem(MenuText.Settings, null, (s, e) => OpenFull("settings"));
+            miQuit = new ToolStripMenuItem(MenuText.Quit, null, (s, e) => Quit());
             menu.Items.Add(miPhase);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(miOpen);
@@ -459,10 +465,10 @@ public static class Autostart
             menu.Items.Add(miSimulate);
             menu.Items.Add(miDetection);
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(MenuText.Settings, null, (s, e) => OpenFull("settings"));
+            menu.Items.Add(miSettings);
             menu.Items.Add(miUpdate);
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(MenuText.Quit, null, (s, e) => Quit());
+            menu.Items.Add(miQuit);
             tray = new NotifyIcon { Icon = AppIcon ?? SystemIcons.Application, Text = "DRAFT", Visible = true, ContextMenuStrip = menu };
             openFromTray = () => OpenFull("home");
             // Double-clic : ouvrir DRAFT (décision de l'utilisateur). Les panneaux restent sur Ctrl+Alt+D et l'entrée « Afficher les panneaux ».
@@ -597,9 +603,10 @@ public static class Autostart
             {
                 uint pid;
                 Native.GetWindowThreadProcessId(tracker.Handle, out pid);
-                string error;
+                Msg error;
                 string folder = ClientProcess.FolderOf((int)pid, out error);
-                if (folder == null) { LcuFactory.LastOpenError = error; return null; }
+                // Journal de diagnostic interne : la raison est notée par sa clé, sans chemin ni identifiant.
+                if (folder == null) { LcuFactory.LastOpenError = error.Key; return null; }
                 return LcuFactory.CreateReal(settings.LcuEnabled, folder);
             }
             catch (Exception e) { LcuFactory.LastOpenError = "ouverture : " + e.GetType().Name; return null; }
@@ -617,10 +624,10 @@ public static class Autostart
         {
             string text;
             try { text = await LcuDiagnosticText(); }
-            catch (Exception e) { text = "Diagnostic interrompu : " + e.GetType().Name; }
+            catch (Exception e) { text = Strings.T("native.diag.interrupted", "error", e.GetType().Name); }
             bool copied = false;
             try { Clipboard.SetText(text); copied = true; } catch { }
-            MessageBox.Show(text + (copied ? "\r\nCe texte est copié : colle-le dans ton message." : ""), "DRAFT : diagnostic de connexion LoL", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(text + (copied ? "\r\n" + Strings.T("native.diag.copied") : ""), Strings.T("native.diag.dialogTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         // Vrai si le client a répondu. Sinon, l'estimation visuelle et le mode manuel prennent le relais.
@@ -759,7 +766,7 @@ public static class Autostart
 
         // ---------- Mise à jour des rôles, en arrière-plan ----------
         CancellationTokenSource rolesCts;
-        string rolesStatus = "";
+        Msg rolesStatus;
         bool rolesReloadPending;
 
         // ---------- Copie de secours des profils, dans le dossier de données ----------
@@ -789,7 +796,7 @@ public static class Autostart
 
         // ---------- Import de l'historique, seulement à la demande du joueur ----------
         CancellationTokenSource historyCts;
-        string historyStatus = "";
+        Msg historyStatus;
         bool historyHasMore;
 
         // La clé reste dans le fetcher : ni l'importeur, ni les journaux, ni la page ne la voient.
@@ -798,7 +805,7 @@ public static class Autostart
             string path = Path.Combine(dataDir, HistoryImporter.FileName);
             CancellationTokenSource cts = new CancellationTokenSource();
             historyCts = cts;
-            historyStatus = "Import de l'historique : démarrage...";
+            historyStatus = new Msg("native.history.starting");
             RefreshUi();
             SynchronizationContext ui = SynchronizationContext.Current;
             HistoryImporter importer = new HistoryImporter(fetcher, region, path, accounts, HistoryImporter.OldestSupported) { MaxGamesPerRun = limit, DelayMs = delayMs };
@@ -806,7 +813,7 @@ public static class Autostart
             importer.Progress = (done, total, account) =>
             {
                 if (done % 5 != 0 && done != total) return;
-                ui.Post(_ => { if (historyCts != null && !historyCts.IsCancellationRequested) { historyStatus = "Import de l'historique : " + done + " sur " + total + " parties"; RefreshUi(); } }, null);
+                ui.Post(_ => { if (historyCts != null && !historyCts.IsCancellationRequested) { historyStatus = new Msg("native.history.progress", "done", done, "total", total); RefreshUi(); } }, null);
             };
             HistoryImportResult r = await Task.Run(() => importer.Run(cts.Token));
             historyCts = null;
@@ -821,15 +828,16 @@ public static class Autostart
                     rolesReloadPending = true;
                     ReloadRolesIfIdle();
                 }
-                catch (IOException) { r.Error = "Historique enregistré, mais pas encore visible : relance DRAFT."; }
+                catch (IOException) { r.Error = new Msg("native.history.notVisible"); }
             }
             historyHasMore = r.HasMore;
             // Clé refusée ou Riot indisponible : les lectures suivantes ne sont pas lancées avec la même clé.
-            if (r.Error != "" && !r.Saved) riotQueueStopped = true;
-            string summary = r.Added + (r.Added > 1 ? " parties ajoutées, " : " partie ajoutée, ") + r.Total + " au total.";
-            historyStatus = r.Error != "" ? r.Error + " " + summary : (r.Cancelled ? "Import arrêté : " : "Import terminé : ") + summary;
-            if (r.NotFound.Count > 0) historyStatus += " Compte introuvable : " + string.Join(", ", r.NotFound) + ".";
-            Notify(historyStatus, r.Error == "" ? ToolTipIcon.Info : ToolTipIcon.Warning);
+            if (r.Error != null && !r.Saved) riotQueueStopped = true;
+            Msg summary = new Msg("native.history.summary", "count", r.Added, "total", r.Total);
+            historyStatus = r.Error != null ? new Msg("native.status.join", "first", r.Error, "second", summary) : new Msg(r.Cancelled ? "native.history.stopped" : "native.history.done", "summary", summary);
+            // Les comptes sont des noms Riot (Nom#TAG), identiques dans toutes les langues.
+            if (r.NotFound.Count > 0) historyStatus = new Msg("native.history.notFound", "status", historyStatus, "accounts", string.Join(", ", r.NotFound));
+            Notify(historyStatus, r.Error == null ? ToolTipIcon.Info : ToolTipIcon.Warning);
             RefreshUi();
             return r;
         }
@@ -843,7 +851,7 @@ public static class Autostart
             {
                 riotQueueStopped = true;
                 historyCts.Cancel();
-                historyStatus = "Arrêt de l'import : les parties déjà lues sont conservées...";
+                historyStatus = new Msg("native.history.stopping");
                 RefreshUi();
                 return;
             }
@@ -856,7 +864,7 @@ public static class Autostart
             {
                 riotQueueStopped = true;
                 rolesCts.Cancel();
-                rolesStatus = "Arrêt du calcul en cours...";
+                rolesStatus = new Msg("native.roles.stopping");
                 RefreshUi();
                 return;
             }
@@ -873,9 +881,9 @@ public static class Autostart
 
         async void OpenRiotTasks(RiotTask initial)
         {
-            if (historyCts != null) { rolesStatus = "Un import de l'historique est en cours : attends sa fin."; RefreshUi(); return; }
-            if (rolesCts != null) { historyStatus = "Un calcul Riot est déjà en cours : attends sa fin pour ne pas dépasser les limites de ta clé."; RefreshUi(); return; }
-            if ((initial & RiotTask.History) != 0 && machine.Current == Phase.Draft) { historyStatus = "Une draft est en cours : lance l'import après."; RefreshUi(); return; }
+            if (historyCts != null) { rolesStatus = new Msg("native.roles.busyHistory"); RefreshUi(); return; }
+            if (rolesCts != null) { historyStatus = new Msg("native.history.busyRoles"); RefreshUi(); return; }
+            if ((initial & RiotTask.History) != 0 && machine.Current == Phase.Draft) { historyStatus = new Msg("native.history.busyDraft"); RefreshUi(); return; }
             string path = Path.Combine(dataDir, HistoryImporter.FileName);
             string role; string[] pool;
             MatchupTarget(out role, out pool);
@@ -914,11 +922,10 @@ public static class Autostart
 
         public async Task<RoleUpdateResult> RunRiotUpdate(bool matchups, IRiotFetcher fetcher, RiotRegion region, string role, string[] pool)
         {
-            string what = matchups ? "matchups" : "rôles";
             string fileName = matchups ? "draft-matchups-live.js" : "draft-role-rates-live.js";
             CancellationTokenSource cts = new CancellationTokenSource();
             rolesCts = cts;
-            rolesStatus = "Calcul des " + what + " : démarrage...";
+            rolesStatus = new Msg(matchups ? "native.roles.startingMatchups" : "native.roles.startingRoles");
             RefreshUi();
             SynchronizationContext ui = SynchronizationContext.Current;
             RiotCrawler updater = matchups
@@ -929,7 +936,7 @@ public static class Autostart
             {
                 if (done - shown < 10 && done < total) return;
                 shown = done;
-                ui.Post(_ => { if (rolesCts == null || rolesCts.IsCancellationRequested) return; rolesStatus = "Calcul des " + what + " : " + done + " sur " + total + " parties"; RefreshUi(); }, null);
+                ui.Post(_ => { if (rolesCts == null || rolesCts.IsCancellationRequested) return; rolesStatus = new Msg(matchups ? "native.roles.progressMatchups" : "native.roles.progressRoles", "done", done, "total", total); RefreshUi(); }, null);
             };
             RoleUpdateResult r = await Task.Run(() => updater.Run(cts.Token));
             rolesCts = null;
@@ -942,12 +949,12 @@ public static class Autostart
                 rolesReloadPending = true;
                 ReloadRolesIfIdle();
             }
-            rolesStatus = r.UpToDate ? (matchups ? "Matchups" : "Rôles") + " déjà à jour : aucune requête dépensée."
-                : r.Saved ? (matchups ? "Matchups mis à jour : " : "Rôles mis à jour : ") + r.Games + " parties, " + r.Champions + " champions."
-                : r.Error != "" ? r.Error
-                : "Calcul arrêté : " + r.Games + " parties, trop peu pour remplacer les données actuelles.";
-            if (r.Saved && r.Error != "") rolesStatus += " " + r.Error;
-            if (r.Error != "" && !r.Saved) riotQueueStopped = true;
+            rolesStatus = r.UpToDate ? new Msg(matchups ? "native.roles.upToDateMatchups" : "native.roles.upToDateRoles")
+                : r.Saved ? new Msg(matchups ? "native.roles.savedMatchups" : "native.roles.savedRoles", "games", r.Games, "champions", r.Champions)
+                : r.Error != null ? r.Error
+                : new Msg("native.roles.stoppedFew", "games", r.Games);
+            if (r.Saved && r.Error != null) rolesStatus = new Msg("native.status.join", "first", rolesStatus, "second", r.Error);
+            if (r.Error != null && !r.Saved) riotQueueStopped = true;
             Notify(rolesStatus, r.Saved || r.UpToDate ? ToolTipIcon.Info : ToolTipIcon.Warning);
             RefreshUi();
             return r;
@@ -956,6 +963,7 @@ public static class Autostart
         // Recharger les panneaux efface leur état : jamais pendant une draft.
         void ReloadRolesIfIdle()
         {
+            ReloadLanguageIfIdle();
             if (!rolesReloadPending || panelsShown || machine.Current == Phase.Draft) return;
             rolesReloadPending = false;
             foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.Reload();
@@ -1000,7 +1008,7 @@ public static class Autostart
                 if (!opts.Silent)
                 {
                     if (ex is WebView2RuntimeNotFoundException) RuntimeHelp.Explain();
-                    else MessageBox.Show("DRAFT n'a pas pu démarrer. Détail dans " + Path.Combine(dataDir, "draftmid.log"), "DRAFT", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    else MessageBox.Show(Strings.T("native.dialog.startFailed", "path", Path.Combine(dataDir, "draftmid.log")), "DRAFT", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
                 Quit();
             }
@@ -1054,13 +1062,54 @@ public static class Autostart
             w.FrameNavigationStarting += (s, e) => { if (!IsAppPage(e.Uri)) e.Cancel = true; };
             TaskCompletionSource<bool> nav = new TaskCompletionSource<bool>();
             w.NavigationCompleted += (s, e) => nav.TrySetResult(true);
-            w.Navigate("https://draftmid.local/index.html?" + query);
+            w.Navigate(PageUrl(query));
             await nav.Task;
             done.TrySetResult(true);
             return f;
         }
 
         public const string AppOrigin = "https://draftmid.local/";
+        // Adresse d'une page de DRAFT, dans la langue du programme (I18N-3 : &lang=fr|en, lu par draft-i18n.js).
+        public static string PageUrl(string query) { return AppOrigin + "index.html?" + query + "&lang=" + Strings.Lang; }
+
+        // ---------- Langue (I18N-3) ----------
+        // Réglages > Général > Langue : "auto" (langue de Windows), "fr" ou "en", enregistré dans settings.json (Language).
+        // La fenêtre principale change tout de suite ; les panneaux seulement hors draft, car les recharger efface leur état.
+        bool langReloadPending;
+        public int LanguageReloads;
+        public void SetLanguage(string value)
+        {
+            settings.Language = Strings.NormalizeSetting(value);
+            Persist();
+            string next = Strings.Resolve(settings.Language, System.Globalization.CultureInfo.CurrentUICulture);
+            if (next != Strings.Lang)
+            {
+                Strings.Use(next);
+                ApplyMenuTexts();
+                PanelForm full = PanelFor("full");
+                if (full != null && full.View.CoreWebView2 != null) { LanguageReloads++; full.View.CoreWebView2.Navigate(PageUrl("panel=full&tab=settings&section=general")); }
+                langReloadPending = true;
+                ReloadLanguageIfIdle();
+            }
+            RefreshUi();
+        }
+
+        public bool LanguagePending { get { return langReloadPending; } }
+
+        void ReloadLanguageIfIdle()
+        {
+            if (!langReloadPending || panelsShown || machine.Current == Phase.Draft) return;
+            langReloadPending = false;
+            foreach (PanelForm f in panels.Values.ToList()) if (f.Id != "full" && f.View.CoreWebView2 != null) { LanguageReloads++; f.View.CoreWebView2.Navigate(PageUrl("panel=" + f.Id)); }
+        }
+
+        // Libellés fixes du menu de l'icône ; ceux qui changent avec l'état (phase, panneaux, mise à jour) sont dans RefreshUi.
+        void ApplyMenuTexts()
+        {
+            miOpen.Text = MenuText.Open; miSimulate.Text = MenuText.Simulate; miDetection.Text = MenuText.Detection;
+            miTeachDraft.Text = MenuText.TeachDraft; miTeachNotDraft.Text = MenuText.TeachNotDraft; miLcuDiagnostic.Text = MenuText.LcuDiagnostic;
+            miSettings.Text = MenuText.Settings; miQuit.Text = MenuText.Quit;
+        }
         public static bool IsAppPage(string uri) { return uri != null && uri.StartsWith(AppOrigin, StringComparison.Ordinal); }
 
         // Sites que la page peut ouvrir dans le navigateur.
@@ -1247,7 +1296,7 @@ public static class Autostart
             Rectangle b = f.Bounds;
             settings.Rects[f.Id] = new SavedRect { X = b.X, Y = b.Y, W = b.Width, H = b.Height };
             settings.Follow = false;
-            placementNote = "Position manuelle conservée. Réactive « Coller les panneaux au client LoL » dans les réglages.";
+            placementNote = new Msg("native.placement.manualKept");
             Persist();
             RefreshUi();
         }
@@ -1268,8 +1317,8 @@ public static class Autostart
 
         void Teach(bool isDraft)
         {
-            if (!frameValid) { tray.ShowBalloonTip(3000, "DRAFT", "Le client doit être visible à l'écran pour retenir cette vue.", ToolTipIcon.Info); return; }
-            if (!detector.Teach(frame, isDraft)) { tray.ShowBalloonTip(3000, "DRAFT", "Aucun portrait au centre : cet écran n'a pas été retenu comme une draft.", ToolTipIcon.Info); return; }
+            if (!frameValid) { tray.ShowBalloonTip(3000, "DRAFT", Strings.T("native.balloon.teachNeedClient"), ToolTipIcon.Info); return; }
+            if (!detector.Teach(frame, isDraft)) { tray.ShowBalloonTip(3000, "DRAFT", Strings.T("native.balloon.teachNoPortrait"), ToolTipIcon.Info); return; }
             Persist();
         }
 
@@ -1295,14 +1344,15 @@ public static class Autostart
 
         void RefreshUi()
         {
-            string phase = PhaseText.Of(machine.Current);
+            string phase = PhaseText.Of(machine.Current).ToString();
             miPhase.Text = phase;
             miUpdate.Enabled = updateCts == null;
-            miUpdate.Text = updateCts != null ? "Mise à jour en cours..." : MenuText.CheckUpdate;
+            miUpdate.Text = updateCts != null ? Strings.T("native.menu.updating") : MenuText.CheckUpdate;
 
-            miShow.Text = (panelsShown ? "Masquer" : "Afficher") + " les panneaux" + (hotkey != null && hotkey.Registered ? " (Ctrl+Alt+D)" : "");
+            bool withHotkey = hotkey != null && hotkey.Registered;
+            miShow.Text = Strings.T(panelsShown ? (withHotkey ? "native.menu.hidePanelsHotkey" : "native.menu.hidePanels") : (withHotkey ? "native.menu.showPanelsHotkey" : "native.menu.showPanels"));
 
-            string tip = "DRAFT : " + phase;
+            string tip = Strings.T("native.tray.tip", "phase", phase);
             tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
             BroadcastHost();
         }
@@ -1311,8 +1361,8 @@ public static class Autostart
         {
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
-                { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", updateStatus }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } });
+                { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1345,7 +1395,7 @@ public static class Autostart
             string statsBefore = File.ReadAllText(statsPath);
             HistoryImportResult first = await RunHistoryImport(sim, RiotRegion.All[0], new List<string> { "Test#EUW" }, 2, 0);
             if (first.Added != 2 || !first.HasMore) return "(premier import : " + first.Added + ")";
-            if (!historyHasMore || !historyStatus.Contains("2 parties ajoutées")) return "(état : " + historyStatus + ")";
+            if (!historyHasMore || historyStatus == null || historyStatus.Key != "native.history.done" || !(historyStatus.Vars["summary"] is Msg) || Convert.ToInt32(((Msg)historyStatus.Vars["summary"]).Vars["count"]) != 2) return "(état : " + Msg.TextOrEmpty(historyStatus) + ")";
             HistoryImportResult second = await RunHistoryImport(sim, RiotRegion.All[0], new List<string> { "Test#EUW" }, 2, 0);
             if (second.Added != 1 || second.Total != 3 || second.HasMore) return "(suite : " + second.Added + "/" + second.Total + ")";
             if (!File.Exists(Path.Combine(webDir, HistoryImporter.FileName))) return "(fichier absent de la page)";
@@ -1367,7 +1417,7 @@ public static class Autostart
             int rolesOnly = calls;
             calls = 0;
             await RunRiotTasks(refused, RiotTask.Roles | RiotTask.Matchups, RiotRegion.All[0], null, 0, "mid", new[] { "Fizz" }, 0);
-            if (rolesOnly == 0 || calls != rolesOnly || !rolesStatus.Contains("refusée")) return "(clé refusée : la lecture suivante est lancée quand même, " + calls + " appels contre " + rolesOnly + " ; " + rolesStatus + ")";
+            if (rolesOnly == 0 || calls != rolesOnly || rolesStatus == null || rolesStatus.Key != "native.riot.keyRefused") return "(clé refusée : la lecture suivante est lancée quand même, " + calls + " appels contre " + rolesOnly + " ; " + Msg.TextOrEmpty(rolesStatus) + ")";
             if (File.Exists(matchupsPath) != hadMatchups || File.Exists(ratesPath) != hadRates) return "(clé refusée : un fichier de calcul a été créé)";
             foreach (string file in Directory.GetFiles(dataDir, "*", SearchOption.TopDirectoryOnly))
             {
@@ -1639,7 +1689,8 @@ public static class Autostart
 
         async Task<string> TestHistoryWindow(string fakeKey)
         {
-            string path = Path.Combine(dataDir, HistoryImporter.FileName), before = File.ReadAllText(path), status = historyStatus, layout = "";
+            string path = Path.Combine(dataDir, HistoryImporter.FileName), before = File.ReadAllText(path), layout = "";
+            Msg status = historyStatus;
             bool seen = false, blocked = false, allowed = false;
             OpenFull("settings");
             PanelForm f = null;
@@ -1902,7 +1953,7 @@ public static class Autostart
             // Les mots disent ce que fait l'application, et suivent le rôle du joueur.
             await run("resetDraft(); ['Yasuo','Yone','Lee Sin','Jinx','Thresh'].forEach(addEnemy); 1");
             await waitFor("state.enemies.length === 5 && document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]')");
-            if (await run("document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]').textContent.includes('Je joue')") != "true") problem += "le bouton de choix ne dit pas « Je joue » ; ";
+            if (await run("document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]').textContent.includes(I18N.t('advice.cta.play', { champion: '' }).trim())") != "true") problem += "le bouton de choix ne dit pas « Je joue » ; ";
             if (await run("![...document.querySelectorAll('[data-test=\"badge\"]')].some(b => b.textContent.includes('Provisoire'))") != "true") problem += "un badge mélange encore les incertitudes ; ";
             if (await run("!document.querySelector('[data-test=\"result-buttons\"]') || !!state.current") != "true") problem += "les boutons de résultat s'affichent sans choix ; ";
             string support = await run("(() => { const before = PROFILE; applyProfile({ role:'support', pool:['Lux', 'Soraka'] }); computeVerdict(); const text = hypothesisText(); applyProfile(before); computeVerdict(); return text; })()");
@@ -1916,7 +1967,7 @@ public static class Autostart
             f.Close();
             await Task.Delay(200);
             if (f.Visible || f.IsDisposed || Quitting) problem += "la croix ne masque pas proprement ; ";
-            if (BalloonCount != balloons + 1 || LastBalloon != BalloonClosed) problem += "fermée par la croix, aucune bulle ne dit que DRAFT reste actif (" + LastBalloon + ") ; ";
+            if (BalloonCount != balloons + 1 || LastBalloonKey != "native.balloon.closed") problem += "fermée par la croix, aucune bulle ne dit que DRAFT reste actif (" + LastBalloon + ") ; ";
             OpenFull("");
             await findWindow();
             if (!f.Visible || !await waitFor("document.querySelector('[data-test=\"app\"]')")) problem += "réouverture impossible ; ";
@@ -1999,7 +2050,7 @@ public static class Autostart
                     if (await open.View.CoreWebView2.ExecuteScriptAsync("window.__openSettingsSeen || 0") == settingsToken.ToString()) return;
                 }
                 // La fenêtre principale était déjà à l'écran : fermer les réglages doit y revenir, jamais la masquer (pas de solo=1).
-                open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings" + (section == null ? "" : "&section=" + section));
+                open.View.CoreWebView2.Navigate(PageUrl("panel=full&tab=settings" + (section == null ? "" : "&section=" + section)));
                 return;
             }
             // Pendant une draft, la fenêtre ne doit pas rester devant le client une fois les réglages fermés.
@@ -2015,7 +2066,7 @@ public static class Autostart
                 EventHandler<CoreWebView2NavigationCompletedEventArgs> done = null;
                 done = (s, e) => { f.View.CoreWebView2.NavigationCompleted -= done; loaded.TrySetResult(true); };
                 f.View.CoreWebView2.NavigationCompleted += done;
-                f.View.CoreWebView2.Navigate("https://draftmid.local/index.html?" + q);
+                f.View.CoreWebView2.Navigate(PageUrl(q));
                 await Task.WhenAny(loaded.Task, Task.Delay(3000));
                 if (f.IsDisposed) return;
             }
@@ -2035,16 +2086,16 @@ public static class Autostart
 
         void ImportStats()
         {
-            using (OpenFileDialog d = new OpenFileDialog { Title = "Choisir draft-stats.js", Filter = "Statistiques DRAFT|draft-stats.js|Tous les fichiers|*.*" })
+            using (OpenFileDialog d = new OpenFileDialog { Title = Strings.T("native.dialog.statsTitle"), Filter = Strings.T("native.dialog.statsFilter") })
             {
                 if (d.ShowDialog() != DialogResult.OK) return;
                 // Seules des données passent : le fichier est relu comme du JSON, puis réécrit par DRAFT.
                 string safe = DataScripts.ReadCanonical("DRAFT_STATS", d.FileName);
-                if (safe == null) { MessageBox.Show("Ce fichier n'est pas un import DRAFT valide : rien n'a été modifié.", "DRAFT"); return; }
+                if (safe == null) { MessageBox.Show(Strings.T("native.dialog.statsInvalid"), "DRAFT"); return; }
                 File.WriteAllText(Path.Combine(dataDir, "draft-stats.js"), safe, new UTF8Encoding(false));
                 File.WriteAllText(Path.Combine(webDir, "draft-stats.js"), safe, new UTF8Encoding(false));
                 foreach (PanelForm f in panels.Values) if (f.View.CoreWebView2 != null) f.View.CoreWebView2.Reload();
-                Notify(BalloonStatsImported, ToolTipIcon.Info);
+                Notify(new Msg("native.balloon.statsImported"), ToolTipIcon.Info);
             }
         }
 
@@ -2063,7 +2114,7 @@ public static class Autostart
                     bool wasShown = panelsShown;
                     ToggleManual();
                     // Premier masquage depuis l'outil du panneau dans la session : on dit comment les rappeler (une fois).
-                    if (wasShown && !panelsShown && !hideHintShown) { hideHintShown = true; Notify(hotkey != null && hotkey.Registered ? MenuText.HiddenHotkey : MenuText.HiddenMenu, ToolTipIcon.Info); }
+                    if (wasShown && !panelsShown && !hideHintShown) { hideHintShown = true; Notify(new Msg(hotkey != null && hotkey.Registered ? "native.balloon.hiddenHotkey" : "native.balloon.hiddenMenu"), ToolTipIcon.Info); }
                     break;
                 }
                 case "replacePanels": SetFollow(true); UpdatePlacement(true); break;
@@ -2074,6 +2125,7 @@ public static class Autostart
                 case "checkUpdate": CheckForUpdate(false); break;
                 case "importHistory": ToggleHistoryImport(); break;
                 case "tryPanels": TryPanels(); break;
+                case "setLanguage": SetLanguage(m.ContainsKey("value") ? m["value"] as string : null); break;
                 case "setProfile":
                 {
                     object roleO, poolO;
@@ -2147,7 +2199,7 @@ public static class Autostart
                     using (FileStream fs = File.Create(Path.Combine(opts.CaptureDir, "app-" + f.Id + ".png")))
                         await f.View.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
                 }
-                log.AppendLine("CLIENT " + (ClientOpen ? tracker.Rect.ToString() : "absent") + " | " + placementNote);
+                log.AppendLine("CLIENT " + (ClientOpen ? tracker.Rect.ToString() : "absent") + " | " + (placementNote == null ? "" : placementNote.Key));
             }
             catch (Exception e) { log.AppendLine("EXC " + e); }
             if (opts.Out != null) File.WriteAllText(opts.Out, log.ToString());
@@ -2190,17 +2242,17 @@ public static class Autostart
 
         // ---------- Mise à jour à la demande : voir AppUpdater ----------
         CancellationTokenSource updateCts;
-        string updateStatus = "";
+        Msg updateStatus;
+        // Fin de mise à jour sans message (annulation).
+        static readonly Msg Cancelled = new Msg("");
         // Heure de la dernière réponse de GitHub (format ISO local), connue pour cette session seulement : rien n'est enregistré.
         string updateChecked = "";
 
-        void SetUpdateStatus(string text) { updateStatus = text; RefreshUi(); }
+        void SetUpdateStatus(Msg text) { updateStatus = text; RefreshUi(); }
 
         // ---------- Retours visibles hors de la fenêtre (audit UX, problème 7) ----------
-        // Textes regroupés ici pour l'extraction du catalogue (native.balloon.*).
-        public const string BalloonClosed = "DRAFT reste actif près de l'horloge. Pour rouvrir cette fenêtre : double-clic sur son icône, ou « Ouvrir DRAFT » dans son menu.";
-        public const string BalloonStatsImported = "Statistiques importées : elles s'affichent dans l'onglet Parties de la fenêtre DRAFT.";
-        public string LastBalloon = "";
+        // Textes du catalogue (native.balloon.*). La dernière bulle est retenue pour les tests : texte affiché et clé.
+        public string LastBalloon = "", LastBalloonKey = "";
         public int BalloonCount;
         bool closeHintShown, hideHintShown;
         Action openFromTray;
@@ -2221,6 +2273,40 @@ public static class Autostart
 
         // Menu et overlay (UX-6) : 8 entrées au plus, double-clic qui ouvre DRAFT, fonctions sorties du menu présentes dans la fenêtre,
         // bulle au premier masquage depuis un panneau.
+        // I18N-3 : changement de langue sans redémarrage, depuis le programme puis depuis le vrai sélecteur de la page.
+        // Menu de l'icône, fenêtre principale (rechargée tout de suite) et panneaux (rechargés hors draft) ; réglage enregistré.
+        public string LanguageReport = "non mesuré";
+        public async Task<string> TestLanguageSwitch()
+        {
+            string problem = "", before = Strings.Lang, other = before == "fr" ? "en" : "fr", saved = settings.Language;
+            PanelForm f = PanelFor("full");
+            if (f == null || f.View.CoreWebView2 == null) return "fenêtre principale absente ; ";
+            Func<string, Task<bool>> waitFor = async code => { for (int i = 0; i < 120; i++) { try { if (await f.View.CoreWebView2.ExecuteScriptAsync("!!(" + code + ")") == "true") return true; } catch { } await Task.Delay(50); } return false; };
+            int reloads = LanguageReloads;
+            SetLanguage(other);
+            if (Strings.Lang != other) problem += "langue du programme inchangée ; ";
+            if (miOpen.Text != Strings.T("native.menu.open") || !MenuInventory().Contains(MenuText.Settings)) problem += "menu non traduit ; ";
+            if (!await waitFor("typeof I18N!=='undefined' && I18N.lang==='" + other + "' && document.documentElement.lang==='" + other + "' && !!document.querySelector('[data-test=\"language-select\"]')")) problem += "fenêtre principale pas rechargée en " + other + " ; ";
+            if (!await waitFor("I18N.missing().length===0")) problem += "clés absentes dans la page ; ";
+            if (UserPreferences.Load(settingsPath).Language != other) problem += "réglage non enregistré ; ";
+            bool panelsDone = !langReloadPending;
+            foreach (PanelForm p in panels.Values.ToList().Where(x => x.Id != "full" && x.View.CoreWebView2 != null))
+            {
+                bool ok = false;
+                for (int i = 0; i < 120 && !ok; i++) { try { ok = await p.View.CoreWebView2.ExecuteScriptAsync("typeof I18N!=='undefined' && I18N.lang") == "\"" + other + "\""; } catch { } if (!ok) await Task.Delay(50); }
+                if (panelsDone && !ok) problem += "panneau " + p.Id + " pas rechargé ; ";
+            }
+            // Retour par le vrai sélecteur de Réglages > Général (commande setLanguage envoyée par la page).
+            await f.View.CoreWebView2.ExecuteScriptAsync("(()=>{const s=document.querySelector('[data-test=\"language-select\"]');const set=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set;set.call(s,'" + before + "');s.dispatchEvent(new Event('change',{bubbles:true}));return 1})()");
+            for (int i = 0; i < 100 && Strings.Lang != before; i++) await Task.Delay(50);
+            if (Strings.Lang != before) problem += "le sélecteur de la page ne change pas la langue ; ";
+            if (!await waitFor("typeof I18N!=='undefined' && I18N.lang==='" + before + "'")) problem += "fenêtre principale pas revenue en " + before + " ; ";
+            settings.Language = saved;
+            Persist();
+            LanguageReport = before + " > " + other + " > " + before + ", " + (LanguageReloads - reloads) + " rechargement(s), panneaux " + (panelsDone ? "rechargés hors draft" : "en attente de la fin de la draft");
+            return problem;
+        }
+
         public async Task<string> TestMenuAndOverlay()
         {
             string problem = "";
@@ -2229,7 +2315,7 @@ public static class Autostart
             if (top > 8) problem += top + " entrées au premier niveau du menu ; ";
             foreach (string need in new[] { MenuText.Open, MenuText.Simulate, MenuText.Detection + " > " + MenuText.TeachDraft, MenuText.Detection + " > " + MenuText.TeachNotDraft, MenuText.Detection + " > " + MenuText.LcuDiagnostic, MenuText.Settings, MenuText.CheckUpdate, MenuText.Quit })
                 if (!inv.Contains(need)) problem += "menu sans « " + need + " » ; ";
-            if (!inv.Any(x => x.StartsWith(MenuText.ShowPanels) || x.StartsWith("Masquer les panneaux"))) problem += "menu sans « Afficher les panneaux » ; ";
+            if (!inv.Any(x => x.StartsWith(MenuText.ShowPanels) || x.StartsWith(MenuText.HidePanels))) problem += "menu sans « Afficher les panneaux » ; ";
             MenuReport = string.Join(" | ", inv);
             // Double-clic : la fenêtre principale s'ouvre, sur l'Accueil.
             PanelForm f;
@@ -2250,9 +2336,9 @@ public static class Autostart
                 if (h[2] != "x" && !await waitFor("document.querySelector('[data-test=\"" + h[2] + "\"]')")) problem += h[2] + " absent de Réglages > " + h[1] + " ; ";
             }
             await f.View.CoreWebView2.ExecuteScriptAsync("goView('settings', 'display'); 1");
-            if (!await waitFor("/Afficher les panneaux automatiquement pendant la draft/.test(document.body.innerText) && /Coller les panneaux au client LoL/.test(document.body.innerText) && /Un seul panneau/.test(document.body.innerText)")) problem += "affichage automatique, collage ou panneau unique absents de Réglages > Affichage ; ";
+            if (!await waitFor("['settings.display.auto','settings.display.follow','settings.display.compact'].every(k => document.body.innerText.includes(I18N.t(k)))")) problem += "affichage automatique, collage ou panneau unique absents de Réglages > Affichage ; ";
             await f.View.CoreWebView2.ExecuteScriptAsync("goView('settings', 'general'); 1");
-            if (!await waitFor("/Démarrer avec Windows/.test(document.body.innerText)")) problem += "« Démarrer avec Windows » absent de Réglages > Général ; ";
+            if (!await waitFor("document.body.innerText.includes(I18N.t('settings.general.autostart'))")) problem += "« Démarrer avec Windows » absent de Réglages > Général ; ";
             await f.View.CoreWebView2.ExecuteScriptAsync("goView('stats'); 1");
             await waitFor("document.querySelector('[data-test=\"stats-tab-history\"]')");
             await f.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-test=\"stats-tab-history\"]').click(); 1");
@@ -2266,7 +2352,7 @@ public static class Autostart
             PanelForm panel = panels.Values.FirstOrDefault(p => p.Id != "full" && p.Visible);
             int balloons = BalloonCount;
             if (panel != null) OnMessage(panel, "{\"cmd\":\"hideAll\"}");
-            if (panelsShown || BalloonCount != balloons + 1 || !LastBalloon.StartsWith("Panneaux masqués")) problem += "masquer depuis le panneau : pas de bulle « Panneaux masqués » (" + LastBalloon + ") ; ";
+            if (panelsShown || BalloonCount != balloons + 1 || !(LastBalloonKey == "native.balloon.hiddenHotkey" || LastBalloonKey == "native.balloon.hiddenMenu")) problem += "masquer depuis le panneau : pas de bulle « Panneaux masqués » (" + LastBalloon + ") ; ";
             visibility.Manual = true; ApplyVisibility();
             for (int i = 0; i < 100 && !panelsShown; i++) await Task.Delay(50);
             panel = panels.Values.FirstOrDefault(p => p.Id != "full" && p.Visible);
@@ -2295,8 +2381,8 @@ public static class Autostart
             if (!await waitFor("document.querySelector('[data-test=\"view-home\"]') && document.querySelector('[data-test=\"home\"]')")) problem += "le premier lancement n'ouvre pas l'Accueil (" + await run("location.search + ' ' + (document.querySelector('main') || {}).className") + ") ; ";
             if (await run("!!document.querySelector('[data-test=\"settings\"]')") == "true") problem += "le premier lancement ouvre encore les Réglages ; ";
             // Mise à jour vérifiée plus tôt (source simulée) : résultat et heure sur l'Accueil.
-            if (updateChecked != "" && !await waitFor("/Dernière vérification : aujourd'hui à \\d\\d:\\d\\d/.test((document.querySelector('[data-test=\"home-update-checked\"]') || {}).textContent || '')")) problem += "l'Accueil n'affiche pas l'heure de la dernière vérification ; ";
-            if (updateStatus != "" && !await waitFor("((document.querySelector('[data-test=\"home-update-status\"]') || {}).textContent || '').length > 5")) problem += "l'Accueil n'affiche pas le résultat de la mise à jour ; ";
+            if (updateChecked != "" && !await waitFor("(() => { const s = (document.querySelector('[data-test=\"home-update-checked\"]') || {}).textContent || ''; return s.startsWith(I18N.t('home.update.checked', { time: '@' }).split('@')[0]) && /\\d:\\d\\d/.test(s); })()")) problem += "l'Accueil n'affiche pas l'heure de la dernière vérification ; ";
+            if (updateStatus != null && !await waitFor("((document.querySelector('[data-test=\"home-update-status\"]') || {}).textContent || '').length > 5")) problem += "l'Accueil n'affiche pas le résultat de la mise à jour ; ";
 
             // Lecture du client : activée par le bouton de l'Accueil, puis LCU simulé connecté, puis client injoignable.
             bool lcuBefore = settings.LcuEnabled;
@@ -2312,7 +2398,7 @@ public static class Autostart
             SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
             TestUseLcu(() => sim);
             await PollLcuOnce(); NotifyLcuStatus();
-            if (!await waitFor("document.querySelector('[data-test=\"home-league\"][data-state=\"connected\"]') && /Client LoL connecté/.test(document.querySelector('[data-test=\"home-hero\"]').textContent)")) problem += "LCU simulé connecté : l'Accueil ne le montre pas (" + LcuStatus() + ") ; ";
+            if (!await waitFor("document.querySelector('[data-test=\"home-league\"][data-state=\"connected\"]') && document.querySelector('[data-test=\"home-hero\"]').textContent.includes(I18N.t('home.hero.ready.connected'))")) problem += "LCU simulé connecté : l'Accueil ne le montre pas (" + LcuStatus() + ") ; ";
             await CaptureHome(f, "connecte");
             sim.Offline = true;
             await PollLcuOnce(); NotifyLcuStatus();
@@ -2368,9 +2454,11 @@ public static class Autostart
         }
 
         // Une bulle près de l'horloge. Retenue pour les tests ; jamais affichée en mode silencieux.
-        void Notify(string text, ToolTipIcon icon)
+        void Notify(Msg msg, ToolTipIcon icon)
         {
+            string text = msg.ToString();
             LastBalloon = text;
+            LastBalloonKey = msg.Key;
             BalloonCount++;
             if (!opts.Silent && tray != null) tray.ShowBalloonTip(5000, "DRAFT", text, icon);
         }
@@ -2380,21 +2468,21 @@ public static class Autostart
         {
             if (closeHintShown || Quitting) return;
             closeHintShown = true;
-            Notify(BalloonClosed, ToolTipIcon.Info);
+            Notify(new Msg("native.balloon.closed"), ToolTipIcon.Info);
         }
 
         // Jamais pendant une draft, une partie, un import ou un calcul : l'application redémarre.
-        string UpdateBlocked()
+        Msg UpdateBlocked()
         {
-            if (machine.Current == Phase.Draft || machine.Current == Phase.InGame) return "Une draft ou une partie est en cours : relance la mise à jour après.";
-            if (rolesCts != null || historyCts != null) return "Un import ou un calcul est en cours : attends sa fin.";
+            if (machine.Current == Phase.Draft || machine.Current == Phase.InGame) return new Msg("native.update.blockedDraft");
+            if (rolesCts != null || historyCts != null) return new Msg("native.update.blockedTask");
             return null;
         }
 
         // fromMenu : lancée depuis le menu de l'icône, la recherche répond par une bulle, réglages ouverts ou non.
         public void CheckForUpdate(bool fromMenu)
         {
-            RunUpdate(new GitHubUpdateSource(), fromMenu, info => MessageBox.Show("La version " + info.Version.ToString(3) + " est disponible (tu as la " + AppUpdater.Current.ToString(3) + ").\n\nDRAFT va la télécharger, la vérifier, puis redémarrer. Tes profils, ton historique et tes réglages sont conservés.\n\nInstaller maintenant ?", "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+            RunUpdate(new GitHubUpdateSource(), fromMenu, info => MessageBox.Show(Strings.T("native.update.confirm", "version", info.Version.ToString(3), "current", AppUpdater.Current.ToString(3)), "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
         }
 
         // Relance avec les mêmes options : un essai isolé reste sur son dossier de données.
@@ -2415,25 +2503,26 @@ public static class Autostart
         async void RunUpdate(IUpdateSource source, bool notify, Func<UpdateInfo, bool> confirm)
         {
             if (updateCts != null) return;
-            string blocked = UpdateBlocked();
+            Msg blocked = UpdateBlocked();
             if (blocked != null) { SetUpdateStatus(blocked); if (notify) Notify(blocked, ToolTipIcon.Warning); return; }
             CancellationTokenSource cts = new CancellationTokenSource();
             updateCts = cts;
-            string done = null;
+            // done : message de fin ; null tant que rien n'est fini, Silent (clé vide) pour une annulation sans message.
+            Msg done = null;
             try
             {
-                SetUpdateStatus("Recherche d'une mise à jour...");
+                SetUpdateStatus(new Msg("native.update.checking"));
                 UpdateInfo info = await source.LatestAsync(cts.Token);
                 updateChecked = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
-                if (!AppUpdater.IsNewer(AppUpdater.Current, info.Version)) { done = "DRAFT est à jour (version " + AppUpdater.Current.ToString(3) + ")."; return; }
-                if (!confirm(info)) { done = "La version " + info.Version.ToString(3) + " est disponible."; return; }
+                if (!AppUpdater.IsNewer(AppUpdater.Current, info.Version)) { done = new Msg("native.update.upToDate", "version", AppUpdater.Current.ToString(3)); return; }
+                if (!confirm(info)) { done = new Msg("native.update.available", "version", info.Version.ToString(3)); return; }
                 int shown = -1;
                 Progress<long> progress = new Progress<long>(bytes =>
                 {
                     int percent = (int)(bytes * 100 / Math.Max(1, info.Size));
-                    if (percent / 5 != shown && updateCts != null) { shown = percent / 5; SetUpdateStatus("Téléchargement : " + percent + " %"); }
+                    if (percent / 5 != shown && updateCts != null) { shown = percent / 5; SetUpdateStatus(new Msg("native.update.downloading", "percent", percent)); }
                 });
-                IProgress<long> checking = new Progress<long>(_ => SetUpdateStatus("Vérification de la nouvelle version..."));
+                IProgress<long> checking = new Progress<long>(_ => SetUpdateStatus(new Msg("native.update.verifying")));
                 string candidate = await AppUpdater.Prepare(source, info, exePath, dataDir, progress, (c, d, ct) => { checking.Report(0); AppUpdater.SelfCheck(c, d, ct); }, cts.Token);
                 blocked = UpdateBlocked();
                 if (blocked != null) { File.Delete(candidate); done = blocked; return; }
@@ -2443,21 +2532,21 @@ public static class Autostart
                 updateCts = null;
                 Quit();
             }
-            catch (OperationCanceledException) { done = ""; }
+            catch (OperationCanceledException) { done = Cancelled; }
             catch (Exception e)
             {
                 if (e is OutOfMemoryException) throw;
                 Program.Log(dataDir, "Mise à jour : " + e.GetType().Name);
-                done = cts.IsCancellationRequested ? "" : AppUpdater.FriendlyError(e);
+                done = cts.IsCancellationRequested ? Cancelled : AppUpdater.FriendlyError(e);
             }
             finally
             {
                 if (updateCts == cts) updateCts = null;
                 if (done != null && !Quitting)
                 {
-                    SetUpdateStatus(done);
-                    if (notify && done != "") Notify(done, done.StartsWith("DRAFT est à jour") || done.StartsWith("La version") ? ToolTipIcon.Info : ToolTipIcon.Warning);
-                    if (opts.TestUpdate != null) { if (opts.Out != null) File.WriteAllText(opts.Out, "RESULTAT : " + done); Quit(); }
+                    SetUpdateStatus(done == Cancelled ? null : done);
+                    if (notify && done != Cancelled) Notify(done, done.Key == "native.update.upToDate" || done.Key == "native.update.available" ? ToolTipIcon.Info : ToolTipIcon.Warning);
+                    if (opts.TestUpdate != null) { if (opts.Out != null) File.WriteAllText(opts.Out, "RESULTAT : " + (done == Cancelled ? "" : done.ToString())); Quit(); }
                 }
             }
         }
@@ -2475,16 +2564,16 @@ public static class Autostart
 
         public void AnnounceRolledBack()
         {
-            updateStatus = "La nouvelle version n'a pas démarré : la précédente a été remise en place.";
+            updateStatus = new Msg("native.update.rolledBack");
             RefreshUi();
-            if (!opts.Silent) tray.ShowBalloonTip(5000, "DRAFT", updateStatus, ToolTipIcon.Warning);
+            if (!opts.Silent) tray.ShowBalloonTip(5000, "DRAFT", updateStatus.ToString(), ToolTipIcon.Warning);
         }
 
         public void AnnounceUpdated()
         {
-            updateStatus = "Mise à jour installée : version " + AppUpdater.Current.ToString(3) + ".";
+            updateStatus = new Msg("native.update.installed", "version", AppUpdater.Current.ToString(3));
             RefreshUi();
-            if (!opts.Silent) tray.ShowBalloonTip(5000, "DRAFT", updateStatus, ToolTipIcon.Info);
+            if (!opts.Silent) tray.ShowBalloonTip(5000, "DRAFT", updateStatus.ToString(), ToolTipIcon.Info);
         }
 
         public void Quit()
@@ -2740,6 +2829,8 @@ public static class Autostart
             t(fullProblem == "", "Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture ; échelle (" + app.DpiReport + ") " + fullProblem);
             string menuProblem = await app.TestMenuAndOverlay();
             t(menuProblem == "", "Menu de l'icône (8 entrées au plus, rien de perdu), double-clic, bulle de masquage (" + app.MenuReport + ") " + menuProblem);
+            if (Strings.Lang == "en") t(app.MenuReport.Contains("Open DRAFT") && app.MenuReport.Contains("Settings") && !app.MenuReport.Contains("Réglages"), "Langue : menu de l'icône en anglais");
+            else t(app.MenuReport.Contains("Ouvrir DRAFT") && app.MenuReport.Contains("Réglages"), "Langue : menu de l'icône en français");
             string profileProblem = await app.TestProfilesAndRole();
             t(profileProblem == "", "Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre " + profileProblem);
             string historyProblem = await app.TestHistoryImport();
@@ -2750,11 +2841,11 @@ public static class Autostart
             t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
             // Mise à jour lancée depuis le menu de l'icône : chaque issue répond par une bulle, réglages fermés (UX-1).
             string upToDate = await app.TestUpdateFromMenu(new StubUpdateSource());
-            t(upToDate == "DRAFT est à jour (version " + AppUpdater.Current.ToString(3) + ").", "Mise à jour depuis le menu : bulle « DRAFT est à jour » (" + upToDate + ")");
+            t(upToDate == Strings.T("native.update.upToDate", "version", AppUpdater.Current.ToString(3)), "Mise à jour depuis le menu : bulle « DRAFT est à jour » (" + upToDate + ")");
             string available = await app.TestUpdateFromMenu(new StubUpdateSource { Latest = new Version(99, 0, 0) });
-            t(available == "La version 99.0.0 est disponible.", "Mise à jour depuis le menu, installation refusée : bulle « version disponible » (" + available + ")");
+            t(available == Strings.T("native.update.available", "version", "99.0.0"), "Mise à jour depuis le menu, installation refusée : bulle « version disponible » (" + available + ")");
             string failed = await app.TestUpdateFromMenu(new StubUpdateSource { Fail = new System.Net.WebException("test") });
-            t(failed == "GitHub ne répond pas. Vérifie ta connexion, puis réessaie.", "Mise à jour depuis le menu, réseau absent : bulle d'erreur en clair (" + failed + ")");
+            t(failed == Strings.T("native.update.offline"), "Mise à jour depuis le menu, réseau absent : bulle d'erreur en clair (" + failed + ")");
             // UX-8 : la dernière vérification réussie (« à jour ») est rejouée pour que l'Accueil ait une heure et un résultat à montrer.
             await app.TestUpdateFromMenu(new StubUpdateSource());
             string homeProblem = await app.TestHome();
@@ -2807,7 +2898,7 @@ public static class Autostart
                 await Task.Delay(300);
                 t(app.PanelsShown && app.CurrentPhase == Phase.Draft, "4. Début de draft : panneaux affichés");
                 string blockedBalloon = await app.TestUpdateFromMenu(new StubUpdateSource { Latest = new Version(99, 0, 0) });
-                t(blockedBalloon.StartsWith("Une draft ou une partie est en cours"), "Mise à jour depuis le menu pendant une draft : bulle « relance après » (" + blockedBalloon + ")");
+                t(blockedBalloon == Strings.T("native.update.blockedDraft"), "Mise à jour depuis le menu pendant une draft : bulle « relance après » (" + blockedBalloon + ")");
                 t(app.PanelFor("left").Visible && app.PanelFor("right").Visible, "4. Les deux panneaux sont visibles");
                 Native.RECT c = app.Tracker.Rect, l = rectOfLeft(), r = rectOfRight();
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
@@ -3027,10 +3118,15 @@ public static class Autostart
                 t(sim.Requests.All(LcuEndpoints.IsAllowed), "LCU simulé : seuls les deux endpoints documentés sont appelés");
 
                 await RunLcuScenario(app, t, js);
+                // En dernier : recharger les pages efface l'état des panneaux, que les étapes précédentes vérifient.
+                string languageProblem = await app.TestLanguageSwitch();
+                t(languageProblem == "", "Langue : changement sans redémarrage, menu, fenêtre et panneaux (" + app.LanguageReport + ") " + languageProblem);
             }
             catch (Exception e) { fails++; s.AppendLine("EXC " + e); }
             if (fake != null && !fake.IsDisposed) { fake.Close(); fake.Dispose(); }
             s.AppendLine("MESURE : recherche de champions : " + s_keyReport);
+            List<string> missing; lock (Strings.Missing) missing = Strings.Missing.ToList();
+            t(missing.Count == 0, "Langue " + Strings.Lang + " : aucune clé du programme absente pendant le scénario" + (missing.Count == 0 ? "" : " (" + string.Join(" | ", missing) + ")"));
             s.AppendLine(fails == 0 ? "TOUT EST BON" : fails + " ECHEC(S)");
             if (o.Out != null) File.WriteAllText(o.Out, s.ToString());
             app.Quit();
@@ -3064,7 +3160,7 @@ public static class Autostart
 
         public static void Explain()
         {
-            DialogResult r = MessageBox.Show("DRAFT a besoin du composant gratuit Microsoft Edge WebView2, absent de ce PC.\n\nOuvrir la page de Microsoft pour l'installer ? Choisis « Evergreen Bootstrapper », puis relance DRAFT.", "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            DialogResult r = MessageBox.Show(Strings.T("native.dialog.webView2Missing"), "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (r != DialogResult.Yes) return;
             try { Process.Start(new ProcessStartInfo(DownloadUrl) { UseShellExecute = true }); } catch { }
         }
@@ -3079,6 +3175,8 @@ public static class Autostart
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
         public string RunKey, TestUpdate;
+        // --lang fr|en : langue imposée pour un essai (tests), sans toucher au réglage enregistré.
+        public string Lang;
         public int AfterUpdate;
         public bool TestUpdateLive, UpdateRolledBack;
         public string[] TestSignature;
@@ -3112,6 +3210,7 @@ public static class Autostart
                     case "--test-install": o.TestInstall = true; o.Silent = true; break;
                     case "--run-key": o.RunKey = next(); break;
                     case "--no-hotkey": o.NoHotkey = true; break;
+                    case "--lang": o.Lang = next(); break;
                     case "--report-state": o.ReportState = next(); o.Silent = true; break;
                     case "--no-auto-panels": o.NoAutoPanels = true; break;
                     case "--after-update": o.AfterUpdate = int.Parse(next()); break;
@@ -3162,14 +3261,14 @@ public static class Autostart
                 k.SetValue("NoModify", 1); k.SetValue("NoRepair", 1);
             }
             if (o.TestInstall) return;
-            MessageBox.Show("DRAFT est installé. Tu le retrouves dans le menu Démarrer.", "DRAFT");
+            MessageBox.Show(Strings.T("native.dialog.installed"), "DRAFT");
             Process.Start(new ProcessStartInfo(target) { WorkingDirectory = dir, UseShellExecute = true });
         }
 
         public static void Uninstall(Options o, string self)
         {
             string dir = o.InstallDir ?? DefaultDir;
-            if (!o.TestInstall && MessageBox.Show("Désinstaller DRAFT ? Ton journal et tes préférences sont conservés.", "DRAFT", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            if (!o.TestInstall && MessageBox.Show(Strings.T("native.dialog.uninstall"), "DRAFT", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
             try { File.Delete(LinkPath(o, dir)); } catch { }
             try { File.Delete(OldLinkPath(o, dir)); } catch { }
             if (o.TestInstall) Registry.CurrentUser.DeleteSubKeyTree(@"Software\DraftMid-SelfTest", false);
@@ -3281,6 +3380,66 @@ public static class Autostart
                 for (int i = 0; i < 20; i++) g.Grab(new Native.RECT(0, 0, 800, 450), fr);
                 s.AppendLine("MESURE : capture réduite d'une zone d'écran " + (w2.Elapsed.TotalMilliseconds / 20).ToString("0.00") + " ms");
             }
+        }
+    }
+
+    // I18N-3 : textes du programme (src/Strings.cs). Catalogue intégré, repli, catalogue piégé, détection, réglage, pluriels.
+    static class StringsTests
+    {
+        public static void Run(Action<bool, string> t, string dataDir)
+        {
+            string start = Strings.Lang;
+            bool test = Strings.TestMode;
+            Strings.TestMode = true;
+            t(Strings.Load("fr", Strings.Embedded) && Strings.Lang == "fr" && Strings.Has("fr", "native.menu.open") && Strings.Has("en", "native.menu.open"), "Langue : catalogues français et anglais du programme chargés");
+            int missingKeys = Strings.Keys.Count(k => k.StartsWith("native.") && !Strings.Has("en", k));
+            t(missingKeys == 0, "Langue : chaque clé native.* existe en anglais (" + missingKeys + " absente(s))");
+            t(MenuText.Open == "Ouvrir DRAFT" && Strings.T("native.update.downloading", "percent", 45) == "Téléchargement : 45 %", "Langue : textes français du programme identiques à avant");
+            Strings.Use("en");
+            t(Strings.Lang == "en" && MenuText.Open == "Open DRAFT" && Strings.T("native.update.downloading", "percent", 45) == "Downloading: 45%", "Langue : textes anglais du programme");
+            t(new Msg("native.history.summary", "count", 1, "total", 3).ToString() == "1 game added, 3 in total." && new Msg("native.history.summary", "count", 0, "total", 3).ToString() == "0 games added, 3 in total.", "Langue : pluriel anglais (0 au pluriel)");
+            t(new Msg("native.history.done", "summary", new Msg("native.history.summary", "count", 2, "total", 5)).ToString() == "Import complete: 2 games added, 5 in total.", "Langue : message dans un message");
+            Strings.Use("fr");
+            t(new Msg("native.history.done", "summary", new Msg("native.history.summary", "count", 0, "total", 5)).ToString() == "Import terminé : 0 partie ajoutée, 5 au total.", "Langue : pluriel français (0 au singulier), texte identique à avant");
+            Dictionary<string, object> json = new Msg("native.history.done", "summary", new Msg("native.history.summary", "count", 2, "total", 5)).Json();
+            t((string)json["key"] == "native.history.done" && ((Dictionary<string, object>)json["vars"])["summary"] is Dictionary<string, object>, "Langue : un état est envoyé à la page en { key, vars }");
+            // Repli : clé absente en anglais -> français, signalé ; absente partout -> [clé].
+            Strings.Missing.Clear();
+            Strings.Load("en", code => code == "en" ? "window.DRAFT_I18N_EN = {\"native.menu.quit\":\"Quit\"};" : Strings.Embedded(code));
+            t(Strings.Lang == "en" && Strings.T("native.menu.quit") == "Quit" && Strings.T("native.menu.open") == "Ouvrir DRAFT" && Strings.Missing.Contains("clé absente (en) : native.menu.open"), "Langue : clé absente en anglais, repli sur le français signalé en mode test");
+            t(Strings.T("native.cle.inconnue") == "[native.cle.inconnue]" && Strings.Missing.Contains("clé absente (fr) : native.cle.inconnue"), "Langue : clé absente partout, [clé] visible et signalée");
+            // Catalogue piégé : refusé, tout le programme reste en français.
+            Strings.Missing.Clear();
+            Strings.Load("en", code => code == "en" ? "window.DRAFT_I18N_EN = {\"native.menu.quit\":\"Quit\"}; fetch('https://exemple.test');" : Strings.Embedded(code));
+            t(Strings.Lang == "fr" && Strings.T("native.menu.quit") == "Quitter" && Strings.Missing.Any(m => m.StartsWith("catalogue en refusé")), "Langue : catalogue anglais piégé refusé, repli sur le français");
+            Strings.Load("en", code => code == "en" ? "window.DRAFT_I18N_FR = {\"native.menu.quit\":\"Quit\"};" : Strings.Embedded(code));
+            t(Strings.Lang == "fr", "Langue : catalogue anglais qui se déclare français refusé");
+            Strings.Missing.Clear();
+            Strings.Load("fr", Strings.Embedded);
+            // Détection : langue de Windows au premier lancement.
+            Func<string, string> detect = name => Strings.Detect(new System.Globalization.CultureInfo(name));
+            t(detect("fr-FR") == "fr" && detect("fr-CA") == "fr" && detect("fr-BE") == "fr" && detect("en-US") == "en" && detect("de-DE") == "en" && Strings.Detect(System.Globalization.CultureInfo.InvariantCulture) == "en", "Langue : détection (fr-* : français, sinon anglais)");
+            System.Globalization.CultureInfo fr = new System.Globalization.CultureInfo("fr-FR"), us = new System.Globalization.CultureInfo("en-US");
+            t(Strings.Resolve(null, fr) == "fr" && Strings.Resolve("auto", us) == "en" && Strings.Resolve("xx", fr) == "fr" && Strings.Resolve("en", fr) == "en" && Strings.Resolve("fr", us) == "fr", "Langue : réglage absent ou auto = détection, fr/en prioritaire, valeur inconnue = détection");
+            t(Strings.NormalizeSetting("en") == "en" && Strings.NormalizeSetting("xx") == "auto" && Strings.NormalizeSetting(null) == "auto", "Langue : seules auto, fr et en sont enregistrées");
+            // Réglages : une installation 2.x (sans Language) reste lisible ; le champ est relu à l'identique.
+            string sp = Path.Combine(dataDir, "selftest-langue.json");
+            File.WriteAllText(sp, "{\"Compact\":true,\"Follow\":false,\"LcuEnabled\":true,\"ProfileKnown\":true}");
+            UserPreferences old = UserPreferences.Load(sp);
+            t(old.Compact && !old.Follow && old.LcuEnabled && old.Language == null && Strings.Resolve(old.Language, fr) == "fr", "Langue : réglages 2.x sans Language relus, langue détectée");
+            old.Language = "en"; old.Save(sp);
+            UserPreferences back = UserPreferences.Load(sp);
+            t(back.Language == "en" && back.Compact && back.LcuEnabled, "Langue : réglage enregistré et relu à l'identique, autres réglages conservés");
+            File.Delete(sp);
+            // Pluriels : mêmes catégories que Intl.PluralRules (relevées dans Chrome) pour 15 nombres et 2 langues.
+            double[] numbers = { 0, 1, 1.5, 2, 3, 5, 10, 21, 100, 101, 1000, 0.5, 2.5, 1000000, 2000000 };
+            string[] frWant = { "one", "one", "one", "other", "other", "other", "other", "other", "other", "other", "other", "one", "other", "many", "many" };
+            string[] enWant = { "other", "one", "other", "other", "other", "other", "other", "other", "other", "other", "other", "other", "other", "other", "other" };
+            int diff = 0;
+            for (int i = 0; i < numbers.Length; i++) { if (Strings.PluralCategory("fr", numbers[i]) != frWant[i]) diff++; if (Strings.PluralCategory("en", numbers[i]) != enWant[i]) diff++; }
+            t(diff == 0, "Langue : pluriels identiques à Intl.PluralRules (30 cas, " + diff + " différence(s))");
+            Strings.Use(start);
+            Strings.TestMode = test;
         }
     }
 
@@ -3402,6 +3561,7 @@ public static class Autostart
             AppUpdaterTests.Run(t, dataDir, self);
             DataScriptsTests.Run(t, dataDir);
             SecurityTests.Run(t);
+            StringsTests.Run(t, dataDir);
             t(CompanionApp.IsAppPage("https://draftmid.local/index.html?panel=full") && !CompanionApp.IsAppPage("https://draftmid.local.exemple.test/") && !CompanionApp.IsAppPage("https://draftmid.local@exemple.test/") && !CompanionApp.IsAppPage(null), "Page de confiance : seule l'origine de DRAFT est reconnue");
             t(CompanionApp.AllowedPageLink("https://lolalytics.com/lol/ahri/build/") && !CompanionApp.AllowedPageLink("https://lolalytics.com.exemple.test/") && !CompanionApp.AllowedPageLink("http://lolalytics.com/") && !CompanionApp.AllowedPageLink("https://exemple.test/?q=lolalytics.com") && !CompanionApp.AllowedPageLink("https://user@lolalytics.com/") && !CompanionApp.AllowedPageLink("file:///C:/Windows/"), "Liens de la page : seuls des sites connus, en HTTPS");
             t(CompanionApp.CsvCell("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")" && CompanionApp.CsvCell("+1") == "'+1" && CompanionApp.CsvCell("Ahri") == "Ahri" && CompanionApp.CsvCell("") == "", "Relevé CSV : formules neutralisées");
@@ -3515,9 +3675,23 @@ public static class Autostart
             return Run(args);
         }
 
+        // Langue du programme (I18N-3). Essai : --lang, sinon le français pour --selftest et --e2e (résultats comparables d'une
+        // machine à l'autre). Sinon le réglage de settings.json (Language) ; absent ou "auto" : la langue de Windows.
+        public static string InitialLanguage(Options o, string dataDir)
+        {
+            if (o.Lang != null && Array.IndexOf(Strings.Supported, o.Lang) >= 0) return o.Lang;
+            if (o.SelfTest || o.EndToEnd) return "fr";
+            string setting = null;
+            if (dataDir != null) { try { string path = Path.Combine(dataDir, "settings.json"); if (File.Exists(path)) setting = UserPreferences.Load(path).Language; } catch (Exception e) { if (e is OutOfMemoryException) throw; } }
+            return Strings.Resolve(setting, System.Globalization.CultureInfo.CurrentUICulture);
+        }
+
         static int Run(string[] args)
         {
             Options o = Options.Parse(args);
+            // Textes du programme : catalogue intégré, relu comme des données. Mode test : chaque clé absente est notée.
+            Strings.TestMode = o.SelfTest || o.EndToEnd;
+            Strings.Load(InitialLanguage(o, null), Strings.Embedded);
             Native.SetProcessDpiAwarenessContext(Native.PMV2);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -3533,17 +3707,18 @@ public static class Autostart
             catch (Exception e)
             {
                 if (e is OutOfMemoryException) throw;
-                if (!o.Silent) MessageBox.Show("DRAFT ne peut pas écrire dans ce dossier :\n" + dataDir + "\n\nVérifie ses droits, ou que le disque n'est pas plein.", "DRAFT", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (!o.Silent) MessageBox.Show(Strings.T("native.dialog.cannotWrite", "path", dataDir), "DRAFT", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 2;
             }
             logDir = dataDir;
+            Strings.Use(InitialLanguage(o, dataDir));
             if (o.RunKey != null) Autostart.Key = o.RunKey;
 
 #if DRAFTMID_PROTOTYPES
             if (o.OpggPrototype || o.OpggTest)
             {
                 // Prototype isolé : jamais sur les données de l'application, car l'extraction y remplacerait la version installée.
-                if (o.DataDir == null) { if (!o.Silent) MessageBox.Show("Prototype OP.GG : indique un dossier de test avec --data.", "DRAFT"); return 2; }
+                if (o.DataDir == null) { if (!o.Silent) MessageBox.Show(Strings.T("native.dialog.prototypeData"), "DRAFT"); return 2; }
                 RuntimeHelp.EnsureLoader(Extract(dataDir));
                 if (o.OpggTest) { OpggTests.Run(o, dataDir); Application.Run(); return 0; }
                 Application.Run(new OpggBrowserForm(OpggLinks.Home, Path.Combine(dataDir, "wv"), Path.Combine(dataDir, "opgg-profile.json")));
@@ -3562,7 +3737,7 @@ public static class Autostart
             {
                 if (!created)
                 {
-                    if (!o.Silent) MessageBox.Show("DRAFT est déjà ouvert : utilise son icône près de l'horloge.", "DRAFT");
+                    if (!o.Silent) MessageBox.Show(Strings.T("native.dialog.alreadyOpen"), "DRAFT");
                     return 0;
                 }
                 string webDir = Extract(dataDir);

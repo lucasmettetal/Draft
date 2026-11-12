@@ -18,7 +18,9 @@ namespace DraftMid
     {
         public int Added, Total, Read;
         public bool Saved, Cancelled, HasMore;
-        public string Error = "";
+        // Erreur affichée (clé native.history.*), null s'il n'y en a pas.
+        public Msg Error;
+        public string ErrorText { get { return Msg.TextOrEmpty(Error); } }
         public readonly List<string> NotFound = new List<string>();
     }
 
@@ -50,11 +52,11 @@ namespace DraftMid
         // Un import commence par les parties récentes, et le suivant va plus loin dans le passé.
         public int MaxGamesPerRun = 100;
         public Action<int, int, string> Progress;
-        public Action<string> Status;
+        public Action<Msg> Status;
         public Func<int, CancellationToken, Task> Wait = (ms, ct) => Task.Delay(ms, ct);
         public int Requests { get; private set; }
 
-        class StopImport : Exception { public StopImport(string text) : base(text) { } }
+        class StopImport : Exception { public readonly Msg Msg; public StopImport(string key) : base(key) { Msg = new Msg(key); } }
 
         public HistoryImporter(IRiotFetcher fetcher, RiotRegion region, string outPath, IEnumerable<string> accounts, DateTime sinceUtc)
         {
@@ -162,15 +164,15 @@ namespace DraftMid
                 RiotReply reply = await fetcher.GetAsync(url);
                 if (reply.Status == 200) { failures = 0; return reply.Body; }
                 if (reply.Status == 404) return null;
-                if (reply.Status == 401 || reply.Status == 403) throw new StopImport("Clé Riot refusée ou expirée. Crée une nouvelle clé, puis relance : les parties déjà lues sont conservées.");
+                if (reply.Status == 401 || reply.Status == 403) throw new StopImport("native.history.keyRefused");
                 if (reply.Status == 429)
                 {
                     int seconds = reply.RetryAfterSeconds > 0 ? reply.RetryAfterSeconds : 120;
-                    if (Status != null) Status("Limite de requêtes de Riot atteinte : reprise dans " + seconds + " secondes. Rien n'est perdu.");
+                    if (Status != null) Status(new Msg("native.history.rateLimit", "count", seconds));
                     await Wait(seconds * 1000, ct);
                     continue;
                 }
-                if (++failures >= MaxFailures) throw new StopImport("Riot ne répond pas pour le moment. Relance plus tard : les parties déjà lues sont conservées.");
+                if (++failures >= MaxFailures) throw new StopImport("native.history.riotDown");
                 await Wait(2000, ct);
             }
         }
@@ -251,15 +253,15 @@ namespace DraftMid
         public async Task<HistoryImportResult> Run(CancellationToken ct)
         {
             HistoryImportResult result = new HistoryImportResult();
-            if (accounts.Count == 0 || !accounts.All(ValidAccount)) { result.Error = "Compte invalide : le format attendu est Nom#TAG."; return result; }
+            if (accounts.Count == 0 || !accounts.All(ValidAccount)) { result.Error = new Msg("native.history.invalidAccount"); return result; }
             try
             {
                 LoadPrevious();
                 foreach (string account in accounts) await ImportAccount(account, result, ct);
             }
             catch (OperationCanceledException) { result.Cancelled = true; }
-            catch (StopImport e) { result.Error = e.Message; }
-            catch (Exception e) { if (e is OutOfMemoryException) throw; result.Error = "Réponse de Riot illisible : les parties déjà lues sont conservées."; }
+            catch (StopImport e) { result.Error = e.Msg; }
+            catch (Exception e) { if (e is OutOfMemoryException) throw; result.Error = new Msg("native.history.unreadable"); }
             // Rien de nouveau : le fichier existant ne bouge pas. Rien du tout : pas de fichier vide.
             if (dirty && (rows.Count > 0 || File.Exists(outPath))) { Save(); result.Saved = true; }
             result.Total = rows.Count;
@@ -317,7 +319,7 @@ namespace DraftMid
             t(HistoryImporter.ValidAccount("Nom#EUW") && !HistoryImporter.ValidAccount("Nom") && !HistoryImporter.ValidAccount("#EUW"), "historique : format de compte vérifié");
             Sim bad = new Sim { Answer = Riot("A") };
             HistoryImportResult invalid = new HistoryImporter(bad, RiotRegion.All[0], path, new[] { "SansTag" }, DateTime.UtcNow) { DelayMs = 0 }.Run(CancellationToken.None).Result;
-            t(invalid.Error != "" && bad.Urls.Count == 0, "historique : compte invalide, aucune requête");
+            t(invalid.Error != null && bad.Urls.Count == 0, "historique : compte invalide, aucune requête");
 
             Sim sim = new Sim { Answer = Riot("A", "B", "REMAKE", "FLEX") };
             HistoryImportResult r = make(sim).Run(CancellationToken.None).Result;
@@ -348,7 +350,7 @@ namespace DraftMid
             HistoryImportResult second = step(2, new[] { "P1", "P2", "P3" }).Run(CancellationToken.None).Result;
             t(second.Added == 1 && second.Total == 3 && !second.HasMore, "historique : enrichissement progressif, puis plus rien à lire");
             HistoryImportResult refused = make(new Sim { Answer = u => new RiotReply { Status = 403, Body = "RGAPI-fausse-cle" } }).Run(CancellationToken.None).Result;
-            t(refused.Error.Contains("refusée") && !refused.Error.Contains("RGAPI") && File.ReadAllText(path).Contains("\"NEW\"") && refused.Total == 3, "historique : clé refusée, rien de perdu, rien de divulgué");
+            t(refused.ErrorText.Contains("refusée") && !refused.ErrorText.Contains("RGAPI") && File.ReadAllText(path).Contains("\"NEW\"") && refused.Total == 3, "historique : clé refusée, rien de perdu, rien de divulgué");
             int waits = 0;
             bool limited = false;
             Sim wait = new Sim();
@@ -356,17 +358,17 @@ namespace DraftMid
             HistoryImporter patient = make(wait);
             patient.Wait = (ms, ct) => { if (ms == 7000) waits++; return Task.FromResult(0); };
             string quota = "";
-            patient.Status = text0 => quota = text0;
+            patient.Status = text0 => quota = text0.ToString();
             t(patient.Run(CancellationToken.None).Result.Added == 1 && waits == 1, "historique : limite de Riot respectée");
             t(quota.Contains("7 secondes"), "historique : attente due au quota expliquée");
             Sim gone = new Sim { Answer = u => u.Contains("/by-riot-id/") ? new RiotReply { Status = 404 } : new RiotReply { Status = 200, Body = "[]" } };
             HistoryImportResult missing = make(gone).Run(CancellationToken.None).Result;
             t(missing.NotFound.Count == 1 && missing.Total == 4, "historique : compte introuvable signalé");
             Sim down = new Sim { Answer = u => new RiotReply { Status = 500 } };
-            t(make(down).Run(CancellationToken.None).Result.Error != "" && down.Urls.Count == 5, "historique : Riot indisponible, arrêt après 5 essais");
+            t(make(down).Run(CancellationToken.None).Result.Error != null && down.Urls.Count == 5, "historique : Riot indisponible, arrêt après 5 essais");
             Sim garbage = new Sim { Answer = u => new RiotReply { Status = 200, Body = "{abimé" } };
             HistoryImportResult unreadable = make(garbage).Run(CancellationToken.None).Result;
-            t(unreadable.Error.Contains("illisible") && unreadable.Total == 4, "historique : réponse illisible, rien de perdu");
+            t(unreadable.ErrorText.Contains("illisible") && unreadable.Total == 4, "historique : réponse illisible, rien de perdu");
             using (CancellationTokenSource cts = new CancellationTokenSource())
             {
                 cts.Cancel();

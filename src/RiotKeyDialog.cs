@@ -12,29 +12,29 @@ namespace DraftMid
     [Flags]
     public enum RiotTask { None = 0, History = 1, Roles = 2, Matchups = 4 }
 
-    // Textes de la fenêtre, regroupés pour l'extraction du catalogue (native.riot.dialog.*, I18N-3).
+    // Textes de la fenêtre : catalogue (native.riot.dialog.*), lus dans la langue du programme à l'ouverture de la fenêtre.
     static class RiotDialogText
     {
-        public const string Title = "DRAFT : lectures avec ta clé Riot";
-        public const string Intro = "Une seule clé pour les lectures que tu coches. Elle reste en mémoire le temps du calcul : jamais enregistrée, jamais journalisée, jamais transmise à la page. DRAFT n'est pas approuvé par Riot Games.";
-        public const string Link = "Obtenir une clé sur developer.riotgames.com";
-        public const string KeyLabel = "Clé Riot (masquée, jamais enregistrée) :";
-        public const string RegionLabel = "Région :";
-        public const string TasksLabel = "Lectures à lancer, l'une après l'autre :";
-        public const string HistoryTask = "Importer mon historique";
-        public const string HistoryKept = "Lu : tes parties classées solo/duo. Gardé sur ce PC : champion, rôle, résultat, KDA, patch et champions adverses. Aucun nom ni identifiant de joueur.";
-        public const string RolesTask = "Mettre à jour les rôles des champions (environ 40 minutes)";
-        public const string RolesKept = "Lu : 1 000 parties récentes de joueurs classés. Gardé : la part de chaque rôle par champion, sans aucun joueur.";
-        public const string MatchupsTask = "Mettre à jour les matchups de ton pool (environ 65 minutes)";
-        public const string MatchupsKept = "Lu : des parties des 30 derniers jours, à ton rôle. Gardé : victoires et défaites de ton pool par adversaire, sans aucun joueur.";
-        public const string MatchupsNoPool = "Choisis d'abord ton rôle et ton pool dans Mon pool.";
-        public const string AccountsLabel = "Comptes (Nom#TAG, séparés par une virgule) :";
-        public const string CountLabel = "Parties à lire :";
-        public const string Consent = "J'accepte cette lecture";
-        public const string Start = "Lancer";
-        public const string Cancel = "Annuler";
-        public static string Count(int n) { return n + " parties, environ " + Math.Max(1, (int)Math.Ceiling(n * 1.3 / 60)) + " minutes"; }
-        public static string MatchupsFor(string role, int pool) { return "Rôle " + role + ", " + pool + (pool > 1 ? " champions" : " champion") + "."; }
+        public static string Title { get { return Strings.T("native.riot.dialog.title"); } }
+        public static string Intro { get { return Strings.T("native.riot.dialog.intro"); } }
+        public static string Link { get { return Strings.T("native.riot.dialog.link"); } }
+        public static string KeyLabel { get { return Strings.T("native.riot.dialog.keyLabel"); } }
+        public static string RegionLabel { get { return Strings.T("native.riot.dialog.regionLabel"); } }
+        public static string TasksLabel { get { return Strings.T("native.riot.dialog.tasksLabel"); } }
+        public static string HistoryTask { get { return Strings.T("native.riot.dialog.historyTask"); } }
+        public static string HistoryKept { get { return Strings.T("native.riot.dialog.historyKept"); } }
+        public static string RolesTask { get { return Strings.T("native.riot.dialog.rolesTask"); } }
+        public static string RolesKept { get { return Strings.T("native.riot.dialog.rolesKept"); } }
+        public static string MatchupsTask { get { return Strings.T("native.riot.dialog.matchupsTask"); } }
+        public static string MatchupsKept { get { return Strings.T("native.riot.dialog.matchupsKept"); } }
+        public static string MatchupsNoPool { get { return Strings.T("native.riot.dialog.matchupsNoPool"); } }
+        public static string AccountsLabel { get { return Strings.T("native.riot.dialog.accountsLabel"); } }
+        public static string CountLabel { get { return Strings.T("native.riot.dialog.countLabel"); } }
+        public static string Consent { get { return Strings.T("native.riot.dialog.consent"); } }
+        public static string Start { get { return Strings.T("native.riot.dialog.start"); } }
+        public static string Cancel { get { return Strings.T("native.riot.dialog.cancel"); } }
+        public static string Count(int n) { return Strings.T("native.riot.dialog.count", "count", n, "minutes", Math.Max(1, (int)Math.Ceiling(n * 1.3 / 60))); }
+        public static string MatchupsFor(string role, int pool) { return Strings.T("native.riot.dialog.matchupsFor", "role", role, "count", pool); }
     }
 
     public class RiotKeyDialog : Form
