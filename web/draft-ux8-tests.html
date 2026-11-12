@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests UX-8</title></head><body><pre id="out"></pre>
+<!-- UX-8 : Accueil et premier lancement, sur la vraie page. Chaque vérification marquée [avant : échec] échoue sur main b9d19db. -->
+<!-- Lancement : tools\run-v215-tests.ps1 -Page draft-ux8-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const settle=()=>wait(150);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const MID={role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]};
+// Ouvre la vraie page. profile : null (profil vierge) ou un profil ; host : état transmis par le programme (simulé), ou rien (navigateur).
+async function load({profile=null,extra="",keep=false,W=1366,H=768,host=null}={}){
+  if(!keep){localStorage.clear();if(profile)localStorage.setItem("draftProfile",JSON.stringify(profile));localStorage.setItem("draftPatch","16.22");}
+  const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?x=1"+extra;document.body.appendChild(f);
+  await new Promise(r=>f.onload=r);await wait(400);const w=f.contentWindow;const x={f,w,d:f.contentDocument,ev:c=>w.eval(c)};
+  if(host){x.ev("Object.assign(hostState,"+JSON.stringify(Object.assign({available:true,lcuConfirmed:true,lcuEnabled:false,lcuStatus:"off",hotkey:true,autoDraft:true,clientOpen:false,phase:"Client LoL fermé",updateStatus:"",updateChecked:""},host))+");rerender()");await settle();}
+  return x;
+}
+const q=(x,s)=>x.d.querySelector(`[data-test="${s}"]`);
+const all=(x,s)=>[...x.d.querySelectorAll(`[data-test^="${s}"]`)];
+const host=(x,o)=>{x.ev("Object.assign(hostState,"+JSON.stringify(o)+");rerender()");return settle();};
+const stored=()=>JSON.stringify({p:localStorage.getItem("draftProfiles"),o:localStorage.getItem("draftProfile"),r:localStorage.getItem("draftPrefs")});
+
+(async()=>{
+// 1. Ouverture : sans demande précise, la fenêtre principale s'ouvre sur l'Accueil ; les adresses existantes restent.
+let x=await load({profile:MID});
+t(!!q(x,"view-home"),"[avant : échec] adresse sans vue : l'Accueil s'ouvre, pas le Simulateur");
+x.f.remove();
+for(const [extra,view] of [["&tab=settings","settings"],["&tab=parties","stats"],["&tab=analyse","sim"],["&tab=compare","sim"],["&tab=simulate","sim"],["&view=pool","pool"],["&view=sim","sim"],["&tab=home","home"]]){
+  x=await load({profile:MID,extra});t(!!q(x,"view-"+view),"alias gardé : "+extra+" ouvre "+view);
+  if(extra==="&tab=simulate")t(x.ev("simulating")===true,"alias ?tab=simulate : simulation vide démarrée");
+  x.f.remove();
+}
+x=await load({profile:MID,extra:"&tab=settings"});
+q(x,"nav-pool").click();await settle();x.ev("goView('settings','league')");await settle();
+x.d.dispatchEvent(new x.w.KeyboardEvent("keydown",{key:"Escape",bubbles:true}));await settle();
+t(!!q(x,"view-pool"),"Échap dans les réglages ramène à la section d'avant");
+x.f.remove();
+x=await load({profile:MID,extra:"&tab=settings"});
+x.d.dispatchEvent(new x.w.KeyboardEvent("keydown",{key:"Escape",bubbles:true}));await settle();
+t(!!q(x,"view-home"),"[avant : échec] réglages ouverts seuls, puis fermés : retour à l'Accueil");
+x.f.remove();
+
+// 2. Premier lancement, profil vierge, hors application : trois étapes, numérotées, chacune ignorable.
+x=await load();
+const before=stored();
+const g=q(x,"home-guide");
+t(!!g,"[avant : échec] profil vierge : guide du premier lancement");
+t(/Bienvenue dans DRAFT/.test(text(g))&&/Des panneaux s'ouvrent à côté du client League/.test(text(g)),"guide : dit ce que fait DRAFT");
+t(all(x,"guide-step-").length===3,"guide : 3 étapes au plus ("+all(x,"guide-step-").length+")");
+t(!q(x,"home-hero"),"guide affiché : une seule chose forte (pas de bannière d'état en plus)");
+t(!q(x,"home-league")&&!q(x,"home-pool")&&!q(x,"home-panels")&&!!q(x,"home-update")&&!!q(x,"home-data"),"guide affiché : ses étapes remplacent les cartes League, pool et panneaux ; mise à jour et données restent");
+t(/Fenêtre fermée, DRAFT reste actif près de l'horloge/.test(text(g)),"guide : dit où DRAFT reste");
+t(all(x,"guide-skip-").length===3,"chaque étape est ignorable");
+t(/Disponible dans l'application DRAFT/.test(text(q(x,"guide-step-lcu"))),"hors application : la lecture du client se fait dans l'application");
+t(/Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques\./.test(text(q(x,"guide-lcu-risk"))),"étape 2 : avertissement sur l'autorisation Riot");
+await wait(300);
+t(stored()===before,"[sécurité] afficher l'Accueil ne change ni rôle, ni pool, ni réglage");
+t(x.ev("PROFILES.active")===null,"aucun rôle choisi à la place du joueur");
+q(x,"guide-skip-lcu").click();await settle();
+t(!q(x,"guide-step-lcu")&&all(x,"guide-step-").length===2,"Ignorer retire l'étape");
+t(stored()===before,"Ignorer ne change aucun réglage");
+q(x,"guide-pool").click();await settle();
+t(!!q(x,"view-pool")&&x.ev("PROFILES.active")===null,"étape 1 : un clic ouvre Mon pool, sans choisir de rôle");
+x.f.remove();
+// Ignorer est retenu au rechargement.
+x=await load({keep:true});
+t(!q(x,"guide-step-lcu")&&!!q(x,"guide-step-pool"),"étape ignorée : toujours retirée après un rechargement");
+x.f.remove();
+
+// 3. Premier lancement dans l'application : chaque étape faisable en un clic, disparaît une fois faite.
+x=await load({host:{}});
+t(!!q(x,"guide-lcu")&&text(q(x,"guide-lcu"))==="Activer la lecture","application : étape 2 en un clic « Activer la lecture »");
+t(!!q(x,"guide-panels")&&q(x,"guide-panels").disabled&&/Possible après l'étape 1/.test(text(q(x,"guide-step-panels"))),"étape 3 : attend un pool, et le dit");
+x.ev("switchRole('mid','manual');saveMyProfile('mid',['Ahri','Fizz'])");await settle();
+t(!q(x,"guide-step-pool")&&all(x,"guide-step-").length===2,"étape 1 faite : elle disparaît");
+t(!q(x,"guide-panels").disabled,"pool prêt : l'essai des panneaux est possible");
+await host(x,{lcuEnabled:true,lcuStatus:"waiting"});
+t(!q(x,"guide-step-lcu"),"lecture activée : l'étape 2 disparaît");
+q(x,"guide-panels").click();await settle();
+t(!q(x,"home-guide")&&!!q(x,"home-hero"),"essai lancé : le guide disparaît, la bannière d'état revient");
+t(/Tout est prêt pour ta prochaine draft/.test(text(q(x,"home-hero")))&&/Lance League of Legends/.test(text(q(x,"home-hero"))),"LoL fermé : « Tout est prêt », et dit de lancer League of Legends");
+x.f.remove();
+x=await load({keep:true,host:{lcuEnabled:true,lcuStatus:"waiting"}});
+t(!q(x,"home-guide"),"guide terminé : il ne revient pas");
+x.f.remove();
+// Pendant une draft, l'essai attend.
+x=await load({profile:MID,host:{}});localStorage.setItem("draftOnboarding",JSON.stringify({started:true,skipped:[],tried:false}));x.f.remove();
+x=await load({keep:true,host:{}});
+x.ev("state.sessionActive=true;addEnemy('Ahri')");await settle();
+t(!!q(x,"guide-panels")&&q(x,"guide-panels").disabled&&/Une draft est en cours/.test(text(q(x,"guide-step-panels"))),"draft en cours : l'essai des panneaux attend la fin de la sélection");
+x.f.remove();
+
+// 4. Profil déjà configuré (mise à jour depuis la 2.16) : jamais de guide, bannière d'état.
+x=await load({profile:MID,host:{}});
+t(!q(x,"home-guide")&&!!q(x,"home-hero"),"[avant : échec] profil configuré : pas de guide, une bannière d'état");
+t(q(x,"home-hero").dataset.tone==="ready"&&/Tout est prêt/.test(text(q(x,"home-hero"))),"profil configuré : « Tout est prêt »");
+t(!!q(x,"home-league")&&!!q(x,"home-pool")&&!!q(x,"home-panels")&&!!q(x,"home-update")&&!!q(x,"home-data"),"[avant : échec] cinq cartes : League, pool, panneaux, mise à jour, données");
+// Connexion League : chaque état, son action de correction.
+t(/Lecture du client désactivée/.test(text(q(x,"home-league")))&&!!q(x,"home-enable-lcu")&&/tu l'actives à tes risques/.test(text(q(x,"home-league"))),"League désactivée : bouton « Activer la lecture du client » et avertissement");
+await host(x,{lcuEnabled:true,lcuStatus:"waiting"});
+t(/Client LoL fermé/.test(text(q(x,"home-league")))&&/Lance League of Legends/.test(text(q(x,"home-league")))&&!q(x,"home-enable-lcu"),"LoL fermé : le dit, et dit quoi faire");
+await host(x,{lcuStatus:"connected",clientOpen:true});
+t(/Connecté au client LoL/.test(text(q(x,"home-league")))&&/Client LoL connecté/.test(text(q(x,"home-hero"))),"connecté : carte et bannière");
+t(/La sélection est lue dans le client/.test(text(q(x,"home-panels"))),"panneaux : la détection vient de la lecture du client");
+await host(x,{lcuStatus:"failed"});
+t(q(x,"home-hero").dataset.tone==="error"&&/Connexion au client LoL impossible/.test(text(q(x,"home-hero"))),"erreur de connexion : bannière d'erreur");
+t(text(q(x,"home-diagnostic"))==="Diagnostic de connexion LoL"&&!!q(x,"home-lcu-diagnostic"),"erreur de connexion : action « Diagnostic de connexion LoL »");
+t(/Redémarre le client LoL/.test(text(q(x,"home-hero"))),"erreur de connexion : correction claire");
+q(x,"home-league-settings").click();await settle();
+t(!!q(x,"settings-body-league"),"erreur : « Réglages de connexion » ouvre Réglages > Connexion League");
+x.ev("goView('home')");await settle();
+await host(x,{lcuEnabled:false,lcuStatus:"off",autoDraft:false,hotkey:false});
+t(/Panneaux à afficher toi-même/.test(text(q(x,"home-panels")))&&/menu de l'icône DRAFT/.test(text(q(x,"home-panels"))),"panneaux manuels, sans raccourci : le menu de l'icône");
+t(/menu de l'icône DRAFT/.test(text(q(x,"home-hero"))),"bannière : dit comment afficher les panneaux en mode manuel");
+await host(x,{autoDraft:true,hotkey:true});
+t(/Ctrl\+Alt\+D/.test(text(q(x,"home-shortcut")))&&/La sélection est repérée à l'écran/.test(text(q(x,"home-panels"))),"panneaux automatiques : Ctrl+Alt+D, détection estimée sans lecture du client");
+// Pool : rôle, nombre, conseil en blind du même calcul que les panneaux.
+t(/Pool Mid/.test(text(q(x,"home-pool")))&&/4 champions/.test(text(q(x,"home-pool"))),"pool : rôle joué et nombre de champions");
+const blind=x.ev("label(analyze([],null,PREFS.assumeFront).ranking[0].pick)");
+t(text(q(x,"home-blind")).includes(blind)&&blind===x.ev("state.enemies.length?null:label(V.shown)"),"conseil en blind : le 1er du calcul, comme les panneaux sans adversaire ("+blind+")");
+const rankBefore=x.ev("JSON.stringify(V.res.ranking.map(p=>[p.pick,p.score]))");x.ev("goView('home')");await settle();
+t(x.ev("JSON.stringify(V.res.ranking.map(p=>[p.pick,p.score]))")===rankBefore,"l'Accueil ne change pas le classement");
+// Mise à jour : GitHub seulement sur clic, dernière vérification si connue.
+t(/Version \d+\.\d+\.\d+ bêta/.test(text(q(x,"home-update")))&&/Pas encore vérifiée depuis le démarrage de DRAFT/.test(text(q(x,"home-update-checked")))&&/ne contacte GitHub que lorsque tu cliques/.test(text(q(x,"home-update"))),"mise à jour : version, pas encore vérifiée, GitHub seulement sur clic");
+const d=new Date();const iso=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+"T10:42:00";
+await host(x,{updateChecked:iso,updateStatus:"DRAFT est à jour (version 2.16.2)."});
+t(/Dernière vérification : aujourd'hui à 10:42/.test(text(q(x,"home-update-checked")))&&/DRAFT est à jour/.test(text(q(x,"home-update-status"))),"mise à jour : résultat et heure de la dernière vérification");
+await host(x,{updateRunning:true});t(q(x,"home-check-update").disabled&&/Mise à jour en cours/.test(text(q(x,"home-check-update"))),"mise à jour en cours : bouton désactivé");
+await host(x,{updateRunning:false,updateStatus:"GitHub ne répond pas. Vérifie ta connexion, puis réessaie."});t(/GitHub ne répond pas/.test(text(q(x,"home-update-status"))),"mise à jour : erreur en clair");
+// Données : journal, historique, rôles, matchups ; renvoi vers Mes statistiques et Réglages > Données.
+t(/Aucune draft notée/.test(text(q(x,"home-data-journal")))&&/Pas importé/.test(text(q(x,"home-data-history")))&&/Pas encore calculés/.test(text(q(x,"home-data-matchups"))),"données vides : dites clairement");
+x.w.DRAFT_HISTORY={generated:"2026-11-08T10:00:00Z",rows:[{id:"H1",champ:"Fizz",pos:"MIDDLE",win:true},{id:"H2",champ:"Fizz",pos:"MIDDLE",win:false}]};
+x.ev("saveJournal([{id:1,date:'2026-11-01T10:00:00Z',suggested:'Fizz',picked:'Fizz',enemies:['Ahri'],mid:'Ahri',result:'win'}])");await host(x,{historyStatus:"Clé Riot refusée : vérifie-la sur developer.riotgames.com. 0 partie ajoutée, 0 au total."});
+t(/1 draft notée/.test(text(q(x,"home-data-journal")))&&/2 parties importées le 08\/11\/2026/.test(text(q(x,"home-data-history"))),"données : journal et historique comptés");
+t(/Clé Riot refusée/.test(text(q(x,"home-data-status")))&&q(x,"home-data-status").getAttribute("role")==="status","erreur d'import : affichée, annoncée");
+q(x,"home-stats").click();await settle();t(!!q(x,"view-stats"),"« Mes statistiques » ouvre la section");
+x.ev("goView('home')");await settle();q(x,"home-manage-data").click();await settle();t(!!q(x,"settings-body-data"),"« Gérer les données » ouvre Réglages > Données");
+x.ev("goView('home')");await settle();
+q(x,"home-simulate").click();await settle();t(!!q(x,"view-sim")&&x.ev("simulating")===true,"« Simuler une draft » : Simulateur, simulation vide");
+x.f.remove();
+// Barre latérale : League et rôle joué y sont déjà ; l'Accueil les complète sans recopier la ligne « League : Connecté ».
+x=await load({profile:MID,host:{lcuEnabled:true,lcuStatus:"connected"}});
+t(![...q(x,"home").querySelectorAll("*")].some(e=>!e.children.length&&/^(Connecté|League|Rôle joué|Mid)$/.test(text(e))),"pas de recopie à l'identique de la barre latérale (League, Connecté, Rôle joué, Mid)");
+x.f.remove();
+
+// 5. Étape manquante : pool vide, tous exclus.
+x=await load({host:{}});localStorage.setItem("draftOnboarding",JSON.stringify({started:true,skipped:["pool","lcu","panels"]}));x.ev("switchRole('jungle','manual')");x.f.remove();
+x=await load({keep:true,host:{}});
+t(q(x,"home-hero").dataset.tone==="todo"&&/Une étape manque : ajoute des champions au pool Jungle/.test(text(q(x,"home-hero")))&&!!q(x,"home-open-pool"),"pool vide : « Une étape manque », action « Ouvrir Mon pool »");
+x.f.remove();
+x=await load({profile:MID,host:{}});x.ev("savePrefs({excluded:['TF','Fizz',\"Kog'Maw\",'Xerath']})");await settle();
+t(/tous tes champions Mid sont exclus/.test(text(q(x,"home-hero")))&&/Tous tes champions sont exclus/.test(text(q(x,"home-blind"))),"tous exclus : dit, avec l'action Mon pool");
+x.f.remove();
+// Draft en cours.
+x=await load({profile:MID,host:{lcuEnabled:true,lcuStatus:"connected"}});x.ev("state.sessionActive=true;['Ahri','Ornn'].forEach(addEnemy)");await settle();
+t(q(x,"home-hero").dataset.tone==="live"&&/2 adversaires dans la draft/.test(text(q(x,"home-hero")))&&/Conseil actuel : /.test(text(q(x,"home-hero"))),"draft en cours : bannière, adversaires et conseil actuel");
+q(x,"home-see-draft").click();await settle();t(!!q(x,"view-sim")&&x.ev("state.enemies.join()")==="Ahri,Ornn","« Voir la draft en cours » : Simulateur sur la vraie draft");
+x.f.remove();
+
+// 6. Mise en page : aucun débordement, pas de grand vide, aux tailles de la fenêtre (CSS à 125 % et à 100 %).
+for(const [W,H] of [[1093,614],[1366,768],[1536,864],[1920,1080],[800,600]]){
+  for(const p of [null,MID]){
+    x=await load({profile:p,W,H,host:{lcuEnabled:true,lcuStatus:"waiting"}});
+    const dd=x.d.documentElement,m=q(x,"view-home");
+    t(dd.scrollWidth<=W+1&&m.scrollWidth<=m.clientWidth+1,`${W}x${H} ${p?"configuré":"vierge"} : aucun débordement horizontal`);
+    const page=q(x,"home"),r=page.getBoundingClientRect();
+    if(W>=1093)t(page.scrollHeight<=H*1.15,`${W}x${H} ${p?"configuré":"vierge"} : tient sur un écran ou presque (${Math.round(page.scrollHeight)} px pour ${H})`);
+    if(W>=1366)t(page.scrollHeight>=H*0.6,`${W}x${H} ${p?"configuré":"vierge"} : pas de grand vide (${Math.round(page.scrollHeight)} px pour ${H})`);
+    res.notes[`${W}x${H} ${p?"configuré":"vierge"}`]=Math.round(page.scrollHeight)+" px";
+    x.f.remove();
+  }
+}
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
+</script></body></html>

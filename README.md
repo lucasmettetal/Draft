@@ -18,8 +18,8 @@ Toutes les versions : [page des releases](https://github.com/lucasmettetal/Draft
 **Premier lancement :**
 
 1. Windows peut afficher « Windows a protégé votre ordinateur », car l'exécutable n'est pas signé par un certificat : clique sur **Informations complémentaires**, puis **Exécuter quand même**.
-2. Aucune fenêtre ne s'ouvre : une icône **DRAFT** apparaît près de l'horloge. Clic droit dessus pour ouvrir les réglages et les panneaux.
-3. Dans **Réglages, Mes profils**, ajoute tes champions pour chaque rôle que tu joues.
+2. La fenêtre DRAFT s'ouvre sur l'**Accueil**, avec trois étapes courtes : ton rôle et ton pool, la lecture du client LoL (recommandée, facultative), puis un essai des panneaux. Chacune se fait en un clic ou s'ignore.
+3. Fenêtre fermée, DRAFT reste actif près de l'horloge : double-clic sur son icône pour revenir à l'Accueil.
 
 Il faut Microsoft Edge WebView2, déjà présent sur la plupart des PC : DRAFT le signale au lancement s'il manque. Aucune clé Riot, aucun compte, aucun historique ne sont nécessaires.
 

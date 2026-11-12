@@ -8,7 +8,7 @@ const settle=()=>wait(150);
 const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
 const STORED={version:1,active:"mid",roles:{top:{pool:["Darius","Garen","Malphite"],excluded:["Garen"],favorite:"Darius"},jungle:{pool:[],excluded:[],favorite:null},mid:{pool:["TF","Fizz","Kog'Maw","Xerath"],excluded:["Fizz"],favorite:"Xerath"},adc:{pool:["Jinx","Caitlyn","Kog'Maw"],excluded:["Kog'Maw"],favorite:"Jinx"},support:{pool:[],excluded:[],favorite:null}}};
 const seed=()=>{localStorage.clear();localStorage.setItem("draftProfiles",JSON.stringify(STORED));localStorage.setItem("draftPrefs",JSON.stringify({excluded:["Fizz"],favorite:"Xerath",assumeFront:true,coachLevel:"beginner",autoRole:"suggest"}));localStorage.setItem("draftPatch","16.22");};
-async function load(extra){const f=document.createElement("iframe");f.width=1366;f.height=900;f.src="index.html?x=1"+(extra||"");document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(400);const w=f.contentWindow;return {f,w,d:f.contentDocument,ev:c=>w.eval(c)};}
+async function load(extra){const f=document.createElement("iframe");f.width=1366;f.height=900;f.src="index.html?x=1"+(extra||"")+(/[?&](view|tab)=/.test(extra||"")?"":"&view=sim");document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(400);const w=f.contentWindow;return {f,w,d:f.contentDocument,ev:c=>w.eval(c)};}
 const q=(x,s)=>x.d.querySelector(`[data-test="${s}"]`);
 const rolesOf=x=>JSON.stringify(x.ev("PROFILES.roles"));
 const ENEMIES=["Syndra","Ornn","Lee Sin","Jinx"];

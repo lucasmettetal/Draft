@@ -4,7 +4,7 @@
 <script>
 const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
 const wait=m=>new Promise(r=>setTimeout(r,m));
-async function open(W=1280,H=720,extra=""){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?x=1"+extra;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(350);const w=f.contentWindow;w.eval("window.$={get state(){return state},get sim(){return simulating},addEnemy,draftApi,openViewInPage:typeof openViewInPage==='function'?openViewInPage:null}");return {f,w,d:f.contentDocument,$:w.$};}
+async function open(W=1280,H=720,extra=""){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?x=1"+extra+(/[?&](view|tab)=/.test(extra||"")?"":"&view=sim");document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(350);const w=f.contentWindow;w.eval("window.$={get state(){return state},get sim(){return simulating},addEnemy,draftApi,openViewInPage:typeof openViewInPage==='function'?openViewInPage:null}");return {f,w,d:f.contentDocument,$:w.$};}
 const close=x=>x.f.remove();
 const settle=()=>wait(150);
 const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
