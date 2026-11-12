@@ -12,6 +12,8 @@ param(
   [int]$Limit = 0,
   [switch]$Quick,
   [switch]$All,
+  # I18N-2 : en ouvre la page en anglais (mode test). Le rattachement à l'inventaire reste écrit pour le français.
+  [ValidateSet('', 'fr', 'en')][string]$Lang = '',
   [string]$Out = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -50,7 +52,7 @@ $fake = @{ generated = '2026-11-01T10:00:00Z'; accounts = @('Test#TEST'); rows =
 $chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $chrome) { throw 'Chrome introuvable.' }
 $prof = Join-Path $Work 'profil-chrome'; $dom = Join-Path $Work 'messages.dom'
-$query = @(); if ($Limit) { $query += "limit=$Limit" }; if ($Quick) { $query += 'quick=1' }; if ($All) { $query += 'all=1' }
+$query = @(); if ($Limit) { $query += "limit=$Limit" }; if ($Quick) { $query += 'quick=1' }; if ($All) { $query += 'all=1' }; if ($Lang -eq 'en') { $query += 'lang=en' }
 $url = 'file:///' + ((Join-Path $web 'draft-messages-tests.html') -replace '\\', '/') + ($(if ($query) { '?' + ($query -join '&') } else { '' }))
 # Hors ligne : les portraits de Data Dragon ne sont pas chargés.
 $a = @('--headless=new', '--disable-gpu', '--force-prefers-reduced-motion', '--no-first-run', '--allow-file-access-from-files', '--host-resolver-rules="MAP * ~NOTFOUND"', "--user-data-dir=`"$prof`"", '--window-size=1400,900', '--virtual-time-budget=60000000', '--dump-dom', "`"$url`"")
@@ -73,4 +75,5 @@ if ($r.checked) { "Étapes vérifiées (fenêtre complète) : $($r.checked.steps
 "Constats (explication contraire au calcul) :"
 $r.constats.PSObject.Properties | Sort-Object Name | ForEach-Object { "  $($_.Name) : $($_.Value.count)" }
 if (@($r.errors).Count) { "Erreurs :"; @($r.errors) | ForEach-Object { "  $_" } }
+if ($r.i18nMissing) { $miss = @($r.i18nMissing.PSObject.Properties); "Langue : $($r.lang) ; clés ou variables absentes relevées : $($miss.Count)"; $miss | Select-Object -First 20 | ForEach-Object { "  $($_.Name) ($($_.Value) fois)" } }
 "Résultat complet : $Out"
