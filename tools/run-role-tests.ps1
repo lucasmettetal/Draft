@@ -8,12 +8,12 @@ $repo = Split-Path $PSScriptRoot -Parent; $web = Join-Path $repo 'web'; $cases =
 $snapFile = Join-Path $cases 'instantane-roles.js'
 Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Work | Out-Null
-foreach ($f in 'draft-champions.js', 'draft-role-sheet.js', 'draft-engine.js', 'draft-data.js') { Copy-Item (Join-Path $web $f) $Work }
+foreach ($f in 'draft-champions.js', 'draft-role-sheet.js', 'draft-engine.js', 'draft-data.js') { Copy-Item (Join-Path $web $f) $Work }; Copy-Item (Join-Path $web 'draft-i18n.js') $Work; Copy-Item (Join-Path $web 'i18n') (Join-Path $Work 'i18n') -Recurse -Force
 foreach ($f in 'cas-atypiques.js', 'roles-tests.js') { Copy-Item (Join-Path $cases $f) $Work }
 $snapTag = ''
 if ((Test-Path $snapFile) -and -not $UpdateSnapshot) { Copy-Item $snapFile $Work; $snapTag = '<script src="instantane-roles.js"></script>' }
 $html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre><script>try { localStorage.clear(); } catch (e) {} window.addEventListener("error", e => { document.getElementById("out").textContent = JSON.stringify({ erreur: e.message + " (" + (e.filename || "").split("/").pop() + ":" + e.lineno + ")" }); });</script>' +
-  '<script src="draft-champions.js"></script><script src="draft-role-sheet.js"></script><script src="draft-engine.js"></script><script src="draft-data.js"></script>' +
+  '<script src="i18n/fr.js"></script><script src="draft-i18n.js"></script><script src="draft-champions.js"></script><script src="draft-role-sheet.js"></script><script src="draft-engine.js"></script><script src="draft-data.js"></script>' +
   '<script src="cas-atypiques.js"></script>' + $snapTag + '<script src="roles-tests.js"></script></body></html>'
 [IO.File]::WriteAllText((Join-Path $Work 'roles-tests.html'), $html, [Text.UTF8Encoding]::new($false))
 $chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1

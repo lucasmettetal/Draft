@@ -1,0 +1,190 @@
+{
+  "_lisezmoi": "Exclusions du détecteur de textes en dur (tools/i18n/detect-hardcoded.ps1). Chaque règle a un nom et une raison. Ajouter une règle se justifie en revue : une exclusion de trop cache une chaîne non traduite.",
+  "fichiers": [
+    "web/*.js",
+    "web/index.html",
+    "src/*.cs"
+  ],
+  "fichiersIgnores": [
+    {
+      "motif": "web/draft-vendor/*",
+      "raison": "bibliothèques tierces"
+    },
+    {
+      "motif": "web/*-tests.html",
+      "raison": "pages de test, exclues de la compilation"
+    },
+    {
+      "motif": "web/i18n/*",
+      "raison": "catalogues : c'est là que les textes doivent être"
+    },
+    {
+      "motif": "web/draft-champions.js",
+      "raison": "fiches en lettres codées ; les commentaires ne sont pas affichés"
+    },
+    {
+      "motif": "web/draft-champion-ids.js",
+      "raison": "données Riot (identifiants)"
+    },
+    {
+      "motif": "web/draft-champion-official.js",
+      "raison": "données Riot (Data Dragon)"
+    },
+    {
+      "motif": "web/draft-role-sheet.js",
+      "raison": "données (rôles habituels en lettres codées)"
+    }
+  ],
+  "portees": [
+    {
+      "nom": "test",
+      "classe": "(Tests|^Sim|^SimRiot|^SimFetcher|^FakeClient|^EndToEnd|^SelfTest|^CloseProbe|^SimulatedLcuTransport)$",
+      "raison": "autotests et simulateurs natifs (--selftest, --e2e) : jamais montrés au joueur"
+    },
+    {
+      "nom": "test",
+      "membre": "^(Test[A-Z]\\w*|RunTestScript|ReportStateAndQuit|LayoutProblem)$",
+      "raison": "méthodes de test de CompanionApp (--e2e, --test-*) et LayoutProblem (contrôle de mise en page des dialogues pour --selftest) : rapports pour le développeur"
+    }
+  ],
+  "lignes": [
+    {
+      "nom": "pragma",
+      "motif": "i18n-ignore",
+      "raison": "exclusion explicite, justifiée dans le commentaire"
+    },
+    {
+      "nom": "journal",
+      "motif": "console\\.(log|warn|error|info|debug)\\(|\\bProgram\\.Log\\(|\\bLog\\(\\s*(dataDir|dir|o\\.DataDir)|Debug\\.Write|Trace\\.Write",
+      "raison": "journaux internes (draftmid.log, console)"
+    },
+    {
+      "nom": "erreur-interne",
+      "motif": "throw new Error\\(",
+      "raison": "erreur JavaScript interne, jamais affichée (ex. RiotDraftProvider)"
+    },
+    {
+      "nom": "catalogue",
+      "avant": "(\\b(t|tp|tr|T|TP|Plural)|Strings\\.T|Strings\\.Plural)\\(\\s*$",
+      "raison": "déjà une clé du catalogue"
+    }
+  ],
+  "litteraux": [
+    {
+      "nom": "url",
+      "motif": "://|^www\\.|^mailto:|\\.(com|net|org|gg|local)(/|$)",
+      "raison": "adresse"
+    },
+    {
+      "nom": "cle-technique",
+      "motif": "^[A-Za-z0-9_$\\-]+([.:/#][A-Za-z0-9_$\\-]+)+$",
+      "raison": "clé, chemin, identifiant"
+    },
+    {
+      "nom": "style",
+      "motif": "^[a-z-]+\\s*:\\s*[^\\s;]+(;\\s*[a-z-]+\\s*:\\s*[^\\s;]+)*;?$",
+      "raison": "style CSS en ligne"
+    },
+    {
+      "nom": "format",
+      "motif": "^(yyyy|HH|dd|MM|N[0-9]|F[0-9])",
+      "raison": "format de date ou de nombre"
+    },
+    {
+      "nom": "json",
+      "motif": "^\\s*[\\[{\"]|\\{\\\\\"|\\\":",
+      "raison": "fragment JSON"
+    },
+    {
+      "nom": "regex",
+      "motif": "^\\^|\\(\\?[:!=<]|\\\\[dswb]",
+      "raison": "expression régulière"
+    },
+    {
+      "nom": "ligne-de-commande",
+      "motif": "^(--?[a-z]|/c )",
+      "raison": "argument de ligne de commande"
+    },
+    {
+      "nom": "donnees-codees",
+      "motif": "^([A-Za-z' ]+:[a-z]+\\|){3,}",
+      "raison": "table de données codée en lettres (ex. Aatrox:b|Ahri:sm)"
+    },
+    {
+      "nom": "code-js",
+      "motif": "=>|document\\.|typeof |querySelector|\bconst |;\\s*1$",
+      "raison": "code JavaScript injecté par les tests natifs"
+    },
+    {
+      "nom": "commentaire-genere",
+      "motif": "^//",
+      "raison": "commentaire écrit en tête d'un fichier de données généré (jamais affiché)"
+    }
+  ],
+  "exacts": {
+    "raison": "noms propres et marques, identiques dans toutes les langues",
+    "valeurs": [
+      "DRAFT",
+      "League of Legends",
+      "LoLalytics",
+      "Data Dragon",
+      "Riot Games",
+      "OP.GG",
+      "Meraki",
+      "WebView2",
+      "Microsoft Edge WebView2",
+      "Ctrl+Alt+D",
+      "VS",
+      "DRAFT-Portable.exe",
+      "DRAFT-Setup.exe",
+      "League of Legends.exe",
+      "LeagueClientUx",
+      "Riot Client"
+    ]
+  },
+  "puits": "MessageBox\\.Show|ToolStripMenuItem|Items\\.Add\\(|ShowBalloonTip|BalloonTip|\\bText\\s*=|ToolTipText|\\bTitle\\s*=|new (Label|Button|CheckBox|LinkLabel|Form)\\b|Status\\s*=|Status\\(|(title|label|placeholder|aria-label|help|tip|hint|text|notice|message|msg|error)\\s*[:=]\\s*$",
+  "motsCourants": {
+    "raison": "mots français courants : une chaîne qui en contient n'est jamais prise pour une liste de classes CSS",
+    "valeurs": [
+      "au",
+      "aux",
+      "à",
+      "la",
+      "le",
+      "les",
+      "de",
+      "du",
+      "des",
+      "et",
+      "ou",
+      "en",
+      "un",
+      "une",
+      "sur",
+      "pour",
+      "contre",
+      "avec",
+      "sans",
+      "ton",
+      "ta",
+      "tes",
+      "mon",
+      "ma",
+      "mes",
+      "pas",
+      "plus"
+    ]
+  },
+  "nonChampions": {
+    "raison": "classes Riot présentes dans les données des champions : ce sont des libellés, pas des noms",
+    "valeurs": [
+      "Fighter",
+      "Mage",
+      "Assassin",
+      "Tank",
+      "Support",
+      "Marksman",
+      "Specialist"
+    ]
+  }
+}

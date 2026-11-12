@@ -115,7 +115,7 @@ if ($Generer) {
 
 # ---------- 3. Banc ----------
 $run = Join-Path $Work 'run'; New-Item -ItemType Directory -Force $run | Out-Null
-foreach ($f in 'draft-role-sheet.js', 'draft-champions.js', 'draft-engine.js', 'draft-data.js') { Copy-Item (Join-Path $web $f) $run }
+foreach ($f in 'draft-role-sheet.js', 'draft-champions.js', 'draft-engine.js', 'draft-data.js') { Copy-Item (Join-Path $web $f) $run }; Copy-Item (Join-Path $web 'draft-i18n.js') $run; Copy-Item (Join-Path $web 'i18n') (Join-Path $run 'i18n') -Recurse -Force
 foreach ($f in 'generer-scenarios.js', 'banc-evaluation.js', 'banc-etudes.js', 'banc.html') { Copy-Item (Join-Path $tests $f) $run }
 $cfg = "window.SCENARIOS_DEV = $($jeux.developpement.texte);`n"
 if ($AvecEvaluation) { $cfg += "window.SCENARIOS_EVAL = $($jeux.evaluation_gele.texte);`n" }

@@ -72,10 +72,12 @@ function Invoke-Page($dir, $name, $budget) {
 }
 $head = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre><script>try { localStorage.clear(); } catch (e) {} window.addEventListener("error", e => { document.getElementById("out").textContent = JSON.stringify({ erreur: e.message + " (" + (e.filename || "").split("/").pop() + ":" + e.lineno + ")" }); });</script>'
 $engineFiles = 'draft-champions.js', 'draft-role-sheet.js', 'draft-engine.js', 'draft-data.js'
-$engineTags = ($engineFiles | ForEach-Object { "<script src=`"$_`"></script>" }) -join ''
+$engineTags = '<script src="i18n/fr.js"></script><script src="draft-i18n.js"></script>' + ($engineFiles | ForEach-Object { "<script src=`"$_`"></script>" }) -join ''
 
 function New-EngineDir($dir, $ref) {
   New-Item -ItemType Directory -Force $dir | Out-Null
+  # Traduction (I18N-1) : toujours celle du dépôt actuel ; une version plus ancienne du moteur l'ignore.
+  Copy-Item (Join-Path $web 'draft-i18n.js') $dir; Copy-Item (Join-Path $web 'i18n') (Join-Path $dir 'i18n') -Recurse -Force
   foreach ($f in $engineFiles) {
     if (-not $ref) { Copy-Item (Join-Path $web $f) $dir; continue }
     # Copie octet pour octet : un tube PowerShell abîmerait les accents.
