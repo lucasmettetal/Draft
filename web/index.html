@@ -15,7 +15,7 @@
     --conn:#79C6DA; --secure:#C9A7E8; --info:#A3B4EC; --focus:#F2ECE4; --select:#F2ECE4;
     --accent:var(--good); --accent-ink:var(--good-ink); --gold:var(--prio);
     /* Couleurs de rôle : cadres de portrait et icônes de rôle seulement. */
-    --r-top:#E39B62; --r-jungle:#9DBF6E; --r-mid:#6FB0EC; --r-adc:#EC8AAE; --r-support:#B69AEE;
+    --r-top:#D0703A; --r-jungle:#9DBF6E; --r-mid:#6FB0EC; --r-adc:#EC8AAE; --r-support:#B69AEE;
     --display:"Sitka Banner","Sitka Heading","Sitka Display",Georgia,serif;
     --condensed:"Bahnschrift SemiBold Condensed","Bahnschrift Condensed",Bahnschrift,"Arial Narrow",Arial,sans-serif;
     --body:Bahnschrift,"Segoe UI",Arial,sans-serif;
@@ -773,7 +773,7 @@
   .home-card.state-good { --state:var(--good); } .home-card.state-wait { --state:var(--prio); } .home-card.state-bad { --state:var(--threat); }
   .home-card.home-quiet { border-top:0; }
   .card-kicker { margin:0; color:var(--muted); font-size:var(--fs-sm); font-weight:400; }
-  .card-state { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2); margin:0; font:var(--fs-lg)/1.2 var(--condensed); letter-spacing:.01em; }
+  .card-state { display:flex; flex-wrap:nowrap; align-items:center; gap:var(--s2); margin:0; font:var(--fs-lg)/1.2 var(--condensed); letter-spacing:.01em; }
   .card-state small { color:var(--muted); font:var(--fs-sm) var(--body); }
   .card-state .nav-role-icon, .card-state .nav-role-icon svg { width:16px; height:16px; }
   .card-text { margin:0; color:var(--text); font-size:var(--fs-sm); line-height:1.4; }
@@ -932,7 +932,7 @@
   .p-alt:hover .p-alt-go { color:var(--text); }
   .badge.source { color:var(--muted); }
   /* Libellés de rôle à 12 px (plus de 10,5) : le bouton de retrait du panneau unique descend sous le libellé. */
-  .compact-roles .role-tools { top:18px; }  /* ---------- Harmonisation (UX-7) ---------- */
+  .compact-roles .role-tools { position:relative; top:auto; right:auto; transform:none; z-index:1; justify-content:center; }  /* ---------- Harmonisation (UX-7) ---------- */
   /* Grand écran : pages plus larges, grilles qui occupent la place, lignes de texte bornées (75 signes environ). */
   .view-page { max-width:1440px; }
   .view-page p, .view-page li, .view-page dd { max-width:75ch; }
@@ -962,7 +962,7 @@
   .role[data-slot] .role-icon { color:var(--role); }
   .role.is-mid:has(.assumed) .portrait { outline-style:dashed; }
   .panel .role[data-slot] .portrait, .compact-roles .role[data-slot] .portrait { outline-offset:1px; }
-  .panel-left .roles > .role { gap:6px; } .panel-left .role-icon { width:44px; }
+  .panel-left .roles > .role { gap:6px; } .panel-left .role-icon { width:48px; font-size:13px; font-weight:600; letter-spacing:-.01em; }
   .roles > .role, .panel .role { background:transparent; border-color:transparent; }
   .roles > .role:hover, .panel .role:hover { background:var(--raised); }
   .roles > .role.is-mid, .panel .role.is-mid { background:var(--raised); }
@@ -1020,8 +1020,31 @@
   .stats-few { color:var(--info); }
   /* Journal vide : les zéros restent écrits, mais ne pèsent pas comme de vrais chiffres. */
   .kpis.is-empty b { color:var(--muted); }
-  @media (min-height:960px) and (min-width:1400px) { .home-champ .portrait { width:64px !important; height:64px !important; } .home-title { font-size:38px; } }
-  .winbar-mid { position:absolute; left:50%; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--bg); }
+  /* Grand écran (1080 px de page) : l'Accueil et Mon pool se lisent à distance d'écran, sans contenu ajouté. */
+  @media (min-height:960px) and (min-width:1400px) {
+    .home { gap:var(--s6); padding-top:48px; padding-bottom:48px; }
+    .home-hero, .home-guide { padding:40px 48px; }
+    .home-title { font-size:44px; } .home-lead { margin-top:var(--s3); font-size:18px; }
+    .home-chain .home-card { padding:40px 44px 44px; gap:var(--s4); }
+    .card-kicker { font-size:var(--fs-md); } .card-state { font-size:28px; } .card-text { font-size:17px; line-height:1.5; }
+    .home-champ { max-width:112px; font-size:var(--fs-md); }
+    .home-champ .portrait { width:80px !important; height:80px !important; }
+    .home-more { gap:var(--s6); } .home-more .home-card.home-quiet { padding-top:var(--s5); }
+    .data-rows { gap:var(--s4) var(--s6); } .data-row dt { font-size:var(--fs-sm); } .data-row dd { font-size:17px; }
+    .card-acts .ghost-btn, .card-acts .cta { min-height:40px; padding-left:16px; padding-right:16px; font-size:var(--fs-md); }
+    .pool-page .played-bar { padding-top:var(--s2); padding-bottom:var(--s5); margin-bottom:var(--s5); }
+    .pool-role { min-height:56px; font-size:17px; }
+    .pool-head { padding:var(--s5) var(--s6) 0; } .pool-search-wrap { padding:var(--s4) var(--s6) var(--s3); }
+    .pool-search-wrap .pool-search { height:48px; font-size:17px; }
+    .pool-table th, .pool-table td { padding:14px var(--s4); } .pool-table th:first-child { padding-left:var(--s6); }
+    .pool-name { font-size:22px; gap:var(--s4); } .pool-name .portrait { width:64px !important; height:64px !important; }
+    .pool-table input { width:28px; height:28px; } .pool-table-help { padding:var(--s2) var(--s6) var(--s5); }
+    [data-test="pool-suggested"] .pool-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:var(--s2); }
+    [data-test="pool-suggested"] .pool-chip { min-height:48px; font-size:var(--fs-md); }
+    [data-test="pool-suggested"] .pool-chip .portrait { width:40px !important; height:40px !important; }
+  }
+  .winbar .winbar-track { overflow:visible; }
+  .winbar-mid { position:absolute; left:calc(50% - 1px); top:-3px; bottom:-3px; width:2px; background:var(--text); border-radius:1px; }
   .winbar.few .notches { justify-self:start; }
   /* Réglages : sobres. Cases et options en ivoire, pas de couleur de sens. */
   input[type=checkbox], input[type=radio] { accent-color:var(--text); }
@@ -1030,6 +1053,12 @@
   /* Panneaux : la marque en serif, le conseil encadré d'or, le reste en sans empattements pour la lecture rapide. */
   .p-title .brand { font:600 20px/1 var(--display); letter-spacing:.02em; }
   .p-alt { font-weight:600; }
+  /* Panneaux, lisibles à 125 % : 13 px au minimum (16 px physiques) ; libellés de rôle du compact en 12 px semi-gras. */
+  .panel .role-traits, .panel .hint, .panel .note, .panel .small, .panel .p-chip, .panel .p-alt small, .panel .p-threat-who, .panel .tie-text small,
+  .panel .meter, .panel .meter-delta, .panel .result-note, .panel .role-hint, .panel .link-btn, .panel .role-empty, .panel .badge, .panel .seg-tab,
+  .panel .effects, .panel .opp-line, .panel .alert-line, .panel .p-reasons li, .panel .p-threat p, .panel .p-win p, .panel .tie-title, .panel .coach-line { font-size:13px; }
+  .panel .role-traits, .panel .note, .panel .small, .panel .p-alt small, .panel .hint, .panel .p-threat-who { font-weight:500; }
+  .compact-roles .role-icon { font-size:12px; font-weight:600; }
   /* Simulateur en mode simulation : le bandeau prend sa hauteur, la table de draft garde la place restante (grand vide corrigé). */
   .app:has(> .sim-band) { grid-template-rows:52px auto minmax(0,1fr); }
   .sim-band { padding-top:var(--s2); padding-bottom:var(--s2); }
@@ -1804,7 +1833,7 @@ function Meter({ label, count, danger }) {
     before.current = count;
   }, [count]);
   return html`<div className=${`meter${danger && count >= 2 ? " danger" : ""}`}>
-    <${motion.span} key=${count} className="meter-label" initial=${count ? { color: danger ? "#f2777a" : "#3fd8c6" } : false} animate=${{ color:"#93a3b6" }} transition=${{ duration:.35 }}>${label}<//>
+    <${motion.span} key=${count} className="meter-label" initial=${count ? { color: danger ? "#F1847A" : "#F2ECE4" } : false} animate=${{ color:"#B5ABA3" }} transition=${{ duration:.35 }}>${label}<//>
     <span className="pips" role="img" aria-label=${t("enemy.meter.aria", { label, count })}>
       ${[0, 1, 2, 3, 4].map(i => html`<span key=${i} className="pip"><${motion.i} initial=${false} animate=${{ scaleX: i < count ? 1 : 0 }} transition=${{ ...QUICK, delay: i * .025 }} /></span>`)}
     </span>
@@ -2846,7 +2875,7 @@ function HomeHero() {
     actions = html`<button type="button" className="cta" data-test="home-see-draft" onClick=${() => openViewInPage("", "live")}>${t("home.action.seeDraft")}</button>`;
   } else {
     title = t("home.hero.ready");
-    lead = t(lcu === "browser" ? "home.hero.ready.browser" : !hostState.autoDraft ? (hostState.hotkey ? "home.hero.ready.manualHotkey" : "home.hero.ready.manualMenu") : lcu === "connected" ? "home.hero.ready.connected" : lcu === "waiting" ? "home.hero.ready.waiting" : "home.hero.ready.off");
+    lead = t(lcu === "browser" ? "home.hero.ready.browser" : !hostState.autoDraft ? (hostState.hotkey ? "home.hero.ready.manualHotkey" : "home.hero.ready.manualMenu") : lcu === "connected" ? "home.hero.ready.connected" : lcu === "waiting" ? "home.hero.ready.waiting" : lcu === "unavailable" ? "home.hero.ready.unavailable" : "home.hero.ready.off");
     actions = simulate;
   }
   const mark = { ready:"check", todo:"dot", error:"alert", live:"pulse" }[tone];
@@ -2888,11 +2917,11 @@ function HomePool() {
 }
 
 function HomePanels() {
-  const host = hostState.available, auto = !host || !!hostState.autoDraft, lcu = leagueState();
+  const host = hostState.available, auto = !host || !!hostState.autoDraft;
   return html`<section className=${`box home-card state-${auto ? "good" : "idle"}`} data-test="home-panels" aria-labelledby="home-panels-title">
     <h2 id="home-panels-title" className="card-kicker">${t("home.panels.title")}</h2>
     <p className="card-state"><i className=${`nav-dot ${auto ? "good" : "idle"}`} aria-hidden="true"></i>${t(auto ? "home.panels.auto" : "home.panels.manual")}</p>
-    <p className="card-text">${t(auto ? "home.panels.auto.text" : "home.panels.manual.text")} ${host ? t(lcu === "connected" || lcu === "waiting" ? "home.panels.detect.lcu" : "home.panels.detect.screen") : ""}</p>
+    <p className="card-text">${t(auto ? "home.panels.auto.text" : "home.panels.manual.text")}</p>
     <p className="card-text small" data-test="home-shortcut">${hostState.panelsShown ? t("home.panels.shown") + " " : ""}${t(!host || hostState.hotkey ? "home.panels.hotkey" : "home.panels.menu")}</p>
     ${host ? html`<div className="card-acts"><button type="button" className="ghost-btn" data-test="home-display" onClick=${() => goView("settings", "display")}>${t("panel.tools.display")}</button></div>` : null}
   </section>`;
@@ -2943,7 +2972,7 @@ function HomeView() {
   const done = { pool:!fresh, lcu:!!hostState.lcuEnabled || (hostState.available && !hostState.lcuConfirmed), panels:ob.tried };
   const steps = known && (ob.started || fresh) ? ["pool", "lcu", "panels"].filter(s => !done[s] && !ob.skipped.includes(s)) : [];
   return html`<div className="view-page home" data-test="home">
-    <${ViewHead} title=${t("nav.home")} sub=${t("home.sub")} />
+    <h1 className="sr" data-test="home-h1">${t("nav.home")}</h1>
     ${steps.length ? html`<${HomeGuide} steps=${steps} />` : html`<${HomeHero} />
     <div className="home-chain">
       <${HomeLeague} /><${HomePool} /><${HomePanels} />

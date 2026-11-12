@@ -36,7 +36,7 @@ Tous les jetons sont dans le premier `:root` de `web/index.html`. Les anciens no
 | `--conn` | `#79C6DA` | **Connexion League** : état de la lecture du client (point, filet). |
 | `--secure` | `#C9A7E8` | **Sécurité** : avertissement sur l'autorisation de Riot, lecture seule. |
 | `--info` | `#A3B4EC` | Hypothèse et incertitude : rôle probable, petit échantillon, mode Simulation. |
-| `--r-top` … `--r-support` | `#E39B62` `#9DBF6E` `#6FB0EC` `#EC8AAE` `#B69AEE` | Rôles : cadre de portrait et icône de rôle seulement. |
+| `--r-top` … `--r-support` | `#D0703A` `#9DBF6E` `#6FB0EC` `#EC8AAE` `#B69AEE` | Rôles : cadre de portrait et icône de rôle seulement. Top en cuivre depuis la finition : ΔE2000 de 23,6 avec l'or (12,7 avec l'ancien `#E39B62`). |
 
 Encres sur aplat : `--prio-ink #241806`, `--good-ink #0B2618`, `--threat-ink #2B0D0A`.
 
@@ -133,6 +133,7 @@ Règles d'affichage :
 ## 7. Accessibilité
 
 - Contrastes : mesurés dans [`AUDIT-B-PLUS.md`](AUDIT-B-PLUS.md#contrastes-mesurés). Texte ≥ 4,5:1, éléments d'interface ≥ 3:1. Le plus faible : contour de contrôle sur surface haute, 3,75:1.
+- Panneaux (finition) : texte de 13 px au minimum (16 px physiques à 125 %), libellés de rôle du compact en 12 px semi-gras, petits textes secondaires en graisse 500. Vérifié par `run-layout-tests` (code PETIT-TEXTE).
 - Focus : contour ivoire 2 px partout (`--focus`), y compris sur l'or du bouton principal. Les règles d'offset existantes (focus intérieur pour les boutons serrés) sont gardées.
 - Survol : fond `--raised` ou contour `--muted`, jamais une couleur de sens.
 - Troncatures : noms de champions sur deux lignes au lieu d'être coupés (Accueil, panneau compact) ; vérifiées par `run-layout-tests` et la pseudo-langue.
