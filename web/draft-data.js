@@ -65,15 +65,15 @@ function riotRoleBuckets() {
 
 function describeRiotRoles() {
   const live = window.ROLE_RATES_LIVE, buckets = riotRoleBuckets();
-  if (!buckets.length) return { available:false, note:"Pas encore calculés : lance « Mettre à jour les rôles » avec ta clé Riot." };
+  if (!buckets.length) return { available:false, note:I18N.t("data.riotRoles.none") };
   const dated = buckets.map(b => Object.assign(ageOf(b.patch, b.collected), b)).sort((x, y) => (x.age === null ? 1e9 : x.age) - (y.age === null ? 1e9 : y.age));
   const newest = dated[0];
   const noPatch = buckets.every(b => !b.patch);
   return {
-    available:true, patch: noPatch ? null : newest.patch, collected: live.updated, games: buckets.reduce((sum, b) => sum + (b.games || 0), 0), unit:"parties",
-    region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:"Silver à Emerald, classé solo/duo", age: newest.age,
-    uncertainty: newest.age === null || newest.age >= STALE_PATCHES ? "élevée" : "moyenne",
-    note: noPatch ? "Calcul fait avant le suivi par patch : le patch et la région n'ont pas été enregistrés, l'âge est estimé d'après la date." : `${buckets.length} patch(s) conservé(s). Les plus anciens comptent moins, sans être supprimés.`
+    available:true, patch: noPatch ? null : newest.patch, collected: live.updated, games: buckets.reduce((sum, b) => sum + (b.games || 0), 0), unit:I18N.t("data.unit.games"),
+    region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:I18N.t("data.rank.silverEmerald"), age: newest.age,
+    uncertainty: I18N.t(newest.age === null || newest.age >= STALE_PATCHES ? "data.uncertainty.high" : "data.uncertainty.medium"),
+    note: noPatch ? I18N.t("data.riotRoles.noPatch") : I18N.t("data.riotRoles.patches", { count: buckets.length })
   };
 }
 
@@ -88,33 +88,33 @@ let sheetById = null;
 
 const DATA_PROVIDERS = [
   {
-    id:"data-dragon", label:"Noms, portraits et patch", kind:"official", provides:["champions", "patch"], source:"Riot Games, Data Dragon",
-    terms:"Données publiques de Riot.",
+    id:"data-dragon", label:I18N.t("data.dragon.label"), kind:"official", provides:["champions", "patch"], source:I18N.t("data.dragon.source"),
+    terms:I18N.t("data.dragon.terms"),
     describe() {
       const patch = currentPatch();
-      return { available: !!patch, patch, note: patch ? "Dernier patch connu. Hors ligne, il peut être en retard." : "Patch inconnu : l'âge des données est estimé d'après leur date." };
+      return { available: !!patch, patch, note: patch ? I18N.t("data.dragon.patch") : I18N.t("data.dragon.noPatch") };
     }
   },
   {
-    id:"riot-roles", label:"Rôles joués, parties récentes", kind:"observed", provides:["roles"], source:"API Riot, avec ta clé personnelle",
-    terms:"Calculés sur ton PC avec ta clé. Aucun nom de joueur n'est gardé.",
+    id:"riot-roles", label:I18N.t("data.riotRoles.label"), kind:"observed", provides:["roles"], source:I18N.t("data.source.riotKey"),
+    terms:I18N.t("data.terms.riotKey"),
     roleBuckets: riotRoleBuckets, describe: describeRiotRoles
   },
   {
-    id:"meraki-roles", label:"Rôles, référence livrée", kind:"estimate", provides:["roles"], source:"Meraki Analytics",
-    terms:"Conditions de réutilisation à confirmer : sert seulement de référence d'appoint.",
+    id:"meraki-roles", label:I18N.t("data.meraki.label"), kind:"estimate", provides:["roles"], source:"Meraki Analytics",
+    terms:I18N.t("data.meraki.terms"),
     rolePrior(id) { return typeof ROLE_RATES !== "undefined" && ROLE_RATES.champions[id] ? { row: ROLE_RATES.champions[id], patch: ROLE_RATES.patch } : null; },
     describe() {
-      if (typeof ROLE_RATES === "undefined") return { available:false, note:"Non livrée dans cette version : les rôles habituels écrits à la main prennent le relais." };
+      if (typeof ROLE_RATES === "undefined") return { available:false, note:I18N.t("data.meraki.absent") };
       const age = ageOf(ROLE_RATES.patch).age;
-      return { available:true, patch:ROLE_RATES.patch, age, games:null, uncertainty:"élevée",
-        note:"Des taux, sans nombre de parties, et beaucoup de champions n'ont qu'un seul rôle. Sert seulement de référence, jamais d'observation actuelle." };
+      return { available:true, patch:ROLE_RATES.patch, age, games:null, uncertainty:I18N.t("data.uncertainty.high"),
+        note:I18N.t("data.meraki.note") };
     }
   },
   {
     // Sans licence à vérifier : c'est lui qui prend le relais si la référence Meraki est retirée.
-    id:"written-roles", label:"Rôles habituels", kind:"heuristic", provides:["roles"], source:"Écrit à la main",
-    terms:"Propre au projet.",
+    id:"written-roles", label:I18N.t("data.writtenRoles.label"), kind:"heuristic", provides:["roles"], source:I18N.t("data.kind.heuristic"),
+    terms:I18N.t("data.terms.project"),
     rolePrior(id) {
       if (typeof ROLE_SHEET === "undefined") return null;
       if (!sheetById) { sheetById = {}; Object.keys(ROLE_SHEET).forEach(n => { sheetById[rateId(n)] = ROLE_SHEET[n]; }); }
@@ -125,47 +125,47 @@ const DATA_PROVIDERS = [
       return { row };
     },
     describe() {
-      if (typeof ROLE_SHEET === "undefined") return { available:false, note:"Fichier absent." };
-      return { available:true, uncertainty:"élevée", note:`${Object.keys(ROLE_SHEET).length} champions. Avis général, utilisé seulement là où aucune autre référence n'existe.` };
+      if (typeof ROLE_SHEET === "undefined") return { available:false, note:I18N.t("data.writtenRoles.absent") };
+      return { available:true, uncertainty:I18N.t("data.uncertainty.high"), note:I18N.t("data.writtenRoles.note", { count: Object.keys(ROLE_SHEET).length }) };
     }
   },
   {
-    id:"riot-matchups", label:"Bilans de matchups", kind:"observed", provides:["matchups"], source:"API Riot, avec ta clé personnelle",
-    terms:"Calculés sur ton PC avec ta clé. Aucun nom de joueur n'est gardé.",
+    id:"riot-matchups", label:I18N.t("data.riotMatchups.label"), kind:"observed", provides:["matchups"], source:I18N.t("data.source.riotKey"),
+    terms:I18N.t("data.terms.riotKey"),
     matchupBuckets: riotMatchupBuckets,
     describe() {
       const live = window.MATCHUPS_LIVE;
-      if (!live) return { available:false, note:"Pas encore calculés : lance « Mettre à jour les matchups » avec ta clé Riot." };
+      if (!live) return { available:false, note:I18N.t("data.riotMatchups.none") };
       const buckets = riotMatchupBuckets();
       const dated = buckets.map(b => ageOf(b.patch, b.collected)).filter(x => x.age !== null).map(x => x.age);
       const age = dated.length ? Math.min(...dated) : null;
-      return { available:true, patch: Object.keys(live.patches || {}).sort((a, b) => (patchIndex(b) || 0) - (patchIndex(a) || 0))[0] || null, collected:live.updated, games:live.games, unit:"parties", age,
-        region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:"Silver à Emerald, classé solo/duo", uncertainty: age === null || age >= STALE_PATCHES ? "élevée" : "moyenne",
-        note:`Pour le rôle ${ROLE_NAMES[live.role || "mid"]}. Sous ${MATCHUP_MIN_GAMES} parties utiles, un bilan n'est pas utilisé.` };
+      return { available:true, patch: Object.keys(live.patches || {}).sort((a, b) => (patchIndex(b) || 0) - (patchIndex(a) || 0))[0] || null, collected:live.updated, games:live.games, unit:I18N.t("data.unit.games"), age,
+        region: live.regions && live.regions.length ? live.regions.join(", ") : null, rank:I18N.t("data.rank.silverEmerald"), uncertainty: I18N.t(age === null || age >= STALE_PATCHES ? "data.uncertainty.high" : "data.uncertainty.medium"),
+        note:I18N.t("data.riotMatchups.note", { role: ROLE_NAMES[live.role || "mid"], min: MATCHUP_MIN_GAMES }) };
     }
   },
   {
-    id:"written-matchups", label:"Tableau de matchups", kind:"heuristic", provides:["matchups"], source:"Écrit à la main",
-    terms:"Propre au projet.",
-    describe() { return { available:true, games:null, uncertainty:"élevée", note:`${MATCHUPS.length} adversaires au mid, pour Twisted Fate, Fizz, Kog'Maw et Xerath seulement. Sans statistiques ni patch.` }; }
+    id:"written-matchups", label:I18N.t("data.writtenMatchups.label"), kind:"heuristic", provides:["matchups"], source:I18N.t("data.kind.heuristic"),
+    terms:I18N.t("data.terms.project"),
+    describe() { return { available:true, games:null, uncertainty:I18N.t("data.uncertainty.high"), note:I18N.t("data.writtenMatchups.note", { count: MATCHUPS.length }) }; }
   },
   {
-    id:"champion-sheets", label:"Fiches de champions", kind:"heuristic", provides:["profiles"], source:"Écrit à la main",
-    terms:"Propre au projet.",
-    describe() { return { available:true, games:null, uncertainty:"élevée", note:`${Object.keys(CHAMPION_TRAITS).length} fiches d'avis général, sans statistiques ni patch. À revoir si un champion est refait.` }; }
+    id:"champion-sheets", label:I18N.t("data.sheets.label"), kind:"heuristic", provides:["profiles"], source:I18N.t("data.kind.heuristic"),
+    terms:I18N.t("data.terms.project"),
+    describe() { return { available:true, games:null, uncertainty:I18N.t("data.uncertainty.high"), note:I18N.t("data.sheets.note", { count: Object.keys(CHAMPION_TRAITS).length }) }; }
   },
   {
-    id:"personal-stats", label:"Tes statistiques importées", kind:"observed", provides:["history"], source:"API Riot, tes comptes",
-    terms:"Privées : le fichier n'est jamais publié.",
+    id:"personal-stats", label:I18N.t("data.personal.label"), kind:"observed", provides:["history"], source:I18N.t("data.personal.source"),
+    terms:I18N.t("data.personal.terms"),
     describe() {
       const stats = window.DRAFT_HISTORY || window.DRAFT_STATS;
-      if (!stats || !Array.isArray(stats.rows)) return { available:false, note:"Pas d'import sur ce PC. Facultatif." };
-      return { available:true, collected: stats.generated, games: stats.rows.length, unit:"parties", uncertainty:"élevée", note:"Affichées seulement : elles ne changent pas le classement." };
+      if (!stats || !Array.isArray(stats.rows)) return { available:false, note:I18N.t("data.personal.none") };
+      return { available:true, collected: stats.generated, games: stats.rows.length, unit:I18N.t("data.unit.games"), uncertainty:I18N.t("data.uncertainty.high"), note:I18N.t("data.personal.note") };
     }
   }
 ];
 
-const KIND_LABELS = { official:"Officiel", observed:"Observé", estimate:"Estimation externe", heuristic:"Écrit à la main" };
+const KIND_LABELS = { official:I18N.t("data.kind.official"), observed:I18N.t("data.kind.observed"), estimate:I18N.t("data.kind.estimate"), heuristic:I18N.t("data.kind.heuristic") };
 
 // État commun, lu par les réglages. Une valeur absente reste null : l'interface affiche « inconnu ».
 function dataReport() {

@@ -25,9 +25,17 @@ jobs:
           Get-Content "$env:RUNNER_TEMP\selftest.txt"
           exit $p.ExitCode
       # Catalogues de langue : forme JSON stricte, clés, variables, pluriels, longueurs (docs/i18n/FORMAT-CATALOGUE.md).
+      # I18N-1 : chaque clé citée par la page existe, chaque {variable} est fournie, aucune clé orpheline ; messages de sécurité présents.
       - name: Catalogues de langue
         shell: pwsh
-        run: .\tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js
+        run: .\tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js -Code . -Security tools\i18n\securite.json
+      # Aucun texte visible écrit en dur dans la page (web/), hors exclusions justifiées (tools/i18n/exclusions.json). Lecture seule.
+      - name: Textes en dur de la page
+        shell: pwsh
+        run: |
+          .\tools\i18n\detect-hardcoded.ps1 -SelfTest
+          if ($LASTEXITCODE) { exit 1 }
+          .\tools\i18n\detect-hardcoded.ps1 -Only web/ -Max 0
       # Scénarios SYNTHÉTIQUES, jeu de développement seulement, contre l'instantané de référence. Hors ligne.
       # Chrome fait partie de l'image windows-latest ; s'il manque, le script s'arrête avec « Chrome introuvable ».
       - name: Banc d'évaluation du moteur

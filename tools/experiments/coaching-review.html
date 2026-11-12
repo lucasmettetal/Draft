@@ -2,7 +2,7 @@
 <!-- Exemples à relire : les mêmes situations aux trois niveaux, avec leur contexte et ce qui a déclenché chaque conseil. -->
 <script src="draft-role-sheet.js"></script><script src="draft-role-rates-live.js"></script><script src="draft-champions.js"></script><script src="draft-champion-official.js"></script>
 <script>localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF"]}));localStorage.setItem("draftPatch","16.22");</script>
-<script src="draft-engine.js"></script><script src="draft-data.js"></script><script src="draft-coaching.js"></script>
+<script src="i18n/fr.js"></script><script src="draft-i18n.js"></script><script src="draft-engine.js"></script><script src="draft-data.js"></script><script src="draft-coaching.js"></script>
 <script>
 const MID=["TF","Fizz","Kog'Maw","Xerath"],JG=["Viego","Master Yi","Briar","Lee Sin"];
 const fake=(c,n,w)=>Array.from({length:n},(_,i)=>({champ:c,pos:"JUNGLE",win:i<w,time:1e12+i,acct:"Test#TEST"}));

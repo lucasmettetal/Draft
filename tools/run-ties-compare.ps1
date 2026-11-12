@@ -3,7 +3,7 @@ param([string]$BaseRef = '95164df', [string]$DataDir = (Join-Path $env:LOCALAPPD
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent; $web = Join-Path $repo 'web'
 Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force $Work | Out-Null
-foreach ($f in 'draft-engine.js', 'draft-data.js', 'draft-champions.js', 'draft-role-sheet.js') { Copy-Item (Join-Path $web $f) $Work }
+foreach ($f in 'draft-engine.js', 'draft-data.js', 'draft-champions.js', 'draft-role-sheet.js') { Copy-Item (Join-Path $web $f) $Work }; Copy-Item (Join-Path $web 'draft-i18n.js') $Work; Copy-Item (Join-Path $web 'i18n') (Join-Path $Work 'i18n') -Recurse -Force
 Copy-Item (Join-Path $DataDir 'draft-role-rates-live.js') $Work
 $p = Start-Process git -ArgumentList '-C', "`"$repo`"", 'show', "${BaseRef}:web/draft-engine.js" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Work 'engine-base.js') -Wait
 if ($p.ExitCode -ne 0) { throw 'Moteur de référence introuvable.' }

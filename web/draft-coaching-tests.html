@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests du moteur de conseils</title></head><body><pre id="out"></pre>
 <script src="draft-role-sheet.js"></script><script src="draft-champions.js"></script><script src="draft-champion-official.js"></script>
 <script>localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");</script>
-<script src="draft-engine.js"></script><script src="draft-data.js"></script><script src="draft-coaching.js"></script>
+<script src="i18n/fr.js"></script><script src="draft-i18n.js"></script><script src="draft-engine.js"></script><script src="draft-data.js"></script><script src="draft-coaching.js"></script>
 <script>
 const res={ok:0,ko:[],samples:[],stats:{}};
 const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};

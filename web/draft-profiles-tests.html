@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests des profils DRAFT</title></head><body><pre id="out"></pre>
 <script src="draft-role-sheet.js"></script><script src="draft-champions.js"></script>
 <script>localStorage.clear();</script>
-<script src="draft-engine.js"></script><script src="draft-profiles.js"></script>
+<script src="i18n/fr.js"></script><script src="draft-i18n.js"></script><script src="draft-engine.js"></script><script src="draft-profiles.js"></script>
 <script>
 const res={ok:0,ko:[]};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
 window.addEventListener("error",e=>res.ko.push("test interrompu : "+e.message));

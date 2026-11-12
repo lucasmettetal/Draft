@@ -2,7 +2,7 @@
 <!-- Sort, pour une liste figée de drafts, le classement d'une version du moteur. Le script compare ensuite les deux versions. -->
 <script src="draft-role-sheet.js"></script><script src="draft-role-rates-live.js"></script><script src="draft-champions.js"></script>
 <script>localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF"]}));localStorage.setItem("draftPatch","16.22");</script>
-<script src="ENGINE"></script><script src="draft-data.js"></script><script src="fixed.js"></script>
+<script src="i18n/fr.js"></script><script src="draft-i18n.js"></script><script src="ENGINE"></script><script src="draft-data.js"></script><script src="fixed.js"></script>
 <script>
 const out={};
 Object.keys(POOLS).forEach(k=>{const [role,pool]=POOLS[k];applyProfile({role,pool});out[k]=FIXED.map(t=>{const b=opponentBelief(t);const r=analyze(t,identifiedOpponent(t),true,t.length?beliefScenarios(b):null);return r.ranking.map(p=>p.pick+"="+p.score.toFixed(6)).join("|")});});

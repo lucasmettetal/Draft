@@ -6,11 +6,14 @@
 # Exemples :
 #   tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js -Target web\i18n\en.js
 #   tools\i18n\check-catalogs.ps1 -Reference tools\i18n\exemples\fr.js -Target tools\i18n\exemples\en.js -AllowMissing
+#   tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js -Code .   (I18N-1 : clés utilisées par la page = clés du catalogue, variables fournies)
 param(
   [Parameter(Mandatory = $true)][string]$Reference,
   [string[]]$Target = @(),
   [string]$Limits = '',
   [switch]$AllowMissing,
+  [string]$Code = '',
+  [string]$Security = '',
   [switch]$Quiet
 )
 $ErrorActionPreference = 'Stop'
@@ -114,6 +117,245 @@ foreach ($t in $Target) {
     if (($rv -is [string]) -ne ($tv -is [string])) { Err "$($cat.Path) : « $key » : pluriel d'un côté seulement" }
   }
   foreach ($key in $cat.Map.Keys) { if (-not $ref.Map.Contains($key)) { Err "$($cat.Path) : clé en trop « $key » (absente de la référence)" } }
+}
+
+# ---------- Clés utilisées par le code de la page (-Code <racine du dépôt>) ----------
+# Chaque appel t(), tp(), tx() (ou I18N.t...) est relu : les clés citées dans son premier argument doivent exister,
+# et l'objet de variables doit fournir toutes les {variables} de ces clés. Une clé du catalogue que le code ne cite
+# nulle part est une clé orpheline. Une clé construite (gabarit, concaténation) n'est pas vérifiable : elle est interdite.
+if ($Code) {
+  if (-not ('DraftI18nKeys.Scanner' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Text.RegularExpressions;
+namespace DraftI18nKeys
+{
+    // Un appel t(), tp() ou tx() : clés citées dans le premier argument, variables fournies (null si inconnues).
+    public class Call
+    {
+        public string Fn; public int Line; public List<string> Keys = new List<string>(); public List<string> Vars; public bool Plural;
+    }
+    public class Scanner
+    {
+        static readonly Regex KeyRx = new Regex(@"^[a-z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)+$");
+        readonly string s; readonly int n;
+        public readonly List<Call> Calls = new List<Call>();
+        public readonly List<string> Literals = new List<string>();
+        public Scanner(string src) { s = src; n = src.Length; }
+        int LineOf(int pos) { int l = 1; for (int i = 0; i < pos && i < n; i++) if (s[i] == '\n') l++; return l; }
+
+        public void Run(int start, int end) { int i = start; Code(ref i, end, false); }
+
+        // Parcourt du code JavaScript ; s'arrête sur une accolade fermante de niveau 0 si stopAtBrace (fin de ${...}).
+        void Code(ref int i, int end, bool stopAtBrace)
+        {
+            int depth = 0; char prev = '\0'; string prevWord = "";
+            while (i < end)
+            {
+                char c = s[i];
+                if (char.IsWhiteSpace(c)) { i++; continue; }
+                if (c == '/' && i + 1 < end && s[i + 1] == '/') { while (i < end && s[i] != '\n') i++; continue; }
+                if (c == '/' && i + 1 < end && s[i + 1] == '*') { int e = s.IndexOf("*/", i + 2, StringComparison.Ordinal); i = e < 0 ? end : e + 2; continue; }
+                if (c == '"' || c == '\'') { string lit = Str(ref i, end, c); Literals.Add(lit); prev = 'a'; prevWord = ""; continue; }
+                if (c == '`') { Template(ref i, end); prev = 'a'; prevWord = ""; continue; }
+                if (c == '/')
+                {
+                    bool regex = prev == '\0' || "(,=:[!&|?{};+-*%<>~^".IndexOf(prev) >= 0 || prevWord == "return" || prevWord == "typeof" || prevWord == "case";
+                    if (regex) { SkipRegex(ref i, end); prev = 'a'; prevWord = ""; continue; }
+                    i++; prev = '/'; prevWord = ""; continue;
+                }
+                if (char.IsLetter(c) || c == '_' || c == '$')
+                {
+                    int st = i;
+                    while (i < end && (char.IsLetterOrDigit(s[i]) || s[i] == '_' || s[i] == '$')) i++;
+                    string w = s.Substring(st, i - st);
+                    bool dotted = st > 0 && s[st - 1] == '.';
+                    bool viaI18n = dotted && st >= 5 && s.Substring(st - 5, 5) == "I18N.";
+                    if ((w == "t" || w == "tp" || w == "tx") && (!dotted || viaI18n))
+                    {
+                        int k = i; while (k < end && char.IsWhiteSpace(s[k])) k++;
+                        if (k < end && s[k] == '(') { ParseCall(w, st, ref k, end); i = k; prev = ')'; prevWord = ""; continue; }
+                    }
+                    prev = 'a'; prevWord = w; continue;
+                }
+                if (char.IsDigit(c)) { i++; prev = 'a'; prevWord = ""; continue; }
+                if (c == '{' || c == '(' || c == '[') depth++;
+                else if (c == '}' || c == ')' || c == ']')
+                {
+                    if (c == '}' && depth == 0 && stopAtBrace) { i++; return; }
+                    depth--;
+                }
+                prev = c; prevWord = ""; i++;
+            }
+        }
+
+        // Arguments de niveau 0 d'un appel : positions [début, fin) de chacun.
+        void ParseCall(string fn, int at, ref int i, int end)
+        {
+            int open = i; i++;
+            List<int[]> args = new List<int[]>(); int argStart = i;
+            int depth = 0;
+            while (i < end)
+            {
+                char c = s[i];
+                if (c == '"' || c == '\'') { Literals.Add(Str(ref i, end, c)); continue; }
+                if (c == '`') { SkipTemplate(ref i, end); continue; }
+                if (c == '/' && i + 1 < end && s[i + 1] == '/') { while (i < end && s[i] != '\n') i++; continue; }
+                if (c == '(' || c == '{' || c == '[') { depth++; i++; continue; }
+                if (c == ')' || c == '}' || c == ']')
+                {
+                    if (depth == 0) { args.Add(new int[] { argStart, i }); i++; break; }
+                    depth--; i++; continue;
+                }
+                if (c == ',' && depth == 0) { args.Add(new int[] { argStart, i }); i++; argStart = i; continue; }
+                i++;
+            }
+            Call call = new Call { Fn = fn, Line = LineOf(at), Plural = fn == "tp" };
+            if (args.Count > 0)
+            {
+                foreach (Match m in Regex.Matches(s.Substring(args[0][0], args[0][1] - args[0][0]), "\"([^\"\\\\]*)\""))
+                    if (KeyRx.IsMatch(m.Groups[1].Value)) call.Keys.Add(m.Groups[1].Value);
+            }
+            int varsIdx = fn == "tp" ? 2 : 1;
+            if (args.Count > varsIdx) call.Vars = ObjectNames(args[varsIdx][0], args[varsIdx][1]);
+            else call.Vars = new List<string>();
+            Calls.Add(call);
+            // Les arguments peuvent contenir d'autres appels (t() imbriqués, gabarits html``) : on les parcourt aussi.
+            foreach (int[] a in args) { int k = a[0]; Code(ref k, a[1], false); }
+        }
+
+        // Noms de propriétés de niveau 1 d'un objet littéral { a: x, b, c: y } ; null si l'argument n'est pas un objet littéral.
+        List<string> ObjectNames(int st, int en)
+        {
+            string arg = s.Substring(st, en - st).Trim();
+            if (!arg.StartsWith("{") || !arg.EndsWith("}")) return null;
+            List<string> names = new List<string>();
+            int depth = 0; bool expectName = true; int i = 1;
+            while (i < arg.Length - 1)
+            {
+                char c = arg[i];
+                if (c == '"' || c == '\'') { char q = c; i++; while (i < arg.Length && arg[i] != q) { if (arg[i] == '\\') i++; i++; } i++; continue; }
+                if (c == '`') { int d2 = 0; i++; while (i < arg.Length) { if (arg[i] == '\\') { i += 2; continue; } if (arg[i] == '$' && i + 1 < arg.Length && arg[i + 1] == '{') { d2++; i += 2; continue; } if (arg[i] == '}' && d2 > 0) { d2--; i++; continue; } if (arg[i] == '`' && d2 == 0) { i++; break; } i++; } continue; }
+                if (c == '{' || c == '(' || c == '[') { depth++; i++; continue; }
+                if (c == '}' || c == ')' || c == ']') { depth--; i++; continue; }
+                if (depth == 0 && c == ',') { expectName = true; i++; continue; }
+                if (depth == 0 && expectName && (char.IsLetter(c) || c == '_' || c == '$'))
+                {
+                    int b = i; while (i < arg.Length && (char.IsLetterOrDigit(arg[i]) || arg[i] == '_' || arg[i] == '$')) i++;
+                    names.Add(arg.Substring(b, i - b)); expectName = false; continue;
+                }
+                if (char.IsWhiteSpace(c)) { i++; continue; }
+                expectName = false; i++;
+            }
+            return names;
+        }
+
+        string Str(ref int i, int end, char q)
+        {
+            StringBuilder sb = new StringBuilder(); i++;
+            while (i < end)
+            {
+                char ch = s[i];
+                if (ch == '\\' && i + 1 < end) { sb.Append(s[i + 1]); i += 2; continue; }
+                if (ch == q) { i++; break; }
+                if (ch == '\n') break;
+                sb.Append(ch); i++;
+            }
+            return sb.ToString();
+        }
+
+        void Template(ref int i, int end)
+        {
+            i++;
+            while (i < end)
+            {
+                char ch = s[i];
+                if (ch == '\\') { i += 2; continue; }
+                if (ch == '`') { i++; return; }
+                if (ch == '$' && i + 1 < end && s[i + 1] == '{') { i += 2; Code(ref i, end, true); continue; }
+                i++;
+            }
+        }
+
+        // Saute un gabarit sans l'analyser (il le sera avec les arguments de l'appel).
+        void SkipTemplate(ref int i, int end)
+        {
+            i++; int d = 0;
+            while (i < end)
+            {
+                char ch = s[i];
+                if (ch == '\\') { i += 2; continue; }
+                if (d == 0 && ch == '`') { i++; return; }
+                if (ch == '$' && i + 1 < end && s[i + 1] == '{') { d++; i += 2; continue; }
+                if (d > 0 && (ch == '"' || ch == '\'')) { Str(ref i, end, ch); continue; }
+                if (d > 0 && ch == '`') { SkipTemplate(ref i, end); continue; }
+                if (d > 0 && ch == '{') { d++; i++; continue; }
+                if (d > 0 && ch == '}') { d--; i++; continue; }
+                i++;
+            }
+        }
+
+        void SkipRegex(ref int i, int end)
+        {
+            i++; bool cls = false;
+            while (i < end)
+            {
+                char ch = s[i];
+                if (ch == '\\') { i += 2; continue; }
+                if (ch == '\n') break;
+                if (ch == '[') cls = true; else if (ch == ']') cls = false;
+                else if (ch == '/' && !cls) { i++; break; }
+                i++;
+            }
+            while (i < end && char.IsLetter(s[i])) i++;
+        }
+    }
+}
+
+'@
+  }
+  $web = Join-Path (Resolve-Path $Code) 'web'
+  $skipFiles = @('draft-i18n.js', 'draft-champions.js', 'draft-champion-ids.js', 'draft-champion-official.js', 'draft-role-sheet.js', 'draft-vendor', 'draft-stats.js', 'draft-history.js', 'draft-role-rates.js', 'draft-role-rates-live.js', 'draft-matchups-live.js')
+  $sources = @(Get-ChildItem $web -File -Filter '*.js' | Where-Object { $skipFiles -notcontains $_.Name }) + @(Get-Item (Join-Path $web 'index.html'))
+  $used = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  $nCalls = 0; $nDynamic = 0
+  foreach ($f in $sources) {
+    $text = [IO.File]::ReadAllText($f.FullName)
+    $sc = [DraftI18nKeys.Scanner]::new($text)
+    if ($f.Name -eq 'index.html') { foreach ($m in [regex]::Matches($text, '<script>([\s\S]*?)</script>')) { $sc.Run($m.Groups[1].Index, $m.Groups[1].Index + $m.Groups[1].Length) } }
+    else { $sc.Run(0, $text.Length) }
+    foreach ($l in $sc.Literals) { [void]$used.Add($l) }
+    foreach ($call in $sc.Calls) {
+      $nCalls++
+      $where = "web/$($f.Name):$($call.Line)"
+      if ($call.Keys.Count -eq 0) { $nDynamic++; continue }
+      foreach ($k in $call.Keys) { if (-not $ref.Map.Contains($k)) { Err "$where : clé absente du catalogue « $k »" } }
+      if ($null -eq $call.Vars) { continue }
+      $given = @($call.Vars); if ($call.Plural) { $given += 'count' }
+      $needAll = @()
+      foreach ($k in $call.Keys) {
+        if (-not $ref.Map.Contains($k)) { continue }
+        $need = @(); foreach ($e in (Forms $ref.Map[$k]).Values) { $need += Vars ([string]$e) }
+        $need = @($need | Sort-Object -Unique); $needAll += $need
+        foreach ($v in $need) { if ($given -notcontains $v) { Err "$where : « $k » attend {$v}, non fourni" } }
+        if (($ref.Map[$k] -isnot [string]) -and -not $call.Plural) { Err "$where : « $k » est un pluriel, à appeler avec tp()" }
+      }
+      foreach ($v in $call.Vars) { if ($needAll -notcontains $v) { Warn "$where : variable {$v} fournie mais inutilisée par $($call.Keys -join ', ')" } }
+    }
+  }
+  $orphans = @($ref.Map.Keys | Where-Object { $_ -ne '_meta' -and -not $used.Contains($_) })
+  foreach ($o in $orphans) { Err "clé orpheline (citée nulle part dans web/) : « $o »" }
+  "Code relu : $($sources.Count) fichiers, $nCalls appels t/tp/tx, dont $nDynamic avec une clé en variable (vérifiée en mode test de la page), $(@($orphans).Count) clé(s) orpheline(s)."
+}
+
+# ---------- Messages de sécurité (-Security tools\i18n\securite.json) ----------
+# Ces clés sont traduites mot pour mot et relues par deux personnes (STRATEGIE.md § 5) : elles doivent exister.
+if ($Security) {
+  $sec = Get-Content -Raw -Encoding UTF8 $Security | ConvertFrom-Json
+  foreach ($e in $sec.cles) { if (-not $ref.Map.Contains($e.cle)) { Err "$Security : clé de sécurité absente du catalogue « $($e.cle) »" } }
+  "Messages de sécurité marqués : $(@($sec.cles).Count)."
 }
 "Catalogues vérifiés : $(1 + $Target.Count). Erreurs : $script:errors. Alertes : $script:warnings."
 if ($script:errors) { exit 1 } else { exit 0 }

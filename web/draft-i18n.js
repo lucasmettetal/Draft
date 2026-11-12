@@ -1,7 +1,7 @@
 // Traduction des textes de la page : t(), tp(), tx(). Format des catalogues : docs/i18n/FORMAT-CATALOGUE.md.
 // Chargé par une balise <script src> avant le script principal (CSP inchangée : ni eval, ni script en ligne nouveau).
 // Les catalogues (i18n/fr.js) ne sont que des données : le programme les relit comme du JSON strict (DataScripts.Canonical).
-// I18N-0 : seul le français existe. Aucun texte existant ne passe encore par ici ; seuls les nouveaux écrans l'utilisent.
+// I18N-1 : tous les textes de la page passent par ici (index.html et moteur : I18N.t, tp, tx). Seul le français existe.
 (function (root) {
   "use strict";
   // Langues proposées. L'anglais n'est ajouté qu'une fois complet et testé (décision du 11/11/2026).
@@ -30,7 +30,10 @@
     return null;
   }
   // Découpe un gabarit en morceaux : texte et noms de variables. {{ et }} donnent une accolade.
+  // Le moteur appelle t() des milliers de fois par draft : chaque gabarit n'est découpé qu'une fois.
+  const parsed = new Map();
   function parts(template) {
+    if (parsed.has(template)) return parsed.get(template);
     const out = [];
     let text = "";
     for (let i = 0; i < template.length; i++) {
@@ -43,6 +46,7 @@
       text += c;
     }
     out.push(text);
+    parsed.set(template, out);
     return out;
   }
   const fmtNumber = n => typeof n === "number" ? (lang === "en" ? String(n) : String(n).replace(".", ",")) : n;
@@ -55,9 +59,10 @@
       return "{" + p.name + "}";
     });
   }
+  const rules = new Intl.PluralRules(lang === "qps" ? "fr" : lang);
   function pick(v, count) {
     if (v === null || v === undefined || typeof v === "string") return v;
-    const cat = new Intl.PluralRules(lang === "qps" ? "fr" : lang).select(typeof count === "number" ? count : 0);
+    const cat = rules.select(typeof count === "number" ? count : 0);
     return own(v, cat) ? v[cat] : v.other;
   }
   // t : texte simple. tp : pluriel ({count} fourni). tx : tableau de morceaux pour htm/React (une variable peut être un élément).

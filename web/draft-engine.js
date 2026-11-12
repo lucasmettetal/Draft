@@ -55,8 +55,8 @@ const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().repla
 
 // ---------- Profil du joueur : son rôle et ses champions ----------
 const PROFILE_KEY = "draftProfile";
-const ROLE_NAMES = { top:"Top", jungle:"Jungle", mid:"Mid", adc:"ADC", support:"Support" };
-const ROLE_AT = { top:"au top", jungle:"à la jungle", mid:"au mid", adc:"à l'ADC", support:"au support" };
+const ROLE_NAMES = { top:I18N.t("role.name.top"), jungle:I18N.t("role.name.jungle"), mid:I18N.t("role.name.mid"), adc:I18N.t("role.name.adc"), support:I18N.t("role.name.support") };
+const ROLE_AT = { top:I18N.t("role.at.top"), jungle:I18N.t("role.at.jungle"), mid:I18N.t("role.at.mid"), adc:I18N.t("role.at.adc"), support:I18N.t("role.at.support") };
 // Anciennes installations, créées avant les profils : elles gardent leurs réglages sans rien refaire.
 const FIRST_PROFILE = { role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] };
 const pickId = name => name === "Twisted Fate" ? "TF" : name;
@@ -119,15 +119,15 @@ ROSTER.Zaahen = "b";
 const POKE = new Set("Ashe,Caitlyn,Corki,Ezreal,Heimerdinger,Hwei,Jayce,Jhin,Karma,Kog'Maw,Lux,Mel,Nidalee,Orianna,Seraphine,Syndra,Varus,Vel'Koz,Viktor,Xerath,Ziggs,Zoe".split(","));
 
 const CRITERIA = [
-  { key:"matchup", label:"Matchup direct", weight:3, source:"Bilans calculés sur de vraies parties dès 30 parties, sinon tableau écrit à la main. Inclut la pression de lane, pour ne pas la compter deux fois." },
-  { key:"blind", label:"Sûr en blind", weight:1, source:"Calculé : part des mids du tableau où le pick est à éviter. Ne compte qu'au mid, tant que ton vis-à-vis n'est pas nommé." },
-  { key:"targets", label:"Carrys à punir", weight:1.5, source:"Règle écrite à la main : nombre de carrys fragiles adverses." },
-  { key:"front", label:"Frontline adverse", weight:2, source:"Règle écrite à la main : nombre de tanks et bruisers adverses." },
-  { key:"dive", label:"Résistance au dive", weight:2, source:"Règle écrite à la main : nombre d'assassins et de champions de dive adverses." },
-  { key:"control", label:"Engage et CC adverses", weight:2, source:"Règle écrite à la main : CC ciblés et engages adverses, comptés une seule fois par pick." },
-  { key:"range", label:"Poke adverse", weight:1, source:"Règle écrite à la main : nombre de champions de poke adverses." },
-  { key:"peel", label:"Besoin de peel", weight:1.5, source:"Règle écrite à la main : frontline alliée supposée (réglage), mobilité adverse." },
-  { key:"map", label:"Pression sur la map", weight:.5, source:"Atout propre au champion. Poids faible, car il ne dépend pas de la draft." }
+  { key:"matchup", label:I18N.t("engine.criterion.matchup"), weight:3, source:I18N.t("engine.criterion.matchup.source") },
+  { key:"blind", label:I18N.t("engine.criterion.blind"), weight:1, source:I18N.t("engine.criterion.blind.source") },
+  { key:"targets", label:I18N.t("engine.criterion.targets"), weight:1.5, source:I18N.t("engine.criterion.targets.source") },
+  { key:"front", label:I18N.t("engine.criterion.front"), weight:2, source:I18N.t("engine.criterion.front.source") },
+  { key:"dive", label:I18N.t("engine.criterion.dive"), weight:2, source:I18N.t("engine.criterion.dive.source") },
+  { key:"control", label:I18N.t("engine.criterion.control"), weight:2, source:I18N.t("engine.criterion.control.source") },
+  { key:"range", label:I18N.t("engine.criterion.range"), weight:1, source:I18N.t("engine.criterion.range.source") },
+  { key:"peel", label:I18N.t("engine.criterion.peel"), weight:1.5, source:I18N.t("engine.criterion.peel.source") },
+  { key:"map", label:I18N.t("engine.criterion.map"), weight:.5, source:I18N.t("engine.criterion.map.source") }
 ];
 const MID_COUNT = MATCHUPS.length;
 // Noms que Riot écrit autrement dans ses données.
@@ -199,16 +199,16 @@ const RULES = {
     if (live) {
       const percent = Math.round(live.gap * 100);
       const note = Math.max(-4 / 3, Math.min(4 / 3, live.gap / MATCHUP_FULL_GAP));
-      const games = ` sur ${live.games} parties${live.recent ? "" : " (patchs précédents)"}`;
-      const gap = percent ? `${percent > 0 ? "+" : ""}${percent} %` : "Sans écart net";
-      return [note, `${gap} contre ${x.mid}${games}`, { live:true, short:`${gap}${games}` }];
+      const games = I18N.t(live.recent ? "engine.matchup.games" : "engine.matchup.gamesOld", { count: live.games });
+      const gap = percent ? I18N.t("engine.matchup.gap", { gap: `${percent > 0 ? "+" : ""}${percent}` }) : I18N.t("engine.matchup.noGap");
+      return [note, I18N.t("engine.matchup.live", { gap, champion: x.mid, games }), { live:true, short:I18N.t("engine.matchup.liveShort", { gap, games }) }];
     }
     const m = matchupOf(x.mid);
     if (!m || !WRITTEN_PICKS.includes(p)) return null;
-    if (avoidedPicks(m).includes(p)) return [-4 / 3, `À éviter contre ${x.mid}`, { short:"À éviter" }];
-    if (m.first === p) return [1, `1er choix contre ${x.mid}`, { short:"1er choix" }];
-    if (m.second === p) return [.5, `2e choix contre ${x.mid}`, { short:"2e choix" }];
-    return [0, `Pas d'avis marqué contre ${x.mid}`, { short:"Pas d'avis marqué" }];
+    if (avoidedPicks(m).includes(p)) return [-4 / 3, I18N.t("engine.matchup.avoid", { champion: x.mid }), { short:I18N.t("engine.matchup.avoidShort") }];
+    if (m.first === p) return [1, I18N.t("engine.matchup.first", { champion: x.mid }), { short:I18N.t("engine.matchup.firstShort") }];
+    if (m.second === p) return [.5, I18N.t("engine.matchup.second", { champion: x.mid }), { short:I18N.t("engine.matchup.secondShort") }];
+    return [0, I18N.t("engine.matchup.neutral", { champion: x.mid }), { short:I18N.t("engine.matchup.neutralShort") }];
   },
   blind(p, c, x) {
     if (x.mid || !WRITTEN_PICKS.includes(p) || myRole() !== "mid") return null;
@@ -216,64 +216,64 @@ const RULES = {
     if (!maxAvoid) return null;
     const bad = avoidCount(p);
     const v = 1 - 2 * bad / maxAvoid;
-    return [v, `${v > 0 ? "Sûr en blind" : "Risqué en blind"}, mauvais dans ${bad} matchup${bad > 1 ? "s" : ""} sur ${MID_COUNT} du tableau`];
+    return [v, I18N.tp(v > 0 ? "engine.blind.safe" : "engine.blind.risky", bad, { total: MID_COUNT })];
   },
   targets(p, c) {
     const n = c.carries.length;
     if (hasTrait(p, "h")) {
-      if (n >= 2) return [2, `${n} carrys fragiles à punir : ${namesOf(c.carries)}`];
-      if (n === 1) return [.5, `Un carry fragile à punir : ${c.carries[0]}`];
-      if (c.known.length >= 4) return [-2, "Aucun carry fragile à punir"];
+      if (n >= 2) return [2, I18N.t("engine.targets.many", { count: n, champions: namesOf(c.carries) })];
+      if (n === 1) return [.5, I18N.t("engine.targets.one", { champion: c.carries[0] })];
+      if (c.known.length >= 4) return [-2, I18N.t("engine.targets.none")];
     }
-    if (hasTrait(p, "E") && n >= 2) return [1, `${n} carrys fragiles à attraper : ${namesOf(c.carries)}`];
-    if (hasTrait(p, "l") && n >= 2) return [.5, `${n} carrys à poke : ${namesOf(c.carries)}`];
+    if (hasTrait(p, "E") && n >= 2) return [1, I18N.t("engine.targets.catch", { count: n, champions: namesOf(c.carries) })];
+    if (hasTrait(p, "l") && n >= 2) return [.5, I18N.t("engine.targets.poke", { count: n, champions: namesOf(c.carries) })];
     return null;
   },
   front(p, c) {
     const n = c.front.length;
     if (hasTrait(p, "k")) {
-      if (n >= 3) return [2, `${n} tanks ou bruisers : ${p === "Kog'Maw" ? "ses dégâts en % des PV" : "ses dégâts contre les tanks"} font la différence`];
-      if (n === 2) return [1.5, `2 tanks ou bruisers : ${p === "Kog'Maw" ? "ses dégâts en % des PV" : "ses dégâts contre les tanks"} sont utiles`];
+      if (n >= 3) return [2, I18N.t(p === "Kog'Maw" ? "engine.front.killerManyKog" : "engine.front.killerMany", { count: n })];
+      if (n === 2) return [1.5, I18N.t(p === "Kog'Maw" ? "engine.front.killerTwoKog" : "engine.front.killerTwo")];
     }
     if (hasTrait(p, "h") && hasTrait(p, "d")) {
-      if (n >= 4) return [-1, `${n} frontlines à traverser`];
-      if (n === 3) return [-.5, "Beaucoup de frontline à traverser"];
+      if (n >= 4) return [-1, I18N.t("engine.front.cross", { count: n })];
+      if (n === 3) return [-.5, I18N.t("engine.front.crossMuch")];
     }
-    if (hasTrait(p, "w") && n >= 3) return [-.25, `${n} frontlines : peu de prise sur les tanks`];
+    if (hasTrait(p, "w") && n >= 3) return [-.25, I18N.t("engine.front.weak", { count: n })];
     return null;
   },
   dive(p, c) {
     const n = c.divers.length;
     if (n < 2) return null;
-    if (hasTrait(p, "i")) return [n >= 3 ? -2 : -1.5, `${n} champions de dive contre un champion peu mobile : ${namesOf(c.divers)}`];
-    if (hasTrait(p, "t")) return [1, `Tient bien face à leurs ${n} champions de dive`];
-    if (hasTrait(p, "c")) return [1, `Bon peel contre leurs ${n} champions de dive`];
-    return [0, p === "Fizz" ? "Son E lui laisse une sortie contre le dive" : p === "TF" ? "Son stun l'aide à se défendre contre le dive" : "Peut survivre au dive"];
+    if (hasTrait(p, "i")) return [n >= 3 ? -2 : -1.5, I18N.t("engine.dive.immobile", { count: n, champions: namesOf(c.divers) })];
+    if (hasTrait(p, "t")) return [1, I18N.t("engine.dive.tank", { count: n })];
+    if (hasTrait(p, "c")) return [1, I18N.t("engine.dive.peel", { count: n })];
+    return [0, p === "Fizz" ? I18N.t("engine.dive.fizz") : p === "TF" ? I18N.t("engine.dive.tf") : I18N.t("engine.dive.survive")];
   },
   control(p, c) {
-    if (hasTrait(p, "h") && hasTrait(p, "d") && c.cc.length >= 2) return [-1.5, `${c.cc.length} CC ciblés punissent ses all-in : ${namesOf(c.cc)}`];
-    if (hasTrait(p, "e") && (c.cc.length >= 2 || c.engage.length >= 2)) return [.75, p === "TF" ? "Peut jouer loin de leur engage et revenir avec son ult" : "Peut jouer loin de leur engage et de leurs CC"];
-    if (hasTrait(p, "i") && c.engage.length >= 3) return [-.5, `${c.engage.length} engages contre un champion peu mobile : ${namesOf(c.engage)}`];
+    if (hasTrait(p, "h") && hasTrait(p, "d") && c.cc.length >= 2) return [-1.5, I18N.t("engine.control.allIn", { count: c.cc.length, champions: namesOf(c.cc) })];
+    if (hasTrait(p, "e") && (c.cc.length >= 2 || c.engage.length >= 2)) return [.75, p === "TF" ? I18N.t("engine.control.tf") : I18N.t("engine.control.escape")];
+    if (hasTrait(p, "i") && c.engage.length >= 3) return [-.5, I18N.t("engine.control.immobile", { count: c.engage.length, champions: namesOf(c.engage) })];
     return null;
   },
   range(p, c) {
     if (c.poke.length < 2) return null;
-    if (hasTrait(p, "l")) return [1, `Peut répondre à leur poke : ${namesOf(c.poke)}`];
-    if (hasTrait(p, "o")) return [-1, `Subit leur poke avant de pouvoir agir : ${namesOf(c.poke)}`];
+    if (hasTrait(p, "l")) return [1, I18N.t("engine.range.answer", { champions: namesOf(c.poke) })];
+    if (hasTrait(p, "o")) return [-1, I18N.t("engine.range.suffer", { champions: namesOf(c.poke) })];
     return null;
   },
   peel(p, c, x) {
-    if (hasTrait(p, "p")) return x.hasFront ? [0, "Suppose une frontline alliée pour le protéger (réglage)"] : [-2, "Pas de frontline alliée pour le protéger (réglage)"];
+    if (hasTrait(p, "p")) return x.hasFront ? [0, I18N.t("engine.peel.front")] : [-2, I18N.t("engine.peel.noFront")];
     if (!hasTrait(p, "q")) return null;
-    if (!x.hasFront && c.mobile.length >= 2) return [-2, "Pas de frontline alliée contre leur mobilité (réglage)"];
-    if (c.mobile.length >= 3) return [-4 / 3, `${c.mobile.length} champions très mobiles : ${namesOf(c.mobile)}`];
-    if (x.hasFront && c.divers.length <= 1 && c.mobile.length <= 1 && c.known.length >= 3) return [4 / 3, "Peu de dive et de mobilité en face, et une frontline devant toi"];
+    if (!x.hasFront && c.mobile.length >= 2) return [-2, I18N.t("engine.peel.noFrontMobile")];
+    if (c.mobile.length >= 3) return [-4 / 3, I18N.t("engine.peel.mobile", { count: c.mobile.length, champions: namesOf(c.mobile) })];
+    if (x.hasFront && c.divers.length <= 1 && c.mobile.length <= 1 && c.known.length >= 3) return [4 / 3, I18N.t("engine.peel.safe")];
     return null;
   },
   map(p) {
-    if (hasTrait(p, "g")) return [1, p === "TF" ? "Son ult couvre toute la map" : "Grosse pression sur la map"];
-    if (hasTrait(p, "r")) return [.5, "Peut roamer une fois sa vague poussée"];
-    if (hasTrait(p, "n")) return [-.5, "Peu d'impact hors teamfight"];
+    if (hasTrait(p, "g")) return [1, p === "TF" ? I18N.t("engine.map.tf") : I18N.t("engine.map.global")];
+    if (hasTrait(p, "r")) return [.5, I18N.t("engine.map.roam")];
+    if (hasTrait(p, "n")) return [-.5, I18N.t("engine.map.weak")];
     return null;
   }
 };
@@ -299,8 +299,8 @@ function evaluatePick(pick, compo, ctx) {
 // Texte seulement : aucune note ne dépend de cette fonction.
 function scenarioText(mid, c) {
   const text = c.text;
-  const short = !mid ? text : c.short !== undefined ? c.short : text.replace(` contre ${mid}`, "");
-  return `${mid ? `Si c'est ${mid}` : "S'il n'est pas encore choisi"} : ${short.charAt(0).toLowerCase()}${short.slice(1)}`;
+  const short = !mid ? text : c.short !== undefined ? c.short : text.replace(I18N.t("engine.scenario.against", { champion: mid }), "");
+  return I18N.t(mid ? "engine.scenario.if" : "engine.scenario.notYet", { champion: mid, text: `${short.charAt(0).toLowerCase()}${short.slice(1)}` });
 }
 const joinScenarioTexts = parts => parts.map((x, i) => i ? x.text.charAt(0).toLowerCase() + x.text.slice(1) : x.text).join(" ; ");
 
@@ -437,12 +437,12 @@ function bansFromTraits() {
 
 const banReason = name => {
   const measured = PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p) && (liveMatchup(p, name) || { gap:0 }).gap <= MATCHUP_AVOID_GAP);
-  if (measured.length) return `mauvais bilan de ${measured.map(label).join(", ")} sur de vraies parties`;
+  if (measured.length) return I18N.t("engine.ban.measured", { champions: measured.map(label).join(", ") });
   const m = matchupOf(name);
   const hit = m && m.avoid ? m.avoid.split(", ").filter(p => !ENGINE_PREFS.excluded.includes(p) && PICKS.includes(p)) : [];
-  if (hit.length) return `gêne ${hit.map(label).join(", ")} dans le tableau de matchups`;
+  if (hit.length) return I18N.t("engine.ban.table", { champions: hit.map(label).join(", ") });
   const rough = harmFromTraits(name);
-  return rough.length ? `gêne ${rough.join(", ")} d'après leurs profils` : "";
+  return rough.length ? I18N.t("engine.ban.profiles", { champions: rough.join(", ") }) : "";
 };
 
 // Une raison pesée sur plusieurs hypothèses ne garde que celles du bon signe : jamais « à éviter » parmi les raisons positives.
@@ -474,22 +474,22 @@ function tieCause(ranking, picks) {
 
 // ---------- Comparaison ----------
 const PICK_STYLES = {
-  "Fizz": "Assassin de mêlée : entre, tue une cible et ressort.",
-  "TF": "Mage de map : push, stun une cible et rejoint les autres lanes.",
-  "Kog'Maw": "Artillerie immobile : fait de gros dégâts s'il est protégé.",
-  "Xerath": "Artillerie à très longue portée : poke avant le teamfight."
+  "Fizz": I18N.t("engine.style.fizz"),
+  "TF": I18N.t("engine.style.tf"),
+  "Kog'Maw": I18N.t("engine.style.kogmaw"),
+  "Xerath": I18N.t("engine.style.xerath")
 };
 
 function pickStyle(p) {
   if (PICK_STYLES[p]) return PICK_STYLES[p];
-  if (hasTrait(p, "c")) return "Protecteur : garde ses alliés en vie.";
-  if (hasTrait(p, "t") && hasTrait(p, "E")) return "Tank d'engage : engage les combats et encaisse.";
-  if (hasTrait(p, "t")) return "Tank : encaisse en frontline.";
-  if (hasTrait(p, "h")) return "Assassin : cherche les carrys fragiles.";
-  if (hasTrait(p, "k")) return "Anti-tank : fait fondre la frontline.";
-  if (hasTrait(p, "d")) return "Combattant : va au contact dans les combats.";
-  if (hasTrait(p, "l")) return "Longue portée : poke avant le teamfight.";
-  return "Polyvalent : s'adapte au déroulé de la partie.";
+  if (hasTrait(p, "c")) return I18N.t("engine.style.protector");
+  if (hasTrait(p, "t") && hasTrait(p, "E")) return I18N.t("engine.style.engageTank");
+  if (hasTrait(p, "t")) return I18N.t("engine.style.tank");
+  if (hasTrait(p, "h")) return I18N.t("engine.style.assassin");
+  if (hasTrait(p, "k")) return I18N.t("engine.style.antiTank");
+  if (hasTrait(p, "d")) return I18N.t("engine.style.fighter");
+  if (hasTrait(p, "l")) return I18N.t("engine.style.longRange");
+  return I18N.t("engine.style.flexible");
 }
 
 function comparePicks(a, b) {
@@ -505,7 +505,7 @@ function comparePicks(a, b) {
   return { rows, decisive, gap: a.score - b.score };
 }
 
-const WHAT_IF_ADDS = [["un tank de plus", "Ornn"], ["un champion de dive de plus", "Zed"], ["un CC ciblé de plus", "Leona"], ["un carry fragile de plus", "Jinx"], ["un poke de plus", "Ziggs"]];
+const WHAT_IF_ADDS = [["engine.whatIf.tank", "Ornn"], ["engine.whatIf.dive", "Zed"], ["engine.whatIf.cc", "Leona"], ["engine.whatIf.carry", "Jinx"], ["engine.whatIf.poke", "Ziggs"]];
 
 // Recalcule la draft avec le même moteur pour trouver quand l'autre pick passerait devant.
 const hasMatchupData = name => !!matchupOf(name) || PICKS.some(p => liveMatchup(p, name));
@@ -518,9 +518,9 @@ function whenBetter(target, other, enemies, mid) {
     return t && o && t.score > o.score;
   };
   const found = [];
-  if (beats(enemies, mid, false)) found.push("si ton équipe n'a pas de frontline");
-  enemies.filter(n => hasMatchupData(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(`si ton adversaire ${oppAt()} est ${n}`); });
-  if (enemies.length < 5) WHAT_IF_ADDS.forEach(([text, champ]) => { if (!enemies.includes(champ) && beats(enemies.concat(champ), mid, true)) found.push(`avec ${text}`); });
+  if (beats(enemies, mid, false)) found.push(I18N.t("engine.whenBetter.noFront"));
+  enemies.filter(n => hasMatchupData(n) && n !== mid).forEach(n => { if (beats(enemies, n, true)) found.push(I18N.t("engine.whenBetter.opponent", { roleAt: oppAt(), champion: n })); });
+  if (enemies.length < 5) WHAT_IF_ADDS.forEach(([key, champ]) => { if (!enemies.includes(champ) && beats(enemies.concat(champ), mid, true)) found.push(I18N.t("engine.whenBetter.with", { what: I18N.t(key) })); });
   return found.slice(0, 3);
 }
 
@@ -543,26 +543,26 @@ const positionText = (ranking, entry) => {
   const i = ranking.indexOf(entry);
   if (i === 0) {
     const next = ranking[1];
-    if (!next) return "Seul pick disponible.";
+    if (!next) return I18N.t("engine.position.alone");
     const lead = leadCriterion(entry, next);
-    return lead ? `1er : passe devant ${label(next.pick)} surtout grâce au critère « ${lead.label} ».` : `1er, à égalité avec ${label(next.pick)}.`;
+    return lead ? I18N.t("engine.position.firstLead", { champion: label(next.pick), criterion: lead.label }) : I18N.t("engine.position.firstTie", { champion: label(next.pick) });
   }
   const lead = leadCriterion(ranking[0], entry);
-  return lead ? `Derrière ${label(ranking[0].pick)} surtout à cause du critère « ${lead.label} ».` : `À égalité avec ${label(ranking[0].pick)}.`;
+  return lead ? I18N.t("engine.position.behind", { champion: label(ranking[0].pick), criterion: lead.label }) : I18N.t("engine.position.tie", { champion: label(ranking[0].pick) });
 };
 
 function compoReading(c) {
   const strong = [];
   const weak = [];
-  if (c.front.length >= 2) strong.push("frontline");
-  if (c.engage.length >= 2) strong.push("engage");
-  if (c.cc.length >= 2) strong.push("CC ciblés");
-  if (c.divers.length >= 2) strong.push("dive");
-  if (c.poke.length >= 2) strong.push("poke");
-  if (c.carries.length >= 2) weak.push("plusieurs carrys fragiles");
-  if (c.known.length >= 4 && !c.front.length) weak.push("pas de frontline");
-  if (c.known.length >= 4 && !c.engage.length) weak.push("peu d'engage");
-  if (c.known.length >= 4 && !c.cc.length) weak.push("aucun CC ciblé");
+  if (c.front.length >= 2) strong.push(I18N.t("engine.compo.front"));
+  if (c.engage.length >= 2) strong.push(I18N.t("engine.compo.engage"));
+  if (c.cc.length >= 2) strong.push(I18N.t("engine.compo.cc"));
+  if (c.divers.length >= 2) strong.push(I18N.t("engine.compo.dive"));
+  if (c.poke.length >= 2) strong.push(I18N.t("engine.compo.poke"));
+  if (c.carries.length >= 2) weak.push(I18N.t("engine.compo.carries"));
+  if (c.known.length >= 4 && !c.front.length) weak.push(I18N.t("engine.compo.noFront"));
+  if (c.known.length >= 4 && !c.engage.length) weak.push(I18N.t("engine.compo.noEngage"));
+  if (c.known.length >= 4 && !c.cc.length) weak.push(I18N.t("engine.compo.noCc"));
   return { strong, weak };
 }
 
@@ -577,33 +577,33 @@ const pickThreats = {
 const threatsFromTraits = (pick, c) => hasTrait(pick, "d") ? c.cc.concat(c.divers) : hasTrait(pick, "q") ? c.divers.concat(c.mobile, c.engage) : c.divers.concat(c.engage);
 const threatsFor = (pick, c) => [...new Set((pickThreats[pick] || (x => threatsFromTraits(pick, x)))(c))].slice(0, 2);
 function threatText(pick, name, c) {
-  if (c.cc.includes(name) && hasTrait(pick, "d")) return "Son CC ciblé peut stopper ton all-in.";
-  if (c.divers.includes(name)) return hasTrait(pick, "d") ? "Peut te rattraper quand tu ressors d'un combat." : "Peut te sauter dessus si tu es mal placé.";
-  if (c.mobile.includes(name)) return "Sa mobilité lui permet d'éviter tes sorts à distance.";
-  if (c.engage.includes(name)) return "Peut engager le combat sur toi.";
-  return "À surveiller pendant la partie.";
+  if (c.cc.includes(name) && hasTrait(pick, "d")) return I18N.t("engine.threat.ccAllIn");
+  if (c.divers.includes(name)) return hasTrait(pick, "d") ? I18N.t("engine.threat.catchOut") : I18N.t("engine.threat.jump");
+  if (c.mobile.includes(name)) return I18N.t("engine.threat.mobile");
+  if (c.engage.includes(name)) return I18N.t("engine.threat.engage");
+  return I18N.t("engine.threat.watch");
 }
 const targetsFor = (pick, c) => (hasTrait(pick, "k") ? c.front.concat(c.carries) : c.carries).filter((n, i, l) => l.indexOf(n) === i).slice(0, 2);
 
 function winConditionFromTraits(pick, c) {
-  const carry = c.carries[0] || "leur carry";
-  if (hasTrait(pick, "c")) return `Protège ton meilleur carry, et fais échouer les engages sur lui.`;
-  if (hasTrait(pick, "E")) return `Engage sur ${carry} dès que ton équipe peut suivre.`;
-  if (hasTrait(pick, "t")) return "Encaisse en frontline, et prends l'espace autour des objectifs.";
-  if (hasTrait(pick, "h")) return `Prends ton avantage, puis élimine ${carry} avant l'objectif.`;
-  if (hasTrait(pick, "k")) return c.front.length >= 2 ? `Fais fondre ${c.front[0]}, et reste en vie jusqu'à la fin du combat.` : "Frappe la cible la plus proche, et reste en vie jusqu'à la fin du combat.";
-  if (hasTrait(pick, "l")) return "Affaiblis-les à distance avant l'objectif, sans te faire attraper.";
-  return "Prends ton avantage en lane, puis joue chaque objectif avec ton équipe.";
+  const carry = c.carries[0] || I18N.t("engine.win.theirCarry");
+  if (hasTrait(pick, "c")) return I18N.t("engine.win.protect");
+  if (hasTrait(pick, "E")) return I18N.t("engine.win.engage", { champion: carry });
+  if (hasTrait(pick, "t")) return I18N.t("engine.win.tank");
+  if (hasTrait(pick, "h")) return I18N.t("engine.win.assassin", { champion: carry });
+  if (hasTrait(pick, "k")) return c.front.length >= 2 ? I18N.t("engine.win.antiTank", { champion: c.front[0] }) : I18N.t("engine.win.antiTankNear");
+  if (hasTrait(pick, "l")) return I18N.t("engine.win.longRange");
+  return I18N.t("engine.win.default");
 }
 
 function winCondition(pick, c) {
   const carry = c.carries[0];
   if (!WRITTEN_PICKS.includes(pick)) return winConditionFromTraits(pick, c);
   return {
-    "Fizz": carry ? `Pousse ta vague, roam, et tue ${carry} avant l'objectif.` : "Pousse ta vague, roam, et tue leur carry avant l'objectif.",
-    "TF": "Push avec la carte bleue, puis crée un surnombre avec ton ult.",
-    "Kog'Maw": c.front.length >= 2 ? `Reste derrière ta frontline et fais fondre ${c.front[0]} autour des objectifs.` : "Reste derrière ta frontline et frappe autour des objectifs.",
-    "Xerath": "Poke-les avant l'objectif, loin de leur dive."
+    "Fizz": carry ? I18N.t("engine.win.fizz", { champion: carry }) : I18N.t("engine.win.fizzNoCarry"),
+    "TF": I18N.t("engine.win.tf"),
+    "Kog'Maw": c.front.length >= 2 ? I18N.t("engine.win.kogmaw", { champion: c.front[0] }) : I18N.t("engine.win.kogmawNoTank"),
+    "Xerath": I18N.t("engine.win.xerath")
   }[pick];
 }
 
@@ -622,41 +622,41 @@ function buildPlan(pick, compo, mid, jungler) {
   const roamer = role === "jungle" || role === "support";
 
   const lane = [
-    !WRITTEN_PICKS.includes(pick) && mid && midDive && `${mid} peut te sauter dessus : garde tes distances et ton sort de défense.`,
-    !WRITTEN_PICKS.includes(pick) && mid && midCc && !midDive && `${mid} a un CC ciblé : attends de le voir partir avant d'engager.`,
-    !WRITTEN_PICKS.includes(pick) && mid && !midDive && !midCc && `Contre ${mid}, observe ses sorts importants avant d'engager un échange.`,
-    midBad && `${mid} est un matchup difficile : farme prudemment et n'échange qu'après avoir vu partir un de ses sorts importants.`,
-    pick === "Fizz" && midCc && `${mid} a un CC ciblé : attends de le voir partir avant de lancer ton all-in.`,
-    pick === "Fizz" && !midBad && mid && `Contre ${mid}, cherche des échanges courts, puis ressors avec ton E.`,
-    ranged && midDive && `${mid} peut te sauter dessus : garde tes distances et ne gaspille pas ton CC ou ton ralentissement.`,
-    pick === "Xerath" && !midDive && mid && `Touche ${mid} de loin dès qu'il vient au farm, sans dépasser la moitié de la lane.`,
-    pick === "Kog'Maw" && !midDive && mid && `Contre ${mid}, farme à portée maximale et échange seulement quand ta vague te couvre.`,
-    pick === "TF" && mid && `Contre ${mid}, garde ta carte dorée pour répondre à un engage ou préparer un gank.`,
-    !roamer && jungler && `${jungler} peut venir en gank : place une ward avant de pousser ta vague.`,
-    !mid && `Ton vis-à-vis ${oppAt()} n'est pas encore identifié : joue d'abord la sécurité et observe son style.`,
-    role === "jungle" ? "Prépare ton chemin vers la lane qui peut le mieux profiter de ton aide." : role === "support" ? "Garde la vision de ton côté avant de chercher un engage." : "Pousse ta vague avant de bouger, pour ne pas perdre de farm."
+    !WRITTEN_PICKS.includes(pick) && mid && midDive && I18N.t("engine.plan.lane.dive", { champion: mid }),
+    !WRITTEN_PICKS.includes(pick) && mid && midCc && !midDive && I18N.t("engine.plan.lane.cc", { champion: mid }),
+    !WRITTEN_PICKS.includes(pick) && mid && !midDive && !midCc && I18N.t("engine.plan.lane.observe", { champion: mid }),
+    midBad && I18N.t("engine.plan.lane.hard", { champion: mid }),
+    pick === "Fizz" && midCc && I18N.t("engine.plan.lane.fizzCc", { champion: mid }),
+    pick === "Fizz" && !midBad && mid && I18N.t("engine.plan.lane.fizz", { champion: mid }),
+    ranged && midDive && I18N.t("engine.plan.lane.rangedDive", { champion: mid }),
+    pick === "Xerath" && !midDive && mid && I18N.t("engine.plan.lane.xerath", { champion: mid }),
+    pick === "Kog'Maw" && !midDive && mid && I18N.t("engine.plan.lane.kogmaw", { champion: mid }),
+    pick === "TF" && mid && I18N.t("engine.plan.lane.tf", { champion: mid }),
+    !roamer && jungler && I18N.t("engine.plan.lane.gank", { champion: jungler }),
+    !mid && I18N.t("engine.plan.lane.unknown", { roleAt: oppAt() }),
+    role === "jungle" ? I18N.t("engine.plan.lane.jungle") : role === "support" ? I18N.t("engine.plan.lane.support") : I18N.t("engine.plan.lane.push")
   ];
   const midGame = [
-    pick === "TF" && carry && `Utilise ton ult dès qu'une lane peut punir ${carry}.`,
-    pick === "Fizz" && carry && `Cherche ${carry} isolé sur un côté, puis disparais avant la riposte.`,
-    pick === "Kog'Maw" && "Reste groupé avec ta frontline : seul sur un côté, tu n'as presque aucune échappatoire.",
-    pick === "Xerath" && carry && `Affaiblis ${carry} avant chaque objectif, depuis un endroit couvert par une ward.`,
-    diver && `Repère ${diver} sur la map avant de te placer : sans vision, recule.`,
-    engager && `Pose une control ward sur le chemin de ${engager} avant les objectifs.`,
-    tank && pick !== "Kog'Maw" && `Ne perds pas de temps sur ${tank} si une tour ou un objectif est disponible.`,
-    "Après un combat gagné, prends tout de suite une tour ou un objectif."
+    pick === "TF" && carry && I18N.t("engine.plan.mid.tf", { champion: carry }),
+    pick === "Fizz" && carry && I18N.t("engine.plan.mid.fizz", { champion: carry }),
+    pick === "Kog'Maw" && I18N.t("engine.plan.mid.kogmaw"),
+    pick === "Xerath" && carry && I18N.t("engine.plan.mid.xerath", { champion: carry }),
+    diver && I18N.t("engine.plan.mid.diver", { champion: diver }),
+    engager && I18N.t("engine.plan.mid.engager", { champion: engager }),
+    tank && pick !== "Kog'Maw" && I18N.t("engine.plan.mid.tank", { champion: tank }),
+    I18N.t("engine.plan.mid.objective")
   ];
   const fight = [
-    pick === "Fizz" && cc && `Entre seulement après avoir vu partir le CC de ${cc}.`,
-    pick === "Fizz" && carry && `Ta cible prioritaire est ${carry}, pas la frontline.`,
-    pick === "Fizz" && !carry && "Sans carry fragile accessible, ne dive pas : va chercher un objectif ailleurs.",
-    pick === "TF" && carry && `Garde ta carte dorée pour ${carry} ou pour le premier qui dive.`,
-    pick === "TF" && engager && `Temporise tant que ${engager} n'a pas engagé, puis rejoins le combat.`,
-    ranged && diver && `Garde-toi une sortie contre ${diver} : ne te place jamais devant ta frontline.`,
-    pick === "Kog'Maw" && tank && `Frappe ${tank} s'il est le plus proche : ne traverse pas le combat pour une cible lointaine.`,
-    pick === "Xerath" && carry && `Lance tes sorts sur ${carry} depuis l'arrière, et recule dès qu'un adversaire s'approche.`,
-    ranged && engager && `Évite les combats sans vision : ${engager} peut engager sur toi.`,
-    "Évite d'ouvrir un combat quand plusieurs adversaires sont absents de la map."
+    pick === "Fizz" && cc && I18N.t("engine.plan.fight.fizzCc", { champion: cc }),
+    pick === "Fizz" && carry && I18N.t("engine.plan.fight.fizzTarget", { champion: carry }),
+    pick === "Fizz" && !carry && I18N.t("engine.plan.fight.fizzNoCarry"),
+    pick === "TF" && carry && I18N.t("engine.plan.fight.tfCarry", { champion: carry }),
+    pick === "TF" && engager && I18N.t("engine.plan.fight.tfWait", { champion: engager }),
+    ranged && diver && I18N.t("engine.plan.fight.rangedDive", { champion: diver }),
+    pick === "Kog'Maw" && tank && I18N.t("engine.plan.fight.kogmaw", { champion: tank }),
+    pick === "Xerath" && carry && I18N.t("engine.plan.fight.xerath", { champion: carry }),
+    ranged && engager && I18N.t("engine.plan.fight.rangedEngage", { champion: engager }),
+    I18N.t("engine.plan.fight.vision")
   ];
   const three = list => [...new Set(list.filter(Boolean))].slice(0, 3);
   return { lane: three(lane), mid: three(midGame), fight: three(fight) };

@@ -124,42 +124,42 @@ const profileRoleName = role => PROFILE_ROLE_NAMES[role] || role;
 // ---------- Import : validation stricte, sans rien écrire ----------
 function parseConfig(text) {
   const fail = error => ({ ok:false, error });
-  if (typeof text !== "string" || !text.trim()) return fail("Le fichier est vide.");
-  if (text.length > CONFIG_MAX_SIZE) return fail("Le fichier est trop volumineux pour une configuration.");
+  if (typeof text !== "string" || !text.trim()) return fail(I18N.t("profiles.import.empty"));
+  if (text.length > CONFIG_MAX_SIZE) return fail(I18N.t("profiles.import.tooBig"));
   let raw;
-  try { raw = JSON.parse(text); } catch (e) { return fail("Ce fichier n'est pas un JSON valide."); }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return fail("Ce fichier n'est pas une configuration DRAFT.");
+  try { raw = JSON.parse(text); } catch (e) { return fail(I18N.t("profiles.import.notJson")); }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return fail(I18N.t("profiles.import.notConfig"));
   const warnings = [], roles = {};
   PROFILE_ROLES.forEach(r => { roles[r] = emptyRoleProfile(); });
   const readRole = (role, value) => {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return `Le rôle ${profileRoleName(role)} est mal formé.`;
-    if (!Array.isArray(value.pool)) return `Le rôle ${profileRoleName(role)} n'a pas de liste de champions.`;
-    if (value.pool.length > POOL_MAX) return `Le rôle ${profileRoleName(role)} contient trop de champions.`;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return I18N.t("profiles.import.roleMalformed", { role: profileRoleName(role) });
+    if (!Array.isArray(value.pool)) return I18N.t("profiles.import.roleNoPool", { role: profileRoleName(role) });
+    if (value.pool.length > POOL_MAX) return I18N.t("profiles.import.roleTooMany", { role: profileRoleName(role) });
     const unknown = value.pool.filter(n => !knownPick(n));
-    if (unknown.length) return `Champion inconnu dans ${profileRoleName(role)} : ${unknown.slice(0, 3).map(String).join(", ")}.`;
-    if (value.excluded !== undefined && !Array.isArray(value.excluded)) return `Le rôle ${profileRoleName(role)} a des exclusions mal formées.`;
+    if (unknown.length) return I18N.t("profiles.import.unknownChampion", { role: profileRoleName(role), champions: unknown.slice(0, 3).map(String).join(", ") });
+    if (value.excluded !== undefined && !Array.isArray(value.excluded)) return I18N.t("profiles.import.excludedMalformed", { role: profileRoleName(role) });
     const pool = uniqueList(value.pool.map(pickId));
     const excluded = uniqueList((value.excluded || []).filter(knownPick).map(pickId));
     roles[role] = { pool, excluded:excluded.filter(p => pool.includes(p)), favorite:knownPick(value.favorite) && pool.includes(pickId(value.favorite)) ? pickId(value.favorite) : null };
-    if (value.favorite && !roles[role].favorite) warnings.push(`Favori ignoré pour ${profileRoleName(role)} : il n'est pas dans le pool.`);
+    if (value.favorite && !roles[role].favorite) warnings.push(I18N.t("profiles.import.favoriteIgnored", { role: profileRoleName(role) }));
     return null;
   };
   // Ancien format : le profil unique des versions précédentes.
   if (raw.format === undefined && raw.role !== undefined) {
-    if (!PROFILE_ROLES.includes(raw.role)) return fail("Le rôle de cet ancien profil est inconnu.");
+    if (!PROFILE_ROLES.includes(raw.role)) return fail(I18N.t("profiles.import.legacyRoleUnknown"));
     const problem = readRole(raw.role, { pool:raw.pool });
     if (problem) return fail(problem);
-    warnings.push("Ancien format : seul ce rôle est remplacé.");
+    warnings.push(I18N.t("profiles.import.legacyFormat"));
     return { ok:true, roles, active:raw.role, preferences:{}, warnings, legacy:true };
   }
-  if (raw.format !== CONFIG_FORMAT) return fail("Ce fichier n'est pas une configuration DRAFT.");
-  if (typeof raw.version !== "number") return fail("La version du format est absente.");
-  if (raw.version > PROFILES_VERSION) return fail("Ce fichier vient d'une version plus récente de DRAFT.");
-  if (!raw.roles || typeof raw.roles !== "object" || Array.isArray(raw.roles)) return fail("Les rôles sont absents de ce fichier.");
+  if (raw.format !== CONFIG_FORMAT) return fail(I18N.t("profiles.import.notConfig"));
+  if (typeof raw.version !== "number") return fail(I18N.t("profiles.import.noVersion"));
+  if (raw.version > PROFILES_VERSION) return fail(I18N.t("profiles.import.tooRecent"));
+  if (!raw.roles || typeof raw.roles !== "object" || Array.isArray(raw.roles)) return fail(I18N.t("profiles.import.noRoles"));
   const strange = Object.keys(raw.roles).filter(r => !PROFILE_ROLES.includes(r));
-  if (strange.length) return fail(`Rôle inconnu : ${strange.slice(0, 3).join(", ")}.`);
+  if (strange.length) return fail(I18N.t("profiles.import.roleUnknown", { roles: strange.slice(0, 3).join(", ") }));
   for (const r of PROFILE_ROLES) {
-    if (raw.roles[r] === undefined) { warnings.push(`Rôle absent du fichier, laissé vide : ${profileRoleName(r)}.`); continue; }
+    if (raw.roles[r] === undefined) { warnings.push(I18N.t("profiles.import.roleMissing", { role: profileRoleName(r) })); continue; }
     const problem = readRole(r, raw.roles[r]);
     if (problem) return fail(problem);
   }
@@ -167,14 +167,14 @@ function parseConfig(text) {
   if (raw.preferences && typeof raw.preferences === "object") Object.keys(CONFIG_PREFS).forEach(k => {
     if (raw.preferences[k] === undefined) return;
     if (CONFIG_PREFS[k](raw.preferences[k])) preferences[k] = raw.preferences[k];
-    else warnings.push(`Préférence ignorée : ${k}.`);
+    else warnings.push(I18N.t("profiles.import.prefIgnored", { name: k }));
   });
   return { ok:true, roles, active:PROFILE_ROLES.includes(raw.active) ? raw.active : null, preferences, warnings };
 }
 
 // Sauvegarde, écriture, relecture. Au moindre échec, l'état précédent est remis en place.
 function applyConfig(parsed, current, storage, now) {
-  if (!parsed || !parsed.ok) return { ok:false, error:"Configuration invalide : rien n'a été modifié." };
+  if (!parsed || !parsed.ok) return { ok:false, error:I18N.t("profiles.import.invalid") };
   const get = k => { try { return storage.getItem(k); } catch (e) { return null; } };
   const before = get(PROFILES_KEY), beforeOld = get("draftProfile"), beforeBackup = get(PROFILES_BACKUP_KEY);
   const next = emptyProfiles();
@@ -190,7 +190,7 @@ function applyConfig(parsed, current, storage, now) {
   } catch (e) {
     const put = (k, v) => { try { if (v === null) storage.removeItem(k); else storage.setItem(k, v); } catch (e2) {} };
     put(PROFILES_KEY, before); put("draftProfile", beforeOld); put(PROFILES_BACKUP_KEY, beforeBackup);
-    return { ok:false, error:"L'enregistrement a échoué : ta configuration précédente est conservée." };
+    return { ok:false, error:I18N.t("profiles.import.saveFailed") };
   }
 }
 

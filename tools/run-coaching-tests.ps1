@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent; $web = Join-Path $repo 'web'
 Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Work | Out-Null
-foreach ($f in 'draft-engine.js', 'draft-data.js', 'draft-champions.js', 'draft-role-sheet.js', 'draft-champion-official.js', 'draft-coaching.js', 'draft-coaching-tests.html', 'draft-tests.html', 'draft-ties-tests.html', 'draft-mastery.js', 'draft-mastery-tests.html', 'draft-providers.js') { Copy-Item (Join-Path $web $f) $Work }
+foreach ($f in 'draft-engine.js', 'draft-data.js', 'draft-champions.js', 'draft-role-sheet.js', 'draft-champion-official.js', 'draft-coaching.js', 'draft-coaching-tests.html', 'draft-tests.html', 'draft-ties-tests.html', 'draft-mastery.js', 'draft-mastery-tests.html', 'draft-providers.js') { Copy-Item (Join-Path $web $f) $Work }; Copy-Item (Join-Path $web 'draft-i18n.js') $Work; Copy-Item (Join-Path $web 'i18n') (Join-Path $Work 'i18n') -Recurse -Force
 $chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $chrome) { throw 'Chrome introuvable.' }
 function Page($name) {
