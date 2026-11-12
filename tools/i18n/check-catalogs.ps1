@@ -80,6 +80,8 @@ function Check-Values($cat) {
       $req = $pluralRequired[$cat.Lang]; if (-not $req) { $req = @('other') }
       foreach ($r in $req) { if ($names -notcontains $r) { Err "$($cat.Path) : « $key » : forme de pluriel « $r » absente" } }
       if ((Vars ([string]$v.other)) -notcontains 'count') { Warn "$($cat.Path) : « $key » : pluriel sans {count} dans la forme other" }
+      # Singulier oublié : forme « one » identique à « other » alors qu'un nom au pluriel suit {count} (« 1 parties », « 1 games »).
+      if ($names -contains 'one' -and [string]$v.one -eq [string]$v.other -and [string]$v.other -match '\{count\}\s+(\p{L}+[sx])\b') { $noun = $Matches[1]; Err "$($cat.Path) : « $key » : la forme one est identique à other alors que « {count} $noun » est au pluriel" }
     }
     foreach ($e in (Forms $v).GetEnumerator()) {
       $s = [string]$e.Value

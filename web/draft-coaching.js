@@ -161,7 +161,8 @@ const COACH_RULES = [
     build: (c, d) => ({ title:I18N.t("coach.draft.why.title", { champion: c.pick }),
       text:[I18N.t("coach.draft.why.l1", { reason: coachReason(d.reason) }),
         I18N.t("coach.draft.why.l2", { criterion: d.best.label, reason: coachReason(d.reason) }),
-        I18N.t(c.rival ? "coach.draft.why.l3rival" : "coach.draft.why.l3", { criterion: d.best.label, impact: coachNum(d.best.impact), gap: c.rival ? coachNum(c.entry.score - c.rival.score) : "", rival: c.rival ? label(c.rival.pick) : "" })],
+        // Pluriel sur l'écart tel qu'il est affiché (une décimale) : « 1,5 point », « 2,0 points ».
+        c.rival ? I18N.tp("coach.draft.why.l3rival", Math.abs(+(c.entry.score - c.rival.score).toFixed(1)), { criterion: d.best.label, impact: coachNum(d.best.impact), gap: coachNum(c.entry.score - c.rival.score), rival: label(c.rival.pick) }) : I18N.t("coach.draft.why.l3", { criterion: d.best.label, impact: coachNum(d.best.impact) })],
       evidence:[{ kind:"criterion", key:d.best.key, value:+d.best.impact.toFixed(2) }], stance:{ key:d.best.key, sign:1 } }) },
   // Choix serré. Le pick affiché peut être 2e : pendant la draft, le nom ne change que si un autre mène d'au moins HOLD_GAP points.
   // « passe devant » n'est alors dit que du vrai 1er.
@@ -221,8 +222,8 @@ const COACH_RULES = [
       const small = d.live.effective < 100, good = d.live.gap >= 0;
       return { basis:small ? "smallSample" : "measured", title:I18N.t("coach.matchup.measured.title", { champion: c.pick, opponent: c.opponent }),
         text:[I18N.t(good ? "coach.matchup.measured.l1good" : "coach.matchup.measured.l1bad", { games: d.live.games, champion: c.pick }),
-          I18N.t("coach.matchup.measured.l2", { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), champion: c.pick, games: d.live.games }),
-          I18N.t(d.live.recent ? "coach.matchup.measured.l3" : "coach.matchup.measured.l3old", { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), games: d.live.games })],
+          I18N.tp("coach.matchup.measured.l2", Math.abs(Math.round(d.live.gap * 100)), { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), champion: c.pick, games: d.live.games }),
+          I18N.tp(d.live.recent ? "coach.matchup.measured.l3" : "coach.matchup.measured.l3old", Math.abs(Math.round(d.live.gap * 100)), { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), games: d.live.games })],
         limits:small ? I18N.t("coach.matchup.measured.limitSmall") : I18N.t("coach.matchup.measured.limit"),
         evidence:[{ kind:"games", value:d.live.games }], stance:{ key:"matchup", sign:Math.sign(d.live.gap) } };
     } },
@@ -235,7 +236,7 @@ const COACH_RULES = [
     build: (c, d) => { const good = d.cr.impact > 0, level = coachOpponentLevel(c); return { title:I18N.t(level && level !== "sure" ? (good ? "coach.matchup.written.titleGoodLevel" : "coach.matchup.written.titleBadLevel") : (good ? "coach.matchup.written.titleGood" : "coach.matchup.written.titleBad"), { champion: c.pick, opponent: c.opponent, level: level ? COACH_OPPONENT_WORD[level] : "" }),
       text:[good ? I18N.t("coach.matchup.written.l1good", { champion: c.pick, opponent: c.opponent }) : I18N.t("coach.matchup.written.l1bad", { champion: c.pick, opponent: c.opponent }),
         I18N.t("coach.matchup.written.l2", { text: d.cr.text }),
-        I18N.t("coach.matchup.written.l3", { text: d.cr.text, impact: coachNum(d.cr.impact), min: MATCHUP_MIN_GAMES })],
+        I18N.tp("coach.matchup.written.l3", Math.abs(+d.cr.impact.toFixed(1)), { text: d.cr.text, impact: coachNum(d.cr.impact), min: MATCHUP_MIN_GAMES })],
       limits:I18N.t("coach.limit.writtenOpinion"), evidence:[{ kind:"criterion", key:"matchup", value:+d.cr.impact.toFixed(2) }], stance:{ key:"matchup", sign:Math.sign(d.cr.impact) } }; } },
   { id:"matchup.range", category:"matchup", priority:78, basis:"official",
     when: coachRangeDuel,
@@ -449,7 +450,7 @@ const COACH_RULES = [
       return { na, nb };
     },
     build: (c, d) => { const more = d.na > d.nb ? c.pick : label(c.rival.pick), less = d.na > d.nb ? label(c.rival.pick) : c.pick; return { title:I18N.t("coach.personal.experience.title", { champion: more }),
-      text:[I18N.t("coach.personal.experience.l1", { games: d.na, champion: c.pick, rivalGames: d.nb, rival: label(c.rival.pick) }),
+      text:[I18N.tp("coach.personal.experience.l1", d.na, { champion: c.pick, rivalGames: d.nb, rival: label(c.rival.pick) }),
         I18N.t("coach.personal.experience.l2", { champion: more, other: less }),
         I18N.t("coach.personal.experience.l3", { games: d.na, rivalGames: d.nb })],
       limits:I18N.t("coach.limit.gamesNotSkill"), evidence:[{ kind:"games", pick:d.na, rival:d.nb }] }; } },
@@ -460,7 +461,7 @@ const COACH_RULES = [
     },
     build: (c, d) => ({ title:I18N.t("coach.personal.results.title", { champion: c.pick }),
       text:[I18N.t(d.s.clearGap > 0 ? "coach.personal.results.l1more" : "coach.personal.results.l1less", { games: d.s.games, champion: c.pick }),
-        I18N.t(d.s.clearGap > 0 ? "coach.personal.results.l2good" : "coach.personal.results.l2bad", { wins: d.s.wins, games: d.s.games }),
+        I18N.tp(d.s.clearGap > 0 ? "coach.personal.results.l2good" : "coach.personal.results.l2bad", d.s.wins, { games: d.s.games }),
         I18N.t("coach.personal.results.l3", { low: Math.round(d.s.low * 100), high: Math.round(d.s.high * 100), games: d.s.games, overall: Math.round(c.personal.overall * 100) })],
       limits:I18N.t("coach.personal.results.limits"), evidence:[{ kind:"games", value:d.s.games, wins:d.s.wins }] }) },
   { id:"personal.too-few", category:"personal", priority:30, basis:"general", minLevel:2,

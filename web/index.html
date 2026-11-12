@@ -2025,7 +2025,7 @@ function CoachTab() {
       <p className="small">${choices.compromise.text}</p>
     </section>` : null}
     ${played.length ? html`<h3>${t("coachTab.experience")}</h3>
-      <ul className="exp-list">${played.map(r => html`<li key=${r.champion}><b>${r.champion}</b> ${tp(r.recentGames ? "coachTab.exp.gamesRecent" : r.daysSince !== null ? "coachTab.exp.gamesLast" : "coachTab.exp.games", r.games, { recent: r.recentGames, days: r.daysSince })}</li>`)}</ul>
+      <ul className="exp-list">${played.map(r => html`<li key=${r.champion}><b>${r.champion}</b> ${tp(r.recentGames ? "coachTab.exp.gamesRecent" : r.daysSince !== null ? "coachTab.exp.gamesLast" : "coachTab.exp.games", r.games, { recent: r.recentGames, ago: r.daysSince !== null ? tp("coachTab.exp.daysAgo", r.daysSince) : "" })}</li>`)}</ul>
       ${unplayed.length ? html`<p className="small">${t("coachTab.unplayed", { champions: unplayed.join(", ") })}</p>` : null}` : null}
     <p className="small">${info ? tp(info.generated ? "coachTab.history.importedOn" : "coachTab.history.imported", info.rows.length, { date: info.generated ? fmtDate(info.generated) : "" }) : t("coachTab.history.none")} ${t("coachTab.history.note")}</p>
     ${checked.length ? html`<h3>${t("coachTab.checked")}</h3><ul className="advice-list">${checked.map(i => html`<${AdviceItem} key=${i.id} item=${i} />`)}</ul>` : null}
@@ -2413,7 +2413,7 @@ function JournalTab() {
   const other = tally(played.filter(x => x.picked !== x.suggested));
   return html`<div>
     ${played.length ? html`<h3>${t("journal.recent")}</h3>
-      <div className="history" role="img" aria-label=${tp("journal.dots.aria", played.length, { wins: played.filter(x => x.result === "win").length })}>
+      <div className="history" role="img" aria-label=${tp("journal.dots.aria", played.length, { wins: tp("journal.dots.wins", played.filter(x => x.result === "win").length) })}>
         ${played.slice(-20).map((x, i) => html`<${motion.span} key=${x.id} className=${`game ${x.result}`} title=${t(x.result === "win" ? "journal.dot.win" : "journal.dot.loss", { champion: label(x.picked) })} initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${{ ...QUICK, delay:i * .012 }}><//>`)}
       </div>
       <${WinBars} title=${t("stats.byChampion.title")} groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
