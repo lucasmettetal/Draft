@@ -29,12 +29,12 @@ const COACH_TERMS = {
   carry:I18N.t("coach.term.carry"),
   engage:I18N.t("coach.term.engage"),
   poke:I18N.t("coach.term.poke"),
-  "contrôle":I18N.t("coach.term.control"),
+  contrôle:I18N.t("coach.term.control"),
   assassin:I18N.t("coach.term.assassin"),
   roam:I18N.t("coach.term.roam"),
   vague:I18N.t("coach.term.wave"),
   farm:I18N.t("coach.term.farm"),
-  "échange":I18N.t("coach.term.trade"),
+  échange:I18N.t("coach.term.trade"),
   portée:I18N.t("coach.term.range"),
   objectif:I18N.t("coach.term.objective")
 };

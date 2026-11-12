@@ -970,7 +970,7 @@ if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof
   throw new Error("fichiers de DRAFT introuvables");
 }
 // Textes des nouveaux écrans : t(), tp() et tx() lisent web/i18n/fr.js (draft-i18n.js). Les textes existants n'y passent pas encore.
-const { t, tp, tx } = window.I18N;
+const { t, tp, tx, fmtDate } = window.I18N;
 const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, boardKey: null };
 
 function matchByKeys(names, keysOf, query) {
@@ -1006,8 +1006,8 @@ function record(rows) {
   const wins = rows.filter(r => r.win).length;
   return { wins, losses: rows.length - wins, games: rows.length };
 }
-const fmtRecord = rec => `${rec.wins}V ${rec.losses}D`;
-const pct = rec => rec.games ? `${Math.round(100 * rec.wins / rec.games)} %` : "-";
+const fmtRecord = rec => t("stats.record", { wins: rec.wins, losses: rec.losses });
+const pct = rec => rec.games ? t("stats.percent", { value: Math.round(100 * rec.wins / rec.games) }) : "-";
 
 // Ramène un petit bilan vers le winrate du champion, pour éviter de surestimer quelques parties.
 function shrunkRate(rec, base) {
@@ -1015,22 +1015,22 @@ function shrunkRate(rec, base) {
 }
 
 function matchupWord(rec, base) {
-  if (rec.games < MIN_GAMES) return "pas assez de parties";
+  if (rec.games < MIN_GAMES) return t("stats.matchup.notEnough");
   const gap = shrunkRate(rec, base) - base;
-  if (Math.abs(gap) < 0.03) return "pas de préférence";
-  return gap > 0 ? "léger avantage" : "léger désavantage";
+  if (Math.abs(gap) < 0.03) return t("stats.matchup.noPreference");
+  return gap > 0 ? t("stats.matchup.slightEdge") : t("stats.matchup.slightDisadvantage");
 }
 
 function personalLine(pick, mid) {
   if (!STAT_ROWS.length) return "";
   const rows = STAT_ROWS.filter(r => r.acct === MAIN_ACCOUNT && r.champ === label(pick));
   const all = record(rows);
-  if (!all.games) return `aucune partie sur ${label(pick)}`;
+  if (!all.games) return t("stats.personal.none", { champion: label(pick) });
   const base = fmtRecord(all);
   if (!mid) return base;
   const vs = record(rows.filter(r => r.mid === mid));
-  if (!vs.games) return `${base}, jamais contre ${mid}`;
-  return `${base}, contre ${mid} ${fmtRecord(vs)} : ${matchupWord(vs, all.wins / all.games)}`;
+  if (!vs.games) return t("stats.personal.neverVs", { record: base, champion: mid });
+  return t("stats.personal.vs", { record: base, champion: mid, vsRecord: fmtRecord(vs), word: matchupWord(vs, all.wins / all.games) });
 }
 
 
@@ -1058,7 +1058,7 @@ function syncCurrentEntry() {
 // ---------- Actions ----------
 let rerender = () => {};
 let V = null;
-const ROLE_LABEL = { top:"Top", jungle:"Jungle", mid:"Mid", adc:"ADC", support:"Support" };
+const ROLE_LABEL = { top:t("role.name.top"), jungle:t("role.name.jungle"), mid:t("role.name.mid"), adc:t("role.name.adc"), support:t("role.name.support") };
 
 // Les rôles affichés suivent la répartition la plus probable du calcul (likelyAssignment, tirée de roleBelief).
 // Ils servent à l'affichage ; seul l'adversaire direct influence le classement. L'adversaire affiché et les corrections sont respectés.
@@ -1073,7 +1073,7 @@ function deriveSlots() { return likelyRoles().slots; }
 // Rôle incertain d'un adversaire : « ADC ou Mid » si deux rôles sont proches, « ADC ? » si le rôle affiché reste peu probable.
 function roleTag(info) {
   if (!info || !info.uncertain) return "";
-  return info.close.length ? `${ROLE_LABEL[info.role]} ou ${ROLE_LABEL[info.close[0]]}` : `${ROLE_LABEL[info.role]} ?`;
+  return info.close.length ? t("enemy.roleTag.or", { role: ROLE_LABEL[info.role], other: ROLE_LABEL[info.close[0]] }) : t("enemy.roleTag.unsure", { role: ROLE_LABEL[info.role] });
 }
 
 function describeChange(prev, shown, heldEntry, ranking) {
@@ -1082,11 +1082,11 @@ function describeChange(prev, shown, heldEntry, ranking) {
   const oldBefore = prev.order.find(p => p.pick === prev.shown);
   const newBefore = prev.order.find(p => p.pick === shown);
   // Le nouveau nom menait déjà avant cet ajout : c'est la fin de la draft qui libère le nom affiché, pas ce champion.
-  if (oldNow && state.enemies.length >= 5 && newBefore && oldBefore && newBefore.score > oldBefore.score) return { id: Date.now(), trigger: "Draft complète", from: label(prev.shown), to: label(shown), reason: "Il menait déjà de peu : le conseil change maintenant que la draft est complète." };
+  if (oldNow && state.enemies.length >= 5 && newBefore && oldBefore && newBefore.score > oldBefore.score) return { id: Date.now(), trigger: t("advice.change.complete"), from: label(prev.shown), to: label(shown), reason: t("advice.change.leadComplete") };
   // Sinon, la raison est le critère qui sépare le plus les deux picks maintenant.
   const lead = oldNow && leadCriterion(heldEntry, oldNow);
   const crit = lead && heldEntry.criteria.find(c => c.key === lead.key);
-  const reason = !oldNow ? `${label(prev.shown)} est pris en face` : lead ? (crit && crit.impact > 0 && signedText(crit, 1)) || `avantage sur « ${lead.label} »` : "";
+  const reason = !oldNow ? t("advice.change.taken", { champion: label(prev.shown) }) : lead ? (crit && crit.impact > 0 && signedText(crit, 1)) || t("advice.change.edge", { criterion: lead.label }) : "";
   return { id: Date.now(), trigger: state.lastAction, from: label(prev.shown), to: label(shown), reason };
 }
 
@@ -1266,7 +1266,7 @@ function applyRemote(m) {
 // Les événements simulés passent par les mêmes opérations que la saisie.
 const draftApi = {
   reset() { resetDraft(); },
-  setActive(v) { state.sessionActive = v; state.notice = v ? "Sélection en cours" : "Sélection terminée"; publish(null); },
+  setActive(v) { state.sessionActive = v; state.notice = v ? t("draft.notice.active") : t("draft.notice.ended"); publish(null); },
   add(champion, role) {
     if (role) state.targetRole = role;
     addEnemy(champion);
@@ -1280,7 +1280,7 @@ const draftApi = {
     delete state.roleOf[from];
     if (role) state.roleOf[to] = role;
     if (state.manualMid === from) state.manualMid = to;
-    state.lastAction = `${from} remplacé par ${to}`;
+    state.lastAction = t("draft.notice.replaced", { from, to });
     state.notice = state.lastAction;
     commit();
   },
@@ -1289,7 +1289,7 @@ const draftApi = {
     if (role === myRole()) { setMid(champion); return; }
     if (state.manualMid === champion) state.manualMid = null;
     state.roleOf[champion] = role;
-    state.notice = `${champion} : ${ROLE_LABEL[role] || role}`;
+    state.notice = t("draft.notice.role", { champion, role: ROLE_LABEL[role] || role });
     commit();
   }
 };
@@ -1317,7 +1317,7 @@ function startRandomDraft() {
 // « Reprendre la draft en cours » : copie la draft réelle dans la simulation. Aucun lien : la suite ne change que la simulation.
 function resumeLiveInSimulation() {
   if (!simulating || !liveCopy) return;
-  withUndo("Draft en cours copiée dans la simulation.", () => {
+  withUndo(t("draft.undo.resumed"), () => {
     ["enemies", "manualMid", "roleOf"].forEach(k => { state[k] = liveCopy[k] === undefined ? undefined : JSON.parse(JSON.stringify(liveCopy[k])); });
     state.held = null; state.current = null; state.targetRole = null; state.selected = null; state.notice = null;
     state.lastAction = null;
@@ -1351,7 +1351,7 @@ const focusAdd = () => { const el = document.getElementById("add"); if (el && st
 function addEnemy(name) {
   if (!name || state.enemies.includes(name) || state.enemies.length >= 5) return;
   state.enemies.push(name);
-  state.lastAction = `Ajout de ${name}`;
+  state.lastAction = t("draft.notice.added", { champion: name });
   state.notice = state.lastAction;
   if (state.targetRole) {
     if (state.targetRole === myRole()) state.manualMid = name;
@@ -1365,7 +1365,7 @@ function removeEnemy(name) {
   state.enemies = state.enemies.filter(n => n !== name);
   delete state.roleOf[name];
   if (state.manualMid === name) state.manualMid = null;
-  state.lastAction = `Retrait de ${name}`;
+  state.lastAction = t("draft.notice.removed", { champion: name });
   state.notice = state.lastAction;
   commit();
   focusAdd();
@@ -1410,7 +1410,7 @@ function undoLast() {
   commit();
   focusAdd();
 }
-const removeLastEnemy = () => { const last = state.enemies[state.enemies.length - 1]; withUndo(`Retrait de ${last}.`, () => removeEnemy(last)); };
+const removeLastEnemy = () => { const last = state.enemies[state.enemies.length - 1]; withUndo(t("draft.undo.removed", { champion: last }), () => removeEnemy(last)); };
 
 function setMid(name) {
   const old = currentMid();
@@ -1419,7 +1419,7 @@ function setMid(name) {
   state.manualMid = name;
   state.selected = null;
   state.targetRole = null;
-  state.lastAction = `${name} ${oppAt()}`;
+  state.lastAction = t("draft.notice.opponent", { champion: name, roleAt: oppAt() });
   state.notice = state.lastAction;
   commit();
   focusAdd();
@@ -1436,7 +1436,7 @@ function clickRole(role) {
     if (from === myRole()) { state.manualMid = occupant || null; if (occupant) delete state.roleOf[occupant]; }
     state.roleOf[picked] = role;
     state.selected = null;
-    state.notice = `${picked} : ${ROLE_LABEL[role]}`;
+    state.notice = t("draft.notice.role", { champion: picked, role: ROLE_LABEL[role] });
     commit();
     return;
   }
@@ -1499,7 +1499,7 @@ function groupRows(rows, keyOf) {
   rows.forEach(r => { const k = keyOf(r); if (!map.has(k)) map.set(k, []); map.get(k).push(r); });
   return [...map].map(([name, list]) => ({ name, rows: list })).sort((a, b) => b.rows.length - a.rows.length);
 }
-const POSITIONS = { TOP:"Top", JUNGLE:"Jungle", MIDDLE:"Mid", BOTTOM:"ADC", UTILITY:"Support" };
+const POSITIONS = { TOP:t("role.name.top"), JUNGLE:t("role.name.jungle"), MIDDLE:t("role.name.mid"), BOTTOM:t("role.name.adc"), UTILITY:t("role.name.support") };
 
 // ---------- Portraits officiels (Data Dragon) ----------
 const DD_FALLBACK = "16.21.1";
@@ -1538,16 +1538,16 @@ const ROLE_PATHS = {
 const RoleIcon = ({ role }) => html`<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d=${ROLE_PATHS[role]} /></svg>`;
 
 function traitsOf(name) {
-  const t = ROSTER[name] || "";
-  if (t === "?") return "Profil inconnu";
+  const code = ROSTER[name] || "";
+  if (code === "?") return t("enemy.trait.unknown");
   const words = [];
-  if (t.includes("t")) words.push("Tank");
-  if (t.includes("b")) words.push("Bruiser");
-  if (t.includes("s")) words.push("Carry fragile");
-  if (t.includes("a")) words.push("Dive");
-  if (t.includes("c")) words.push("CC");
-  if (t.includes("e")) words.push("Engage");
-  return words.join(", ") || "Utilitaire";
+  if (code.includes("t")) words.push(t("enemy.trait.tank"));
+  if (code.includes("b")) words.push(t("enemy.trait.bruiser"));
+  if (code.includes("s")) words.push(t("enemy.trait.carry"));
+  if (code.includes("a")) words.push(t("enemy.trait.dive"));
+  if (code.includes("c")) words.push(t("enemy.trait.cc"));
+  if (code.includes("e")) words.push(t("enemy.trait.engage"));
+  return words.join(", ") || t("enemy.trait.utility");
 }
 
 function SearchBox() {
@@ -1575,11 +1575,11 @@ function SearchBox() {
       setValue("");
     }
   };
-  const target = state.targetRole ? `Prochain champion : ${ROLE_LABEL[state.targetRole]}` : "";
+  const target = state.targetRole ? t("draft.search.next", { role: ROLE_LABEL[state.targetRole] }) : "";
   return html`<div className="search">
     <input id="add" data-test="enemy-search" type="search" value=${value} disabled=${full} autoComplete="off" spellCheck="false"
-      aria-label="Ajouter un champion adverse"
-      placeholder=${full ? "Draft complète" : (target || "Adversaire : ahri, tf, kata...")}
+      aria-label=${t("draft.search.label")}
+      placeholder=${full ? t("draft.search.full") : (target || t("draft.search.placeholder"))}
       onChange=${e => { setValue(e.target.value); setSel(0); setOpen(true); }}
       onFocus=${() => setOpen(true)} onBlur=${() => setOpen(false)} onKeyDown=${onKey} />
     ${open && value.trim() ? html`<div className="sugg" role="listbox">
@@ -1587,7 +1587,7 @@ function SearchBox() {
           onMouseDown=${e => { e.preventDefault(); confirm(n); }}>
           ${i === sel ? html`<${motion.span} layoutId="sugg-hl" className="sugg-hl" transition=${SNAP} />` : null}
           <${Portrait} name=${n} size=${28} /> ${n}
-        </button>`) : html`<div className="sugg-empty">Aucun champion ne correspond à « ${value} ».</div>`}
+        </button>`) : html`<div className="sugg-empty">${t("draft.search.none", { query: value })}</div>`}
     </div>` : null}
   </div>`;
 }
@@ -1608,15 +1608,15 @@ function sendValidationRow() {
   predicted: predictedRolesText(state.enemies, {}) });
 }
 
-const CTA_HELP = "Note ce choix dans ton journal. Rien n'est envoyé au client LoL : tu verrouilles toi-même ton champion.";
-const CLOSE_HELP = "Deux de tes champions ont des scores proches : les deux se défendent.";
-const OPPONENT_HELP = "Le client ne donne pas les rôles adverses : cet adversaire est déduit, et se corrige dans la composition.";
+const CTA_HELP = t("advice.cta.help");
+const CLOSE_HELP = t("advice.close.help");
+const OPPONENT_HELP = t("advice.opponent.help");
 
 // Une seule échelle pour ton vis-à-vis (docs/technique/GLOSSAIRE-LOL.md §3) : presque sûr, probable, hypothèse
 // (1 ou 2 champions vus), pas identifié, pas encore choisi. Le mot suit la confiance calculée ; le seuil pour nommer ne change pas ici.
-const seenText = n => `${n} champion${n > 1 ? "s" : ""} vu${n > 1 ? "s" : ""}`;
+const seenText = n => tp("draft.seen", n);
 // Codes : "guess" (1 ou 2 champions vus), "likely", "sure". Le mot affiché vient de OPPONENT_LEVEL_WORD.
-const OPPONENT_LEVEL_WORD = { guess:"hypothèse", likely:"probable", sure:"presque sûr" };
+const OPPONENT_LEVEL_WORD = { guess:t("coach.opponentWord.guess"), likely:t("coach.opponentWord.likely"), sure:t("coach.opponentWord.sure") };
 function opponentLevel() {
   if (!V.mid) return null;
   if (V.n <= 2) return "guess";
@@ -1629,20 +1629,20 @@ function unnamedState() {
   if (!V.n) return "unrevealed";
   return h && h.notYet && !h.others.length ? "unrevealed" : "unidentified";
 }
-const UNNAMED_WORD = { unrevealed:"pas encore choisi", unidentified:"pas identifié" };
+const UNNAMED_WORD = { unrevealed:t("draft.unnamed.unrevealed"), unidentified:t("draft.unnamed.unidentified") };
 const unnamedWord = () => UNNAMED_WORD[unnamedState()];
 // Analyse, vis-à-vis pas nommé. Fidèle au calcul : avec des hypothèses, le critère matchup du pick affiché est leur moyenne pondérée.
 function matchupUncertainText() {
   const shownEntry = V.res.ranking.find(p => p.pick === V.shown);
   return shownEntry && shownEntry.criteria.some(c => c.key === "matchup")
-    ? `${oppName()} pas identifié : le matchup est une moyenne des hypothèses.`
-    : `${oppName()} ${unnamedWord()} : le matchup ne compte pas encore.`;
+    ? t("analysis.matchupUncertain.average", { role: oppName() })
+    : t(unnamedState() === "unrevealed" ? "analysis.matchupUncertain.unrevealed" : "analysis.matchupUncertain.unidentified", { role: oppName() });
 }
 // Étiquette de la ligne de ton rôle dans la composition adverse.
 function opponentTag() {
   const level = opponentLevel();
-  if (!level) return `${oppName()} ? pas identifié`;
-  return level === "guess" ? `${oppName()} ? hypothèse (${seenText(V.n)})` : `${oppName()} d'en face (${OPPONENT_LEVEL_WORD[level]})`;
+  if (!level) return t("enemy.tag.unidentified", { role: oppName() });
+  return level === "guess" ? t("enemy.tag.guess", { role: oppName(), seen: seenText(V.n) }) : t("enemy.tag.level", { role: oppName(), level: OPPONENT_LEVEL_WORD[level] });
 }
 
 // Les hypothèses restent courtes, sans pourcentage : la qualité des données ne permet pas mieux.
@@ -1651,12 +1651,13 @@ function hypothesisText() {
   if (!h) return "";
   const notYet = h.notYet;
   const named = h.others;
-  if (!h.main && !named.length) return `${oppName()} d'en face : ${unnamedWord()}.`;
-  if (!h.main) return `${oppName()} d'en face : pas identifié (${named.join(" ou ")}${notYet ? ", ou pas encore choisi" : ""}).`;
-  const rest = named.length ? `, sinon ${named.join(" ou ")}${notYet ? " ou pas encore choisi" : ""}` : notYet ? ", sinon pas encore choisi" : "";
+  if (!h.main && !named.length) return t(unnamedState() === "unrevealed" ? "draft.hyp.unrevealed" : "draft.hyp.unidentified", { role: oppName() });
+  if (!h.main) return t(notYet ? "draft.hyp.unidentifiedNamesNotYet" : "draft.hyp.unidentifiedNames", { role: oppName(), names: named.join(t("list.orSeparator")) });
+  const rest = named.length ? (notYet ? "elseNotYet" : "else") : notYet ? "notYet" : "none";
   const level = opponentLevel();
-  if (level === "guess") return `${oppName()} ? ${h.main}, hypothèse (${seenText(V.n)})${rest}.`;
-  return `${oppName()} d'en face : ${h.main} (${OPPONENT_LEVEL_WORD[level]})${rest}.`;
+  const vars = { role: oppName(), champion: h.main, seen: seenText(V.n), level: OPPONENT_LEVEL_WORD[level], names: named.join(t("list.orSeparator")) };
+  if (level === "guess") return t({ none:"draft.hyp.guess", else:"draft.hyp.guessElse", elseNotYet:"draft.hyp.guessElseNotYet", notYet:"draft.hyp.guessNotYet" }[rest], vars);
+  return t({ none:"draft.hyp.level", else:"draft.hyp.levelElse", elseNotYet:"draft.hyp.levelElseNotYet", notYet:"draft.hyp.levelNotYet" }[rest], vars);
 }
 
 // Incertitude sur l'adversaire direct : une ligne à part, d'une autre couleur que « Choix serré », qui porte sur le conseil.
@@ -1664,7 +1665,7 @@ function OpponentLine({ className }) {
   if (!V.hypothesis || !V.n) return null;
   const unsure = !!V.provisional;
   return html`<p className=${`opp-line${unsure ? " unsure" : ""}${className ? ` ${className}` : ""}`} title=${OPPONENT_HELP}>
-    ${hypothesisText()}${V.midAlt ? html` <span>Si c'est ${V.midAlt.mid} : <b>${label(V.midAlt.pick)}</b>.</span>` : null}
+    ${hypothesisText()}${V.midAlt ? html` <span>${tx("draft.midAlt", { champion: V.midAlt.mid, pick: html`<b>${label(V.midAlt.pick)}</b>` })}</span>` : null}
   </p>`;
 }
 
@@ -1678,8 +1679,8 @@ function RoleRow({ role, name, assumed, info }) {
   }, [name]);
   const cls = `role${isMid ? " is-mid" : ""}${state.targetRole === role || (name && state.selected === name) ? " target" : ""}`;
   const label = name
-    ? `${ROLE_LABEL[role]} : ${name}. ${state.selected && state.selected !== name ? `Échanger avec ${state.selected}` : "Sélectionner pour changer de rôle"}`
-    : `${ROLE_LABEL[role]} vide. ${state.selected ? `Y placer ${state.selected}` : "Choisir ce rôle pour le prochain champion"}`;
+    ? t(state.selected && state.selected !== name ? "enemy.row.filledSwap" : "enemy.row.filled", { role: ROLE_LABEL[role], champion: name, selected: state.selected })
+    : t(state.selected ? "enemy.row.emptyPlace" : "enemy.row.empty", { role: ROLE_LABEL[role], selected: state.selected });
   return html`<div className=${cls} data-test="enemy-row" data-slot=${role}>
     <button type="button" className="role-hit" aria-label=${label} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
     ${flash ? html`<${motion.span} key=${flash.id} className=${`role-flash ${flash.kind}`} aria-hidden="true" initial=${{ opacity:.45 }} animate=${{ opacity:0 }} transition=${{ duration:.35 }} />` : null}
@@ -1692,10 +1693,10 @@ function RoleRow({ role, name, assumed, info }) {
         </span>
       <//>
       <span className="role-tools">
-        ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${`Placer ${name} ${oppAt()}`} onClick=${() => setMid(name)}>${oppName()}</button>` : null}
-        <button type="button" className="mini x" data-test="enemy-remove" aria-label=${`Retirer ${name}`} onClick=${() => removeEnemy(name)}>×</button>
+        ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${t("enemy.row.toMid", { champion: name, roleAt: oppAt() })} onClick=${() => setMid(name)}>${oppName()}</button>` : null}
+        <button type="button" className="mini x" data-test="enemy-remove" aria-label=${t("enemy.row.remove", { champion: name })} onClick=${() => removeEnemy(name)}>×</button>
       </span>`
-    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? "Tape son nom" : html`Ajouter<span className="em">${role === "adc" ? " l'ADC" : ` le ${ROLE_LABEL[role]}`}</span>`}</span>`}
+    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? t("enemy.row.typeName") : tx("enemy.row.add", { what: html`<span className="em">${role === "adc" ? t("enemy.row.addAdc") : t("enemy.row.addRole", { role: ROLE_LABEL[role] })}</span>` })}</span>`}
   </div>`;
 }
 
@@ -1708,7 +1709,7 @@ function Meter({ label, count, danger }) {
   }, [count]);
   return html`<div className=${`meter${danger && count >= 2 ? " danger" : ""}`}>
     <${motion.span} key=${count} className="meter-label" initial=${count ? { color: danger ? "#f2777a" : "#3fd8c6" } : false} animate=${{ color:"#93a3b6" }} transition=${{ duration:.35 }}>${label}<//>
-    <span className="pips" role="img" aria-label=${`${label} : ${count} sur 5`}>
+    <span className="pips" role="img" aria-label=${t("enemy.meter.aria", { label, count })}>
       ${[0, 1, 2, 3, 4].map(i => html`<span key=${i} className="pip"><${motion.i} initial=${false} animate=${{ scaleX: i < count ? 1 : 0 }} transition=${{ ...QUICK, delay: i * .025 }} /></span>`)}
     </span>
     <span className="meter-delta" aria-hidden="true">${delta ? html`<${motion.span} key=${delta.id} initial=${{ opacity:1, y:0 }} animate=${{ opacity:0, y:-5 }} transition=${{ duration:.3, delay:.45 }}>${delta.value > 0 ? "+" : ""}${delta.value}<//>` : null}</span>
@@ -1716,42 +1717,42 @@ function Meter({ label, count, danger }) {
 }
 
 function DraftEffects() {
-  if (!V.n) return html`<p className="effects">Le profil se remplit à chaque adversaire ajouté.</p>`;
+  if (!V.n) return html`<p className="effects">${t("enemy.effects.empty")}</p>`;
   const { strong, weak } = compoReading(V.res.counts);
   const key = strong.join() + "|" + weak.join();
   return html`<${motion.p} key=${key} className="effects" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>
-    ${strong.length ? html`<span className="hurt">Leurs forces : ${strong.join(", ")}</span>` : null}
-    ${weak.length ? html`<span className="help">Leurs failles : ${weak.join(", ")}</span>` : null}
-    ${!strong.length && !weak.length ? "Pas de profil marqué pour l'instant." : null}
+    ${strong.length ? html`<span className="hurt">${t("enemy.effects.strong", { list: strong.join(", ") })}</span>` : null}
+    ${weak.length ? html`<span className="help">${t("enemy.effects.weak", { list: weak.join(", ") })}</span>` : null}
+    ${!strong.length && !weak.length ? t("enemy.effects.none") : null}
   <//>`;
 }
 
 function UndoNote() {
   if (!undoOffer) return null;
-  return html`<p className="hint done" role="status" data-test="undo">${undoOffer.text} <button type="button" className="link-btn" data-test="undo-action" onClick=${undoLast}>Annuler</button></p>`;
+  return html`<p className="hint done" role="status" data-test="undo">${undoOffer.text} <button type="button" className="link-btn" data-test="undo-action" onClick=${undoLast}>${t("common.cancel")}</button></p>`;
 }
 
 function EnemyPanel() {
   const likely = likelyRoles(), slots = likely.slots;
   const c = V.res.counts;
   const warn = V.n && !V.mid;
-  return html`<aside className="col col-left" aria-label="Composition adverse">
-    <h2 className="sec-title">Composition adverse <small>${V.n} sur 5</small></h2>
+  return html`<aside className="col col-left" aria-label=${t("enemy.title")}>
+    <h2 className="sec-title">${t("enemy.title")} <small>${t("enemy.count", { count: V.n })}</small></h2>
     <${SearchBox} />
     <${UndoNote} />
-    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} data-test="draft-hint" initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? `${state.selected} sélectionné : clique sur un autre rôle.` : state.notice || "Entrée ajoute, Échap efface."}<//>
+    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} data-test="draft-hint" initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? t("enemy.hint.selected", { champion: state.selected }) : state.notice || t("enemy.hint.keys")}<//>
     <${LayoutGroup}>
       <div className="roles">
         ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
       </div>
     <//>
-    <h2 className="sec-title profile">Profil de leur comp</h2>
+    <h2 className="sec-title profile">${t("enemy.profileTitle")}</h2>
     <div className="meters profile">
-      <${Meter} label="Frontline" count=${c.front.length} />
-      <${Meter} label="Carrys fragiles" count=${c.carries.length} />
-      <${Meter} label="Dive" count=${c.divers.length} danger=${true} />
-      <${Meter} label="CC ciblés" count=${c.cc.length} danger=${true} />
-      <${Meter} label="Engage" count=${c.engage.length} />
+      <${Meter} label=${t("enemy.meter.front")} count=${c.front.length} />
+      <${Meter} label=${t("enemy.meter.carries")} count=${c.carries.length} />
+      <${Meter} label=${t("enemy.meter.dive")} count=${c.divers.length} danger=${true} />
+      <${Meter} label=${t("enemy.meter.cc")} count=${c.cc.length} danger=${true} />
+      <${Meter} label=${t("enemy.meter.engage")} count=${c.engage.length} />
     </div>
     <${DraftEffects} />
   </aside>`;
@@ -1780,30 +1781,30 @@ function SplashStack({ name }) {
       initial=${{ opacity:0, scale:1.07 }} animate=${loaded ? { opacity:1, scale:1 } : { opacity:0, scale:1.07 }}
       transition=${{ opacity:{ duration:.3 }, scale:{ duration:.7, ease:[.2,.8,.2,1] } }}
       onLoad=${() => setLoaded(true)} onError=${() => { setFailed(true); setUnder(null); }} />`}
-    ${failed ? html`<p className="splash-fail">Illustration indisponible : vérifie ta connexion.</p>` : null}
+    ${failed ? html`<p className="splash-fail">${t("advice.splashFailed")}</p>` : null}
   </div>`;
 }
 
 // ---------- Égalités, conseils et expérience : tout passe par des calculs protégés. Une erreur ici ne doit jamais toucher au verdict. ----------
 const TIE_SHOWN = 3;
-const speakVerdict = name => V.tied ? `Égalité entre ${V.tied.map(label).join(", ")}` : `Conseil : ${name}${V.rival ? `, ${V.clear ? "sinon" : "ou"} ${label(V.rival.pick)}` : ""}`;
+const speakVerdict = name => V.tied ? t("advice.speak.tie", { champions: V.tied.map(label).join(", ") }) : t(!V.rival ? "advice.speak.one" : V.clear ? "advice.speak.clear" : "advice.speak.close", { champion: name, rival: V.rival ? label(V.rival.pick) : "" });
 
 function TieGroup({ detailed }) {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const list = V.tied.slice(0, TIE_SHOWN), more = V.tied.length - list.length;
-  return html`<section className="tie-group" aria-label="Champions à égalité">
-    <p className="tie-title"><b>${V.tied.length} picks à égalité de score</b> sur cette draft</p>
+  return html`<section className="tie-group" aria-label=${t("advice.tie.label")}>
+    <p className="tie-title">${tx("advice.tie.heading", { picks: html`<b>${t("advice.tie.count", { count: V.tied.length })}</b>` })}</p>
     <div className="tie-list">
       ${list.map(p => {
         const chosen = entry && entry.picked === p, why = detailed ? positiveReasons(V.res.ranking.find(x => x.pick === p))[0] : null;
         return html`<button key=${p} type="button" className=${`tie-item${chosen ? " picked" : ""}`} aria-pressed=${!!chosen} title=${CTA_HELP} onClick=${() => choosePick(p)}>
           <${Portrait} name=${label(p)} size=${36} />
-          <span className="tie-text"><span className="tie-name">${label(p)}</span>${p === PREFS.favorite ? html`<small>Ton favori</small>` : null}${why ? html`<small>${why}</small>` : null}</span>
+          <span className="tie-text"><span className="tie-name">${label(p)}</span>${p === PREFS.favorite ? html`<small>${t("advice.tie.favorite")}</small>` : null}${why ? html`<small>${why}</small>` : null}</span>
           ${chosen ? html`<span className="tie-check" aria-hidden="true">✓</span>` : null}
         </button>`;
       })}
     </div>
-    <p className="note">${more ? `Et ${more} autre${more > 1 ? "s" : ""} dans Analyse. ` : ""}${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}</p>
+    <p className="note">${more ? tp("advice.tie.more", more) + " " : ""}${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}</p>
   </section>`;
 }
 
@@ -1850,68 +1851,68 @@ function shortAdvice(text) {
 function CoachLine() {
   const item = essentialAdvice();
   if (!item) return null;
-  return html`<section className="coach-line" aria-label="Conseil">
+  return html`<section className="coach-line" aria-label=${t("advice.coachLine.label")}>
     ${item.id === "draft.tie" ? null : html`<b>${item.title}</b>`}
     ${shortAdvice(item.text) ? html`<p>${shortAdvice(item.text)}</p>` : null}
-    <button type="button" className="link-btn" data-test="open-coach" onClick=${() => openDetail("coach")}>Voir les conseils</button>
+    <button type="button" className="link-btn" data-test="open-coach" onClick=${() => openDetail("coach")}>${t("advice.coachLine.open")}</button>
   </section>`;
 }
 // Sur une ligne à part : le nombre de parties n'est ni une recommandation, ni une preuve de niveau.
-const FAMILIAR_HELP = "Nombre de parties importées dans ce rôle. Cela ne dit pas si tu joues bien ce champion.";
+const FAMILIAR_HELP = t("advice.familiar.help");
 function FamiliarLine() {
   const c = coachData().choices;
   if (!c || !c.familiar) return null;
-  return html`<p className="familiar-line" title=${FAMILIAR_HELP}><span>Le plus joué</span> ${c.familiar.champion} · ${c.familiar.games} parties</p>`;
+  return html`<p className="familiar-line" title=${FAMILIAR_HELP}><span>${t("advice.familiar.label")}</span> ${t("advice.familiar.line", { champion: c.familiar.champion, count: c.familiar.games })}</p>`;
 }
 
 function AdviceItem({ item }) {
   return html`<li className="advice-item">
     <b>${item.title}</b>
     <p>${item.text}</p>
-    <small>${item.basisLabel}${item.limits ? `. ${item.limits}` : ""}</small>
+    <small>${item.limits ? t("advice.item.source", { basis: item.basisLabel, limits: item.limits }) : item.basisLabel}</small>
   </li>`;
 }
 
 function CoachLevel() {
-  return html`<label className="set-row coach-level"><span>Niveau des conseils</span>
+  return html`<label className="set-row coach-level"><span>${t("settings.coachLevel.title")}</span>
     <select value=${PREFS.coachLevel} onChange=${e => savePrefs({ coachLevel:e.target.value })}>
-      <option value="beginner">Débutant</option><option value="intermediate">Intermédiaire</option><option value="advanced">Avancé</option>
+      <option value="beginner">${t("settings.coachLevel.beginner")}</option><option value="intermediate">${t("settings.coachLevel.intermediate")}</option><option value="advanced">${t("settings.coachLevel.advanced")}</option>
     </select></label>`;
 }
 
 function CoachTab() {
   const { advice, choices } = coachData();
-  if (V.none || (!advice && !choices)) return html`<p className="small">Aucun conseil disponible pour l'instant.</p>`;
+  if (V.none || (!advice && !choices)) return html`<p className="small">${t("coachTab.none")}</p>`;
   const items = advice ? advice.items : [];
   const checked = items.filter(i => i.verification === "rule"), toConfirm = items.filter(i => i.verification !== "rule");
   const info = historyProfile.info, played = choices ? choices.experienceTable.filter(r => r.games).sort((a, b) => b.games - a.games) : [];
   const unplayed = choices ? choices.experienceTable.filter(r => !r.games).map(r => r.champion) : [];
   // UX-7 : le niveau des conseils se règle à un seul endroit (Réglages > Général) ; ici, il est rappelé avec un lien.
-  const LEVEL_NAMES = { beginner:"Débutant", intermediate:"Intermédiaire", advanced:"Avancé" };
+  const LEVEL_NAMES = { beginner:t("settings.coachLevel.beginner"), intermediate:t("settings.coachLevel.intermediate"), advanced:t("settings.coachLevel.advanced") };
   return html`<div className="coach-tab">
     <p className="small coach-level-note" data-test="coach-level-note">${t("sim.coachLevel", { level:LEVEL_NAMES[PREFS.coachLevel] || LEVEL_NAMES.beginner })} <button type="button" className="link-btn" data-test="coach-level-change" onClick=${() => goView("settings", "general")}>${t("sim.coachLevelChange")}</button></p>
-    ${choices ? html`<section className="choice-block" aria-label="Ton choix">
+    ${choices ? html`<section className="choice-block" aria-label=${t("coachTab.choiceLabel")}>
       <div className="choice-row"><span>${choices.strategic.label}</span><b>${choices.strategic.champions.join(", ")}</b></div>
-      <div className="choice-row" title=${FAMILIAR_HELP}><span>Le plus joué dans ce rôle</span><b>${choices.familiar ? `${choices.familiar.champion}, ${choices.familiar.games} parties` : "Données insuffisantes"}</b></div>
+      <div className="choice-row" title=${FAMILIAR_HELP}><span>${t("coachTab.familiar")}</span><b>${choices.familiar ? t("coachTab.familiarValue", { champion: choices.familiar.champion, count: choices.familiar.games }) : t("coachTab.notEnough")}</b></div>
       <p className="small">${choices.compromise.text}</p>
     </section>` : null}
-    ${played.length ? html`<h3>Expérience dans ce rôle</h3>
-      <ul className="exp-list">${played.map(r => html`<li key=${r.champion}><b>${r.champion}</b> ${r.games} parties${r.recentGames ? `, dont ${r.recentGames} ce mois-ci` : r.daysSince !== null ? `, dernière il y a ${r.daysSince} jours` : ""}</li>`)}</ul>
-      ${unplayed.length ? html`<p className="small">Aucune partie importée sur ${unplayed.join(", ")}.</p>` : null}` : null}
-    <p className="small">${info ? `Historique importé${info.generated ? ` le ${new Date(info.generated).toLocaleDateString("fr-FR")}` : ""} : ${info.rows.length} parties classées solo/duo. Les autres modes et les parties non lues ne sont pas comptés. ` : "Aucun historique importé : tu peux le faire dans les réglages. "}Le nombre de parties ne dit pas si tu joues bien un champion, et il ne change pas le classement.</p>
-    ${checked.length ? html`<h3>Conseils issus d'une donnée ou d'un calcul</h3><ul className="advice-list">${checked.map(i => html`<${AdviceItem} key=${i.id} item=${i} />`)}</ul>` : null}
-    ${toConfirm.length ? html`<h3>À confirmer</h3>
-      <p className="small">Avis écrits à la main, pas encore validés par un joueur. Garde ton jugement.</p>
+    ${played.length ? html`<h3>${t("coachTab.experience")}</h3>
+      <ul className="exp-list">${played.map(r => html`<li key=${r.champion}><b>${r.champion}</b> ${t(r.recentGames ? "coachTab.exp.gamesRecent" : r.daysSince !== null ? "coachTab.exp.gamesLast" : "coachTab.exp.games", { count: r.games, recent: r.recentGames, days: r.daysSince })}</li>`)}</ul>
+      ${unplayed.length ? html`<p className="small">${t("coachTab.unplayed", { champions: unplayed.join(", ") })}</p>` : null}` : null}
+    <p className="small">${info ? t(info.generated ? "coachTab.history.importedOn" : "coachTab.history.imported", { date: info.generated ? fmtDate(info.generated) : "", count: info.rows.length }) : t("coachTab.history.none")} ${t("coachTab.history.note")}</p>
+    ${checked.length ? html`<h3>${t("coachTab.checked")}</h3><ul className="advice-list">${checked.map(i => html`<${AdviceItem} key=${i.id} item=${i} />`)}</ul>` : null}
+    ${toConfirm.length ? html`<h3>${t("coachTab.toConfirm")}</h3>
+      <p className="small">${t("coachTab.toConfirmNote")}</p>
       <ul className="advice-list unconfirmed">${toConfirm.map(i => html`<${AdviceItem} key=${i.id} item=${i} />`)}</ul>` : null}
-    ${choices && choices.uncertainty.length ? html`<h3>Ce qui reste incertain</h3><ul className="advice-list">${choices.uncertainty.map(i => html`<${AdviceItem} key=${i.id} item=${i} />`)}</ul>` : null}
+    ${choices && choices.uncertainty.length ? html`<h3>${t("coachTab.uncertain")}</h3><ul className="advice-list">${choices.uncertainty.map(i => html`<${AdviceItem} key=${i.id} item=${i} />`)}</ul>` : null}
   </div>`;
 }
 
 function Stage() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   if (V.none) {
-    return html`<section className="stage" data-test="stage" aria-label="Recommandation"><div className="stage-body">
-      <div className="champ-name">Aucun pick</div>
+    return html`<section className="stage" data-test="stage" aria-label=${t("advice.stage.label")}><div className="stage-body">
+      <div className="champ-name">${t("advice.none")}</div>
       <p className="note">${noPickText()}</p>
     </div></section>`;
   }
@@ -1919,62 +1920,62 @@ function Stage() {
   const picked = entry && entry.picked === V.shown;
   const stagger = { hidden:{}, show:{ transition:{ staggerChildren:.045, delayChildren:.03 } } };
   if (V.tied) {
-    return html`<section className="stage stage-tie" data-test="stage" aria-label="Recommandation">
+    return html`<section className="stage stage-tie" data-test="stage" aria-label=${t("advice.stage.label")}>
       <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
       <div className="stage-body">
-        <div className="badges"><span data-test="badge" className="badge close">Égalité</span>${V.n < 5 ? html`<span data-test="badge" className="badge">${V.n}/5 adversaires</span>` : null}</div>
+        <div className="badges"><span data-test="badge" className="badge close">${t("advice.badge.tie")}</span>${V.n < 5 ? html`<span data-test="badge" className="badge">${t("advice.badge.enemies", { count: V.n })}</span>` : null}</div>
         <${TieGroup} detailed=${true} />
-        ${V.rival ? html`<div className="alt-line"><em>Sinon</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
+        ${V.rival ? html`<div className="alt-line"><em>${t("advice.alt.else")}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
         <div className="stage-notes"><${CoachLine} /><${FamiliarLine} /><${OpponentLine} /></div>
       </div>
     </section>`;
   }
   const item = { hidden:{ y:10, opacity:.4 }, show:{ y:0, opacity:1, transition:ARRIVE } };
-  return html`<section className="stage" data-test="stage" aria-label="Recommandation">
+  return html`<section className="stage" data-test="stage" aria-label=${t("advice.stage.label")}>
     <${SplashStack} name=${name} />
     <div className="scrim"></div>
     ${V.change ? html`<${motion.p} key=${V.change.id} className="change" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
-      <b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}${V.change.reason ? html`<span>${V.change.reason}</span>` : null}
+      ${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}${V.change.reason ? html`<span>${V.change.reason}</span>` : null}
     <//>` : null}
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <${motion.div} key=${name} className="stage-body" variants=${stagger} initial="hidden" animate="show">
       <${motion.div} className="badges" variants=${item}>
-        ${V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
-        ${V.n < 5 ? html`<span data-test="badge" className="badge">${V.n}/5 adversaires</span>` : null}
+        ${V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? t("advice.badge.clear") : t("advice.badge.close")}</span>` : null}
+        ${V.n < 5 ? html`<span data-test="badge" className="badge">${t("advice.badge.enemies", { count: V.n })}</span>` : null}
       <//>
       <${motion.div} className=${`champ-name${name.length > 18 ? " long" : ""}`} variants=${item}>${name}<//>
       ${V.rival ? html`<${motion.div} className="alt-line" variants=${item}>
-        <em>${V.clear ? "Sinon" : "Ou"}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}
+        <em>${t(V.clear ? "advice.alt.else" : "advice.alt.or")}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}
       <//>` : null}
       <${motion.ul} className="reasons" variants=${item}>
-        ${(V.reasons.length ? V.reasons : ["Aucun argument particulier dans cette draft"]).map(t => html`<${motion.li} key=${t} initial=${{ x:-6, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
+        ${(V.reasons.length ? V.reasons : [t("advice.reasons.none")]).map(t => html`<${motion.li} key=${t} initial=${{ x:-6, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
       <//>
       <${motion.div} className="stage-notes" variants=${item}>
-        ${V.risk ? html`<p className="alert-line"><b>Risque</b> ${V.risk}</p>` : null}
+        ${V.risk ? html`<p className="alert-line"><b>${t("advice.risk")}</b> ${V.risk}</p>` : null}
         <${CoachLine} />
         <${FamiliarLine} />
         <${OpponentLine} />
         ${V.avoided.length || V.personal || V.without ? html`<details className="more-line">
-          <summary>Plus de détails</summary>
-          ${V.avoided.length ? html`<p className="note">À éviter : <span className="avoid">${V.avoided.map(label).join(", ")}</span></p>` : null}
-          ${V.personal ? html`<p className="note">Tes parties : ${V.personal}</p>` : null}
-          ${V.without ? html`<p className="note">Sans frontline : <b>${label(V.without)}</b></p>` : null}
+          <summary>${t("advice.more.title")}</summary>
+          ${V.avoided.length ? html`<p className="note">${t("advice.more.avoid")} <span className="avoid">${V.avoided.map(label).join(", ")}</span></p>` : null}
+          ${V.personal ? html`<p className="note">${t("advice.more.personal", { record: V.personal })}</p>` : null}
+          ${V.without ? html`<p className="note">${t("advice.more.noFront")} <b>${label(V.without)}</b></p>` : null}
         </details>` : null}
       <//>
       <${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
-        <${motion.span} key=${picked ? "done" : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${picked ? `${name} noté` : `Je joue ${name}`}<//>
+        <${motion.span} key=${picked ? "done" : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${picked ? t("advice.cta.noted", { champion: name }) : t("advice.cta.play", { champion: name })}<//>
       <//>
     <//>
   </section>`;
 }
 
 function rankWord(p, i) {
-  if (V.tied && V.tied.includes(p.pick)) return ["À égalité", "best"];
-  if (V.avoided.includes(p.pick)) return ["À éviter", "bad"];
-  if (i === 0) return [V.clear ? "Recommandé" : "Très proche", "best"];
-  if (i === 1) return [V.clear ? "Alternative" : "Très proche", V.clear ? "alt" : "best"];
+  if (V.tied && V.tied.includes(p.pick)) return [t("advice.rank.tie"), "best"];
+  if (V.avoided.includes(p.pick)) return [t("advice.rank.avoid"), "bad"];
+  if (i === 0) return [t(V.clear ? "advice.rank.recommended" : "advice.rank.veryClose"), "best"];
+  if (i === 1) return [t(V.clear ? "advice.rank.alternative" : "advice.rank.veryClose"), V.clear ? "alt" : "best"];
   const far = V.order[0] && V.order[0].score - p.score >= HOLD_GAP;
-  return [far ? "Moins adapté" : "Possible", far ? "bad" : "other"];
+  return [t(far ? "advice.rank.lessSuited" : "advice.rank.possible"), far ? "bad" : "other"];
 }
 
 // Au-delà, la liste écraserait le verdict : le reste du pool se lit dans Analyse et Comparer.
@@ -1985,8 +1986,8 @@ function Ranking() {
   const scores = V.order.map(p => p.score);
   const lo = Math.min(...scores, 0);
   const hi = Math.max(...scores, 1);
-  return html`<section aria-label="Ton pool">
-    <h2 className="sec-title">Ton pool <small>${V.order.length > RANK_SHOWN ? `Les ${RANK_SHOWN} meilleurs sur ${V.order.length}` : "Clique sur le champion que tu joues"}</small></h2>
+  return html`<section aria-label=${t("pool.rank.label")}>
+    <h2 className="sec-title">${t("pool.rank.label")} <small>${V.order.length > RANK_SHOWN ? t("pool.rank.top", { shown: RANK_SHOWN, total: V.order.length }) : t("pool.rank.hint")}</small></h2>
     <${LayoutGroup}>
       <div className="rank-list">
         ${V.order.slice(0, RANK_SHOWN).map((p, i) => {
@@ -1997,7 +1998,7 @@ function Ranking() {
           return html`<${motion.button} key=${p.pick} layout="position" transition=${SNAP} type="button" whileHover=${{ y:-2 }} whileTap=${{ scale:.98 }}
             data-pick=${p.pick} aria-pressed=${!!isPicked}
             className=${`rank tier-${tone}${i === 0 && !V.tied ? " first" : ""}${isPicked ? " picked" : ""}`} onClick=${() => choosePick(p.pick)}>
-            ${isPicked ? html`<${motion.span} key="chosen" className="chosen" initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${SNAP} title="Champion choisi"><span aria-hidden="true">✓</span><span className="sr">Choisi</span><//>` : null}
+            ${isPicked ? html`<${motion.span} key="chosen" className="chosen" initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${SNAP} title=${t("pool.rank.chosen")}><span aria-hidden="true">✓</span><span className="sr">${t("pool.rank.chosenShort")}</span><//>` : null}
             ${i === 0 && !V.tied ? html`<${motion.span} key=${`best-${p.pick}`} className="rank-glow" aria-hidden="true" initial=${{ opacity:.55 }} animate=${{ opacity:0 }} transition=${{ duration:.45 }} />` : null}
             ${isPicked ? html`<${motion.span} layoutId="picked-ring" className="rank-ring" aria-hidden="true" transition=${SNAP} />` : null}
             <span className="rank-top">
@@ -2021,7 +2022,7 @@ const Faces = ({ names, empty }) => names.length
   : html`<span className="small">${empty}</span>`;
 
 function ResultButtons({ id, result, disabled }) {
-  const opts = [["win", "Victoire"], ["loss", "Défaite"], ["skip", "Ignorer"]];
+  const opts = [["win", t("journal.result.win")], ["loss", t("journal.result.loss")], ["skip", t("journal.result.skip")]];
   return html`<div className="results" data-test="result-buttons">
     ${opts.map(([key, text]) => html`<${motion.button} key=${key} type="button" disabled=${disabled} data-result=${key} aria-pressed=${result === key}
       whileHover=${disabled ? undefined : { y:-1 }} whileTap=${disabled ? undefined : { scale:.97 }} animate=${result === key ? { scale:[1, 1.05, 1] } : { scale:1 }} transition=${{ duration:.22 }} className=${`res ${key}${result === key ? " on" : ""}`} onClick=${() => setResult(id, key)}>${text}<//>`)}
@@ -2036,65 +2037,65 @@ function PlanBlock() {
   const playing = entry ? entry.picked : V.tied ? null : V.shown;
   const threats = playing ? threatsFor(playing, c) : [];
   const targets = playing ? targetsFor(playing, c) : [];
-  return html`<section className="plan-block" aria-label="Plan de jeu">
-    <h2 className="sec-title">Plan de jeu <small>${playing ? `avec ${label(playing)}` : ""}</small></h2>
+  return html`<section className="plan-block" aria-label=${t("plan.title")}>
+    <h2 className="sec-title">${t("plan.title")} <small>${playing ? t("plan.with", { champion: label(playing) }) : ""}</small></h2>
     <${motion.p} key=${playing || "none"} className="wincon" initial=${{ x:6, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>
-      <span>Gagne si</span>${playing ? winCondition(playing, c) : "Choisis un champion."}
+      <span>${t("plan.winIf")}</span>${playing ? winCondition(playing, c) : t("plan.choose")}
     <//>
-    <div className="plan-row threat"><span>Menaces</span><${Faces} names=${threats} empty="Rien de particulier" /></div>
-    <div className="plan-row target"><span>Cibles</span><${Faces} names=${targets} empty="Le carry le plus exposé" /></div>
-    <div className="plan-row ban-row"><span>Bans</span><${Faces} names=${V.bans} empty="Aucun" /></div>
-    ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b>${pending.mid ? ` contre ${pending.mid}` : ""}</p>` : null}
+    <div className="plan-row threat"><span>${t("plan.threats")}</span><${Faces} names=${threats} empty=${t("plan.threatsNone")} /></div>
+    <div className="plan-row target"><span>${t("plan.targets")}</span><${Faces} names=${targets} empty=${t("plan.targetsNone")} /></div>
+    <div className="plan-row ban-row"><span>${t("plan.bans")}</span><${Faces} names=${V.bans} empty=${t("plan.bansNone")} /></div>
+    ${pending ? html`<p className="result-note">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
     ${entry || pending ? html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />` : null}
   </section>`;
 }
 
-const PHASES = [["lane", "Lane"], ["mid", "Mid game"], ["fight", "Teamfights"]];
+const PHASES = [["lane", t("plan.phase.lane")], ["mid", t("plan.phase.mid")], ["fight", t("plan.phase.fight")]];
 
 function PlanTab() {
   const [phase, setPhase] = useState("lane");
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const playing = entry ? entry.picked : V.tied ? null : V.shown;
-  if (!playing) return html`<p className="small">${V.tied ? "Choisis un des champions à égalité pour voir son plan." : "Aucun pick disponible."}</p>`;
+  if (!playing) return html`<p className="small">${V.tied ? t("plan.chooseTied") : t("plan.noPick")}</p>`;
   const slots = deriveSlots();
   const plan = buildPlan(playing, V.res.counts, V.mid, slots.jungle);
   return html`<div>
-    <div className="seg-tabs" role="group" aria-label="Phase de jeu">
+    <div className="seg-tabs" role="group" aria-label=${t("plan.phaseLabel")}>
       ${PHASES.map(([key, text]) => html`<button key=${key} type="button" data-test=${`plan-phase-${key}`} aria-pressed=${phase === key} className=${`seg-tab${phase === key ? " on" : ""}`} onClick=${() => setPhase(key)}>${text}</button>`)}
     </div>
     <${motion.ul} key=${phase + playing} className="tips" initial=${{ opacity:.4, y:4 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>
       ${plan[phase].map(tip => html`<li key=${tip}>${tip}</li>`)}
     <//>
-    <p className="small">Avis général basé sur ${V.n > 1 ? `les ${V.n} champions adverses visibles` : V.n ? "1 champion adverse visible" : "aucun champion adverse pour l'instant"}, sans tenir compte des cooldowns ni des builds.</p>
+    <p className="small">${t(V.n > 1 ? "plan.basis.many" : V.n ? "plan.basis.one" : "plan.basis.none", { count: V.n })}</p>
   </div>`;
 }
 
 const IMPACT_MARK = v => v > 0 ? (v >= 2 ? "++" : "+") : v < 0 ? (v <= -2 ? "−−" : "−") : "=";
-const impactText = v => v > 0 ? "avantage" : v < 0 ? "désavantage" : "neutre";
+const impactText = v => t(v > 0 ? "analysis.impact.up" : v < 0 ? "analysis.impact.down" : "analysis.impact.neutral");
 
 function CriteriaView() {
   const entries = V.res.ranking;
   const rows = CRITERIA.filter(def => entries.some(p => p.criteria.some(c => c.key === def.key)));
   const uncertain = [];
   if (V.hypothesis) uncertain.push(hypothesisText());
-  if (V.res.ranking[0] && V.res.ranking[0].byScenario) uncertain.push("Classement pondéré entre ces hypothèses, avec les mêmes règles.");
+  if (V.res.ranking[0] && V.res.ranking[0].byScenario) uncertain.push(t("analysis.weighted"));
   if (!V.mid) uncertain.push(matchupUncertainText());
-  if (V.mid && !matchupOf(V.mid) && !PICKS.some(p => liveMatchup(p, V.mid))) uncertain.push(`Pas de données de matchup contre ${V.mid} : ce critère n'est pas évalué.`);
-  if (V.tied) uncertain.push(`${V.tied.map(label).join(", ")} ont le même score. ${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}`);
-  if (entries[0] && V.shown !== entries[0].pick && !(V.tied && V.tied.includes(entries[0].pick))) uncertain.push(`${label(V.shown)} reste affiché : ${label(entries[0].pick)} mène de trop peu pour changer de nom en cours de draft.`);
-  if (V.n < 5) uncertain.push(`Draft incomplète : ${V.n} adversaire${V.n > 1 ? "s" : ""} sur 5.`);
-  if (V.res.unknown.length) uncertain.push(`Fiche provisoire : ${V.res.unknown.join(", ")}.`);
-  uncertain.push(PREFS.assumeFront ? "Frontline alliée supposée (réglage)." : "Pas de frontline alliée supposée (réglage).");
+  if (V.mid && !matchupOf(V.mid) && !PICKS.some(p => liveMatchup(p, V.mid))) uncertain.push(t("analysis.noMatchupData", { champion: V.mid }));
+  if (V.tied) uncertain.push(t("analysis.tied", { champions: V.tied.map(label).join(", "), cause: tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0]) }));
+  if (entries[0] && V.shown !== entries[0].pick && !(V.tied && V.tied.includes(entries[0].pick))) uncertain.push(t("analysis.held", { champion: label(V.shown), leader: label(entries[0].pick) }));
+  if (V.n < 5) uncertain.push(tp("analysis.incomplete", V.n));
+  if (V.res.unknown.length) uncertain.push(t("analysis.provisional", { champions: V.res.unknown.join(", ") }));
+  uncertain.push(PREFS.assumeFront ? t("analysis.front.on") : t("analysis.front.off"));
   return html`<div>
     <p className="small">${uncertain.join(" ")}</p>
-    <div className="matrix" role="table" aria-label="Critères par champion">
-      <div className="mx-row mx-head" role="row"><span role="columnheader">Critère</span>${entries.map(p => html`<span key=${p.pick} role="columnheader" title=${label(p.pick)}><${Portrait} name=${label(p.pick)} size=${24} /></span>`)}</div>
+    <div className="matrix" role="table" aria-label=${t("analysis.matrix.label")}>
+      <div className="mx-row mx-head" role="row"><span role="columnheader">${t("analysis.matrix.criterion")}</span>${entries.map(p => html`<span key=${p.pick} role="columnheader" title=${label(p.pick)}><${Portrait} name=${label(p.pick)} size=${24} /></span>`)}</div>
       ${rows.map(def => html`<div key=${def.key} className="mx-row" role="row">
         <span role="cell">${def.label}</span>
         ${entries.map(p => {
           const c = p.criteria.find(x => x.key === def.key);
           const v = c ? c.impact : 0;
-          return html`<span key=${p.pick} role="cell" className=${`mx-cell ${v > 0 ? "up" : v < 0 ? "down" : ""}`} title=${c ? c.text : "Non concerné"} aria-label=${`${label(p.pick)} : ${impactText(v)}`}>${IMPACT_MARK(v)}</span>`;
+          return html`<span key=${p.pick} role="cell" className=${`mx-cell ${v > 0 ? "up" : v < 0 ? "down" : ""}`} title=${c ? c.text : t("analysis.matrix.notConcerned")} aria-label=${t("analysis.matrix.cell", { champion: label(p.pick), impact: impactText(v) })}>${IMPACT_MARK(v)}</span>`;
         })}
       </div>`)}
     </div>
@@ -2109,15 +2110,15 @@ function CriteriaView() {
         <p className="small">${positionText(entries, p)}</p>
         ${plus.length ? html`<ul className="why">${plus.map(w => html`<li key=${w.text} className="pos">+ ${signedText(w, 1) || w.text}</li>`)}</ul>` : null}
         ${minus.length ? html`<ul className="why">${minus.map(w => html`<li key=${w.text} className="neg">− ${signedText(w, -1) || w.text}</li>`)}</ul>` : null}
-        ${!plus.length && !minus.length ? html`<p className="small">Aucun critère ne le distingue dans cette draft.</p>` : null}
-        ${threats.length ? html`<p className="small">Menaces : ${threats.join(", ")}</p>` : null}
-        ${targets.length ? html`<p className="small">Opportunités : ${targets.join(", ")}</p>` : null}
-        <p className="small">Condition de victoire : ${winCondition(p.pick, V.res.counts)}</p>
-        ${m ? html`<p className="small"><a href=${matchupLink(p.pick, V.mid)} target="_blank" rel="noopener noreferrer">Vérifier ce matchup sur LoLalytics</a></p>` : null}
+        ${!plus.length && !minus.length ? html`<p className="small">${t("analysis.detail.none")}</p>` : null}
+        ${threats.length ? html`<p className="small">${t("analysis.detail.threats", { champions: threats.join(", ") })}</p>` : null}
+        ${targets.length ? html`<p className="small">${t("analysis.detail.targets", { champions: targets.join(", ") })}</p>` : null}
+        <p className="small">${t("analysis.detail.winCondition", { text: winCondition(p.pick, V.res.counts) })}</p>
+        ${m ? html`<p className="small"><a href=${matchupLink(p.pick, V.mid)} target="_blank" rel="noopener noreferrer">${t("analysis.detail.lolalytics")}</a></p>` : null}
       </details>`;
     })}
-    <h3>Bans conseillés</h3>
-    <ul className="plain">${V.bans.map(n => html`<li key=${n}><b>${n}</b> : ${banReason(n)}</li>`)}</ul>
+    <h3>${t("analysis.bans.title")}</h3>
+    <ul className="plain">${V.bans.map(n => html`<li key=${n}>${tx("analysis.bans.line", { champion: html`<b>${n}</b>`, reason: banReason(n) })}</li>`)}</ul>
   </div>`;
 }
 
@@ -2126,14 +2127,14 @@ function CompareBar({ row, max }) {
   const side = (v, cls) => html`<span className=${`cmp-side ${cls}`}><${motion.i} className=${v > 0 ? "up" : v < 0 ? "down" : ""} initial=${false} animate=${{ scaleX:size(v) }} transition=${QUICK} /></span>`;
   return html`<div className="cmp-row">
     <span className="cmp-label">${row.label}</span>
-    <span className="cmp-bars" role="img" aria-label=${`${row.label} : ${impactText(row.a)} pour le premier, ${impactText(row.b)} pour le second`}>${side(row.a, "left")}${side(row.b, "right")}</span>
+    <span className="cmp-bars" role="img" aria-label=${t("compare.bar.aria", { criterion: row.label, first: impactText(row.a), second: impactText(row.b) })}>${side(row.a, "left")}${side(row.b, "right")}</span>
   </div>`;
 }
 
 function CompareTab() {
   const entries = V.res.ranking;
   const [pair, setPair] = useState(null);
-  if (entries.length < 2) return html`<p className="small">Il faut au moins deux picks disponibles pour comparer.</p>`;
+  if (entries.length < 2) return html`<p className="small">${t("compare.needTwo")}</p>`;
   const defaults = V.tied ? [V.tied[0], V.tied[1]] : [V.shown, V.rival ? V.rival.pick : entries.find(p => p.pick !== V.shown).pick];
   const valid = pair && pair.every(p => entries.some(x => x.pick === p)) && pair[0] !== pair[1];
   const [pa, pb] = valid ? pair : defaults;
@@ -2144,19 +2145,19 @@ function CompareTab() {
   const leader = a.score >= b.score ? a : b;
   const trailer = leader === a ? b : a;
   const select = (slot, pick) => { const next = [pa, pb]; next[slot] = pick; if (next[0] === next[1]) next[1 - slot] = slot === 0 ? pb === pick ? pa : pb : pa === pick ? pb : pa; setPair(next); };
-  const picker = (slot, cur) => html`<div className="cmp-pick" role="group" aria-label=${slot === 0 ? "Premier champion" : "Second champion"}>
+  const picker = (slot, cur) => html`<div className="cmp-pick" role="group" aria-label=${slot === 0 ? t("compare.first") : t("compare.second")}>
     ${entries.map(p => html`<button key=${p.pick} type="button" aria-pressed=${cur === p.pick} aria-label=${label(p.pick)} title=${label(p.pick)} className=${`cmp-btn${cur === p.pick ? " on" : ""}`} onClick=${() => select(slot, p.pick)}><${Portrait} name=${label(p.pick)} size=${26} /></button>`)}
   </div>`;
-  const pros = (x, y) => cmp.rows.filter(r => (x === a ? r.diff > 0 : r.diff < 0)).map(r => x === a ? r.textA || `Moins pénalisé : ${r.label}` : r.textB || `Moins pénalisé : ${r.label}`).slice(0, 3);
+  const pros = (x, y) => cmp.rows.filter(r => (x === a ? r.diff > 0 : r.diff < 0)).map(r => x === a ? r.textA || t("compare.lessPenalized", { criterion: r.label }) : r.textB || t("compare.lessPenalized", { criterion: r.label })).slice(0, 3);
   // whenBetter compte une frontline alliée et ignore les hypothèses sur le vis-à-vis : sinon, rien n'est affirmé.
   const severalHypotheses = !!(V.res.ranking[0] && V.res.ranking[0].byScenario);
   const when = severalHypotheses || !PREFS.assumeFront ? null : whenBetter(trailer.pick, leader.pick, state.enemies, V.mid);
   return html`<div className="compare">
-    <div className="cmp-head">${picker(0, pa)}<b>VS</b>${picker(1, pb)}</div>
-    <p className="cmp-title"><b>${label(pa)}</b> contre <b>${label(pb)}</b></p>
-    <p className="small">${Math.abs(cmp.gap) < 1e-9 ? "À égalité sur le total des critères." : Math.abs(cmp.gap) < HOLD_GAP ? `Serré, léger avantage à ${label(leader.pick)}.` : `Avantage net à ${label(leader.pick)}.`}${leadCriterion(leader, trailer) ? ` ${label(leader.pick)} gagne surtout sur « ${leadCriterion(leader, trailer).label} »` : ""}${leadCriterion(leader, trailer) && comparePicks(trailer, leader).decisive.find(r => r.diff > 0) ? `, ${label(trailer.pick)} sur « ${comparePicks(trailer, leader).decisive.find(r => r.diff > 0).label} »` : ""}${leadCriterion(leader, trailer) ? "." : ""}</p>
+    <div className="cmp-head">${picker(0, pa)}<b>${t("compare.vs")}</b>${picker(1, pb)}</div>
+    <p className="cmp-title">${tx("compare.title", { a: html`<b>${label(pa)}</b>`, b: html`<b>${label(pb)}</b>` })}</p>
+    <p className="small">${[Math.abs(cmp.gap) < 1e-9 ? t("compare.summary.tie") : t(Math.abs(cmp.gap) < HOLD_GAP ? "compare.summary.close" : "compare.summary.clear", { champion: label(leader.pick) }), leadCriterion(leader, trailer) ? t(comparePicks(trailer, leader).decisive.find(r => r.diff > 0) ? "compare.summary.leadBoth" : "compare.summary.lead", { champion: label(leader.pick), criterion: leadCriterion(leader, trailer).label, other: label(trailer.pick), otherCriterion: (comparePicks(trailer, leader).decisive.find(r => r.diff > 0) || {}).label }) : ""].filter(Boolean).join(" ")}</p>
     ${cmp.rows.length ? html`<div className="cmp-row cmp-legend" aria-hidden="true"><span></span><span className="cmp-bars"><span>${label(pa)}</span><span>${label(pb)}</span></span></div>` : null}
-    ${cmp.rows.length ? cmp.rows.map(r => html`<${CompareBar} key=${r.key} row=${r} max=${max} />`) : html`<p className="small">Aucun critère ne les sépare pour l'instant.</p>`}
+    ${cmp.rows.length ? cmp.rows.map(r => html`<${CompareBar} key=${r.key} row=${r} max=${max} />`) : html`<p className="small">${t("compare.noCriterion")}</p>`}
     ${[[a, b], [b, a]].map(([x, y]) => {
       const list = pros(x, y);
       const risk = mainRisk(x);
@@ -2167,8 +2168,8 @@ function CompareTab() {
         ${risk ? html`<ul className="why"><li className="neg">− ${risk}</li></ul>` : null}
       </div>`;
     })}
-    <h3>${label(trailer.pick)} passerait devant</h3>
-    <p className="small">${severalHypotheses ? "Pas calculé tant que ton vis-à-vis n'est pas identifié." : !when ? "Pas calculé sans frontline alliée : ces cas supposent une frontline dans ton équipe." : when.length ? when.join(", ") + "." : "Dans aucun des cas simples testés : autre vis-à-vis, absence de frontline ou nouvel adversaire type."}</p>
+    <h3>${t("compare.whenTitle", { champion: label(trailer.pick) })}</h3>
+    <p className="small">${severalHypotheses ? t("compare.when.hypotheses") : !when ? t("compare.when.noFront") : when.length ? t("compare.when.list", { cases: when.join(", ") }) : t("compare.when.none")}</p>
   </div>`;
 }
 
@@ -2176,29 +2177,29 @@ function MatchupsTab() {
   const [value, setValue] = useState("");
   const hasTable = myRole() === "mid" && PICKS.some(p => WRITTEN_PICKS.includes(p));
   if (!hasTable) {
-    if (!PICKS.some(p => liveRoleOk() && window.MATCHUPS_LIVE.pool[riotKey(label(p))])) return html`<p className="small">Pas encore de bilans pour ce profil : le conseil repose sur la composition adverse et les fiches de champions. Lance <b>Mettre à jour les matchups</b> dans les réglages.</p>`;
+    if (!PICKS.some(p => liveRoleOk() && window.MATCHUPS_LIVE.pool[riotKey(label(p))])) return html`<p className="small">${tx("duel.noData", { action: html`<b>${t("settings.data.updateMatchups")}</b>` })}</p>`;
     const key = norm(value);
     const names = key ? NAMES.filter(n => champKeys(n).some(k => k.includes(key))).slice(0, 8) : [];
     return html`<div>
-      <p className="small" style=${{ margin:"0 0 6px" }}>Regarde tes bilans contre un adversaire, sans toucher à ta draft.</p>
-      <input id="q" type="search" value=${value} autoComplete="off" spellCheck="false" aria-label="Chercher un adversaire" placeholder="Adversaire : ahri, tf, kata..."
+      <p className="small" style=${{ margin:"0 0 6px" }}>${t("duel.measuredHint")}</p>
+      <input id="q" type="search" value=${value} autoComplete="off" spellCheck="false" aria-label=${t("duel.searchLabel")} placeholder=${t("draft.search.placeholder")}
         onChange=${e => setValue(e.target.value)} onKeyDown=${e => { if (e.key === "Escape") { e.stopPropagation(); setValue(""); } }} />
       ${names.map(n => {
         const measured = PICKS.map(p => [p, liveMatchup(p, n)]).filter(x => x[1]);
         return html`<div key=${n} className="mcard">
           <${Portrait} name=${n} size=${32} />
           <span className="mcard-name">${n}</span>
-          <span className="mcard-line">${measured.length ? `Bilans : ${measured.map(([p, x]) => `${label(p)} ${x.gap >= 0 ? "+" : ""}${Math.round(x.gap * 100)} % (${x.games})`).join(", ")}` : `Moins de ${MATCHUP_MIN_GAMES} parties : pas de bilan.`}</span>
+          <span className="mcard-line">${measured.length ? t("duel.measured", { list: measured.map(([p, x]) => t("duel.measuredItem", { champion: label(p), gap: `${x.gap >= 0 ? "+" : ""}${Math.round(x.gap * 100)}`, games: x.games })).join(", ") }) : t("duel.notEnough", { min: MATCHUP_MIN_GAMES })}</span>
         </div>`;
       })}
     </div>`;
   }
   const found = value.trim() ? searchMatchups(value) : [];
   return html`<div>
-    <p className="small" style=${{ margin:"0 0 6px" }}>Regarde quoi prendre contre un mid, sans toucher à ta draft.</p>
-    <input id="q" type="search" value=${value} autoComplete="off" spellCheck="false" aria-label="Chercher un mid adverse" placeholder="Mid adverse : ahri, tf, kata..."
+    <p className="small" style=${{ margin:"0 0 6px" }}>${t("duel.tableHint")}</p>
+    <input id="q" type="search" value=${value} autoComplete="off" spellCheck="false" aria-label=${t("duel.tableSearchLabel")} placeholder=${t("duel.tablePlaceholder")}
       onChange=${e => setValue(e.target.value)} onKeyDown=${e => { if (e.key === "Escape") { e.stopPropagation(); setValue(""); } }} />
-    ${value.trim() && !found.length ? html`<p className="small">Pas dans le tableau. Ajoute ce champion à ta draft pour voir le classement.</p>` : null}
+    ${value.trim() && !found.length ? html`<p className="small">${t("duel.notInTable")}</p>` : null}
     ${found.map(m => {
       const [first, second] = optionsFor(m);
       const avoid = avoidedPicks(m).map(label).join(", ");
@@ -2206,16 +2207,18 @@ function MatchupsTab() {
       return html`<div key=${m.n} className="mcard">
         <${Portrait} name=${m.n} size=${32} />
         <span className="mcard-name">${m.n}</span>
-        <span className="mcard-line">Prends <b>${label(first)}</b>, sinon <b>${label(second)}</b></span>
-        <span className="mcard-line">À éviter : <span className="avoid">${avoid || "rien de particulier"}</span></span>
+        <span className="mcard-line">${tx("duel.take", { first: html`<b>${label(first)}</b>`, second: html`<b>${label(second)}</b>` })}</span>
+        <span className="mcard-line">${t("advice.more.avoid")} <span className="avoid">${avoid || t("duel.nothing")}</span></span>
         ${measured.length
-          ? html`<span className="mcard-line">Bilans : ${measured.map(([p, x]) => `${label(p)} ${x.gap >= 0 ? "+" : ""}${Math.round(x.gap * 100)} % (${x.games})`).join(", ")}</span>`
-          : html`<span className="mcard-line">Avis écrit à la main, pas encore de bilan.</span>`}
+          ? html`<span className="mcard-line">${t("duel.measured", { list: measured.map(([p, x]) => t("duel.measuredItem", { champion: label(p), gap: `${x.gap >= 0 ? "+" : ""}${Math.round(x.gap * 100)}`, games: x.games })).join(", ") })}</span>`
+          : html`<span className="mcard-line">${t("duel.writtenOnly")}</span>`}
       </div>`;
     })}
   </div>`;
 }
 
+// Type de mid du tableau (donnée en français, « Mage », « Combattant »...) : seul l'affichage passe par le catalogue.
+const midTypeLabel = type => ({ Mage:t("enemy.midType.mage"), Assassin:t("enemy.midType.assassin"), Tank:t("enemy.midType.tank"), Combattant:t("enemy.midType.fighter") }[type] || type);
 function WinBars({ title, groups }) {
   if (!groups.length) return null;
   return html`<div>
@@ -2226,47 +2229,47 @@ function WinBars({ title, groups }) {
         const few = rec.games < MIN_GAMES;
         return html`<div key=${g.name} className=${`winbar${few ? " few" : ""}`}>
           <span className="winbar-name">${g.name}</span>
-          <span className="winbar-track" role="img" aria-label=${`${g.name} : ${fmtRecord(rec)}`}>
+          <span className="winbar-track" role="img" aria-label=${t("stats.winbar.aria", { name: g.name, record: fmtRecord(rec) })}>
             <${motion.i} initial=${{ scaleX:0 }} animate=${{ scaleX: rec.games ? rec.wins / rec.games : 0 }} transition=${ARRIVE} />
           </span>
-          <span className="winbar-val">${fmtRecord(rec)}${few ? "" : `, ${pct(rec)}`}</span>
+          <span className="winbar-val">${few ? fmtRecord(rec) : t("stats.winbar.value", { record: fmtRecord(rec), percent: pct(rec) })}</span>
         </div>`;
       })}
     </div>
-    <p className="small">Sans pourcentage : moins de ${MIN_GAMES} parties, trop peu pour conclure.</p>
+    <p className="small">${t("stats.winbar.few", { min: MIN_GAMES })}</p>
   </div>`;
 }
 
 function evolutionGroups(rows) {
   const sorted = [...rows].sort((x, y) => x.time - y.time);
   const groups = [];
-  for (let i = 0; i + EVOLUTION_STEP <= sorted.length; i += EVOLUTION_STEP) groups.push({ name:`${i + 1} à ${i + EVOLUTION_STEP}`, rows:sorted.slice(i, i + EVOLUTION_STEP) });
+  for (let i = 0; i + EVOLUTION_STEP <= sorted.length; i += EVOLUTION_STEP) groups.push({ name:t("stats.range", { from: i + 1, to: i + EVOLUTION_STEP }), rows:sorted.slice(i, i + EVOLUTION_STEP) });
   return groups;
 }
 
 const StatsTable = ({ title, groups }) => html`<div>
   <h3>${title}</h3>
-  <table><thead><tr><th></th><th>Parties</th><th>Bilan</th><th>Winrate</th></tr></thead>
+  <table><thead><tr><th></th><th>${t("stats.table.games")}</th><th>${t("stats.table.record")}</th><th>${t("stats.table.winrate")}</th></tr></thead>
   <tbody>${groups.map(g => { const rec = record(g.rows); return html`<tr key=${g.name}><td>${g.name}</td><td>${rec.games}</td><td>${fmtRecord(rec)}</td><td>${pct(rec)}</td></tr>`; })}</tbody></table>
 </div>`;
 
 function StatsTab() {
-  if (!STAT_ROWS.length) return html`<p className="small" data-test="stats-empty">Pas encore de statistiques importées ici. Ton historique Riot s'importe dans les réglages et s'affiche dans l'onglet Conseils. Un ancien fichier draft-stats.js s'importe dans l'onglet Historique Riot, avec l'application DRAFT.</p>`;
+  if (!STAT_ROWS.length) return html`<p className="small" data-test="stats-empty">${t("stats.old.empty")}</p>`;
   return html`<div>
-    <p className="small">Import du ${new Date(STATS.generated).toLocaleDateString("fr-FR")}, ${STAT_ROWS.length} parties classées solo/duo. Ces bilans décrivent le passé et ne changent pas le verdict.</p>
+    <p className="small">${t("stats.old.imported", { date: fmtDate(STATS.generated), count: STAT_ROWS.length })}</p>
     ${groupRows(STAT_ROWS, r => r.acct).map(account => {
       const offPool = account.rows.filter(r => !inPool(r.champ));
       return html`<div key=${account.name}>
-        <${WinBars} title=${`Victoires par champion, ${account.name}`} groups=${groupRows(account.rows, r => r.champ).slice(0, 8)} />
-        <${WinBars} title="Selon le type de mid adverse" groups=${groupRows(account.rows.filter(r => matchupOf(r.mid)), r => matchupOf(r.mid).t)} />
-        <${WinBars} title=${`Évolution par tranche de ${EVOLUTION_STEP} parties`} groups=${evolutionGroups(account.rows)} />
+        <${WinBars} title=${t("stats.old.byChampion", { account: account.name })} groups=${groupRows(account.rows, r => r.champ).slice(0, 8)} />
+        <${WinBars} title=${t("stats.byMidType")} groups=${groupRows(account.rows.filter(r => matchupOf(r.mid)), r => midTypeLabel(matchupOf(r.mid).t))} />
+        <${WinBars} title=${t("stats.old.evolution", { count: EVOLUTION_STEP })} groups=${evolutionGroups(account.rows)} />
         <${StatsTable} title=${account.name} groups=${[
-          { name:"Total", rows:account.rows },
-          { name:"Mon pool", rows:account.rows.filter(r => inPool(r.champ)) },
-          { name:"Hors de ce pool", rows:offPool }
+          { name:t("stats.old.total"), rows:account.rows },
+          { name:t("stats.old.inPool"), rows:account.rows.filter(r => inPool(r.champ)) },
+          { name:t("stats.old.offPool"), rows:offPool }
         ]} />
-        ${offPool.length ? html`<${StatsTable} title="Hors pool, par rôle" groups=${groupRows(offPool, r => POSITIONS[r.pos] || "Autre")} />
-          <${StatsTable} title="Hors pool, par champion" groups=${groupRows(offPool, r => r.champ).slice(0, 8)} />` : null}
+        ${offPool.length ? html`<${StatsTable} title=${t("stats.old.offPoolByRole")} groups=${groupRows(offPool, r => POSITIONS[r.pos] || t("stats.old.otherRole"))} />
+          <${StatsTable} title=${t("stats.old.offPoolByChampion")} groups=${groupRows(offPool, r => r.champ).slice(0, 8)} />` : null}
       </div>`;
     })}
   </div>`;
@@ -2274,60 +2277,60 @@ function StatsTab() {
 
 function JournalTab() {
   const list = loadJournal();
-  if (!list.length) return html`<p className="small">Ton journal est vide : clique sur « Je joue » pendant une draft pour commencer.</p>`;
+  if (!list.length) return html`<p className="small">${t("journal.empty")}</p>`;
   const played = list.filter(x => x.result === "win" || x.result === "loss");
   const tally = rows => { const w = rows.filter(x => x.result === "win").length; return { wins:w, losses:rows.length - w, games:rows.length }; };
   const followed = tally(played.filter(x => x.picked === x.suggested));
   const other = tally(played.filter(x => x.picked !== x.suggested));
   return html`<div>
-    ${played.length ? html`<h3>Dernières parties</h3>
-      <div className="history" role="img" aria-label=${`${played.filter(x => x.result === "win").length} victoires sur ${played.length} parties notées`}>
-        ${played.slice(-20).map((x, i) => html`<${motion.span} key=${x.id} className=${`game ${x.result}`} title=${`${label(x.picked)} : ${x.result === "win" ? "victoire" : "défaite"}`} initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${{ ...QUICK, delay:i * .012 }}><//>`)}
+    ${played.length ? html`<h3>${t("journal.recent")}</h3>
+      <div className="history" role="img" aria-label=${t("journal.dots.aria", { wins: played.filter(x => x.result === "win").length, count: played.length })}>
+        ${played.slice(-20).map((x, i) => html`<${motion.span} key=${x.id} className=${`game ${x.result}`} title=${t(x.result === "win" ? "journal.dot.win" : "journal.dot.loss", { champion: label(x.picked) })} initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${{ ...QUICK, delay:i * .012 }}><//>`)}
       </div>
-      <${WinBars} title="Victoires par champion joué" groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
-      <${WinBars} title="Selon le type de mid adverse" groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: matchupOf(x.mid).t })), r => r.type)} />
-      <h3>Compositions récentes</h3>
+      <${WinBars} title=${t("stats.byChampion.title")} groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
+      <${WinBars} title=${t("stats.byMidType")} groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: midTypeLabel(matchupOf(x.mid).t) })), r => r.type)} />
+      <h3>${t("journal.comps")}</h3>
       <ul className="comps">${played.slice(-5).reverse().map(x => html`<li key=${x.id}><span className=${`game ${x.result}`}></span><b>${label(x.picked)}</b><span className="comp-faces">${(x.enemies || []).map(n => html`<${Portrait} key=${n} name=${n} size=${22} />`)}</span></li>`)}</ul>` : null}
-    <p className="small">Conseil suivi : ${fmtRecord(followed)}. Autre choix : ${fmtRecord(other)}. Ces chiffres ne prouvent pas que l'outil aide : tu ne choisis pas au hasard, et il faut plusieurs centaines de parties pour voir un écart fiable.</p>
-    <table><thead><tr><th>Date</th><th>Pick</th><th>Mid</th><th>Conseil</th><th>Résultat</th></tr></thead>
+    <p className="small">${t("journal.followed", { followed: fmtRecord(followed), other: fmtRecord(other) })}</p>
+    <table><thead><tr><th>${t("journal.table.date")}</th><th>${t("journal.table.pick")}</th><th>${t("journal.table.mid")}</th><th>${t("journal.table.advice")}</th><th>${t("journal.table.result")}</th></tr></thead>
     <tbody>${list.slice(-10).reverse().map(x => html`<tr key=${x.id}>
-      <td>${new Date(x.date).toLocaleDateString("fr-FR")}</td><td>${label(x.picked)}</td><td>${x.mid || "-"}</td><td>${label(x.suggested || "-")}</td>
-      <td>${{ win:"Victoire", loss:"Défaite", skip:"Ignorée" }[x.result] || "En attente"}</td></tr>`)}</tbody></table>
-    <p style=${{ marginTop:10 }}><button type="button" className="ghost-btn" onClick=${exportJournal}>Télécharger le journal</button></p>
+      <td>${fmtDate(x.date)}</td><td>${label(x.picked)}</td><td>${x.mid || "-"}</td><td>${label(x.suggested || "-")}</td>
+      <td>${{ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") }[x.result] || t("journal.status.pending")}</td></tr>`)}</tbody></table>
+    <p style=${{ marginTop:10 }}><button type="button" className="ghost-btn" onClick=${exportJournal}>${t("journal.download")}</button></p>
   </div>`;
 }
 
 const RulesTab = () => html`<div>
-  ${myRole() !== "mid" || !PICKS.every(p => WRITTEN_PICKS.includes(p)) ? html`<h3>Comment tes picks sont classés</h3>
-  <p className="small">Chaque champion a une fiche écrite à la main : chasseur de carrys fragiles, anti-tank, peu mobile, protecteur, etc. Le moteur compare ces fiches à leur comp. C'est un avis général, sans statistiques.</p>` : html`<h3>Repères pour ton pool (résumé, pas le calcul exact)</h3>
-  <table><thead><tr><th>Situation</th><th>Pick</th></tr></thead><tbody>
-    <tr><td>Au moins 2 tanks ou bruisers, et tu as une frontline</td><td>Kog'Maw</td></tr>
-    <tr><td>Au moins 2 carrys fragiles, et peu de CC ciblés</td><td>Fizz</td></tr>
-    <tr><td>Adversaires peu mobiles et peu de dive, et tu as une frontline</td><td>Xerath</td></tr>
-    <tr><td>Tous les autres cas, ou draft inconnue</td><td>Twisted Fate</td></tr>
+  ${myRole() !== "mid" || !PICKS.every(p => WRITTEN_PICKS.includes(p)) ? html`<h3>${t("rules.how.title")}</h3>
+  <p className="small">${t("rules.how.text")}</p>` : html`<h3>${t("rules.pool.title")}</h3>
+  <table><thead><tr><th>${t("rules.pool.situation")}</th><th>${t("journal.table.pick")}</th></tr></thead><tbody>
+    <tr><td>${t("rules.pool.kogmaw")}</td><td>Kog'Maw</td></tr>
+    <tr><td>${t("rules.pool.fizz")}</td><td>Fizz</td></tr>
+    <tr><td>${t("rules.pool.xerath")}</td><td>Xerath</td></tr>
+    <tr><td>${t("rules.pool.tf")}</td><td>Twisted Fate</td></tr>
   </tbody></table>
-  <h3>Quand éviter chaque pick</h3>
+  <h3>${t("rules.avoid.title")}</h3>
   <ul className="plain">
-    <li><b>Kog'Maw :</b> ton équipe n'a pas de frontline, ou leur comp a au moins 2 assassins ou champions de dive.</li>
-    <li><b>Fizz :</b> aucun carry fragile accessible, ou beaucoup de CC ciblés en face.</li>
-    <li><b>Xerath :</b> plusieurs champions très mobiles en face, et pas de peel dans ton équipe.</li>
-    <li><b>Twisted Fate :</b> rarement mauvais, mais moins utile si tes alliés ne suivent jamais tes ults.</li>
+    <li><b>Kog'Maw :</b> ${t("rules.avoid.kogmaw")}</li>
+    <li><b>Fizz :</b> ${t("rules.avoid.fizz")}</li>
+    <li><b>Xerath :</b> ${t("rules.avoid.xerath")}</li>
+    <li><b>Twisted Fate :</b> ${t("rules.avoid.tf")}</li>
   </ul>`}
-  <h3>Critères et poids du moteur</h3>
-  <p className="small">Chaque critère donne une note de -2 à +2, multipliée par son poids. Le total sert seulement à comparer tes picks : ce n'est ni un winrate ni une probabilité. Ces poids sont des choix de conception, jamais mesurés sur de vraies parties.</p>
-  <table><thead><tr><th>Critère</th><th>Poids</th><th>D'où ça vient</th></tr></thead><tbody>
+  <h3>${t("rules.weights.title")}</h3>
+  <p className="small">${t("rules.weights.text")}</p>
+  <table><thead><tr><th>${t("analysis.matrix.criterion")}</th><th>${t("rules.weights.weight")}</th><th>${t("rules.weights.source")}</th></tr></thead><tbody>
     ${CRITERIA.map(c => html`<tr key=${c.key}><td>${c.label}</td><td>${String(c.weight).replace(".", ",")}</td><td>${c.source}</td></tr>`)}
   </tbody></table>
-  <h3>Provenance des données</h3>
+  <h3>${t("rules.sources.title")}</h3>
   <ul className="plain">
-    <li><b>Officiel (Riot, Data Dragon) :</b> noms, portraits, illustrations, numéro de patch, classes de Locke et Zaahen.</li>
-    <li><b>Statistiques observées :</b> rôles et bilans de matchups, si tu les as calculés avec l'API Riot. Le lien LoLalytics ouvre simplement leur page.</li>
-    <li><b>Écrit à la main :</b> matchups sans assez de parties, profils de champions, règles, plan de jeu.</li>
-    <li><b>Personnel :</b> ton journal et ton import Riot. Affichés, mais sans effet sur le classement.</li>
+    <li><b>${t("rules.sources.official")}</b> ${t("rules.sources.officialText")}</li>
+    <li><b>${t("rules.sources.observed")}</b> ${t("rules.sources.observedText")}</li>
+    <li><b>${t("rules.sources.written")}</b> ${t("rules.sources.writtenText")}</li>
+    <li><b>${t("rules.sources.personal")}</b> ${t("rules.sources.personalText")}</li>
   </ul>
-  <h3>Fiabilité</h3>
-  <p className="small">${PREFS.assumeFront ? "L'outil compte sur une frontline dans ton équipe (réglage). Quand ton vis-à-vis est identifié, il indique le pick qui passerait devant sans elle." : "Réglage actuel : pas de frontline alliée supposée."} Pendant la draft, le nom affiché ne change que si un autre pick mène d'au moins ${HOLD_GAP} points. Les autres rôles servent à l'affichage. Le ban conseillé vient de tes bilans calculés s'il y en a, sinon du tableau de matchups (mid), sinon des fiches de champions. La plupart des conseils sont un avis général, sans statistiques actuelles ni vérification du patch en cours. Seuls les bilans « Tes parties » viennent de tes comptes, et ils portent souvent sur peu de parties.</p>
-  <p className="legal">Outil personnel non approuvé par Riot Games. Les portraits et illustrations appartiennent à Riot Games.</p>
+  <h3>${t("rules.reliability.title")}</h3>
+  <p className="small">${t(PREFS.assumeFront ? "rules.reliability.frontOn" : "rules.reliability.frontOff")} ${t("rules.reliability.text", { gap: HOLD_GAP })}</p>
+  <p className="legal">${t("legal.notEndorsed")}</p>
 </div>`;
 
 // Comparer et Règles restent des vues d'Analyse : leurs anciens liens (?tab=compare, ?tab=rules) y mènent toujours.
@@ -2349,7 +2352,7 @@ function openViewInPage(tab, source) {
 }
 // UX-7 : onglets du Simulateur sur un seul niveau (Plan, Critères, Comparer, Conseils, Duel). « Règles » devient une aide,
 // « Comment DRAFT classe tes picks », ouverte par un lien sous les onglets. data-tab="analyse" reste sur Critères (ancienne adresse).
-const TABS = [["plan", "Plan", PlanTab], ["criteria", "Critères", CriteriaView], ["compare", "Comparer", CompareTab], ["coach", "Conseils", CoachTab], ["matchups", "Duel", MatchupsTab]];
+const TABS = [["plan", t("sim.tab.plan"), PlanTab], ["criteria", t("sim.tab.criteria"), CriteriaView], ["compare", t("sim.tab.compare"), CompareTab], ["coach", t("sim.tab.coach"), CoachTab], ["matchups", t("sim.tab.duel"), MatchupsTab]];
 // L'ancien onglet « Parties » (journal et statistiques importées) est devenu la section Mes statistiques (UX-3).
 const tabFromTarget = t0 => t0 === "analyse" ? "criteria" : t0 === "rules" ? "rules" : TABS.some(x => x[0] === t0) ? t0 : "plan";
 
@@ -2358,7 +2361,7 @@ function SidePanel() {
   const Current = tab === "rules" ? RulesTab : TABS.find(t => t[0] === tab)[2];
   return html`<aside className="col col-right">
     <${PlanBlock} />
-    <div className="tabs" role="tablist" aria-label="Détails et statistiques">
+    <div className="tabs" role="tablist" aria-label=${t("sim.tabsLabel")}>
       ${TABS.map(([key, text]) => html`<button key=${key} type="button" role="tab" aria-selected=${tab === key} data-tab=${key === "criteria" ? "analyse" : key} data-view=${key === "criteria" || key === "compare" ? key : undefined} className=${`tab${tab === key ? " on" : ""}`} onClick=${() => setTab(key)}>
         ${text}
         ${tab === key ? html`<${motion.span} className="tab-line" layoutId="tab-line" transition=${SNAP} />` : null}
@@ -2372,10 +2375,10 @@ function MobileBar() {
   if (V.none) return null;
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const picked = entry && entry.picked === V.shown;
-  if (V.tied) return html`<div className="mobile-bar"><span className="mobile-name">Égalité : ${V.tied.map(label).join(", ")}</span></div>`;
+  if (V.tied) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span></div>`;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${label(V.shown)} size=${32} />${label(V.shown)}</span>
-    <${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? "Enregistré" : "Je joue"}<//>
+    <${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? t("advice.mobile.saved") : t("advice.mobile.play")}<//>
   </div>`;
 }
 
@@ -2395,19 +2398,23 @@ function noPickText() {
 }
 
 // Changement de rôle en un clic. Le rôle actif est toujours visible.
+function roleSwitchTitle(r) {
+  const n = PROFILES.roles[r].pool.length, base = n ? tp("role.switch.title", n, { role: ROLE_NAMES[r] }) : t("role.switch.titleEmpty", { role: ROLE_NAMES[r] });
+  return state.assignedRole === r ? t("role.switch.assigned", { title: base }) : base;
+}
 function RoleSwitch() {
   const suggestion = roleSuggestion();
   return html`<div className="role-switch-wrap">
-    <div className="role-switch" role="group" aria-label="Rôle actif">
-      <span className="role-now" data-test="role-now">${PROFILES.active ? ROLE_NAMES[PROFILES.active] : "Rôle ?"}</span>
+    <div className="role-switch" role="group" aria-label=${t("role.switch.label")}>
+      <span className="role-now" data-test="role-now">${PROFILES.active ? ROLE_NAMES[PROFILES.active] : t("role.switch.none")}</span>
       ${PROFILE_ROLES.map(r => html`<button key=${r} type="button" data-role=${r} data-test=${`role-switch-${r}`} aria-pressed=${PROFILES.active === r}
         className=${`role-btn${PROFILES.active === r ? " on" : ""}${state.assignedRole === r ? " assigned" : ""}`}
-        title=${`${ROLE_NAMES[r]}${PROFILES.roles[r].pool.length ? ` : ${PROFILES.roles[r].pool.length} champion${PROFILES.roles[r].pool.length > 1 ? "s" : ""}` : " : aucun champion"}${state.assignedRole === r ? " (attribué par LoL)" : ""}`}
-        aria-label=${`Passer au profil ${ROLE_NAMES[r]}`} onClick=${() => switchRole(r, "manual")}><${RoleIcon} role=${r} /></button>`)}
+        title=${roleSwitchTitle(r)}
+        aria-label=${t("role.switch.aria", { role: ROLE_NAMES[r] })} onClick=${() => switchRole(r, "manual")}><${RoleIcon} role=${r} /></button>`)}
     </div>
-    ${suggestion ? html`<p className="role-hint" data-test="role-hint" role="status">LoL t'attribue ${ROLE_NAMES[suggestion]}.
-      <button type="button" className="link-btn" data-test="role-hint-switch" onClick=${() => switchRole(suggestion, "manual")}>Passer à ${ROLE_NAMES[suggestion]}</button>
-      <button type="button" className="link-btn" data-test="role-hint-dismiss" aria-label="Ignorer" onClick=${() => { state.roleDismissed = suggestion; publish(null); }}>Ignorer</button></p>` : null}
+    ${suggestion ? html`<p className="role-hint" data-test="role-hint" role="status">${t("role.hint.assigned", { role: ROLE_NAMES[suggestion] })}
+      <button type="button" className="link-btn" data-test="role-hint-switch" onClick=${() => switchRole(suggestion, "manual")}>${t("role.hint.switch", { role: ROLE_NAMES[suggestion] })}</button>
+      <button type="button" className="link-btn" data-test="role-hint-dismiss" aria-label=${t("role.hint.dismiss")} onClick=${() => { state.roleDismissed = suggestion; publish(null); }}>${t("role.hint.dismiss")}</button></p>` : null}
   </div>`;
 }
 
@@ -2426,12 +2433,12 @@ function openDisplaySettings() {
 }
 function TitleBar() {
   return html`<header className="p-title">
-    <${LogoMark} /><span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span>
+    <${LogoMark} /><span className="brand" title=${t("brand.tagline")}>DRAFT</span>
     <span className="grow"></span>
     ${IS_HOST ? html`<span className="p-tools">
-      <button type="button" className="p-btn" data-test="panel-toggle-compact" title=${hostState.compact ? "Deux panneaux" : "Panneau unique"} aria-label=${hostState.compact ? "Passer à deux panneaux" : "Passer au panneau unique"} onClick=${() => hostSend({ cmd:"toggleCompact" })}><${ToolIcon} name=${hostState.compact ? "two" : "one"} /></button>
+      <button type="button" className="p-btn" data-test="panel-toggle-compact" title=${hostState.compact ? t("panel.compact.two") : t("panel.compact.one")} aria-label=${hostState.compact ? t("panel.compact.toTwo") : t("panel.compact.toOne")} onClick=${() => hostSend({ cmd:"toggleCompact" })}><${ToolIcon} name=${hostState.compact ? "two" : "one"} /></button>
       <button type="button" className="p-btn" data-test="panel-settings" title=${t("panel.tools.display")} aria-label=${t("panel.tools.display")} onClick=${openDisplaySettings}><${ToolIcon} name="display" /></button>
-      <button type="button" className="p-btn" data-test="panel-hide" title="Masquer" aria-label="Masquer les panneaux" onClick=${() => hostSend({ cmd:"hideAll" })}><${ToolIcon} name="hide" /></button>
+      <button type="button" className="p-btn" data-test="panel-hide" title=${t("panel.hide")} aria-label=${t("panel.hideAll")} onClick=${() => hostSend({ cmd:"hideAll" })}><${ToolIcon} name="hide" /></button>
     </span>` : null}
   </header>`;
 }
@@ -2455,59 +2462,59 @@ function VerdictPanel() {
   return html`<div className="p-body">
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <div className="p-status">
-      ${V.tied ? html`<span data-test="badge" className="badge close">Égalité</span>` : V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? "Choix net" : "Choix serré"}</span>` : null}
-      ${unknown ? html`<span data-test="badge" className="badge">${V.n}/5 adversaires</span>` : null}
+      ${V.tied ? html`<span data-test="badge" className="badge close">${t("advice.badge.tie")}</span>` : V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? t("advice.badge.clear") : t("advice.badge.close")}</span>` : null}
+      ${unknown ? html`<span data-test="badge" className="badge">${t("advice.badge.enemies", { count: V.n })}</span>` : null}
       ${IS_HOST && hostState.available ? html`<span data-test="panel-source" className="badge source" title=${t("panel.source.help")}>${t(hostState.lcuEnabled && hostState.lcuStatus === "connected" ? "panel.source.client" : "panel.source.manual")}</span>` : null}
     </div>
-    ${V.tied ? html`<${TieGroup} detailed=${false} />` : html`<section className="p-reco" aria-label="Champion conseillé">
+    ${V.tied ? html`<${TieGroup} detailed=${false} />` : html`<section className="p-reco" aria-label=${t("panel.reco.label")}>
       <${SplashStack} name=${name} />
       <div className="p-reco-scrim"></div>
       <${motion.div} key=${name} className="p-reco-text" initial=${{ y:8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
-        <span className="p-chip">${shownIsFirst() ? "Recommandé" : "Presque à égalité"}</span>
+        <span className="p-chip">${t(shownIsFirst() ? "advice.rank.recommended" : "panel.alt.almostTie")}</span>
         <div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div>
       <//>
     </section>`}
-    ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}><b>${V.change.trigger} :</b> ${V.change.to} passe devant ${V.change.from}</${motion.p}>` : null}
-    ${V.rival ? html`<button type="button" className="p-alt" data-test="open-compare" title="Comparer ces deux champions" onClick=${() => openDetail("compare")}>
+    ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>` : null}
+    ${V.rival ? html`<button type="button" className="p-alt" data-test="open-compare" title=${t("panel.compareTitle")} onClick=${() => openDetail("compare")}>
       <${Portrait} name=${label(V.rival.pick)} size=${40} />
-      <span className="p-alt-text"><small>${V.tied ? "Sinon" : V.clear ? "Alternative" : shownIsFirst() ? "Presque à égalité" : "Devant de peu"}</small>${label(V.rival.pick)}</span>
+      <span className="p-alt-text"><small>${t(V.tied ? "advice.alt.else" : V.clear ? "advice.rank.alternative" : shownIsFirst() ? "panel.alt.almostTie" : "panel.alt.justAhead")}</small>${label(V.rival.pick)}</span>
       <span className="p-alt-go">${t("panel.compare")}</span>
     </button>` : null}
     <${FamiliarLine} />
-    <h2 className="sr">Pourquoi ce choix ?</h2>
+    <h2 className="sr">${t("panel.why")}</h2>
     <ul className="p-reasons">
-      ${(reasons.length ? reasons : [V.tied ? "Leurs raisons diffèrent : compare-les dans Analyse." : "Aucun argument marqué pour l'instant : ajoute des adversaires."]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
+      ${(reasons.length ? reasons : [V.tied ? t("panel.reasons.tieDiffer") : t("panel.reasons.none")]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
     </ul>
-    ${threat ? html`<section className="p-threat" aria-label="Menace principale">
+    ${threat ? html`<section className="p-threat" aria-label=${t("panel.threat.label")}>
       <${Portrait} name=${threat} size=${30} />
-      <div><b>Menace : ${threat}</b><p>${V.tied ? "Commun à ces champions." : threatText(V.shown, threat, c)}</p></div>
+      <div><b>${t("panel.threat.title", { champion: threat })}</b><p>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
     </section>` : null}
     <${CoachLine} />
     <${OpponentLine} />
     <details key=${V.n ? "draft" : "bans"} className="p-more" open=${!V.n}>
-      <summary>${V.n ? "Plan de jeu et ban" : "Ban conseillé"}</summary>
-      ${V.bans[0] ? html`<section className="p-ban" aria-label="Ban conseillé">
-        <div className="p-ban-row"><${Portrait} name=${V.bans[0]} size=${34} /><b>${V.bans[0]}</b>${V.bans.length > 1 ? html`<span>ou ${V.bans.slice(1).join(", ")}</span>` : null}</div>
-        <p className="note">${V.bans[0]} ${banReason(V.bans[0])}.</p>
+      <summary>${V.n ? t("panel.more.planAndBan") : t("panel.ban.title")}</summary>
+      ${V.bans[0] ? html`<section className="p-ban" aria-label=${t("panel.ban.title")}>
+        <div className="p-ban-row"><${Portrait} name=${V.bans[0]} size=${34} /><b>${V.bans[0]}</b>${V.bans.length > 1 ? html`<span>${t("panel.ban.or", { champions: V.bans.slice(1).join(", ") })}</span>` : null}</div>
+        <p className="note">${t("panel.ban.reason", { champion: V.bans[0], reason: banReason(V.bans[0]) })}</p>
       </section>` : null}
-      ${playing ? html`<section className="p-win"><b>Gagne si</b><p>${winCondition(playing, c)}</p></section>` : html`<p className="note">Choisis un champion pour voir son plan.</p>`}
+      ${playing ? html`<section className="p-win"><b>${t("plan.winIf")}</b><p>${winCondition(playing, c)}</p></section>` : html`<p className="note">${t("panel.choosePlan")}</p>`}
     </details>
     <div className="p-actions">
-      ${V.tied ? null : html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? `${name} noté` : `Je joue ${name}`}<//>`}
+      ${V.tied ? null : html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? t("advice.cta.noted", { champion: name }) : t("advice.cta.play", { champion: name })}<//>`}
       <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" />${t("panel.details")}</button>
     </div>
     ${entry || pending ? html`<div>
-      ${pending ? html`<p className="result-note">Dernière partie : <b>${label(pending.picked)}</b></p>` : null}
+      ${pending ? html`<p className="result-note">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
       <${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />
     </div>` : null}
   </div>`;
 }
 
 const LCU_STATES = {
-  connected: ["good", "Connecté au client LoL"],
-  waiting: ["wait", "En attente : lance le client LoL pour vérifier"],
-  failed: ["bad", "Client ouvert, mais connexion impossible"],
-  off: ["idle", "Désactivée : la détection est estimée et peu fiable"]
+  connected: ["good", t("settings.lcu.connected")],
+  waiting: ["wait", t("settings.lcu.waiting")],
+  failed: ["bad", t("settings.lcu.failed")],
+  off: ["idle", t("settings.lcu.off")]
 };
 
 // Le calcul des matchups tourne dans le programme : il a besoin du rôle et du pool, en noms de Riot.
@@ -2541,7 +2548,7 @@ function ProfileBackup() {
     const url = URL.createObjectURL(new Blob([exportConfig(PROFILES, PREFS, APP_VERSION)], { type:"application/json" }));
     const a = document.createElement("a");
     a.href = url; a.download = "draft-profils.json"; a.click(); URL.revokeObjectURL(url);
-    setNote("Profils exportés : rôles, champions et préférences, sans historique ni clé.");
+    setNote(t("pool.backup.exported"));
   };
   const load = e => {
     const file = e.target.files[0];
@@ -2549,7 +2556,7 @@ function ProfileBackup() {
     if (!file) return;
     file.text().then(text => {
       const parsed = parseConfig(text);
-      if (!parsed.ok) { setNote(parsed.error + " Rien n'a été modifié."); return; }
+      if (!parsed.ok) { setNote(t("pool.backup.refused", { error: parsed.error })); return; }
       const done = applyConfig(parsed, PROFILES, localStorage);
       if (!done.ok) { setNote(done.error); return; }
       PROFILES = done.profiles;
@@ -2559,20 +2566,20 @@ function ProfileBackup() {
       useActiveRole();
       sendProfile();
       commit();
-      setNote("Profils importés." + (parsed.warnings.length ? ` ${parsed.warnings.join(" ")}` : "") + " L'état précédent est sauvegardé.");
+      setNote(parsed.warnings.length ? t("pool.backup.importedWarnings", { warnings: parsed.warnings.join(" ") }) : t("pool.backup.imported"));
       refresh(x => x + 1);
-    }).catch(() => setNote("Fichier illisible : rien n'a été modifié."));
+    }).catch(() => setNote(t("pool.backup.unreadable")));
   };
   const undo = () => {
     const back = restoreLastBackup(localStorage);
     if (!back) return;
     PROFILES = back; storeProfiles(); useActiveRole(); sendProfile(); commit();
-    setNote("Profils précédents restaurés."); refresh(x => x + 1);
+    setNote(t("pool.backup.restored")); refresh(x => x + 1);
   };
   return html`<div className="set-row profile-backup">
-    <button type="button" className="ghost-btn" data-test="export-profiles" onClick=${download}>Exporter mes profils</button>
-    <label className="ghost-btn file-btn">Importer<input type="file" data-test="import-profiles" accept=".json,application/json" aria-label="Importer des profils" onChange=${load} /></label>
-    ${latestProfilesBackup(localStorage) ? html`<button type="button" className="ghost-btn" data-test="undo-profiles-import" onClick=${undo}>Annuler le dernier import</button>` : null}
+    <button type="button" className="ghost-btn" data-test="export-profiles" onClick=${download}>${t("pool.backup.export")}</button>
+    <label className="ghost-btn file-btn">${t("pool.backup.import")}<input type="file" data-test="import-profiles" accept=".json,application/json" aria-label=${t("pool.backup.importLabel")} onChange=${load} /></label>
+    ${latestProfilesBackup(localStorage) ? html`<button type="button" className="ghost-btn" data-test="undo-profiles-import" onClick=${undo}>${t("pool.backup.undo")}</button>` : null}
     ${note ? html`<p className="small" role="status">${note}</p>` : null}
   </div>`;
 }
@@ -2584,16 +2591,16 @@ function DataSources() {
   const changes = open ? roleChanges() : [];
   const stale = report.filter(r => r.available && r.stale).length;
   const missing = report.filter(r => !r.available).length;
-  const dateOf = d => { const t = Date.parse(d || ""); return isNaN(t) ? "inconnue" : new Date(t).toLocaleDateString("fr-FR"); };
+  const dateOf = d => { const ms = Date.parse(d || ""); return isNaN(ms) ? t("data.unknownDate") : fmtDate(ms); };
   return html`<details className="set-more" onToggle=${e => setOpen(e.currentTarget.open)}>
-    <summary>Sources de données${stale ? ` : ${stale} ancienne${stale > 1 ? "s" : ""}` : ""}${missing ? `${stale ? "," : " :"} ${missing} pas encore disponible${missing > 1 ? "s" : ""}` : ""}</summary>
+    <summary>${stale && missing ? t("data.summary.two", { a: tp("data.summary.stale", stale), b: tp("data.summary.missing", missing) }) : stale || missing ? t("data.summary.one", { a: stale ? tp("data.summary.stale", stale) : tp("data.summary.missing", missing) }) : t("data.summary.title")}</summary>
     <ul className="data-list">${report.map(r => html`<li key=${r.id} className=${r.available ? "" : "off"}>
-      <b>${r.label}</b> <span className="data-kind">${r.kindLabel}</span>${r.stale ? html` <span className="data-old">Ancienne</span>` : null}${r.available ? null : html` <span className="data-old">Pas encore disponible</span>`}
-      <p>${r.source}.${!r.available || r.kind === "heuristic" ? "" : ` Patch : ${r.patch || "inconnu"}${r.stale ? ` (${r.age} patchs d'écart)` : ""}.`}${r.collected ? ` Date : ${dateOf(r.collected)}.` : ""}${!r.available || r.kind === "official" || r.kind === "heuristic" ? "" : ` Observations : ${r.games === null ? "non mesurées" : `${r.games} ${r.unit}`}.`}${r.region ? ` Région : ${r.region}.` : ""}${r.rank ? ` Rang : ${r.rank}.` : ""}${r.uncertainty ? ` Incertitude ${r.uncertainty}.` : ""}</p>
+      <b>${r.label}</b> <span className="data-kind">${r.kindLabel}</span>${r.stale ? html` <span className="data-old">${t("data.old")}</span>` : null}${r.available ? null : html` <span className="data-old">${t("data.notYet")}</span>`}
+      <p>${[t("data.line.source", { source: r.source }), !r.available || r.kind === "heuristic" ? "" : t(r.stale ? "data.line.patchOld" : "data.line.patch", { patch: r.patch || t("data.unknown"), age: r.age }), r.collected ? t("data.line.date", { date: dateOf(r.collected) }) : "", !r.available || r.kind === "official" || r.kind === "heuristic" ? "" : r.games === null ? t("data.line.notMeasured") : t("data.line.observations", { count: r.games, unit: r.unit }), r.region ? t("data.line.region", { region: r.region }) : "", r.rank ? t("data.line.rank", { rank: r.rank }) : "", r.uncertainty ? t("data.line.uncertainty", { level: r.uncertainty }) : ""].filter(Boolean).join(" ")}</p>
       <p>${r.note}${r.available ? ` ${r.terms}` : ""}</p>
     </li>`)}</ul>
-    ${changes.length ? html`<h3>Rôles à surveiller</h3>
-    <ul className="data-list">${changes.slice(0, 8).map(c => html`<li key=${c.name}><b>${c.name}</b> : plus souvent ${ROLE_NAMES[c.role]} que dans ${c.confirmed ? "les patchs précédents" : "la référence, à confirmer"} (${c.games} parties).</li>`)}</ul>` : null}
+    ${changes.length ? html`<h3>${t("data.roleChanges")}</h3>
+    <ul className="data-list">${changes.slice(0, 8).map(c => html`<li key=${c.name}>${tx(c.confirmed ? "data.roleChange.confirmed" : "data.roleChange.reference", { champion: html`<b>${c.name}</b>`, role: ROLE_NAMES[c.role], count: c.games })}</li>`)}</ul>` : null}
   </details>`;
 }
 
@@ -2648,11 +2655,11 @@ const NAV_LCU = { connected:["good", "nav.state.lcu.connected"], waiting:["wait"
 
 function MainNav() {
   const item = v => html`<button key=${v} type="button" className="nav-link" data-test=${`nav-${v}`} aria-current=${uiView === v ? "page" : undefined} onClick=${() => goView(v)}>
-    <${NavIcon} name=${v} /><span>${t(`nav.${v}`)}</span></button>`;
+    <${NavIcon} name=${v} /><span>${t({ home:"nav.home", pool:"nav.pool", sim:"nav.sim", stats:"nav.stats", settings:"nav.settings" }[v])}</span></button>`;
   const lcu = hostState.available ? (NAV_LCU[hostState.lcuStatus] || NAV_LCU.off) : null;
   const role = PROFILES.active;
   return html`<nav className="nav" aria-label=${t("nav.label")}>
-    <div className="nav-brand" data-test="brand"><${LogoMark} /><span className="brand" title="Ton assistant stratégique pour League of Legends">DRAFT</span><small>${t("nav.beta")}</small></div>
+    <div className="nav-brand" data-test="brand"><${LogoMark} /><span className="brand" title=${t("brand.tagline")}>DRAFT</span><small>${t("nav.beta")}</small></div>
     <div className="nav-list">${["home", "pool", "sim", "stats"].map(item)}</div>
     <span className="nav-grow"></span>
     ${item("settings")}
@@ -2755,11 +2762,12 @@ function HomeHero() {
 
 function HomeLeague() {
   const lcu = leagueState();
-  const head = lcu === "browser" ? "home.league.off" : `home.league.${lcu}`;
+  // Clés écrites en entier : le contrôle du catalogue retrouve chaque clé utilisée.
+  const [head, text] = { connected:["home.league.connected", "home.league.connected.text"], waiting:["home.league.waiting", "home.league.waiting.text"], failed:["home.league.failed", "home.league.failed.text"], off:["home.league.off", "home.league.off.text"], unavailable:["home.league.unavailable", "home.league.unavailable.text"], browser:["home.league.off", "home.appOnly"] }[lcu];
   return html`<section className=${`box home-card state-${LEAGUE_DOT[lcu]}`} data-test="home-league" data-state=${lcu} aria-labelledby="home-league-title">
     <h2 id="home-league-title" className="card-kicker">${t("home.league.title")}</h2>
     <p className="card-state"><i className=${`nav-dot ${LEAGUE_DOT[lcu]}`} aria-hidden="true"></i>${t(head)}</p>
-    <p className="card-text">${t(lcu === "browser" ? "home.appOnly" : `${head}.text`)}</p>
+    <p className="card-text">${t(text)}</p>
     ${lcu === "off" ? html`<p className="card-text small" data-test="home-lcu-risk">${t("home.lcu.risk")}</p>` : null}
     <div className="card-acts">
       ${lcu === "off" ? html`<button type="button" className="ghost-btn" data-test="home-enable-lcu" onClick=${() => hostSend({ cmd:"setLcu", value:true })}>${t("home.league.enable")}</button>` : null}
@@ -2891,11 +2899,11 @@ function PoolPage() {
   const pickRole = r => { if (!PROFILES.active) switchRole(r, "manual"); setRole(r); setQuery(""); setSaved(null); };
   const playRole = () => { switchRole(role, "manual"); setSaved(null); };
   const apply = (r, list) => { if (r) saveMyProfile(r, list); };
-  const addChampion = n => { apply(role, pool.concat(n)); setSaved({ text:`Enregistré : ${n} ajouté au pool ${ROLE_NAMES[role]}.` }); };
+  const addChampion = n => { apply(role, pool.concat(n)); setSaved({ text:t("pool.saved.added", { champion: n, role: ROLE_NAMES[role] }) }); };
   const removeChampion = n => {
     const back = { role, pool, excluded:roleData.excluded.slice(), favorite:roleData.favorite };
     apply(role, pool.filter(x => x !== n));
-    setSaved({ text:`${n} retiré du pool ${ROLE_NAMES[role]}.`, back });
+    setSaved({ text:t("pool.saved.removed", { champion: n, role: ROLE_NAMES[role] }), back });
   };
   // Annuler un retrait : pool, exclusions et favori du rôle tels qu'ils étaient.
   const undoRemove = () => {
@@ -2934,19 +2942,19 @@ function PoolPage() {
           <header className="pool-head">
             <div>
               <h2 id="pool-title" className="box-title">${role ? t("pool.box.title", { role:ROLE_NAMES[role] }) : t("pool.box.noRole")}${role ? html` <small className="num">${tp("pool.box.count", pool.length)}</small>` : null}</h2>
-              ${editingOther ? html`<p className="set-hint flush" role="status" data-test="pool-editing">Tu modifies le pool ${ROLE_NAMES[role]}. Ton rôle joué reste ${ROLE_NAMES[PROFILES.active]}. <button type="button" className="link-btn" data-test="pool-play-role" onClick=${playRole}>Jouer ce rôle</button></p>` : null}
-              ${role ? null : html`<p className="set-hint flush" data-test="pool-need-role">Choisis d'abord ton rôle, puis ajoute tes champions.</p>`}
+              ${editingOther ? html`<p className="set-hint flush" role="status" data-test="pool-editing">${t("pool.editing", { role: ROLE_NAMES[role], played: ROLE_NAMES[PROFILES.active] })} <button type="button" className="link-btn" data-test="pool-play-role" onClick=${playRole}>${t("pool.playRole")}</button></p>` : null}
+              ${role ? null : html`<p className="set-hint flush" data-test="pool-need-role">${t("pool.needRole")}</p>`}
             </div>
-            ${saved ? html`<p className="pool-saved" role="status" data-test="pool-saved">${saved.text}${saved.back ? html` <button type="button" className="ghost-btn" data-test="pool-undo" onClick=${undoRemove}>Annuler</button>` : null}</p>` : null}
+            ${saved ? html`<p className="pool-saved" role="status" data-test="pool-saved">${saved.text}${saved.back ? html` <button type="button" className="ghost-btn" data-test="pool-undo" onClick=${undoRemove}>${t("common.cancel")}</button>` : null}</p>` : null}
           </header>
           <div className="pool-search-wrap">
-            <input ref=${searchRef} className="pool-search" data-test="pool-search" type="search" value=${query} disabled=${!role} autoComplete="off" spellCheck="false" aria-label="Ajouter un champion" placeholder=${role ? "Ajouter un champion : ahri, tf, kata..." : "Choisis d'abord ton rôle"}
+            <input ref=${searchRef} className="pool-search" data-test="pool-search" type="search" value=${query} disabled=${!role} autoComplete="off" spellCheck="false" aria-label=${t("pool.search.label")} placeholder=${role ? t("pool.search.placeholder") : t("pool.search.placeholderNoRole")}
               onChange=${e => setQuery(e.target.value)}
               onKeyDown=${e => { if (e.key === "Enter") { e.preventDefault(); if (choices[0]) { addChampion(choices[0]); setQuery(""); } } else if (e.key === "Escape" && query) { e.stopPropagation(); setQuery(""); } }} />
             ${role ? html`<p className="small">${t("pool.search.hint")}</p>` : null}
             ${key ? html`<div className="pool-list" data-test="pool-results">
               ${found.map(n => chip(n, pool.includes(n)))}
-              ${!found.length ? html`<span className="set-hint flush">Aucun champion trouvé.</span>` : null}
+              ${!found.length ? html`<span className="set-hint flush">${t("pool.search.none")}</span>` : null}
             </div>` : null}
           </div>
           ${role && pool.length ? html`<table className="pool-table" data-test="pool-table">
@@ -2955,10 +2963,10 @@ function PoolPage() {
               <th scope="row"><span className="pool-name"><${Portrait} name=${n} size=${28} />${n}</span></th>
               <td><input type="radio" name=${`fav-${role}`} data-test="pool-favorite" data-champion=${n} checked=${roleData.favorite === p} aria-label=${t("pool.table.favoriteOf", { champion:n })} onClick=${() => toggleFavorite(p)} onChange=${() => {}} /></td>
               <td><input type="checkbox" data-test="pool-exclude" data-champion=${n} checked=${roleData.excluded.includes(p)} aria-label=${t("pool.table.excludedOf", { champion:n })} onChange=${() => toggleExcluded(p)} /></td>
-              <td><button type="button" className="mini x" data-test="pool-remove" data-champion=${n} title=${`Retirer ${n}`} aria-label=${`Retirer ${n}`} onClick=${() => { removeChampion(n); backToSearch(); }}>×</button></td>
+              <td><button type="button" className="mini x" data-test="pool-remove" data-champion=${n} title=${t("pool.table.removeOne", { champion: n })} aria-label=${t("pool.table.removeOne", { champion: n })} onClick=${() => { removeChampion(n); backToSearch(); }}>×</button></td>
             </tr>`; })}</tbody>
           </table>
-          <p className="small pool-table-help">${t("pool.table.help")}</p>` : role ? html`<p className="empty-note">Aucun champion pour ce rôle : ajoute-en pour obtenir un conseil.</p>` : null}
+          <p className="small pool-table-help">${t("pool.table.help")}</p>` : role ? html`<p className="empty-note">${t("pool.table.empty")}</p>` : null}
         </section>
         ${role && suggested.length ? html`<section className="box box-pad" data-test="pool-suggested">
           <h2 className="box-title">${t("pool.suggest.title", { role:ROLE_NAMES[role] })} <small>${t("pool.suggest.help", { role:ROLE_NAMES[role] })}</small></h2>
@@ -2966,9 +2974,9 @@ function PoolPage() {
         </section>` : null}
         <section className="box box-pad" data-test="pool-backup">
           <h2 className="box-title">${t("pool.backup.title")}</h2>
-          <p className="set-hint flush">Chaque rôle garde son propre pool. Ils sont enregistrés automatiquement. Modifier un pool ne change pas ton rôle joué.</p>
+          <p className="set-hint flush">${t("pool.backup.help")}</p>
           <${ProfileBackup} />
-          <p className="set-hint flush">Sans statistiques calculées, le conseil repose sur des fiches écrites à la main : c'est un avis général.</p>
+          <p className="set-hint flush">${t("pool.backup.rulesNote")}</p>
         </section>
       </div>
     </div>
@@ -2987,15 +2995,15 @@ function JournalImport() {
       const known = new Set(list.map(x => x.id));
       const added = incoming.filter(x => x && x.id && x.picked && !known.has(x.id));
       saveJournal(list.concat(added).sort((a, b) => a.id - b.id));
-      setImportNote(`${added.length} partie${added.length > 1 ? "s ajoutées" : " ajoutée"} à ton journal.`);
+      setImportNote(tp("journal.import.added", added.length));
       publish(null);
-    }).catch(() => setImportNote("Ce fichier n'est pas un journal DRAFT : rien n'a été modifié."));
+    }).catch(() => setImportNote(t("journal.import.refused")));
   };
   return html`<details className="set-more" data-test="journal-import">
     <summary>${t("stats.oldFile.title")}</summary>
-    <h3>Journal</h3>
-    <p className="small">Pour récupérer un ancien journal, importe son fichier ici. Rien n'est supprimé.</p>
-    <p><input type="file" data-test="import-journal" accept=".json,application/json" aria-label="Importer un journal" onChange=${importJournal} /></p>
+    <h3>${t("journal.import.title")}</h3>
+    <p className="small">${t("journal.import.help")}</p>
+    <p><input type="file" data-test="import-journal" accept=".json,application/json" aria-label=${t("journal.import.label")} onChange=${importJournal} /></p>
     ${importNote ? html`<p className="small" data-test="journal-import-note">${importNote}</p>` : null}
   </details>`;
 }
@@ -3015,7 +3023,7 @@ function StatsKpis() {
     ${kpi(t("stats.kpi.drafts"), list.length, "", "kpi-drafts")}
     ${kpi(t("stats.kpi.wins"), wins, tp("stats.kpi.winsOf", played.length), "kpi-wins")}
     ${kpi(t("stats.kpi.followed"), followed, t("stats.kpi.followedOf", { count:list.length }), "kpi-followed")}
-    ${kpi(t("stats.kpi.history"), rows ? rows.length : t("stats.kpi.none"), rows ? `${tp("stats.kpi.historyUnit", rows.length)}${when ? `, ${new Date(when).toLocaleDateString("fr-FR")}` : ""}` : "", "kpi-history")}
+    ${kpi(t("stats.kpi.history"), rows ? rows.length : t("stats.kpi.none"), rows ? (when ? t("stats.kpi.historyWhen", { unit: tp("stats.kpi.historyUnit", rows.length), date: fmtDate(when) }) : tp("stats.kpi.historyUnit", rows.length)) : "", "kpi-history")}
   </section>`;
 }
 
@@ -3026,11 +3034,11 @@ function HistoryImportBox({ detailed }) {
   return html`<section className="box box-pad" data-test="stats-history">
     <h2 className="box-title">${t("stats.history.title")} <small>${t("stats.history.sub")}</small></h2>
     <p className=${rows ? "stats-line ok" : "empty-note"} data-test="stats-history-summary">${rows
-      ? tp("stats.history.imported", rows.length, { date: window.DRAFT_HISTORY.generated ? new Date(window.DRAFT_HISTORY.generated).toLocaleDateString("fr-FR") : "?" })
+      ? tp("stats.history.imported", rows.length, { date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "?" })
       : t("stats.history.none")}</p>
     ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${hostState.historyStatus}</p>` : null}
     ${hostState.available
-      ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="stats-import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? "Arrêter l'import" : hostState.historyHasMore ? "Importer plus de parties" : "Importer mon historique Riot"}</button></p>`
+      ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="stats-import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? t("stats.history.stop") : hostState.historyHasMore ? t("stats.history.more") : t("stats.history.import")}</button></p>`
       : html`<p className="small">${t("stats.history.app")}</p>`}
     <p className="small">${t("stats.history.key")}</p>
     <p className="small" data-test="stats-collect">${t("stats.history.collect")}</p>
@@ -3043,13 +3051,13 @@ function HistoryImportBox({ detailed }) {
 
 function RecentDrafts({ onAll }) {
   const list = loadJournal().slice(-8).reverse();
-  const results = { win:"Victoire", loss:"Défaite", skip:"Ignorée" };
+  const results = { win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") };
   return html`<section className="box" data-test="stats-recent">
     <header className="box-head-row"><h2 className="box-title">${t("stats.recent.title")} <small>${t("stats.recent.sub")}</small></h2>
       ${list.length ? html`<button type="button" className="ghost-btn" data-test="stats-all-journal" onClick=${onAll}>${t("stats.recent.all")}</button>` : null}</header>
     ${list.length ? html`<table className="stats-table recent"><thead><tr><th scope="col">${t("stats.recent.pick")}</th><th scope="col">${t("stats.recent.opponent")}</th><th scope="col">${t("stats.recent.advice")}</th><th scope="col">${t("stats.recent.result")}</th><th scope="col">${t("stats.recent.date")}</th></tr></thead>
       <tbody>${list.map(x => html`<tr key=${x.id}><th scope="row"><span className="pool-name"><${Portrait} name=${label(x.picked)} size=${24} />${label(x.picked)}</span></th><td>${x.mid || "-"}</td><td>${t(x.picked === x.suggested ? "stats.recent.followed" : "stats.recent.other")}</td>
-        <td><span className=${`result-tag ${x.result || "wait"}`}>${results[x.result] || "En attente"}</span></td><td className="num">${new Date(x.date).toLocaleDateString("fr-FR")}</td></tr>`)}</tbody></table>`
+        <td><span className=${`result-tag ${x.result || "wait"}`}>${results[x.result] || t("journal.status.pending")}</span></td><td className="num">${fmtDate(x.date)}</td></tr>`)}</tbody></table>`
       : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
   </section>`;
 }
@@ -3061,7 +3069,7 @@ function StatsOverview({ onAll }) {
       <section className="box box-pad" data-test="stats-journal">
         <h2 className="box-title">${t("stats.byChampion.title")} <small>${t("stats.byChampion.source")}</small></h2>
         ${played.length ? html`<${WinBars} title="" groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
-          <${WinBars} title="Selon le type de mid adverse" groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: matchupOf(x.mid).t })), r => r.type)} />`
+          <${WinBars} title=${t("stats.byMidType")} groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: midTypeLabel(matchupOf(x.mid).t) })), r => r.type)} />`
           : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
       </section>
       <${HistoryImportBox} detailed=${false} />
@@ -3075,7 +3083,7 @@ function StatsView() {
   return html`<div className="view-page">
     <${ViewHead} title=${t("nav.stats")} sub=${t("stats.sub")} />
     <div className="stats-tabs" role="tablist" aria-label=${t("nav.stats")}>
-      ${STATS_TABS.map(k => html`<button key=${k} type="button" role="tab" aria-selected=${tab === k} data-test=${`stats-tab-${k}`} className=${`stats-tab${tab === k ? " on" : ""}`} onClick=${() => setTab(k)}>${t(`stats.tabs.${k}`)}</button>`)}
+      ${STATS_TABS.map(k => html`<button key=${k} type="button" role="tab" aria-selected=${tab === k} data-test=${`stats-tab-${k}`} className=${`stats-tab${tab === k ? " on" : ""}`} onClick=${() => setTab(k)}>${t({ overview:"stats.tabs.overview", journal:"stats.tabs.journal", history:"stats.tabs.history" }[k])}</button>`)}
     </div>
     <${StatsKpis} />
     ${tab === "overview" ? html`<${StatsOverview} onAll=${() => setTab("journal")} />` : null}
@@ -3089,70 +3097,72 @@ function StatsView() {
 }
 
 const SECTION_ICONS = { general:"sliders", league:"plug", display:"monitor", data:"shield", updates:"refresh", diag:"pulse" };
+// Titre et sous-titre de chaque rubrique : clés écrites en entier, pour que le contrôle du catalogue les retrouve.
+const SECTION_KEYS = { general:["settings.section.general", "settings.general.sub"], league:["settings.section.league", "settings.league.sub"], display:["settings.section.display", "settings.display.sub"], data:["settings.section.data", "settings.data.sub"], updates:["settings.section.updates", "settings.updates.sub"], diag:["settings.section.diag", "settings.diag.sub"] };
 const HostOnly = () => html`<p className="empty-note" data-test="settings-host-only">${t("settings.hostOnly")}</p>`;
 
 function SettingsSection({ id }) {
   const host = hostState.available;
   if (id === "general") return html`<div>
     <${CoachLevel} />
-    <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> Compter sur une frontline dans mon équipe</label>
-    ${host ? html`<label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> Démarrer avec Windows</label>` : null}
+    <label className="set-check"><input type="checkbox" checked=${PREFS.assumeFront} onChange=${e => savePrefs({ assumeFront: e.target.checked })} /> ${t("settings.general.assumeFront")}</label>
+    ${host ? html`<label className="set-check"><input type="checkbox" checked=${hostState.autostart} onChange=${e => hostSend({ cmd:"setAutostart", value:e.target.checked })} /> ${t("settings.general.autostart")}</label>` : null}
   </div>`;
   if (id === "league") return host ? html`<div>
-    <h3>Détection de la draft</h3>
+    <h3>${t("settings.league.detection")}</h3>
     <div className=${`set-card${hostState.lcuEnabled ? " on" : ""}`}>
-      <label className="set-check set-main"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> Lire la draft depuis le client LoL</label>
-      <p className="set-hint">Recommandé : les panneaux s'ouvrent au bon moment et les adversaires se remplissent seuls. Lecture seule, rien n'est modifié dans le client.</p>
+      <label className="set-check set-main"><input type="checkbox" disabled=${!hostState.lcuConfirmed} checked=${hostState.lcuEnabled && hostState.lcuConfirmed} onChange=${e => hostSend({ cmd:"setLcu", value:e.target.checked })} /> ${t("settings.league.lcu")}</label>
+      <p className="set-hint">${t("settings.league.lcuHint")}</p>
       <p className=${`lcu-state ${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[0]}`} role="status"><i aria-hidden="true"></i>${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[1]}</p>
-      <p className="set-hint">Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques.</p>
-      <label className="set-row coach-level"><span>Quand LoL t'attribue un autre rôle</span>
+      <p className="set-hint">${t("home.lcu.risk")}</p>
+      <label className="set-row coach-level"><span>${t("settings.league.autoRole")}</span>
         <select value=${PREFS.autoRole} onChange=${e => savePrefs({ autoRole:e.target.value })}>
-          <option value="suggest">Me proposer de changer</option><option value="auto">Changer de profil</option><option value="off">Ne rien faire</option>
+          <option value="suggest">${t("settings.league.autoRole.suggest")}</option><option value="auto">${t("settings.league.autoRole.auto")}</option><option value="off">${t("settings.league.autoRole.off")}</option>
         </select></label>
-      <p className="set-hint">Seulement si la lecture du client est active et que LoL indique ton poste. Rien n'est déduit de ton champion.</p>
+      <p className="set-hint">${t("settings.league.autoRoleHint")}</p>
     </div>
   </div>` : html`<${HostOnly} />`;
   if (id === "display") return host ? html`<div>
-    <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> Afficher les panneaux automatiquement pendant la draft</label>
-    <p className="set-hint">${hostState.hotkey ? "Ctrl+Alt+D" : "Le menu de l'icône"} affiche ou masque les panneaux à tout moment.</p>
-    <h3>Fenêtres</h3>
-    <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> Coller les panneaux au client LoL</label>
-    <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> Un seul panneau</label>
-    <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> Toujours au premier plan</label>
+    <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> ${t("settings.display.auto")}</label>
+    <p className="set-hint">${t(hostState.hotkey ? "settings.display.toggleHotkey" : "settings.display.toggleMenu")}</p>
+    <h3>${t("settings.display.windows")}</h3>
+    <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> ${t("settings.display.follow")}</label>
+    <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> ${t("settings.display.compact")}</label>
+    <label className="set-check"><input type="checkbox" checked=${hostState.topmost} onChange=${e => hostSend({ cmd:"setTopmost", value:e.target.checked })} /> ${t("settings.display.topmost")}</label>
     <p className="set-row"><button type="button" className="ghost-btn" data-test="replace-panels" onClick=${() => hostSend({ cmd:"replacePanels" })}>${t("settings.display.replace")}</button></p>
     <p className="set-hint flush">${t("settings.display.replaceHint")}</p>
   </div>` : html`<${HostOnly} />`;
   if (id === "data") return html`<div>
     ${host ? html`<div>
-      <h3>Mon historique Riot</h3>
-      <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? `${window.DRAFT_HISTORY.rows.length} parties importées${window.DRAFT_HISTORY.generated ? ` le ${new Date(window.DRAFT_HISTORY.generated).toLocaleDateString("fr-FR")}` : ""}.` : "Rien d'importé pour l'instant."} Sert à afficher ton expérience, jamais à changer le classement. Tu saisis ta clé toi-même : elle n'est pas enregistrée.</p>
+      <h3>${t("settings.data.history.title")}</h3>
+      <p className="small">${window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? t(window.DRAFT_HISTORY.generated ? "settings.data.history.countOn" : "settings.data.history.count", { count: window.DRAFT_HISTORY.rows.length, date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "" }) : t("settings.data.history.none")} ${t("settings.data.history.note")}</p>
       ${hostState.historyStatus ? html`<p className="small" role="status">${hostState.historyStatus}</p>` : null}
       <p className="set-row">
-        <button type="button" className="ghost-btn" data-test="import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? "Arrêter l'import" : hostState.historyHasMore ? "Importer plus de parties" : "Importer mon historique Riot"}</button>
+        <button type="button" className="ghost-btn" data-test="import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? t("stats.history.stop") : hostState.historyHasMore ? t("stats.history.more") : t("stats.history.import")}</button>
       </p>
-      <h3>Rôles des champions</h3>
-      <p className="small">${window.ROLE_RATES_LIVE ? `Calculés le ${new Date(window.ROLE_RATES_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.ROLE_RATES_LIVE.games} parties récentes.` : (typeof ROLE_RATES !== "undefined" ? `Statistiques livrées avec l'application, patch ${ROLE_RATES.patch}.` : "Pas encore calculés : les rôles habituels écrits à la main servent de repère.")} Ils servent à deviner ton vis-à-vis et à placer les adversaires dans leurs rôles.</p>
-      <h3>Matchups</h3>
-      <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? `Bilans calculés pour le rôle ${ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"]} : relance le calcul pour ton rôle actuel.` : window.MATCHUPS_LIVE ? `Calculés le ${new Date(window.MATCHUPS_LIVE.updated).toLocaleDateString("fr-FR")} sur ${window.MATCHUPS_LIVE.games} parties. ${PICKS.map(p => `${label(p)} : ${(window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games}`).join(", ")}.` : "Pas encore de bilans calculés."} Sous ${MATCHUP_MIN_GAMES} parties, le matchup n'utilise pas le bilan.</p>
+      <h3>${t("settings.data.roles.title")}</h3>
+      <p className="small">${window.ROLE_RATES_LIVE ? t("settings.data.roles.live", { date: fmtDate(window.ROLE_RATES_LIVE.updated), count: window.ROLE_RATES_LIVE.games }) : (typeof ROLE_RATES !== "undefined" ? t("settings.data.roles.shipped", { patch: ROLE_RATES.patch }) : t("settings.data.roles.none"))} ${t("settings.data.roles.note")}</p>
+      <h3>${t("settings.data.matchups.title")}</h3>
+      <p className="small">${window.MATCHUPS_LIVE && !liveRoleOk() ? t("settings.data.matchups.otherRole", { role: ROLE_NAMES[window.MATCHUPS_LIVE.role || "mid"] }) : window.MATCHUPS_LIVE ? t("settings.data.matchups.live", { date: fmtDate(window.MATCHUPS_LIVE.updated), count: window.MATCHUPS_LIVE.games, pool: PICKS.map(p => t("settings.data.matchups.poolItem", { champion: label(p), count: (window.MATCHUPS_LIVE.pool[riotKey(label(p))] || { games:0 }).games })).join(", ") }) : t("settings.data.matchups.none")} ${t("settings.data.matchups.note", { min: MATCHUP_MIN_GAMES })}</p>
       <p className="small" role="status">${hostState.rolesStatus || ""}</p>
       <p className="set-row">
         ${hostState.rolesRunning
-          ? html`<button type="button" className="ghost-btn" data-test="stop-roles" onClick=${() => hostSend({ cmd:"updateRoles" })}>Arrêter le calcul</button>`
-          : html`<button type="button" className="ghost-btn" data-test="update-roles" onClick=${() => hostSend({ cmd:"updateRoles" })}>Mettre à jour les rôles</button>
-              <button type="button" className="ghost-btn" data-test="update-matchups" onClick=${() => hostSend({ cmd:"updateMatchups" })}>Mettre à jour les matchups</button>`}
+          ? html`<button type="button" className="ghost-btn" data-test="stop-roles" onClick=${() => hostSend({ cmd:"updateRoles" })}>${t("settings.data.stopRoles")}</button>`
+          : html`<button type="button" className="ghost-btn" data-test="update-roles" onClick=${() => hostSend({ cmd:"updateRoles" })}>${t("settings.data.updateRoles")}</button>
+              <button type="button" className="ghost-btn" data-test="update-matchups" onClick=${() => hostSend({ cmd:"updateMatchups" })}>${t("settings.data.updateMatchups")}</button>`}
       </p>
     </div>` : null}
     <${DataSources} />
   </div>`;
   if (id === "updates") return host ? html`<div>
-    <p className="small">Version ${APP_VERSION}. DRAFT ne contacte GitHub que lorsque tu cliques.</p>
+    <p className="small">${t("settings.updates.version", { version: APP_VERSION })}</p>
     ${hostState.updateStatus ? html`<p className="small" role="status" data-test="update-status">${hostState.updateStatus}</p>` : null}
-    <p className="set-row"><button type="button" className="ghost-btn" data-test="check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? "Mise à jour en cours..." : "Rechercher une mise à jour"}</button></p>
+    <p className="set-row"><button type="button" className="ghost-btn" data-test="check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? t("home.update.running") : t("home.update.check")}</button></p>
   </div>` : html`<${HostOnly} />`;
   return html`<div>
-    <p className="small brand-sub">DRAFT ${APP_VERSION} bêta : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.</p>
+    <p className="small brand-sub">${t("settings.diag.about", { version: APP_VERSION })}</p>
     ${host ? html`<div>
-      <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
+      <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> ${t("settings.diag.journal")}</label>
       <dl className="facts" data-test="diag-state">
         <dt>${t("settings.diag.phase")}</dt><dd>${hostState.phase || "-"}</dd>
         ${hostState.placement && hostState.clientOpen !== false ? html`<dt>${t("settings.diag.placement")}</dt><dd>${hostState.placement}</dd>` : null}
@@ -3179,11 +3189,11 @@ function SettingsPage({ onClose, solo }) {
     <div className="set-page">
       <div className="subnav" role="tablist" aria-label=${t("settings.sectionsLabel")}>
         ${SETTINGS_SECTIONS.map(s => html`<button key=${s} type="button" role="tab" aria-selected=${s === section} data-test=${`settings-section-${s}`} className=${`subnav-link${s === section ? " on" : ""}`} onClick=${() => goView("settings", s)}>
-          <${NavIcon} name=${SECTION_ICONS[s]} /><span>${t(`settings.section.${s}`)}</span></button>`)}
+          <${NavIcon} name=${SECTION_ICONS[s]} /><span>${t(SECTION_KEYS[s][0])}</span></button>`)}
       </div>
       <section className="box box-pad set-body" role="tabpanel" data-test=${`settings-body-${section}`} aria-labelledby="set-title">
-        <h2 id="set-title" className="box-title">${t(`settings.section.${section}`)}</h2>
-        <p className="box-sub">${t(`settings.${section}.sub`)}</p>
+        <h2 id="set-title" className="box-title">${t(SECTION_KEYS[section][0])}</h2>
+        <p className="box-sub">${t(SECTION_KEYS[section][1])}</p>
         <${SettingsSection} id=${section} />
       </section>
     </div>
@@ -3195,20 +3205,20 @@ function SimView() {
     <header className="top">
       <h1 id="view-title" className="view-title">${t("nav.sim")}</h1>
       <${RoleSwitch} />
-      <span className="patch">Patch ${ddVersion.split(".").slice(0, 2).join(".")}</span>
+      <span className="patch">${t("sim.patch", { patch: ddVersion.split(".").slice(0, 2).join(".") })}</span>
       <span className="grow"></span>
-      <div className="seg-tabs source-switch" role="group" aria-label="Draft affichée">
-        <button type="button" className=${`seg-tab${simulating ? "" : " on"}`} aria-pressed=${!simulating} data-test="source-live" onClick=${leaveSimulation}>Draft en cours</button>
-        <button type="button" className=${`seg-tab${simulating ? " on" : ""}`} aria-pressed=${simulating} data-test="source-sim" onClick=${startSimulation}>Simulation</button>
+      <div className="seg-tabs source-switch" role="group" aria-label=${t("sim.source.label")}>
+        <button type="button" className=${`seg-tab${simulating ? "" : " on"}`} aria-pressed=${!simulating} data-test="source-live" onClick=${leaveSimulation}>${t("sim.source.live")}</button>
+        <button type="button" className=${`seg-tab${simulating ? " on" : ""}`} aria-pressed=${simulating} data-test="source-sim" onClick=${startSimulation}>${t("sim.source.sim")}</button>
       </div>
-      <button type="button" className="ghost-btn" data-test="random-draft" data-random-draft=${true} onClick=${startRandomDraft}>Draft aléatoire</button>
-      <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${() => withUndo(simulating ? "Simulation effacée." : "Draft effacée.", resetDraft)}>${simulating ? "Nouvelle simulation" : "Nouvelle draft"}</button>
+      <button type="button" className="ghost-btn" data-test="random-draft" data-random-draft=${true} onClick=${startRandomDraft}>${t("sim.random")}</button>
+      <button type="button" className="ghost-btn" data-test="new-draft" disabled=${!state.enemies.length} onClick=${() => withUndo(simulating ? t("sim.undo.simCleared") : t("sim.undo.draftCleared"), resetDraft)}>${simulating ? t("sim.new.simulation") : t("sim.new.draft")}</button>
     </header>
     ${simulating ? html`<div className="sim-band" role="status" data-test="simulation" data-simulation=${true}>
-      <p><b>Simulation</b> : ta draft en cours n'est pas modifiée.</p>
+      <p>${tx("sim.band.text", { simulation: html`<b>${t("sim.source.sim")}</b>` })}</p>
       <span className="grow"></span>
-      <button type="button" className="ghost-btn" data-test="resume-live" disabled=${!liveCopy || !(liveCopy.enemies || []).length} title="Copie la draft en cours dans la simulation, sans lien avec elle." onClick=${resumeLiveInSimulation}>Reprendre la draft en cours</button>
-      <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>Quitter la simulation</button>
+      <button type="button" className="ghost-btn" data-test="resume-live" disabled=${!liveCopy || !(liveCopy.enemies || []).length} title=${t("sim.resume.title")} onClick=${resumeLiveInSimulation}>${t("sim.resume")}</button>
+      <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>${t("sim.leave")}</button>
     </div>` : null}
     <div className="desk">
       <${EnemyPanel} />
