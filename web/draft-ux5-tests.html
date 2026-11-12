@@ -39,6 +39,24 @@ q(x,"stats-all-journal").click();await settle();t(!!q(x,"stats-journal-full")&&!
 q(x,"stats-tab-history").click();await settle();t(/Parties par rôle/.test(text(x.d.body))&&!!q(x,"stats-old"),"onglet historique : parties par rôle et anciens imports");
 t(!/RGAPI|puuid|Test#TEST/.test(x.d.body.innerText),"aucune clé ni identifiant de compte affiché");
 x.f.remove();
+// DA B+ : seuil de 10 parties, période, repère des 50 % (données fictives : 12 parties d'un champion, 2 d'un autre).
+const BIG=[...Array(14)].map((_,i)=>({id:100+i,date:"2026-11-"+String(i+1).padStart(2,"0")+"T10:00:00Z",suggested:"Fizz",picked:i<12?"Fizz":"TF",close:false,enemies:["Ahri"],mid:"Ahri",result:i%3===2?"loss":"win",engine:"x"}));
+x=await load(BIG);await wait(600);
+{const bars=[...x.d.querySelectorAll('[data-test="stats-journal"] .winbar')];const big=bars.find(b=>/Fizz/.test(text(b))),few=bars.find(b=>/Twisted Fate/.test(text(b)));
+t(!!big&&!big.classList.contains("few")&&!!big.querySelector(".winbar-track"),"12 parties : barre de victoires");
+t(!!few&&!!few.querySelector(".notches")&&!few.querySelector(".winbar-track"),"2 parties : jauge de crans, jamais de barre ni de pourcentage");
+const tr=big&&big.querySelector(".winbar-track"),mk=big&&big.querySelector(".winbar-mid");
+if(tr&&mk){const a=tr.getBoundingClientRect(),b=mk.getBoundingClientRect(),c=(b.left+b.right)/2,m=(a.left+a.right)/2;res.notes.repere=`piste ${a.left.toFixed(1)}..${a.right.toFixed(1)} (milieu ${m.toFixed(1)}), repère ${b.left.toFixed(1)}..${b.right.toFixed(1)}, hauteur ${b.height.toFixed(1)} pour ${a.height.toFixed(1)}`;
+ const lum=s=>{const v=s.match(/[\d.]+/g).slice(0,3).map(n=>{n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4});return .2126*v[0]+.7152*v[1]+.0722*v[2]};
+ const cs=x.w.getComputedStyle,ratio=(p,q2)=>{const A=lum(p),B=lum(q2);return (Math.max(A,B)+.05)/(Math.min(A,B)+.05)};
+ const rc=ratio(cs(mk).backgroundColor,cs(tr).backgroundColor);
+ t(Math.abs(c-m)<=0.5,`[avant : échec] repère des 50 % au milieu exact de la piste (écart ${(c-m).toFixed(2)} px)`);
+ t(b.top<=a.top+0.5&&b.bottom>=a.bottom-0.5&&b.width>=1.5,`[avant : échec] repère sur toute la hauteur de la piste (${res.notes.repere})`);
+ t(rc>=3,`[avant : échec] repère visible sur la piste vide (contraste ${rc.toFixed(2)}:1, 3:1 attendu)`);}
+else t(false,"barre ou repère absent");}
+t(/Période : du 01\/11\/2026 au 14\/11\/2026/.test(text(q(x,"stats-sample")))&&/14 parties terminées/.test(text(q(x,"stats-sample"))),"période et nombre de parties écrits sous le bandeau");
+t(/\d+ % de victoires/.test(text(q(x,"kpi-wins"))),"14 parties terminées : pourcentage affiché, avec l'échantillon");
+x.f.remove();
 document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
 })().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
 </script></body></html>

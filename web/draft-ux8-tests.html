@@ -98,10 +98,10 @@ t(!!q(x,"home-league")&&!!q(x,"home-pool")&&!!q(x,"home-panels")&&!!q(x,"home-up
 // Connexion League : chaque état, son action de correction.
 t(/Lecture du client désactivée/.test(text(q(x,"home-league")))&&!!q(x,"home-enable-lcu")&&/tu l'actives à tes risques/.test(text(q(x,"home-league"))),"League désactivée : bouton « Activer la lecture du client » et avertissement");
 await host(x,{lcuEnabled:true,lcuStatus:"waiting"});
-t(/Client LoL fermé/.test(text(q(x,"home-league")))&&/Lance League of Legends/.test(text(q(x,"home-league")))&&!q(x,"home-enable-lcu"),"LoL fermé : le dit, et dit quoi faire");
+t(/Client LoL fermé/.test(text(q(x,"home-league")))&&/s'y connectera seul/.test(text(q(x,"home-league")))&&/Lance League of Legends/.test(text(q(x,"home-hero")))&&!q(x,"home-enable-lcu"),"LoL fermé : le dit, et dit quoi faire (la consigne dans la bannière, une seule fois)");
 await host(x,{lcuStatus:"connected",clientOpen:true});
 t(/Connecté au client LoL/.test(text(q(x,"home-league")))&&/Client LoL connecté/.test(text(q(x,"home-hero"))),"connecté : carte et bannière");
-t(/La sélection est lue dans le client/.test(text(q(x,"home-panels"))),"panneaux : la détection vient de la lecture du client");
+t(/la sélection sera lue dans le client/.test(text(q(x,"home-hero")))&&!/lue dans le client/.test(text(q(x,"home-panels"))),"[avant : échec] détection par la lecture du client : dite une fois, dans la bannière");
 await host(x,{lcuStatus:"failed"});
 t(q(x,"home-hero").dataset.tone==="error"&&/Connexion au client LoL impossible/.test(text(q(x,"home-hero"))),"erreur de connexion : bannière d'erreur");
 t(text(q(x,"home-diagnostic"))==="Diagnostic de connexion LoL"&&!!q(x,"home-lcu-diagnostic"),"erreur de connexion : action « Diagnostic de connexion LoL »");
@@ -113,7 +113,13 @@ await host(x,{lcuEnabled:false,lcuStatus:"off",autoDraft:false,hotkey:false});
 t(/Panneaux à afficher toi-même/.test(text(q(x,"home-panels")))&&/menu de l'icône DRAFT/.test(text(q(x,"home-panels"))),"panneaux manuels, sans raccourci : le menu de l'icône");
 t(/menu de l'icône DRAFT/.test(text(q(x,"home-hero"))),"bannière : dit comment afficher les panneaux en mode manuel");
 await host(x,{autoDraft:true,hotkey:true});
-t(/Ctrl\+Alt\+D/.test(text(q(x,"home-shortcut")))&&/La sélection est repérée à l'écran/.test(text(q(x,"home-panels"))),"panneaux automatiques : Ctrl+Alt+D, détection estimée sans lecture du client");
+t(/Ctrl\+Alt\+D/.test(text(q(x,"home-shortcut")))&&/Détection à l'écran \(lecture du client désactivée, facultative\)/.test(text(q(x,"home-hero"))),"[avant : échec] panneaux automatiques : Ctrl+Alt+D ; bannière : détection à l'écran, lecture du client facultative");
+// DA B+ finition : lecture du client désactivée, jamais présentée comme obligatoire ; pas de texte répété entre la bannière et « Pendant la draft ».
+{const hero=text(q(x,"home-hero").querySelector(".hero-text")),lg=text(q(x,"home-league").querySelector(".card-text"));
+t(q(x,"home-hero").dataset.tone==="ready"&&/Tout est prêt/.test(hero)&&!/activ(e|er) la lecture|il faut|obligatoire|nécessaire/i.test(hero+" "+lg)&&/Facultative/.test(lg),"[avant : échec] lecture désactivée : « Tout est prêt », lecture dite facultative, rien n'invite à l'activer");
+const grams=s=>{const w=s.toLowerCase().replace(/[^\p{L}\p{N}' ]+/gu," ").split(/\s+/).filter(Boolean);const g=new Set();for(let i=0;i+4<=w.length;i++)g.add(w.slice(i,i+4).join(" "));return g};
+const hg=grams(text(q(x,"home-hero").querySelector(".home-lead"))),common=[...grams(text(q(x,"home-panels")))].filter(g=>hg.has(g));
+t(!common.length,"[avant : échec] bannière et « Pendant la draft » : aucune suite de 4 mots répétée ("+common.join(" | ")+")");}
 // Pool : rôle, nombre, conseil en blind du même calcul que les panneaux.
 t(/Pool Mid/.test(text(q(x,"home-pool")))&&/4 champions/.test(text(q(x,"home-pool"))),"pool : rôle joué et nombre de champions");
 const blind=x.ev("label(analyze([],null,PREFS.assumeFront).ranking[0].pick)");
@@ -165,7 +171,9 @@ for(const [W,H] of [[1093,614],[1366,768],[1536,864],[1920,1080],[800,600]]){
     t(dd.scrollWidth<=W+1&&m.scrollWidth<=m.clientWidth+1,`${W}x${H} ${p?"configuré":"vierge"} : aucun débordement horizontal`);
     const page=q(x,"home"),r=page.getBoundingClientRect();
     if(W>=1093)t(page.scrollHeight<=H*1.15,`${W}x${H} ${p?"configuré":"vierge"} : tient sur un écran ou presque (${Math.round(page.scrollHeight)} px pour ${H})`);
-    if(W>=1366)t(page.scrollHeight>=H*0.6,`${W}x${H} ${p?"configuré":"vierge"} : pas de grand vide (${Math.round(page.scrollHeight)} px pour ${H})`);
+          t(!page.querySelector(".view-head")&&!!q(x,"home-h1")&&x.w.getComputedStyle(q(x,"home-h1")).position==="absolute",`[avant : échec] ${W}x${H} : pas de titre de page empilé au-dessus de la bannière (titre gardé pour les lecteurs d'écran)`);
+      if(W===1920&&p)t(page.scrollHeight>=H*0.85,`[avant : échec] 1920x1080 configuré : l'Accueil occupe la hauteur (${Math.round(page.scrollHeight)} px pour ${H})`);
+if(W>=1366)t(page.scrollHeight>=H*0.6,`${W}x${H} ${p?"configuré":"vierge"} : pas de grand vide (${Math.round(page.scrollHeight)} px pour ${H})`);
     res.notes[`${W}x${H} ${p?"configuré":"vierge"}`]=Math.round(page.scrollHeight)+" px";
     x.f.remove();
   }
