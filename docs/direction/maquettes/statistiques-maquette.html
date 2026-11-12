@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette statistiques</title>
+<!-- MAQUETTE — DONNÉES D'ILLUSTRATION. Aucun chiffre de cette page ne vient d'un joueur réel ni de DRAFT.
+     Seul but : montrer comment chaque direction met en valeur une statistique, et comment elle se tait sous le seuil de 10 parties. -->
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#0b0d10; color:#e8eef4; font:14px/1.45 "Segoe UI",sans-serif; }
+  .warn { margin:0; padding:10px 24px; background:repeating-linear-gradient(135deg,#3a2d10 0 12px,#2c220c 12px 24px); color:#ffd88a; font:600 15px "Segoe UI",sans-serif; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; }
+  section { padding:28px 32px 32px; min-width:0; }
+  h2 { margin:0 0 4px; }
+  .sub { margin:0 0 22px; }
+  .row { display:grid; grid-template-columns:48px minmax(0,1fr) auto; align-items:center; gap:14px; padding:10px 0; }
+  .pt { width:48px; height:48px; display:flex; align-items:center; justify-content:center; }
+  .bar { position:relative; height:10px; margin-top:6px; }
+  .bar i { position:absolute; left:0; top:0; bottom:0; }
+  .bar .mid { position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; }
+  .few-text { margin-top:4px; }
+  .ticks { display:flex; gap:3px; margin-top:6px; }
+  .ticks span { width:14px; height:8px; }
+  .heroes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin-bottom:24px; }
+  .heroes > div { padding:4px 18px 4px 0; }
+  .heroes > div + div { padding-left:18px; }
+  .rule { margin:18px 0 0; }
+
+  /* ---------- A : Analyste ---------- */
+  .A { background:#0f151c; }
+  .A h2 { font:30px/1.05 "Bahnschrift Bold Condensed","Bahnschrift",sans-serif; }
+  .A .sub, .A .lbl, .A .few-text, .A .rule { color:#9dabbb; }
+  .A .lbl { font:13px "Bahnschrift SemiCondensed",Bahnschrift,sans-serif; }
+  .A .heroes > div + div { border-left:1px solid #26323f; }
+  .A .fig { display:block; font:56px/1 "Bahnschrift Bold Condensed",Bahnschrift,sans-serif; letter-spacing:-.01em; }
+  .A .fig small { font:600 20px "Bahnschrift SemiCondensed",Bahnschrift,sans-serif; color:#9dabbb; margin-left:4px; }
+  .A .fig.win { color:#3fd0a0; }
+  .A .row { border-top:1px solid #26323f; }
+  .A .pt { background:#1c2631; border-radius:3px; box-shadow:inset 0 -3px 0 #82bfdc; font:600 15px Bahnschrift,sans-serif; color:#9dabbb; }
+  .A .name { font:18px "Bahnschrift SemiBold SemiConden",Bahnschrift,sans-serif; }
+  .A .bar { background:#1c2631; }
+  .A .bar i.win { background:#3fd0a0; } .A .bar i.loss { background:#ff7b74; }
+  .A .bar .mid { background:#9dabbb; }
+  .A .val { font:28px/1 "Bahnschrift Bold Condensed",Bahnschrift,sans-serif; text-align:right; }
+  .A .val small { display:block; font:13px "Bahnschrift SemiCondensed",Bahnschrift,sans-serif; color:#9dabbb; }
+  .A .val.up { color:#3fd0a0; } .A .val.down { color:#ff7b74; }
+  .A .ticks span { background:#1c2631; } .A .ticks span.on { background:#9dabbb; }
+
+  /* ---------- B : Salle de stratégie ---------- */
+  .B { background:#16131b; color:#f3ede5; font-size:14.5px; }
+  .B h2 { font:600 38px/1.05 "Sitka Banner","Sitka Heading",Georgia,serif; }
+  .B .sub, .B .lbl, .B .few-text, .B .rule { color:#b9afa6; }
+  .B .lbl { font:600 13px "Segoe UI",sans-serif; }
+  .B .heroes { border-top:1px solid #383142; border-bottom:1px solid #383142; padding:14px 0; }
+  .B .heroes > div + div { box-shadow:inset 1px 0 0 #383142; }
+  .B .fig, .B .val { font-variant-numeric:lining-nums tabular-nums; }
+  .B .fig { display:block; font:600 52px/1.05 "Sitka Banner",Georgia,serif; }
+  .B .fig small { font:600 18px "Segoe UI",sans-serif; color:#b9afa6; margin-left:6px; }
+  .B .fig.win { color:#dcab5c; }
+  .B .row { padding:12px 0; }
+  .B .pt { border-radius:6px; outline:2px solid #66b0f2; outline-offset:2px; background:#2b3445; font:600 19px "Sitka Banner",Georgia,serif; }
+  .B .name { font:600 20px "Sitka Subheading",Georgia,serif; }
+  .B .bar { background:#29242f; border-radius:5px; overflow:hidden; }
+  .B .bar i.win { background:#80d59c; } .B .bar i.loss { background:#ff8f7b; }
+  .B .bar .mid { background:#f3ede5; opacity:.6; }
+  .B .val { font:600 30px/1 "Sitka Banner",Georgia,serif; text-align:right; }
+  .B .val small { display:block; font:13px "Segoe UI",sans-serif; color:#b9afa6; }
+  .B .ticks span { background:#29242f; border-radius:4px; } .B .ticks span.on { background:#b9afa6; }
+</style>
+</head>
+<body>
+<p class="warn">Maquette — données d'illustration. Ces chiffres sont inventés pour montrer la mise en forme ; ils ne viennent ni d'un joueur ni de DRAFT.</p>
+<div class="cols">
+  <section class="A">
+    <h2>A — Analyste</h2>
+    <p class="sub">Chiffre héros en Bahnschrift condensé. La couleur dit le sens, l'échantillon est toujours écrit.</p>
+    <div class="heroes">
+      <div><span class="lbl">Parties notées</span><span class="fig">42</span></div>
+      <div><span class="lbl">Victoires</span><span class="fig win">55<small>%</small></span><span class="lbl">23 sur 42</span></div>
+      <div><span class="lbl">Conseil suivi</span><span class="fig">31<small>sur 42</small></span></div>
+    </div>
+    <div class="row"><span class="pt">Fi</span><div><div class="name">Fizz</div><div class="bar"><i class="win" style="width:58%"></i><span class="mid"></span></div></div><div class="val up">58 %<small>14 V, 10 D</small></div></div>
+    <div class="row"><span class="pt">TF</span><div><div class="name">Twisted Fate</div><div class="bar"><i class="loss" style="width:42%"></i><span class="mid"></span></div></div><div class="val down">42 %<small>5 V, 7 D</small></div></div>
+    <div class="row"><span class="pt">KM</span><div><div class="name">Kog'Maw</div><div class="ticks" aria-label="6 parties sur les 10 nécessaires"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span><span></span><span></span></div><div class="few-text">Trop peu de parties pour conclure : 6 sur 10.</div></div><div class="val">6<small>parties</small></div></div>
+    <p class="rule">Règle : sous 10 parties, ni pourcentage ni couleur de résultat. Une jauge de 10 crans montre ce qui manque. Le trait au milieu de la barre marque 50 %.</p>
+  </section>
+  <section class="B">
+    <h2>B — Salle de stratégie</h2>
+    <p class="sub">Le chiffre se lit comme un titre. Le laiton signale ce que DRAFT met en avant.</p>
+    <div class="heroes">
+      <div><span class="lbl">Parties notées</span><span class="fig">42</span></div>
+      <div><span class="lbl">Victoires</span><span class="fig win">55<small>%</small></span><span class="lbl">23 sur 42</span></div>
+      <div><span class="lbl">Conseil suivi</span><span class="fig">31<small>sur 42</small></span></div>
+    </div>
+    <div class="row"><span class="pt">Fi</span><div><div class="name">Fizz</div><div class="bar"><i class="win" style="width:58%"></i><span class="mid"></span></div></div><div class="val">58 %<small>14 victoires, 10 défaites</small></div></div>
+    <div class="row"><span class="pt">TF</span><div><div class="name">Twisted Fate</div><div class="bar"><i class="loss" style="width:42%"></i><span class="mid"></span></div></div><div class="val">42 %<small>5 victoires, 7 défaites</small></div></div>
+    <div class="row"><span class="pt">KM</span><div><div class="name">Kog'Maw</div><div class="ticks" aria-label="6 parties sur les 10 nécessaires"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span><span></span><span></span></div><div class="few-text">Trop peu de parties : 6 sur 10. Pas encore de bilan.</div></div><div class="val">6<small>parties</small></div></div>
+    <p class="rule">Règle : sous 10 parties, le chiffre en grand est le nombre de parties, jamais un pourcentage. Portraits absents ici : initiales sur fond teinté du rôle.</p>
+  </section>
+</div>
+</body>
+</html>

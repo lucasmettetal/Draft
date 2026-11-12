@@ -1,0 +1,228 @@
+/* =====================================================================
+   DRAFT — feuille d'étude, direction B « Salle de stratégie ».
+   Étude seulement : chargée APRÈS la feuille de l'application, dans une copie temporaire de web/.
+   Principe : une table de travail du soir. Encre prune, ivoire chaud, laiton réservé au conseil.
+   - Les champions portent la couleur de leur rôle (cadre du portrait) : on lit la draft par les visages.
+   - Le laiton dit « DRAFT te conseille » ; en pointillé, « conseil serré ».
+   - Titres et noms de champions en Sitka (serif livrée avec Windows), chiffres en Bahnschrift.
+   - Mise en page éditoriale : peu de boîtes, de grands titres, des colonnes séparées par l'espace.
+   ===================================================================== */
+:root {
+  --bg:#16131b; --surface:#1e1a24; --raised:#29242f; --hover:#2f2937; --line:#383142; --line-strong:#7d7290;
+  --text:#f3ede5; --muted:#b9afa6;
+  --brass:#dcab5c; --brass-ink:#21170a; --win:#80d59c; --loss:#ff8f7b; --hypo:#a3b8ec; --sim:#6ccbd8;
+  --accent:var(--win); --accent-ink:#0d2616; --gold:var(--brass); --threat:var(--loss); --info:var(--hypo);
+  --accent-soft:rgba(128,213,156,.12); --accent-line:#3d5f48; --threat-soft:rgba(255,143,123,.12); --gold-soft:rgba(220,171,92,.12); --gold-line:#6b5530;
+  --r-top:#e49b5d; --r-jungle:#7cc47c; --r-mid:#66b0f2; --r-adc:#f07ea3; --r-support:#b897f3;
+  --display:"Sitka Banner","Sitka Heading",Georgia,serif;
+  --heading:"Sitka Subheading","Sitka Heading",Georgia,serif;
+  --condensed:"Sitka Subheading","Sitka Heading",Georgia,serif;
+  --figure:"Bahnschrift SemiBold",Bahnschrift,"Segoe UI",sans-serif;
+  --body:"Segoe UI Variable Text","Segoe UI",sans-serif;
+  --r-box:8px; --r-ctl:6px; --r-tag:999px;
+}
+html, body { font:14.5px/1.5 var(--body); }
+body { background:var(--bg); }
+
+/* ---------- Actions : le laiton = le conseil ---------- */
+.cta { background:var(--brass); color:var(--brass-ink); border-radius:var(--r-ctl); font:600 15px var(--body); }
+.cta:hover { filter:brightness(1.06); }
+.cta.done { background:transparent; color:var(--brass); box-shadow:inset 0 0 0 1px var(--brass); }
+.ghost-btn { border-radius:var(--r-ctl); font:600 13.5px var(--body); border-color:var(--line-strong); }
+:focus-visible { outline-color:var(--brass); }
+
+/* ---------- Navigation ---------- */
+.nav { background:var(--bg); border-right:0; box-shadow:inset -1px 0 0 var(--line); }
+.nav-brand .brand { font:600 26px/1 var(--display); letter-spacing:.02em; }
+.nav-brand .p-logo { color:var(--brass); }
+.nav-brand small { border-color:var(--line); }
+.nav-link { font:15px var(--body); }
+.nav-link[aria-current="page"] { background:transparent; color:var(--text); font-weight:600; }
+.nav-link[aria-current="page"]::before { background:var(--brass); }
+.nav-link[aria-current="page"] .nav-icon { color:var(--brass); }
+.nav-state { border:0; background:var(--surface); }
+.nav-role-icon { color:var(--r-mid); }
+
+/* ---------- Pages éditoriales ---------- */
+.view-head { margin-bottom:var(--s5); }
+.view-head h1 { font:600 40px/1.05 var(--display); letter-spacing:-.005em; }
+.view-head p { font-size:15px; color:var(--muted); }
+.box { background:var(--surface); border:0; border-radius:var(--r-box); }
+.box-title { font:600 21px/1.2 var(--heading); }
+.box h3, .settings h3 { font:600 17px var(--heading); }
+.empty-note { background:transparent; border:1px dashed var(--line-strong); color:var(--muted); font-style:italic; }
+
+/* ---------- Accueil : un titre, puis trois colonnes sans cadre ---------- */
+.home { gap:var(--s6); }
+.home-hero { background:transparent; border-left:0; padding:0; grid-template-columns:minmax(0,1fr) auto; }
+.home-hero .hero-mark { display:none; }
+.home-title { font:600 46px/1.05 var(--display); max-width:22ch; }
+.home-lead { font-size:16px; }
+.home-chain { gap:0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.home-chain .home-card { background:transparent; border:0; border-radius:0; padding:var(--s5) var(--s5) var(--s5) 0; }
+.home-chain .home-card + .home-card { padding-left:var(--s5); box-shadow:inset 1px 0 0 var(--line); }
+.home-card.home-quiet { background:transparent; border:0; padding:0; }
+.home-more { gap:var(--s6); }
+.card-kicker { font:600 13px var(--body); color:var(--muted); }
+.card-state { font:600 22px/1.2 var(--heading); }
+.home-card.state-wait .card-state .nav-dot { background:var(--brass); }
+/* Le pool se montre par les visages. */
+.home-portraits { gap:var(--s3); }
+.home-champ { flex-direction:column; align-items:flex-start; gap:6px; font:600 13.5px var(--body); }
+.home-champ .portrait { width:56px !important; height:56px !important; }
+.data-row { border-left:0; padding-left:0; }
+.data-row dt { font-size:12.5px; }
+.data-row dd { font:600 15px var(--body); }
+.data-row.ok dd { color:var(--win); }
+
+/* ---------- Portraits : grands, cadre de la couleur du rôle ---------- */
+.portrait { border-radius:6px; background:var(--raised); }
+.portrait img { transform:scale(1.1); }
+.portrait .init { font:600 18px var(--display); color:var(--text); background:color-mix(in srgb,var(--role,var(--raised)) 26%,var(--raised)); }
+[data-slot] { --role:var(--line-strong); }
+[data-slot="top"] { --role:var(--r-top); } [data-slot="jungle"] { --role:var(--r-jungle); } [data-slot="mid"] { --role:var(--r-mid); }
+[data-slot="adc"] { --role:var(--r-adc); } [data-slot="support"] { --role:var(--r-support); }
+.role .portrait { outline:2px solid var(--role); outline-offset:2px; }
+.role-icon { color:var(--role); }
+.role.is-mid .role-icon { color:var(--role); }
+
+/* ---------- Simulateur ---------- */
+.top { background:var(--bg); border-bottom:1px solid var(--line); }
+.view-title { font:600 22px var(--display); }
+.col-left, .col-right { background:var(--bg); }
+.col-left { border-right:1px solid var(--line); }
+.col-right { border-left:1px solid var(--line); }
+.sec-title { font:600 19px var(--heading); }
+.sec-title small { font:13px var(--body); }
+.roles { flex:0 0 auto; gap:6px; }
+.roles > .role { flex:0 0 auto; min-height:80px; background:transparent; border:0; border-radius:var(--r-box); padding:8px 10px; }
+.roles > .role:hover { background:var(--surface); }
+.role .portrait, .slot-ghost { width:60px !important; height:60px !important; }
+.roles > .role.is-mid { background:var(--surface); box-shadow:none; }
+.role.target { box-shadow:inset 0 0 0 1px var(--brass); }
+.role-name { font:600 21px/1.1 var(--heading); }
+.role-traits { font-size:13px; }
+.slot-ghost { border:2px dashed var(--line-strong); }
+.assumed, .role-flex { color:var(--hypo); font-style:italic; font-weight:500; }
+.role.is-mid:has(.assumed) .portrait { outline-style:dashed; }
+.pip { height:6px; background:var(--raised); border-radius:3px; }
+.pip i { background:var(--text); opacity:.7; }
+.meter.danger .pip i { background:var(--loss); opacity:1; }
+/* Scène : portrait fort, voile chaud, nom en grand. */
+.stage { border-radius:var(--r-box); }
+.scrim { background:linear-gradient(90deg,rgba(22,19,27,.94) 0%,rgba(22,19,27,.7) 40%,rgba(22,19,27,0) 75%), linear-gradient(0deg,rgba(22,19,27,.85),transparent 55%); }
+.champ-name { font:600 clamp(48px,4.6vw,80px)/1 var(--display); }
+.champ-name.long { font-size:clamp(34px,3.2vw,52px); }
+.badge { border-radius:var(--r-tag); padding:2px 10px; font:600 12.5px var(--body); }
+.badge.net { color:var(--brass-ink); background:var(--brass); border-color:var(--brass); }
+.badge.close { color:var(--brass); border:1px dashed var(--brass); background:rgba(22,19,27,.8); }
+.alt-line { font-size:15px; }
+.reasons li { font-size:15.5px; }
+.change { border-color:var(--brass); border-radius:var(--r-box); }
+/* Classement : tuiles portrait, la première porte le laiton. */
+.rank-list { gap:10px; }
+.rank { background:transparent; border:1px solid var(--line); border-radius:var(--r-box); padding:10px; }
+.rank.first { border-color:var(--brass); background:var(--gold-soft); }
+.rank .portrait { width:52px !important; height:52px !important; }
+.rank-name { font:600 18px/1.1 var(--heading); }
+.rank-word.best { background:var(--brass); color:var(--brass-ink); border-radius:var(--r-tag); }
+.rank-word.alt { border-radius:var(--r-tag); border-color:var(--line-strong); }
+.rank.first .force i { background:var(--brass); }
+.rank-glow { background:var(--brass); } .rank-ring { border-color:var(--brass); }
+.chosen { background:var(--brass); color:var(--brass-ink); }
+/* Plan de jeu */
+.wincon { background:transparent; border-left:2px solid var(--brass); border-radius:0; padding:4px 0 4px 12px; font:600 17px/1.35 var(--heading); }
+.wincon span { color:var(--brass); font:600 13px var(--body); }
+.face .portrait { width:32px !important; height:32px !important; border-radius:50%; }
+.plan-row.threat .portrait { box-shadow:0 0 0 2px var(--loss); }
+.plan-row.ban-row > span:first-child, .ban-row .face { color:var(--text); }
+.plan-row.ban-row .portrait { box-shadow:0 0 0 2px var(--line-strong); filter:grayscale(1) brightness(.85); }
+.tab { font:14px var(--body); }
+.tab.on { font-weight:600; }
+.tab-line { background:var(--brass); }
+.seg-tabs { background:transparent; border-bottom:1px solid var(--line); border-radius:0; padding:0; }
+.seg-tab { border-radius:0; }
+.seg-tab.on { background:transparent; box-shadow:inset 0 -2px 0 var(--text); }
+.tips li::before { background:var(--brass); }
+.sim-band { background:rgba(108,203,216,.08); border-bottom:1px solid var(--sim); }
+.sim-band b { color:var(--sim); }
+.role-btn.on, .top .seg-tab.on { color:var(--text); }
+.role-btn.on { border-color:var(--brass); color:var(--brass); }
+
+/* ---------- Mon pool ---------- */
+.played-bar { background:transparent; padding:0 0 var(--s4); border-bottom:1px solid var(--line); border-radius:0; }
+.played-seg .seg-tab.on { color:var(--brass); box-shadow:inset 0 0 0 1px var(--brass); }
+.pool-roles { background:transparent; padding:0; }
+.pool-role { font:15px var(--body); }
+.pool-role.on { background:var(--surface); box-shadow:inset 3px 0 0 var(--brass); font-weight:600; }
+.tag-played { background:var(--brass); color:var(--brass-ink); border-radius:var(--r-tag); }
+[data-test="pool-role-top"] .pool-role-icon { color:var(--r-top); } [data-test="pool-role-jungle"] .pool-role-icon { color:var(--r-jungle); }
+[data-test="pool-role-mid"] .pool-role-icon { color:var(--r-mid); } [data-test="pool-role-adc"] .pool-role-icon { color:var(--r-adc); }
+[data-test="pool-role-support"] .pool-role-icon { color:var(--r-support); }
+.pool-table th, .pool-table td { padding:10px var(--s3); border-top-color:var(--line); }
+.pool-name { font:600 19px var(--heading); gap:var(--s4); }
+.pool-name .portrait { width:48px !important; height:48px !important; }
+.pool-chip { border-radius:var(--r-tag); border-color:var(--line); padding-right:12px; }
+.pool-chip .portrait { width:28px !important; height:28px !important; border-radius:50%; }
+
+/* ---------- Mes statistiques : le chiffre comme un titre ---------- */
+.stats-tabs { gap:var(--s6); }
+.stats-tab.on { box-shadow:inset 0 -2px 0 var(--brass); }
+.kpis { background:transparent; border-top:1px solid var(--line); border-bottom:1px solid var(--line); border-radius:0; }
+.kpis > div { padding:var(--s4) var(--s5) var(--s4) 0; border-left:0; }
+.kpis > div + div { padding-left:var(--s5); box-shadow:inset 1px 0 0 var(--line); }
+.kpis b { display:inline-block; margin:6px 0 2px; font:600 44px/1 var(--display); font-variant-numeric:lining-nums tabular-nums; }
+.winbar-track { height:10px; border-radius:5px; background:var(--raised); }
+.winbar-track i { background:var(--win); border-radius:5px; }
+.winbar.few .winbar-track i { background:transparent; box-shadow:inset 0 0 0 1px var(--line-strong); }
+.game.win { background:var(--win); } .game.loss { background:var(--loss); }
+.result-tag { border-radius:var(--r-tag); }
+.result-tag.win { color:var(--win); } .result-tag.loss { color:var(--loss); }
+
+/* ---------- Réglages ---------- */
+.subnav-link.on { background:transparent; box-shadow:inset 3px 0 0 var(--brass); font-weight:600; }
+.lcu-state.good { color:var(--win); } .lcu-state.wait { color:var(--brass); }
+.set-card { background:transparent; border-color:var(--line); }
+.set-card.on { border-color:var(--gold-line); }
+input[type=checkbox], input[type=radio] { accent-color:var(--brass); }
+
+/* ---------- Panneaux (overlay) ---------- */
+.panel { background:var(--bg); border-color:var(--gold-line); border-radius:10px; }
+.p-logo { color:var(--brass); }
+.p-title .brand { font:600 20px var(--display); }
+.panel .sec-title::before, .p-h::before { background:var(--brass); width:3px; border-radius:2px; }
+.p-h { font:600 16px var(--heading); }
+.panel .role { background:transparent; border-color:transparent; }
+.panel .role.is-mid { background:var(--surface); }
+.panel-left .role .portrait, .panel-left .slot-ghost { width:46px !important; height:46px !important; }
+.panel-left .role-name, .panel-left .role.is-mid .role-name { font:600 17px var(--heading); }
+.compact-roles .role { border:0; background:transparent; }
+.compact-roles .role.is-mid { background:var(--surface); }
+.compact-roles .portrait, .compact-roles .slot-ghost { width:36px !important; height:36px !important; }
+.compact-roles .role .portrait { outline-width:2px; outline-offset:1px; }
+.panel-left .role-icon { width:46px; }
+.compact-roles .role-name, .compact-roles .role.is-mid .role-name { font:600 13px/1.1 var(--heading); }
+.p-reco { border:1px solid var(--brass); border-radius:var(--r-box); }
+.p-reco-scrim { background:linear-gradient(90deg,rgba(22,19,27,.92),rgba(22,19,27,.2) 80%); }
+.p-chip { background:var(--brass); color:var(--brass-ink); border-radius:var(--r-tag); padding:1px 9px; }
+.p-name { font:600 clamp(30px,10vw,40px)/1 var(--display); }
+.p-alt { border-radius:var(--r-box); border-color:var(--line); font:600 18px var(--heading); }
+.p-alt small { font:12.5px var(--body); }
+.p-reasons li::before { background:var(--brass); }
+.p-threat { background:var(--threat-soft); border-left-color:var(--loss); }
+.p-threat b { font:600 16px var(--heading); }
+.p-win b { color:var(--brass); }
+.tie-item { border:1px dashed var(--brass); background:transparent; }
+.tie-name { font:600 16px var(--heading); }
+.p-actions { background:var(--bg); }
+.panel-left .effects { border:0; background:var(--surface); }
+
+/* Fenêtre basse (1366 x 768) : la colonne adverse tient sans défiler. */
+@media (max-height:800px) and (min-width:1101px) {
+  .roles { gap:2px; }
+  .roles > .role { min-height:66px; padding:5px 8px; }
+  .role .portrait, .slot-ghost { width:50px !important; height:50px !important; }
+  .role-name { font-size:19px; }
+  .home { gap:var(--s5); }
+  .home-title { font-size:38px; }
+}
