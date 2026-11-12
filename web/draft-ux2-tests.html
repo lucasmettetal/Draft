@@ -29,7 +29,7 @@ const LIVE=["Ornn","Sion","Ahri"];
  if(x.$.openViewInPage){x.$.openViewInPage("compare","live");await settle();
   t(!x.$.sim&&x.$.state.enemies.join()===LIVE.join(),"« Détails » depuis l'overlay : vraie draft affichée, simulation quittée");
   t(x.w.keepMark===1,"« Détails » : la page n'est pas rechargée");
-  const tab=x.d.querySelector('.tab.on');t(tab&&tab.dataset.tab==="analyse"&&x.d.querySelector('[data-view="compare"].on'),"« Comparer » ouvre l'onglet Analyse, vue Comparer");}
+  const tab=x.d.querySelector('.tab.on');t(tab&&tab.dataset.tab==="compare","« Comparer » ouvre l'onglet Comparer (un seul niveau d'onglets, UX-7)");}
  close(x);}
 document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
 })().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});

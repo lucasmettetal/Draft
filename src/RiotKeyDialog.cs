@@ -175,6 +175,14 @@ namespace DraftMid
         }
 
         public RiotTask TestPreselected() { return Tasks; }
+
+        // Barre de titre sombre, comme la fenêtre principale (UX-7, repli silencieux).
+        public bool DarkTitle;
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            DarkTitle = Native.DarkTitleBar(Handle);
+        }
         public bool TestMatchupsAvailable() { return matchupsBox.Enabled; }
     }
 }

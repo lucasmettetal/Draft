@@ -130,5 +130,11 @@ window.DRAFT_I18N_FR = {
 "settings.display.replaceHint": "Recolle les panneaux au client LoL, à la place calculée par DRAFT.",
 "settings.diag.lcu": "Diagnostic de connexion LoL",
 "settings.diag.lcuHint": "Teste la lecture du client et copie le rapport dans le presse-papiers, pour le joindre à un signalement.",
-"stats.oldFile.stats": "Importer un ancien fichier draft-stats.js"
+"stats.oldFile.stats": "Importer un ancien fichier draft-stats.js",
+"settings.closeSolo": "Fermer les réglages",
+"settings.diag.phase": "État",
+"settings.diag.placement": "Panneaux",
+"sim.rulesHelp": "Comment DRAFT classe tes picks",
+"sim.coachLevel": "Niveau des conseils : {level}.",
+"sim.coachLevelChange": "Changer dans Réglages"
 };

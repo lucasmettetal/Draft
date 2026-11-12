@@ -15,7 +15,7 @@
   * { box-sizing:border-box; }
   html { color-scheme:dark; }
   * { scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 var(--body); }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:15px/1.4 var(--body); }
   button, input { font:inherit; color:inherit; }
   button { cursor:pointer; }
   button:disabled { cursor:not-allowed; }
@@ -31,11 +31,11 @@
 .sim-band p { margin:0; }
 .sim-band .grow { flex:1; }
 .sim-band b { color:var(--gold); font-weight:600; }
-  .brand { font:20px var(--condensed); letter-spacing:.02em; }
+  .brand { font:18px var(--condensed); letter-spacing:.02em; }
   .brand b { color:var(--accent); font-weight:inherit; }
-  .patch { color:var(--muted); font-size:12.5px; }
+  .patch { color:var(--muted); font-size:13px; }
   .top .grow { flex:1; }
-  .ghost-btn { min-height:32px; padding:4px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:13px; }
+  .ghost-btn { min-height:32px; padding:4px 12px; background:transparent; border:1px solid var(--line-strong); border-radius:6px; color:var(--text); font-size:13px; }
   .ghost-btn:hover:not(:disabled) { border-color:var(--muted); background:var(--raised); }
   .ghost-btn:disabled { color:var(--muted); opacity:.55; }
 
@@ -45,12 +45,12 @@
   .col-mid { padding:14px; gap:12px; overflow:auto; }
   .col-right { background:var(--surface); border-left:1px solid var(--line); overflow:hidden; }
 
-  .sec-title { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; font:17px var(--condensed); letter-spacing:.02em; }
-  .sec-title small { color:var(--muted); font:12.5px var(--body); }
+  .sec-title { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; font:18px var(--condensed); letter-spacing:.02em; }
+  .sec-title small { color:var(--muted); font:13px var(--body); }
 
   /* Saisie */
   .search { position:relative; margin-bottom:6px; }
-  #add, #q { width:100%; height:42px; padding:0 12px; background:var(--bg); border:1px solid var(--line); border-radius:6px; font-size:15px; outline:none; transition:border-color .12s; }
+  #add, #q { width:100%; height:42px; padding:0 12px; background:var(--bg); border:1px solid var(--line-strong); border-radius:6px; font-size:15px; outline:none; transition:border-color .12s; }
   #add:focus, #q:focus { border-color:var(--accent); }
   #add:disabled { opacity:.55; }
   #add::placeholder, #q::placeholder { color:var(--muted); opacity:1; }
@@ -83,17 +83,17 @@
   .role-icon svg { display:block; width:20px; height:20px; margin:0 auto 2px; }
   .role.is-mid .role-icon { color:var(--accent); }
   .role-who { min-width:0; flex:1; pointer-events:none; }
-  .role-name { font:17px/1.15 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .role-name { font:18px/1.15 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .role-traits { color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .role-empty { color:var(--muted); font-size:13px; pointer-events:none; }
   .role-tools { position:relative; display:flex; gap:2px; }
   .mini { min-width:28px; height:28px; padding:0 6px; background:none; border:0; border-radius:4px; color:var(--muted); font-size:12px; }
   .mini:hover { color:var(--text); background:var(--line); }
-  .mini.x { font-size:17px; line-height:1; }
+  .mini.x { font-size:18px; line-height:1; }
 
   /* Profil de la composition */
   .meters { display:grid; gap:7px; }
-  .meter { display:grid; grid-template-columns:96px 1fr; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); }
+  .meter { display:grid; grid-template-columns:96px 1fr; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
   .pips { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
   .pip { height:7px; background:var(--raised); border-radius:1px; overflow:hidden; }
   .pip i { display:block; height:100%; background:var(--accent); transform-origin:left; }
@@ -105,7 +105,7 @@
   .scrim { position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,rgba(10,15,22,.92) 0%,rgba(10,15,22,.62) 44%,rgba(10,15,22,.05) 78%), linear-gradient(0deg,rgba(10,15,22,.72),transparent 55%); }
   .stage-body { position:absolute; left:0; bottom:0; display:flex; flex-direction:column; gap:7px; max-width:min(560px,86%); padding:20px 22px; }
   .badges { display:flex; flex-wrap:wrap; gap:6px; }
-  .badge { padding:2px 8px; background:rgba(10,15,22,.72); border:1px solid var(--line); border-radius:4px; color:var(--muted); font-size:12.5px; }
+  .badge { padding:2px 8px; background:rgba(10,15,22,.72); border:1px solid var(--line); border-radius:4px; color:var(--muted); font-size:13px; }
   .badge.net { color:var(--accent); border-color:var(--accent); }
   .badge.close { color:var(--gold); border-color:var(--gold); }
   .eyebrowless { color:var(--muted); font-size:13px; }
@@ -117,7 +117,7 @@
   .note b { color:var(--text); font-weight:600; }
   .note .avoid { color:var(--threat); font-weight:600; }
   .note.warn { color:var(--gold); }
-  .cta { align-self:flex-start; min-height:40px; margin-top:4px; padding:7px 18px; background:var(--accent); border:0; border-radius:6px; color:var(--accent-ink); font:17px var(--condensed); }
+  .cta { align-self:flex-start; min-height:40px; margin-top:4px; padding:7px 18px; background:var(--accent); border:0; border-radius:6px; color:var(--accent-ink); font:18px var(--condensed); }
   .cta:hover { filter:brightness(1.1); }
   .cta.done { background:transparent; color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
 
@@ -129,7 +129,7 @@
   .rank.first { border-color:var(--accent); }
   .rank.picked { background:var(--raised); box-shadow:inset 0 0 0 2px var(--accent); }
   .rank-top { display:flex; align-items:center; gap:8px; min-width:0; }
-  .rank-name { font:16px/1.1 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rank-name { font:15px/1.1 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .rank-word { font-size:12px; color:var(--muted); white-space:nowrap; }
   .rank-word.good { color:var(--accent); }
   .rank-word.bad { color:var(--threat); }
@@ -143,28 +143,30 @@
   .plan-row { display:grid; grid-template-columns:72px 1fr; gap:8px; align-items:center; min-height:34px; padding:3px 0; }
   .plan-row > span:first-child { color:var(--muted); font-size:13px; }
   .faces { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
-  .face { display:inline-flex; align-items:center; gap:5px; font-size:13.5px; }
+  .face { display:inline-flex; align-items:center; gap:5px; font-size:13px; }
   .ban-row { background:none; }
   .ban-row .face { color:var(--gold); }
   .results { display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-top:8px; }
-  .res { min-height:36px; padding:4px 10px; background:var(--raised); border:1px solid var(--line); border-radius:6px; font-size:14px; transition:background-color .12s, border-color .12s; }
+  .res { min-height:36px; padding:4px 10px; background:var(--raised); border:1px solid var(--line); border-radius:6px; font-size:15px; transition:background-color .12s, border-color .12s; }
   .res:hover:not(:disabled) { border-color:var(--muted); }
   .res:disabled { color:var(--muted); opacity:.5; }
   .res.win.on { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600; }
   .res.loss.on { background:var(--threat); border-color:var(--threat); color:#2a0708; font-weight:600; }
   .res.skip.on { border-color:var(--text); }
-  .result-note { margin-top:6px; color:var(--muted); font-size:12.5px; }
+  .result-note { margin-top:6px; color:var(--muted); font-size:13px; }
 
   .tabs { flex:none; display:flex; gap:0; padding:0 6px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none; }
-  .tab { position:relative; flex:none; padding:10px 7px; background:none; border:0; color:var(--muted); font-size:13.5px; }
+  .tab { position:relative; flex:none; padding:10px 7px; background:none; border:0; color:var(--muted); font-size:13px; }
   .tab:hover { color:var(--text); }
   .tab.on { color:var(--text); }
   .tab-line { position:absolute; left:5px; right:5px; bottom:-1px; height:2px; background:var(--accent); }
   .tab-body { flex:1; min-height:0; padding:12px 14px 18px; overflow:auto; }
+  .tab-help { flex:none; margin:0; padding:6px 14px 0; font-size:13px; }
+  .tab-help .link-btn.on { color:var(--text); }
   .tab-body h3 { margin:12px 0 5px; font:15px var(--condensed); color:var(--muted); }
   .tab-body h3:first-child { margin-top:0; }
   .small { color:var(--muted); font-size:13px; margin:4px 0; }
-  .why-name { display:flex; align-items:center; gap:7px; margin-top:10px; font:16px var(--condensed); }
+  .why-name { display:flex; align-items:center; gap:7px; margin-top:10px; font:15px var(--condensed); }
   .why { margin:3px 0 0 33px; font-size:13px; }
   .why .pos { color:var(--text); }
   .why .neg { color:var(--threat); }
@@ -172,19 +174,19 @@
   th, td { padding:5px 8px 5px 0; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
   th { color:var(--muted); font-weight:500; font-size:12px; }
   .mcard { display:grid; grid-template-columns:32px 1fr; gap:4px 9px; padding:8px 0; border-bottom:1px solid var(--line); }
-  .mcard-name { font:16px var(--condensed); }
+  .mcard-name { font:15px var(--condensed); }
   .mcard-line { grid-column:2; font-size:13px; color:var(--muted); }
   .mcard-line b { color:var(--text); font-weight:600; }
   .mcard-line .avoid { color:var(--threat); }
   .plain li { margin-bottom:5px; font-size:13px; }
   .plain b { font-weight:600; }
-  .legal { margin-top:14px; color:var(--muted); font-size:11.5px; }
+  .legal { margin-top:14px; color:var(--muted); font-size:12px; }
 
   .splash-stack { position:absolute; inset:0; z-index:-2; overflow:hidden; }
   .splash-stack .splash { z-index:auto; }
-  .change { position:absolute; top:14px; left:22px; right:22px; z-index:1; max-width:560px; padding:7px 11px; background:rgba(10,15,22,.86); border:1px solid var(--gold); border-radius:4px; font-size:13.5px; }
+  .change { position:absolute; top:14px; left:22px; right:22px; z-index:1; max-width:560px; padding:7px 11px; background:rgba(10,15,22,.86); border:1px solid var(--gold); border-radius:4px; font-size:13px; }
   .change b { color:var(--gold); font-weight:600; }
-  .change span { display:block; color:var(--muted); font-size:12.5px; }
+  .change span { display:block; color:var(--muted); font-size:13px; }
   .reasons { min-height:44px; }
   .stage-notes { min-height:38px; }
   .rank { position:relative; }
@@ -209,7 +211,7 @@
   /* V2 */
   .hint.done { color:var(--accent); }
   .roles > .role.is-mid { flex-grow:1.3; box-shadow:inset 3px 0 0 var(--accent); }
-  .role.is-mid .role-name { font-size:19px; }
+  .role.is-mid .role-name { font-size:18px; }
   .role-hit:focus-visible { outline-offset:-2px; }
   .who-wrap { padding-right:26px; }
   .role-tools { position:absolute; top:50%; right:6px; transform:translateY(-50%); align-items:center; }
@@ -225,13 +227,13 @@
   .meter-label { min-width:0; }
   .meter-delta { color:var(--text); font-size:12px; text-align:right; }
   .meter-delta span { display:block; }
-  .effects { min-height:36px; margin-top:8px; color:var(--muted); font-size:12.5px; }
+  .effects { min-height:36px; margin-top:8px; color:var(--muted); font-size:13px; }
   .effects span { display:block; }
   .effects .help { color:var(--accent); }
   .effects .hurt { color:var(--threat); }
 
   .splash-stack.loading { background:linear-gradient(100deg,var(--surface) 30%,var(--raised) 50%,var(--surface) 70%); background-size:220% 100%; animation:shimmer 1s linear infinite; }
-  .splash-fail { position:absolute; top:12px; right:14px; color:var(--muted); font-size:12.5px; }
+  .splash-fail { position:absolute; top:12px; right:14px; color:var(--muted); font-size:13px; }
 
   .rank-word.best { display:inline-block; padding:0 6px; background:var(--accent); border-radius:3px; color:var(--accent-ink); font-weight:600; }
   .rank-word.alt { display:inline-block; padding:0 6px; border:1px solid var(--muted); border-radius:3px; color:var(--text); line-height:1.25; }
@@ -263,7 +265,7 @@
   .winbar-track { height:7px; background:var(--bg); border-radius:1px; overflow:hidden; }
   .winbar-track i { display:block; height:100%; background:var(--accent); transform-origin:left; }
   .winbar.few .winbar-track i { background:var(--muted); }
-  .winbar-val { color:var(--muted); font-size:12.5px; white-space:nowrap; }
+  .winbar-val { color:var(--muted); font-size:13px; white-space:nowrap; }
   .history { display:flex; flex-wrap:wrap; gap:3px; margin-bottom:6px; }
   .game { width:13px; height:13px; border-radius:2px; }
   .game.win { background:var(--accent); }
@@ -279,9 +281,9 @@
   .seg-tab:hover { color:var(--text); }
   .seg-tab.on { background:var(--raised); color:var(--text); }
   .tips { margin-bottom:8px; }
-  .tips li { position:relative; margin-bottom:7px; padding-left:12px; font-size:13.5px; line-height:1.35; }
+  .tips li { position:relative; margin-bottom:7px; padding-left:12px; font-size:13px; line-height:1.35; }
   .tips li::before { content:""; position:absolute; left:0; top:.5em; width:5px; height:5px; background:var(--accent); border-radius:50%; }
-  .matrix { margin:6px 0 10px; font-size:12.5px; }
+  .matrix { margin:6px 0 10px; font-size:13px; }
   .mx-row { display:grid; grid-template-columns:minmax(0,1fr) repeat(var(--n,4),30px); grid-auto-flow:column; grid-auto-columns:30px; align-items:center; min-height:26px; border-bottom:1px solid var(--line); }
   .mx-head { min-height:32px; }
   .mx-row > span:first-child { min-width:0; padding-right:6px; }
@@ -290,7 +292,7 @@
   .mx-cell.up { color:var(--accent); }
   .mx-cell.down { color:var(--threat); }
   .pick-detail { border-bottom:1px solid var(--line); padding:4px 0 6px; }
-  .pick-detail summary { display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer; font:16px var(--condensed); }
+  .pick-detail summary { display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer; font:15px var(--condensed); }
   .pick-detail .why { margin:4px 0 4px 2px; }
   .pick-detail a { color:var(--accent); }
   .cmp-head { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; color:var(--muted); font-size:12px; }
@@ -298,8 +300,8 @@
   .cmp-btn { padding:2px; background:none; border:1px solid transparent; border-radius:6px; opacity:.55; transition:opacity .12s, border-color .12s; }
   .cmp-btn:hover { opacity:1; }
   .cmp-btn.on { border-color:var(--accent); opacity:1; }
-  .cmp-title { margin:0 0 2px; font-size:14px; }
-  .cmp-row { display:grid; grid-template-columns:minmax(0,1fr) 112px; align-items:center; gap:8px; min-height:22px; font-size:12.5px; }
+  .cmp-title { margin:0 0 2px; font-size:15px; }
+  .cmp-row { display:grid; grid-template-columns:minmax(0,1fr) 112px; align-items:center; gap:8px; min-height:22px; font-size:13px; }
   .cmp-label { min-width:0; color:var(--muted); }
   .cmp-bars { display:grid; grid-template-columns:1fr 1fr; gap:2px; }
   .cmp-side { display:block; height:8px; background:var(--bg); overflow:hidden; }
@@ -309,7 +311,7 @@
   .cmp-side i.up { background:var(--accent); }
   .cmp-side i.down { background:var(--threat); }
   .cmp-side-text .why { margin:3px 0 0 2px; }
-  .cmp-legend { min-height:0; font-size:11.5px; color:var(--muted); }
+  .cmp-legend { min-height:0; font-size:12px; color:var(--muted); }
   .cmp-legend .cmp-bars span:first-child { text-align:right; }
   .cmp-legend .cmp-bars span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .comps li { display:flex; align-items:center; gap:7px; margin-bottom:5px; font-size:13px; }
@@ -337,8 +339,8 @@
   .panel-left .role .portrait, .panel-left .slot-ghost { width:44px !important; height:44px !important; }
   .panel-left .who-wrap { flex:1; flex-direction:row; width:auto; min-width:0; gap:8px; padding-right:24px; }
   .panel-left .role-who { flex:1; width:auto; min-width:0; }
-  .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:16px; }
-  .panel-left .role-traits { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:11.5px; white-space:normal; line-height:1.2; }
+  .panel-left .role-name, .panel-left .role.is-mid .role-name { font-size:15px; }
+  .panel-left .role-traits { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:12px; white-space:normal; line-height:1.2; }
   .panel-left .role-icon { width:36px; font-size:12px; }
   .panel-left .role-icon svg { width:18px; height:18px; }
   .panel-left .role-empty { font-size:13px; }
@@ -366,7 +368,7 @@
   .compact-roles .role-tools { top:14px; right:0; transform:none; }
   .compact-roles .mini.x { background:rgba(10,15,22,.8); border-radius:3px; color:var(--text); }
   .compact-roles .portrait, .compact-roles .slot-ghost { width:34px !important; height:34px !important; }
-  .compact-roles .mini.x { min-width:20px; height:20px; font-size:14px; }
+  .compact-roles .mini.x { min-width:20px; height:20px; font-size:15px; }
   .p-status { display:flex; flex-wrap:wrap; gap:6px; min-height:24px; }
   .p-reco { position:relative; flex:none; height:clamp(120px,19vh,180px); overflow:hidden; background:var(--bg); border:2px solid var(--accent); border-radius:8px; isolation:isolate; }
   .p-reco .splash { object-position:70% 18%; }
@@ -374,26 +376,26 @@
   .p-reco-text { position:absolute; left:12px; bottom:10px; right:10px; }
   .p-chip { display:inline-block; padding:1px 7px; background:var(--accent); border-radius:3px; color:var(--accent-ink); font-size:12px; font-weight:600; }
   .p-name { font:clamp(26px,9vw,36px)/1.05 var(--condensed); margin-top:3px; }
-  .p-change { margin:0; padding:5px 8px; border:1px solid var(--gold); border-radius:4px; font-size:12.5px; }
+  .p-change { margin:0; padding:5px 8px; border:1px solid var(--gold); border-radius:4px; font-size:13px; }
   .p-change b { color:var(--gold); font-weight:600; }
   .p-alt { flex:none; display:flex; align-items:center; gap:10px; width:100%; padding:6px 10px 6px 6px; background:var(--bg); border:1px solid var(--line); border-radius:6px; text-align:left; font:18px var(--condensed); transition:border-color .12s; }
   .p-alt:hover { border-color:var(--muted); }
   .p-alt-text { flex:1; min-width:0; }
   .p-alt small { display:block; color:var(--muted); font:12px var(--body); }
-  .p-h { margin:2px 0 0; font:16px var(--condensed); }
+  .p-h { margin:2px 0 0; font:15px var(--condensed); }
   .p-h::before { content:""; display:inline-block; width:4px; height:14px; margin-right:7px; vertical-align:-2px; background:var(--accent); }
-  .p-reasons li { position:relative; margin-bottom:5px; padding-left:13px; font-size:13.5px; line-height:1.3; }
+  .p-reasons li { position:relative; margin-bottom:5px; padding-left:13px; font-size:13px; line-height:1.3; }
   .p-reasons li::before { content:""; position:absolute; left:1px; top:.45em; width:5px; height:5px; background:var(--accent); transform:rotate(45deg); }
   .p-threat { flex:none; display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(242,119,122,.09); border:1px solid var(--threat); border-radius:6px; }
   .p-threat > div { flex:1; min-width:0; }
   .p-threat b { color:var(--threat); font:15px var(--condensed); }
-  .p-threat p { margin:1px 0 0; font-size:12.5px; line-height:1.25; }
+  .p-threat p { margin:1px 0 0; font-size:13px; line-height:1.25; }
   .p-threat-who { display:flex; flex-direction:column; align-items:center; gap:2px; max-width:72px; font-size:12px; text-align:center; }
   .p-win { flex:none; padding:7px 10px; background:var(--raised); border-radius:6px; }
   .p-win b { color:var(--accent); font:15px var(--condensed); }
   .p-win p { margin:1px 0 0; font-size:13px; line-height:1.3; }
-  .p-ban-row { display:flex; align-items:center; gap:8px; margin-top:5px; color:var(--muted); font-size:12.5px; }
-  .p-ban-row b { color:var(--gold); font:17px var(--condensed); }
+  .p-ban-row { display:flex; align-items:center; gap:8px; margin-top:5px; color:var(--muted); font-size:13px; }
+  .p-ban-row b { color:var(--gold); font:18px var(--condensed); }
   .p-ban .portrait { box-shadow:0 0 0 1.5px var(--gold); }
   .p-ban .note { margin-top:3px; font-size:12px; }
   .p-actions { position:sticky; bottom:-12px; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:auto -12px -12px; padding:8px 12px 10px; background:var(--surface); border-top:1px solid var(--line); }
@@ -404,14 +406,14 @@
   .settings .sec-title { align-items:center; }
   .settings h3 { margin:12px 0 5px; color:var(--muted); font:15px var(--condensed); }
   .set-row { display:flex; flex-wrap:wrap; gap:6px 14px; }
-  .set-check, .set-line { display:flex; align-items:center; gap:7px; margin-bottom:5px; font-size:13.5px; }
-  .settings select { padding:3px 6px; background:var(--bg); border:1px solid var(--line); border-radius:4px; }
+  .set-check, .set-line { display:flex; align-items:center; gap:7px; margin-bottom:5px; font-size:13px; }
+  .settings select { padding:3px 6px; background:var(--bg); border:1px solid var(--line-strong); border-radius:4px; }
   @keyframes shimmer { from { background-position:120% 0; } to { background-position:-120% 0; } }
 
   /* V2.7 : textes longs. Un mot sans espace se coupe au lieu de sortir de son conteneur. */
   .p-reasons li, .reasons li, .p-win p, .p-threat p, .p-change, .note, .small, .tips li, .wincon, .effects, .why li, .plain li, .p-empty, .hint, .result-note, td { overflow-wrap:anywhere; }
   .p-name, .champ-name, .p-threat-who, .face, .p-alt-text { min-width:0; overflow-wrap:anywhere; }
-  .p-name.long { font-size:21px; line-height:1.1; }
+  .p-name.long { font-size:24px; line-height:1.1; }
   .champ-name.long { font-size:clamp(26px,2.4vw,36px); line-height:1.08; }
   .cta { max-width:100%; }
   .settings input[type=file] { max-width:100%; }
@@ -437,8 +439,8 @@
   .settings h3 { color:var(--text); }
   .set-card { margin-bottom:8px; padding:9px 11px; background:var(--bg); border:1px solid var(--line); border-radius:6px; }
   .set-card.on { border-color:#1f4a4a; }
-  .set-main { margin-bottom:3px; font-size:14.5px; font-weight:600; }
-  .set-hint { margin:0 0 6px 21px; color:var(--muted); font-size:12.5px; line-height:1.3; }
+  .set-main { margin-bottom:3px; font-size:15px; font-weight:600; }
+  .set-hint { margin:0 0 6px 21px; color:var(--muted); font-size:13px; line-height:1.3; }
   .set-hint.flush { margin-left:0; }
   .role-pick { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; }
   .role-pick .on { border-color:var(--accent); color:var(--accent); }
@@ -447,7 +449,7 @@
   .pool-chip:hover { background:var(--raised); border-color:var(--muted); }
   .pool-chip.on { border-color:#1f4a4a; }
   .pool-chip b { color:var(--muted); font-weight:400; }
-  .pool-search { width:100%; height:34px; margin-bottom:6px; padding:0 10px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:13.5px; }
+  .pool-search { width:100%; height:34px; margin-bottom:6px; padding:0 10px; background:var(--surface); border:1px solid var(--line-strong); border-radius:6px; color:var(--text); font-size:13px; }
   .lcu-state { display:flex; align-items:center; gap:7px; margin:0 0 6px 21px; font-size:13px; font-weight:600; }
   .lcu-state i { flex:none; width:8px; height:8px; background:currentColor; border-radius:50%; }
   .lcu-state.good { color:var(--accent); }
@@ -457,11 +459,11 @@
   .data-list { margin:8px 0 0; padding:0; list-style:none; }
   .data-list li { margin-bottom:9px; font-size:13px; }
   .data-list li.off > b { color:var(--muted); }
-  .data-list p { margin:2px 0 0; color:var(--muted); font-size:12.5px; line-height:1.3; overflow-wrap:anywhere; }
+  .data-list p { margin:2px 0 0; color:var(--muted); font-size:13px; line-height:1.3; overflow-wrap:anywhere; }
   .data-kind { color:var(--muted); font-size:12px; }
   .data-old { color:var(--gold); font-size:12px; }
   .set-more { margin-top:12px; border-top:1px solid var(--line); padding-top:8px; }
-  .set-more summary { min-height:24px; color:var(--muted); font-size:13.5px; cursor:pointer; }
+  .set-more summary { min-height:24px; color:var(--muted); font-size:13px; cursor:pointer; }
   .set-more p, .set-more .set-check { margin-top:6px; }
 
   /* Le panneau gauche défile au lieu de comprimer son contenu quand la hauteur manque. */
@@ -472,7 +474,7 @@
   .who-wrap, .panel-left .who-wrap { padding-right:32px; }
 
   /* Noms entiers en mode compact, sur deux lignes si nécessaire. */
-  .compact-roles .role-name, .compact-roles .role.is-mid .role-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; white-space:normal; overflow-wrap:anywhere; font-size:11.5px; line-height:1.12; }
+  .compact-roles .role-name, .compact-roles .role.is-mid .role-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; white-space:normal; overflow-wrap:anywhere; font-size:12px; line-height:1.12; }
   .compact-roles .mini.x { min-width:24px; height:24px; }
   .compact-roles .role-tools { top:12px; right:-2px; }
   .panel-compact .p-actions { bottom:0; }
@@ -481,13 +483,13 @@
   .role-switch-wrap { flex:none; }
   .role-switch { display:flex; align-items:center; gap:3px; padding:4px 8px; }
   .panel .role-switch { border-bottom:1px solid var(--line); }
-  .role-now { min-width:44px; margin-right:auto; font:14px var(--condensed); color:var(--text); }
+  .role-now { min-width:44px; margin-right:auto; font:15px var(--condensed); color:var(--text); }
   .role-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; background:none; border:1px solid transparent; border-radius:6px; color:var(--muted); }
   .role-btn svg { width:16px; height:16px; }
   .role-btn:hover { color:var(--text); border-color:var(--line); }
   .role-btn.on { color:var(--accent); border-color:var(--accent); }
   .role-btn.assigned:not(.on) { border-style:dashed; border-color:var(--gold); }
-  .role-hint { margin:0; padding:2px 8px 6px; color:var(--muted); font-size:12.5px; overflow-wrap:anywhere; }
+  .role-hint { margin:0; padding:2px 8px 6px; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
   .role-hint .link-btn { margin-left:6px; }
   .top .role-switch { padding:0 4px; }
   .profile-backup { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; }
@@ -503,7 +505,7 @@
   .tie-item:hover { border-color:var(--text); }
   .tie-item.picked { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
   .tie-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
-  .tie-name { font:16px var(--condensed); overflow-wrap:anywhere; }
+  .tie-name { font:15px var(--condensed); overflow-wrap:anywhere; }
   .tie-text small { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
   .tie-check { flex:none; color:var(--accent); }
   .tie-group .note { margin:0; font-size:12px; }
@@ -511,10 +513,10 @@
   .stage-tie .stage-body { position:relative; left:auto; bottom:auto; width:100%; }
   .coach-line { flex:none; padding:6px 8px; border-left:2px solid var(--line); font-size:13px; }
   .coach-line b { display:block; overflow-wrap:anywhere; }
-  .coach-line p { margin:2px 0 0; color:var(--muted); font-size:12.5px; overflow-wrap:anywhere; }
-  .link-btn { min-height:24px; padding:2px 0; background:none; border:0; color:var(--muted); font-size:12.5px; text-decoration:underline; }
+  .coach-line p { margin:2px 0 0; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+  .link-btn { min-height:24px; padding:2px 0; background:none; border:0; color:var(--muted); font-size:13px; text-decoration:underline; }
   .link-btn:hover { color:var(--text); }
-  .familiar-line { flex:none; margin:0; color:var(--muted); font-size:12.5px; overflow-wrap:anywhere; }
+  .familiar-line { flex:none; margin:0; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
   .familiar-line span { margin-right:4px; }
   .coach-level { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; margin:8px 0; }
   .coach-level select { min-height:28px; }
@@ -586,7 +588,7 @@
     .panel-left .meter { grid-template-columns:90px minmax(0,1fr) 14px; gap:6px; }
     .p-actions .cta { flex:1 1 auto; padding-left:10px; padding-right:10px; }
     .opt-word { display:none; }
-    .p-alt { font-size:16px; gap:8px; }
+    .p-alt { font-size:15px; gap:8px; }
     .p-threat { padding:7px 8px; }
   }
 
@@ -601,7 +603,7 @@
     .panel-left .role .portrait, .panel-left .slot-ghost { width:38px !important; height:38px !important; }
     .panel-left .hint { margin-bottom:6px; }
     .panel .p-name { font-size:24px; }
-    .panel .p-name.long { font-size:19px; }
+    .panel .p-name.long { font-size:18px; }
   }
 
   /* Le mouvement réduit concerne aussi le CSS, pas seulement Motion. */
@@ -665,7 +667,7 @@
     .roles { margin-bottom:6px; }
     .role-name { font-size:13px; }
     .role-traits { display:none; }
-    .role-empty { font-size:11px; }
+    .role-empty { font-size:12px; }
     .role-tools { position:absolute; top:0; right:0; }
     .role-tools .to-mid { display:none; }
     .mini.x { min-width:24px; height:24px; }
@@ -678,7 +680,7 @@
   }
   /* ---------- Fenêtre principale à cinq sections (UX-3, COMPOSANTS-V3) ---------- */
   /* Échelle réduite : 12, 13, 15, 18, 24, 34 px. Espacements de 4 en 4. Rayons : étiquette 4, contrôle 6, boîte 10. */
-  :root { --hover:#1e2938; --line-strong:#5f7088; --accent-soft:#0e2a2a; --accent-line:#1f4a4a; --threat-soft:#2d1416; --gold-soft:#2a2312; --gold-line:#5a4a22;
+  :root { --hover:#1e2938; --line-strong:#6b7c94; --accent-soft:#0e2a2a; --accent-line:#1f4a4a; --threat-soft:#2d1416; --gold-soft:#2a2312; --gold-line:#5a4a22;
     --fs-xs:12px; --fs-sm:13px; --fs-md:15px; --fs-lg:18px; --fs-xl:24px; --fs-2xl:34px;
     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --r-tag:4px; --r-ctl:6px; --r-box:10px; --nav-w:216px; }
   .shell { display:grid; grid-template-columns:var(--nav-w) minmax(0,1fr); height:100vh; }
@@ -862,7 +864,28 @@
   .p-alt:hover .p-alt-go { color:var(--accent); }
   .badge.source { color:var(--muted); }
   /* Libellés de rôle à 12 px (plus de 10,5) : le bouton de retrait du panneau unique descend sous le libellé. */
-  .compact-roles .role-tools { top:18px; }</style>
+  .compact-roles .role-tools { top:18px; }  /* ---------- Harmonisation (UX-7) ---------- */
+  /* Grand écran : pages plus larges, grilles qui occupent la place, lignes de texte bornées (75 signes environ). */
+  .view-page { max-width:1440px; }
+  .view-page p, .view-page li, .view-page dd { max-width:75ch; }
+  .set-body { max-width:880px; }
+  .col-left .role.is-mid .role-traits { -webkit-line-clamp:3; }
+  .coach-level-note { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; margin:0 0 10px; }
+  .facts { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:4px 12px; margin:8px 0; font-size:13px; }
+  .facts dt { color:var(--muted); }
+  .facts dd { margin:0; }
+  @media (min-width:1400px) {
+    .home-ready { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); grid-template-areas:"title checks" "lead checks" "actions checks"; align-content:start; column-gap:var(--s6); max-width:1240px; }
+    .home-title { grid-area:title; }
+    .home-lead { grid-area:lead; }
+    .home-actions { grid-area:actions; align-self:start; }
+    .home-ready .checks { grid-area:checks; margin:0; }
+    .pool-layout { grid-template-columns:240px minmax(0,1fr); }
+    .pool-main { grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); align-items:start; }
+    .pool-main > [data-test="pool-box"] { grid-row:span 2; }
+    .stats-grid { grid-template-columns:minmax(0,1.5fr) minmax(360px,1fr); }
+    .set-page { grid-template-columns:260px minmax(0,880px); }
+  }</style>
 </head>
 <body>
 <div id="root"></div>
@@ -1502,7 +1525,7 @@ function SearchBox() {
   return html`<div className="search">
     <input id="add" data-test="enemy-search" type="search" value=${value} disabled=${full} autoComplete="off" spellCheck="false"
       aria-label="Ajouter un champion adverse"
-      placeholder=${full ? "Draft complète" : (target || "Ajouter un adversaire : ahri, tf, kata...")}
+      placeholder=${full ? "Draft complète" : (target || "Adversaire : ahri, tf, kata...")}
       onChange=${e => { setValue(e.target.value); setSel(0); setOpen(true); }}
       onFocus=${() => setOpen(true)} onBlur=${() => setOpen(false)} onKeyDown=${onKey} />
     ${open && value.trim() ? html`<div className="sugg" role="listbox">
@@ -1809,8 +1832,10 @@ function CoachTab() {
   const checked = items.filter(i => i.verification === "rule"), toConfirm = items.filter(i => i.verification !== "rule");
   const info = historyProfile.info, played = choices ? choices.experienceTable.filter(r => r.games).sort((a, b) => b.games - a.games) : [];
   const unplayed = choices ? choices.experienceTable.filter(r => !r.games).map(r => r.champion) : [];
+  // UX-7 : le niveau des conseils se règle à un seul endroit (Réglages > Général) ; ici, il est rappelé avec un lien.
+  const LEVEL_NAMES = { beginner:"Débutant", intermediate:"Intermédiaire", advanced:"Avancé" };
   return html`<div className="coach-tab">
-    <${CoachLevel} />
+    <p className="small coach-level-note" data-test="coach-level-note">${t("sim.coachLevel", { level:LEVEL_NAMES[PREFS.coachLevel] || LEVEL_NAMES.beginner })} <button type="button" className="link-btn" data-test="coach-level-change" onClick=${() => goView("settings", "general")}>${t("sim.coachLevelChange")}</button></p>
     ${choices ? html`<section className="choice-block" aria-label="Ton choix">
       <div className="choice-row"><span>${choices.strategic.label}</span><b>${choices.strategic.champions.join(", ")}</b></div>
       <div className="choice-row" title=${FAMILIAR_HELP}><span>Le plus joué dans ce rôle</span><b>${choices.familiar ? `${choices.familiar.champion}, ${choices.familiar.games} parties` : "Données insuffisantes"}</b></div>
@@ -2252,7 +2277,6 @@ const RulesTab = () => html`<div>
 </div>`;
 
 // Comparer et Règles restent des vues d'Analyse : leurs anciens liens (?tab=compare, ?tab=rules) y mènent toujours.
-const ANALYSE_VIEWS = [["criteria", "Critères", CriteriaView], ["compare", "Comparer", CompareTab], ["rules", "Règles", RulesTab]];
 const urlTab = () => new URLSearchParams(location.search).get("tab");
 // Onglet demandé (adresse, ou « Détails » d'un panneau) : les onglets repartent de lui à chaque demande (navId), sans recharger la page.
 let navTarget = urlTab(), navId = 0;
@@ -2269,34 +2293,27 @@ function openViewInPage(tab, source) {
   navId++;
   goView("sim");
 }
-function AnalyseTab() {
-  const [view, setView] = useState(() => ANALYSE_VIEWS.some(v => v[0] === navTarget) ? navTarget : "criteria");
-  const Current = ANALYSE_VIEWS.find(v => v[0] === view)[2];
-  return html`<div>
-    <div className="seg-tabs" role="group" aria-label="Vue de l'analyse">
-      ${ANALYSE_VIEWS.map(([key, text]) => html`<button key=${key} type="button" data-view=${key} aria-pressed=${view === key} className=${`seg-tab${view === key ? " on" : ""}`} onClick=${() => setView(key)}>${text}</button>`)}
-    </div>
-    <${Current} />
-  </div>`;
-}
-const TABS = [["plan", "Plan", PlanTab], ["analyse", "Analyse", AnalyseTab], ["coach", "Conseils", CoachTab], ["matchups", "Duel", MatchupsTab]];
+// UX-7 : onglets du Simulateur sur un seul niveau (Plan, Critères, Comparer, Conseils, Duel). « Règles » devient une aide,
+// « Comment DRAFT classe tes picks », ouverte par un lien sous les onglets. data-tab="analyse" reste sur Critères (ancienne adresse).
+const TABS = [["plan", "Plan", PlanTab], ["criteria", "Critères", CriteriaView], ["compare", "Comparer", CompareTab], ["coach", "Conseils", CoachTab], ["matchups", "Duel", MatchupsTab]];
 // L'ancien onglet « Parties » (journal et statistiques importées) est devenu la section Mes statistiques (UX-3).
+const tabFromTarget = t0 => t0 === "analyse" ? "criteria" : t0 === "rules" ? "rules" : TABS.some(x => x[0] === t0) ? t0 : "plan";
 
 function SidePanel() {
-  const [tab, setTab] = useState(() => { const t = navTarget; return TABS.some(x => x[0] === t) ? t : ANALYSE_VIEWS.some(v => v[0] === t) ? "analyse" : "plan"; });
-  const Current = TABS.find(t => t[0] === tab)[2];
+  const [tab, setTab] = useState(() => tabFromTarget(navTarget));
+  const Current = tab === "rules" ? RulesTab : TABS.find(t => t[0] === tab)[2];
   return html`<aside className="col col-right">
     <${PlanBlock} />
     <div className="tabs" role="tablist" aria-label="Détails et statistiques">
-      ${TABS.map(([key, text]) => html`<button key=${key} type="button" role="tab" aria-selected=${tab === key} data-tab=${key} className=${`tab${tab === key ? " on" : ""}`} onClick=${() => setTab(key)}>
+      ${TABS.map(([key, text]) => html`<button key=${key} type="button" role="tab" aria-selected=${tab === key} data-tab=${key === "criteria" ? "analyse" : key} data-view=${key === "criteria" || key === "compare" ? key : undefined} className=${`tab${tab === key ? " on" : ""}`} onClick=${() => setTab(key)}>
         ${text}
         ${tab === key ? html`<${motion.span} className="tab-line" layoutId="tab-line" transition=${SNAP} />` : null}
       </button>`)}
     </div>
+    <p className="tab-help"><button type="button" className=${`link-btn${tab === "rules" ? " on" : ""}`} data-view="rules" data-test="rules-help" aria-pressed=${tab === "rules"} onClick=${() => setTab(tab === "rules" ? "criteria" : "rules")}>${t("sim.rulesHelp")}</button></p>
     <${motion.div} key=${tab} className="tab-body" role="tabpanel" initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}><${Current} /><//>
   </aside>`;
 }
-
 function MobileBar() {
   if (V.none) return null;
   const entry = state.current && loadJournal().find(x => x.id === state.current);
@@ -2559,6 +2576,13 @@ const NAV_PATHS = {
   stats: "M4 16.5v-6M10 16.5v-12M16 16.5v-8",
   settings: "M10 7a3 3 0 1 0 0 6 3 3 0 1 0 0-6zM10 2v2.2M10 15.8V18M2 10h2.2M15.8 10H18M4.3 4.3l1.6 1.6M14.1 14.1l1.6 1.6M4.3 15.7l1.6-1.6M14.1 5.9l1.6-1.6",
   check: "M5 10.5 8.5 14 15 6.5",
+  // Rubriques des Réglages (UX-7) : une icône propre à chacune, distincte des sections et des états.
+  sliders: "M4 6h7M15 6h1M4 14h1M9 14h7M13 4v4M7 12v4",
+  plug: "M7 3v4M13 3v4M5 7h10v3a5 5 0 0 1-10 0zM10 15v3",
+  monitor: "M3 4h14v9H3zM7 17h6M10 13v4",
+  shield: "M10 2.5 16 5v5c0 3.6-2.6 6.4-6 7.5-3.4-1.1-6-3.9-6-7.5V5z",
+  refresh: "M16 5v4h-4M4 15v-4h4M15.3 9A5.5 5.5 0 0 0 5.6 6.6M4.7 11a5.5 5.5 0 0 0 9.7 2.4",
+  pulse: "M2.5 10h3.5l2-5 4 10 2-5h3.5",
   dot: "M10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z"
 };
 const NavIcon = ({ name }) => html`<svg className="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d=${NAV_PATHS[name]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
@@ -2859,7 +2883,7 @@ function StatsView() {
   </div>`;
 }
 
-const SECTION_ICONS = { general:"settings", league:"check", display:"pool", data:"stats", updates:"sim", diag:"dot" };
+const SECTION_ICONS = { general:"sliders", league:"plug", display:"monitor", data:"shield", updates:"refresh", diag:"pulse" };
 const HostOnly = () => html`<p className="empty-note" data-test="settings-host-only">${t("settings.hostOnly")}</p>`;
 
 function SettingsSection({ id }) {
@@ -2924,24 +2948,29 @@ function SettingsSection({ id }) {
     <p className="small brand-sub">DRAFT ${APP_VERSION} bêta : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.</p>
     ${host ? html`<div>
       <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> Journal de diagnostic de la détection (chiffres seulement)</label>
-      <p className="small">${hostState.phase || ""}. ${hostState.placement || ""}</p>
+      <dl className="facts" data-test="diag-state">
+        <dt>${t("settings.diag.phase")}</dt><dd>${hostState.phase || "-"}</dd>
+        ${hostState.placement && hostState.clientOpen !== false ? html`<dt>${t("settings.diag.placement")}</dt><dd>${hostState.placement}</dd>` : null}
+      </dl>
       <p className="set-row"><button type="button" className="ghost-btn" data-test="lcu-diagnostic" onClick=${() => hostSend({ cmd:"lcuDiagnostic" })}>${t("settings.diag.lcu")}</button></p>
       <p className="set-hint flush">${t("settings.diag.lcuHint")}</p>
     </div>` : null}
   </div>`;
 }
 
-function SettingsPage({ onClose }) {
+function SettingsPage({ onClose, solo }) {
   // Échap ramène à la section précédente sans effacer la draft en cours (comme l'ancienne fenêtre des réglages).
   useEffect(() => {
     const onEscape = e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
     document.addEventListener("keydown", onEscape, true);
     return () => document.removeEventListener("keydown", onEscape, true);
   }, [onClose]);
+  // UX-7 : plus de bouton « Fermer » (reste de la modale) : la navigation suffit. Ouverts seuls pendant une draft (solo),
+  // les réglages gardent un bouton qui referme la fenêtre, pour ne rien laisser devant le client.
   const section = uiSection;
   return html`<div className="view-page" data-test="settings">
     <${ViewHead} title=${t("nav.settings")} sub=${t("settings.sub")}
-      tools=${html`<button type="button" className="ghost-btn" data-test="settings-close" autoFocus=${true} onClick=${onClose}>Fermer</button>`} />
+      tools=${solo ? html`<button type="button" className="ghost-btn" data-test="settings-close" autoFocus=${true} onClick=${onClose}>${t("settings.closeSolo")}</button>` : null} />
     <div className="set-page">
       <div className="subnav" role="tablist" aria-label=${t("settings.sectionsLabel")}>
         ${SETTINGS_SECTIONS.map(s => html`<button key=${s} type="button" role="tab" aria-selected=${s === section} data-test=${`settings-section-${s}`} className=${`subnav-link${s === section ? " on" : ""}`} onClick=${() => goView("settings", s)}>
@@ -3072,7 +3101,7 @@ function App() {
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
   const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolPage} />` : uiView === "stats" ? html`<${StatsView} />`
-    : uiView === "settings" ? html`<${SettingsPage} onClose=${closeSettings} />` : html`<${SimView} />`;
+    : uiView === "settings" ? html`<${SettingsPage} onClose=${closeSettings} solo=${settingsWindow.current} />` : html`<${SimView} />`;
   return html`<${MotionConfig} reducedMotion="user">
     <div className="shell" data-test="app">
       <${MainNav} />
