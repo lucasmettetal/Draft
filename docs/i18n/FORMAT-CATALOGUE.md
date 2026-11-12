@@ -125,3 +125,13 @@ Prototype : `tools/i18n/i18n-runtime.js` (non chargé par DRAFT).
 - Mode test (paramètre `i18ncheck=1` des pages de test, `Strings.TestMode` en `--selftest`) : chaque clé ou variable absente est notée une fois (`console.warn("[i18n] …")`, liste `I18N.missing()`), et le banc échoue avant une version.
 - En usage normal : aucun message, aucun journal ; le repli est silencieux.
 - Une clé `native.*` absente côté programme suit la même règle (`Strings.T`). Un catalogue anglais refusé (forme invalide) fait revenir tout le programme au français.
+
+## 8. État après I18N-1 (extraction du français)
+
+- Tous les textes visibles de la page sont dans `web/i18n/fr.js` : `index.html` appelle `t`, `tp`, `tx` ; le moteur (`draft-engine.js`, `draft-coaching.js`, `draft-mastery.js`, `draft-data.js`, `draft-profiles.js`) appelle `I18N.t` et `I18N.tp` et rend toujours des chaînes : aucun calcul, tri ni égalité ne dépend du texte.
+- `draft-i18n.js` et le catalogue se chargent **avant** le moteur (page et bancs de test). Les gabarits sont découpés une seule fois.
+- Restent volontairement en français, hors catalogue : les valeurs du relevé de validation (CSV), les identifiants de données (termes du lexique, types de mid du tableau, codes `physiques`/`magiques`, `manuel`), le message affiché avant React quand les fichiers manquent. Chaque cas est une exclusion justifiée du détecteur (`tools/i18n/exclusions.json`).
+- Contrôles : `tools/i18n/check-catalogs.ps1 -Reference web\i18n\fr.js -Code . -Security tools\i18n\securite.json` (clés citées = clés du catalogue, variables fournies, pluriels par `tp`, aucune orpheline, messages de sécurité présents) ; `tools/i18n/detect-hardcoded.ps1 -Only web/ -Max 0`. Les deux tournent dans la CI.
+- Une clé n'est jamais construite (`"nav." + v`) : on écrit une table de clés complètes, pour que le contrôle les retrouve.
+- Pseudo-langue : `tools/run-layout-tests.ps1 -Lang qps` (copie de test seulement, jamais livrée ni proposée au joueur).
+- Assemblages gardés tels quels pour ne changer aucun mot, à revoir en I18N-2 : minuscule forcée en début de raison (`coachReason`, `scenarioText`), retrait de « contre {champion} » dans une raison du moteur, liste « {first} et {last} », séparateur « ou », « {count} parties » sans pluriel là où le texte actuel n'en a pas.
