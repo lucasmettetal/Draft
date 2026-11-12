@@ -83,6 +83,30 @@
       "raison": "message affiché avant React quand les fichiers de la page manquent : le catalogue peut lui-même manquer, il reste fixe"
     },
     {
+      "nom": "metadonnee-exe",
+      "motif": "AssemblyDescription\\(",
+      "raison": "I18N-3 : description de l'exe (propriétés du fichier Windows) : une seule langue possible, gardée en français"
+    },
+    {
+      "nom": "rapport-test",
+      "motif": "Report\\s*=\\s*$|Report = \"non mesuré\"",
+      "raison": "I18N-3 : rapports des tests e2e avant mesure (--e2e), jamais montrés au joueur"
+    },
+    {
+      "nom": "journal-diagnostic",
+      "motif": "LastOpenError\\s*=|return \"port \" \\+ Port|InvalidOperationException\\(\\s*$",
+      "raison": "I18N-3 : journal de diagnostic interne (draftmid.log) et garde-fou interne de l'adresse LCU : jamais montrés au joueur"
+    },
+    {
+      "nom": "donnee-region",
+      "motif": "RiotRegion \\{ Label = $|Label = \"[^\"]*\", LabelKey",
+      "raison": "I18N-3 : nom de région écrit dans les fichiers de données (inchangé) ; le nom affiché vient du catalogue (native.region.*)"
+    },
+    {
+      "nom": "note-mode-test",
+      "motif": "\\bNote\\(",
+      "raison": "I18N-3 : notes du mode test du catalogue natif (Strings.Missing), pour le développeur"
+    },    {
       "nom": "catalogue",
       "avant": "(\\b(t|tp|tr|T|TP|Plural)|Strings\\.T|Strings\\.Plural)\\(\\s*$",
       "raison": "déjà une clé du catalogue"

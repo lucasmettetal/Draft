@@ -74,6 +74,7 @@ t0(R.listOr(["A","B","C"])==="A ou B ou C"&&R.listAnd(["A","B","C"])==="A, B et 
 t0(RW.eval('scenarioText("Yasuo",{text:"1er choix contre Yasuo",short:"1er choix"})')==="Si c'est Yasuo : 1er choix","français : hypothèse nommée");
 t0(RW.eval('joinScenarioTexts([{text:"Si c\'est A : 1er choix"},{text:"Si c\'est B : à éviter"}])')==="Si c'est A : 1er choix ; si c'est B : à éviter","français : deux hypothèses");
 t0(RW.eval('oppText("whenBetter",{champion:"Ahri"})')==="si ton adversaire au mid est Ahri","français : phrase complète par rôle");
+t0(RW.eval('nativeText({key:"native.history.done",vars:{summary:{key:"native.history.summary",vars:{count:2,total:5}}}})')==="Import terminé : 2 parties ajoutées, 5 au total."&&RW.eval('nativeText("texte brut")')==="texte brut"&&RW.eval('nativeText("")')==="","I18N-3 : état du programme { key, vars } affiché en français (message dans un message)");
 real.remove();
 // I18N-2 : l'anglais complet, ouvert en mode test seulement.
 const en=await new Promise(r=>{const f=document.createElement("iframe");f.width=1280;f.height=720;f.src="index.html?x=1&i18ncheck=1&lang=en";f.onload=()=>r(f);document.body.appendChild(f);});
@@ -90,17 +91,19 @@ t0(EW.eval('coachReason("Blind-safe, bad in only 1 of 24 matchups in the table")
 t0(EW.eval('scenarioText("Yasuo",{text:"Top pick against Yasuo",short:"Top pick"})')==="If it's Yasuo: top pick","anglais : hypothèse nommée (scenarioText ne retire plus de texte)");
 t0(EW.eval('joinScenarioTexts([{text:"If it\'s A: top pick"},{text:"If it\'s B: avoid"}])')==="If it's A: top pick; if it's B: avoid","anglais : deux hypothèses");
 t0(EW.eval('oppText("whenBetter",{champion:"Ahri"})')==="if the enemy mid laner is Ahri"&&EW.eval('oppText("notice",{champion:"Ahri"})')==="Ahri mid","anglais : phrase complète par rôle");
+t0(EW.eval('nativeText({key:"native.history.done",vars:{summary:{key:"native.history.summary",vars:{count:1,total:5}}}})')==="Import complete: 1 game added, 5 in total."&&EW.eval('nativeText({key:"native.phase.closed",vars:{}})')==="League client closed","I18N-3 : état du programme affiché en anglais");
 t0(!/[àâçéèêîôûù«»]/.test(en.contentDocument.body.innerText),"anglais : aucune lettre accentuée française dans la page d'accueil");
 t0(E.missing().length===0,"anglais : aucune clé ni variable manquante ("+E.missing().join(" | ")+")");
 en.remove();
 // La vraie page : catalogue chargé, aucune clé manquante, anglais et pseudo-langue non sélectionnables.
-for(const q of ["?x=1&i18ncheck=1","?x=1&i18ncheck=1&lang=en","?x=1&lang=qps","?x=1&i18ncheck=1&lang=qps","?panel=right&i18ncheck=1","?panel=left&i18ncheck=1","?panel=compact&i18ncheck=1","?panel=full&view=pool&i18ncheck=1","?panel=full&view=stats&i18ncheck=1","?panel=full&view=sim&tab=coach&i18ncheck=1","?panel=full&view=settings&section=data&i18ncheck=1","?panel=full&view=settings&section=diag&i18ncheck=1"]){
+for(const q of ["?x=1&i18ncheck=1","?x=1&i18ncheck=1&lang=en","?x=1&lang=qps","?x=1&lang=en","?x=1&i18ncheck=1&lang=qps","?panel=right&i18ncheck=1","?panel=left&i18ncheck=1","?panel=compact&i18ncheck=1","?panel=full&view=pool&i18ncheck=1","?panel=full&view=stats&i18ncheck=1","?panel=full&view=sim&tab=coach&i18ncheck=1","?panel=full&view=settings&section=data&i18ncheck=1","?panel=full&view=settings&section=diag&i18ncheck=1","?panel=full&view=settings&section=general&i18ncheck=1&lang=en"]){
   const f=document.createElement("iframe");f.width=1280;f.height=720;f.src="index.html"+q;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(500);const w=f.contentWindow;
-  const want=/lang=en/.test(q)&&/i18ncheck=1/.test(q)?"en":"fr";
-  t0(!!w.I18N&&w.I18N.lang===want,"page "+q+" : traduction chargée, "+want+" (l'anglais ne s'ouvre qu'en mode test)");
+  const want=/lang=en/.test(q)?"en":"fr"; // I18N-3 : l'anglais est proposé au joueur ; la pseudo-langue reste réservée au mode test
+  t0(!!w.I18N&&w.I18N.lang===want,"page "+q+" : traduction chargée, "+want+" (I18N-3 : anglais proposé, qps en test seulement)");
   t0(!!w.DRAFT_I18N_FR&&w.DRAFT_I18N_FR._meta&&w.DRAFT_I18N_FR._meta.lang==="fr","page "+q+" : catalogue français chargé");
   t0(w.I18N&&w.I18N.missing().length===0,"page "+q+" : aucune clé manquante ("+(w.I18N?w.I18N.missing().join(" | "):"")+")");
   t0(!!f.contentDocument.querySelector('[data-test="app"],[data-test="panel"]'),"page "+q+" : la page démarre");
+  if(/section=general/.test(q))t0(!!f.contentDocument.querySelector('[data-test="language-select"]')&&[...f.contentDocument.querySelectorAll('[data-test="language-select"] option')].map(o=>o.textContent).join("|")==="Français|English","page "+q+" : sélecteur de langue (Français, English) dans Réglages > Général");
   f.remove();
 }
 document.getElementById("out").textContent=JSON.stringify(res);document.title="done";

@@ -1083,7 +1083,7 @@ async function special() {
     await eachSettings(x, "réglages");
     for (const v of ["home", "pool", "stats"]) { await showView(x, v); collect(x.d, "section " + v); }
     for (const k of ["journal", "history", "overview"]) { const b = x.d.querySelector(`[data-test="stats-tab-${k}"]`); if (b) { b.click(); await settle(); collect(x.d, "statistiques " + k); } }
-    Object.assign(x.$.hostState, { available:true, lcuConfirmed:true, lcuEnabled:true, lcuStatus:"waiting", hotkey:true, updateStatus:"", phase:"Client LoL fermé", placement:"Panneaux placés de chaque côté du client." });
+    Object.assign(x.$.hostState, { available:true, lcuConfirmed:true, lcuEnabled:true, lcuStatus:"waiting", hotkey:true, updateStatus:"", phase:{ key:"native.phase.closed", vars:{} }, placement:{ key:"native.placement.two", vars:{} } });
     x.$.rerender(); await settle(); await eachSettings(x, "réglages application");
     for (const v of ["home", "stats"]) { await showView(x, v); collect(x.d, "section application " + v); }
     x.w.DRAFT_HISTORY = { generated:"2026-11-08T10:00:00Z", rows:[{ id:"H1", champ:"Fizz", pos:"MIDDLE", win:true }, { id:"H2", champ:"Fizz", pos:"MIDDLE", win:false }] }; x.$.rerender(); await settle();
@@ -1106,12 +1106,12 @@ async function special() {
       h.$.reset(); h.w.eval("state.sessionActive=false"); await settle();
       for (const s of ["connected", "waiting", "failed", "off"]) { await H({ lcuEnabled:s !== "off", lcuStatus:s }); collect(h.d, "accueil " + s); }
       await H({ lcuConfirmed:false }); collect(h.d, "accueil lecture indisponible");
-      await H({ lcuConfirmed:true, autoDraft:false, panelsShown:true, updateChecked:"2026-11-10T10:42:00", updateStatus:"DRAFT est à jour (version 2.16.2)." }); collect(h.d, "accueil manuel");
+      await H({ lcuConfirmed:true, autoDraft:false, panelsShown:true, updateChecked:"2026-11-10T10:42:00", updateStatus:{ key:"native.update.upToDate", vars:{ version:"2.16.2" } } }); collect(h.d, "accueil manuel");
       const now = new Date(), iso = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + "T10:42:00";
       await H({ hotkey:false, updateChecked:iso, updateRunning:true }); collect(h.d, "accueil mise à jour");
       h.w.DRAFT_HISTORY = { generated:"2026-11-08T10:00:00Z", rows:[{ id:"H1", champ:"Darius", pos:"TOP", win:true }] };
       h.w.eval("saveJournal([{id:1,date:'2026-11-01T10:00:00Z',suggested:'Darius',picked:'Darius',enemies:['Ahri'],mid:'Ahri',result:'win'},{id:2,date:'2026-11-02T10:00:00Z',suggested:'Darius',picked:'Garen',enemies:['Ahri'],mid:'Ahri',result:null}])");
-      await H({ updateRunning:false, historyStatus:"Clé Riot refusée ou expirée. Crée une nouvelle clé, puis relance : les parties déjà lues sont conservées." }); collect(h.d, "accueil données");
+      await H({ updateRunning:false, historyStatus:{ key:"native.history.keyRefused", vars:{} } }); collect(h.d, "accueil données");
       h.w.eval("savePrefs({excluded:['Darius','Garen','Malphite','Ornn','Sion','Camille','Fiora','Jax']})"); await settle(); collect(h.d, "accueil tous exclus");
       h.w.eval("savePrefs({excluded:[]})"); delete h.w.DRAFT_HISTORY; await settle();
       close(h);

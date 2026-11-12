@@ -77,9 +77,9 @@ $Runs += , @('sans reseau', 'state=full', $true)
 
 $failures = 0
 $qpsHard = @{}; $qpsMissing = @{}; $qpsOverflow = 0
-# Anglais : textes d'essai du banc lui-meme, pas de l'interface. Etat simule du programme (phase, placement : textes natifs,
-# traduits par I18N-3) et donnees fictives de l'etat 'extreme' (noms et raisons tres longs, ecrits en francais pour le test).
-$enFixtures = @('Client ouvert, hors draft*', 'Panneaux plac*')
+# Anglais : donnees fictives de l'etat 'extreme' (noms et raisons tres longs, ecrits en francais pour le test), pas de l'interface.
+# Depuis I18N-3, l'etat simule du programme (phase, placement) passe par des cles : plus aucune exception.
+$enFixtures = @()
 foreach ($run in $Runs) {
     $args_ = $Common + @('--virtual-time-budget=120000', '--dump-dom')
     if ($run[2]) { $args_ += $OfflineArg }
