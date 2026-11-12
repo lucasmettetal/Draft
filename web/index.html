@@ -729,19 +729,81 @@
   .box input[type=file] { max-width:100%; min-height:28px; }
   .empty-note { margin:var(--s2) 0; padding:var(--s3) var(--s4); background:var(--bg); border:1px dashed var(--line-strong); border-radius:var(--r-ctl); color:var(--muted); font-size:var(--fs-sm); }
 
-  .home-ready { max-width:760px; padding:var(--s5) var(--s5) var(--s5); }
-  .home-title { margin:0; font:var(--fs-2xl)/1.15 var(--condensed); }
-  .home-lead { margin:var(--s2) 0 var(--s4); color:var(--muted); font-size:var(--fs-md); max-width:62ch; }
-  .checks { margin:0 0 var(--s5); border-top:1px solid var(--line); }
-  .check { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:var(--s3); padding:var(--s3) 0; border-bottom:1px solid var(--line); }
-  .check b { display:block; font-size:var(--fs-md); }
-  .check p { margin:2px 0 0; color:var(--muted); font-size:var(--fs-sm); overflow-wrap:anywhere; }
-  .check-mark { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--line-strong); border-radius:50%; color:var(--muted); }
-  .check.ok .check-mark { border-color:var(--accent); color:var(--accent); }
-  .check.todo .check-mark { border-color:var(--gold); color:var(--gold); }
-  .check-mark svg { width:16px; height:16px; }
-  .home-actions { margin:0; }
-  .home-actions .cta { margin:0; }
+  /* ---------- Accueil (UX-8) ---------- */
+  /* Une seule chose forte : la bannière d'état (ou le guide du premier lancement), dont le filet gauche dit le ton.
+     Puis la chaîne de la draft, dans l'ordre où elle sert : client League, pool, panneaux ; chaque carte a son filet d'état.
+     Enfin deux cartes calmes, sans filet : mise à jour et données. */
+  .home { display:grid; gap:var(--s4); }
+  .home .view-head { margin-bottom:0; }
+  .home-hero { --tone:var(--accent); display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:var(--s3) var(--s5); padding:var(--s5); border-left:4px solid var(--tone); }
+  .home-hero.tone-todo { --tone:var(--gold); }
+  .home-hero.tone-error { --tone:var(--threat); }
+  .hero-mark { display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border:2px solid var(--tone); border-radius:50%; color:var(--tone); }
+  .hero-mark .nav-icon { width:24px; height:24px; }
+  .home-title { margin:0; font:var(--fs-2xl)/1.1 var(--condensed); }
+  .home-lead { margin:var(--s2) 0 0; color:var(--muted); font-size:var(--fs-md); max-width:68ch; }
+  .hero-acts { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:var(--s2); }
+  .hero-acts .cta, .guide-acts .cta { margin:0; }
+  .hero-acts .ghost-btn { min-height:40px; }
+  /* Étape manquante ou erreur : les actions passent sous le texte, alignées sur lui, pour garder le message lisible. */
+  .home-hero:not(.tone-ready):not(.tone-live) .hero-acts { grid-column:2 / -1; justify-content:flex-start; }
+  .home-guide { padding:var(--s5); border-left:4px solid var(--gold); }
+  .guide-steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--s4); margin:var(--s4) 0 0; padding:0; list-style:none; }
+  .guide-step { display:flex; flex-direction:column; gap:var(--s2); max-width:none; min-width:0; padding:var(--s4); background:var(--bg); border:1px solid var(--line); border-radius:var(--r-ctl); }
+  .guide-head { display:flex; align-items:center; gap:var(--s3); }
+  .guide-num { flex:none; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:2px solid var(--gold); border-radius:50%; color:var(--gold); font:var(--fs-lg)/1 var(--condensed); }
+  .guide-head h3 { margin:0; font:var(--fs-lg)/1.2 var(--condensed); }
+  .guide-text p { margin:2px 0 0; color:var(--muted); font-size:var(--fs-sm); }
+  .guide-text .guide-risk { color:var(--gold); }
+  .guide-tag { color:var(--accent); font-weight:600; }
+  .guide-acts { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s3); margin-top:auto; padding-top:var(--s2); }
+  .guide-acts .guide-go { min-height:40px; font-size:var(--fs-md); }
+  .guide-foot { margin:var(--s3) 0 0; }
+  .home-chain { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--s4); }
+  .home-card { --state:var(--line-strong); display:flex; flex-direction:column; gap:var(--s2); min-width:0; padding:var(--s4) var(--s5); border-top:3px solid var(--state); }
+  .home-card.state-good { --state:var(--accent); } .home-card.state-wait { --state:var(--gold); } .home-card.state-bad { --state:var(--threat); }
+  .home-card.home-quiet { border-top-width:1px; border-top-color:var(--line); }
+  .card-kicker { margin:0; color:var(--muted); font-size:var(--fs-sm); font-weight:400; }
+  .card-state { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2); margin:0; font:var(--fs-lg)/1.2 var(--condensed); }
+  .card-state small { color:var(--muted); font:var(--fs-sm) var(--body); }
+  .card-state .nav-role-icon, .card-state .nav-role-icon svg { width:16px; height:16px; }
+  .card-text { margin:0; color:var(--text); font-size:var(--fs-sm); line-height:1.4; }
+  .card-text.small { color:var(--muted); }
+  .card-acts { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s3); margin-top:auto; padding-top:var(--s2); }
+  .home-portraits { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s3); margin:0; }
+  .home-champ { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-sm); }
+  .home-more { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:var(--s4); }
+  .data-rows { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--s2) var(--s5); margin:0; }
+  .data-row { display:grid; gap:2px; min-width:0; padding-left:var(--s3); border-left:2px solid var(--line); }
+  .data-row.ok { border-left-color:var(--accent); }
+  .data-row dt { color:var(--muted); font-size:var(--fs-xs); }
+  .data-row dd { margin:0; font-size:var(--fs-sm); overflow-wrap:anywhere; }
+  /* Fenêtre basse (1366 x 768 à 125 % : 614 px de page) : marges resserrées pour tenir sur un écran. */
+  @media (max-height:700px) {
+    .home { gap:var(--s3); }
+    .home .view-head p { display:none; }
+    .home-hero, .home-guide { padding:var(--s4) var(--s5); }
+    .home-title { font-size:var(--fs-xl); }
+    .hero-mark { width:40px; height:40px; }
+    .home-card { padding:var(--s3) var(--s4); gap:6px; }
+    .guide-step { padding:var(--s3); }
+  }
+  /* Grand écran (1080 px de page et plus) : plus d'air, plutôt qu'un grand vide sous les cartes. */
+  @media (min-height:960px) and (min-width:1400px) {
+    .home { gap:var(--s5); padding-top:var(--s6); }
+    .home-hero, .home-guide { padding:var(--s6); }
+    .home-card { padding:var(--s5) var(--s6); gap:var(--s3); }
+    .card-state { font-size:var(--fs-xl); }
+    .card-text { font-size:var(--fs-md); }
+  }  @media (max-width:980px) {
+    .home-hero { grid-template-columns:auto minmax(0,1fr); }
+    .hero-acts { grid-column:1 / -1; justify-content:flex-start; }
+    .home-chain { grid-template-columns:minmax(0,1fr); }
+    .home-more { grid-template-columns:minmax(0,1fr); }
+  }
+  @media (max-width:720px) {
+    .data-rows { grid-template-columns:minmax(0,1fr); }
+  }
 
   .pool-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr); gap:var(--s4); align-items:start; }
   .pool-grid h3:first-child { margin-top:0; }
@@ -773,7 +835,6 @@
     .view .app { height:auto; }
     .pool-grid, .stats-grid { grid-template-columns:minmax(0,1fr); }
     .set-page { grid-template-columns:170px minmax(0,1fr); gap:var(--s4); }
-    .home-title { font-size:var(--fs-xl); }
   }
   /* Fenêtre étroite : le titre « Simulateur » est déjà marqué dans la navigation ; la barre garde ses commandes. */
   @media (max-width:900px) { .top .view-title { display:none; } }
@@ -781,8 +842,6 @@
     .set-page { grid-template-columns:minmax(0,1fr); }
     .subnav { position:static; grid-template-columns:repeat(2,minmax(0,1fr)); }
     .view-page { padding:var(--s4); }
-    .check { grid-template-columns:28px minmax(0,1fr); }
-    .check .ghost-btn { grid-column:2; justify-self:start; }
   }
   /* ---------- Mon pool (UX-4) ---------- */
   .num { font-variant-numeric:tabular-nums; }
@@ -875,11 +934,6 @@
   .facts dt { color:var(--muted); }
   .facts dd { margin:0; }
   @media (min-width:1400px) {
-    .home-ready { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); grid-template-areas:"title checks" "lead checks" "actions checks"; align-content:start; column-gap:var(--s6); max-width:1240px; }
-    .home-title { grid-area:title; }
-    .home-lead { grid-area:lead; }
-    .home-actions { grid-area:actions; align-self:start; }
-    .home-ready .checks { grid-area:checks; margin:0; }
     .pool-layout { grid-template-columns:240px minmax(0,1fr); }
     .pool-main { grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); align-items:start; }
     .pool-main > [data-test="pool-box"] { grid-row:span 2; }
@@ -2554,9 +2608,12 @@ function viewFromAddress() {
   if (tab === "settings") return "settings";
   if (tab === "parties") return "stats";
   if (VIEWS.includes(tab)) return tab;
-  return "sim";
+  // Tout autre onglet (« simulate », « analyse », « compare »...) est une demande précise du Simulateur.
+  if (tab) return "sim";
+  // UX-8 : sans demande précise (adresse sans vue ni onglet), la fenêtre principale s'ouvre sur l'Accueil.
+  return "home";
 }
-let uiView = viewFromAddress(), uiBack = "sim";
+let uiView = viewFromAddress(), uiBack = "home";
 let uiSection = (() => { const s = new URLSearchParams(location.search).get("section"); return SETTINGS_SECTIONS.includes(s) ? s : "general"; })();
 function goView(view, section) {
   if (!VIEWS.includes(view)) return;
@@ -2583,7 +2640,8 @@ const NAV_PATHS = {
   shield: "M10 2.5 16 5v5c0 3.6-2.6 6.4-6 7.5-3.4-1.1-6-3.9-6-7.5V5z",
   refresh: "M16 5v4h-4M4 15v-4h4M15.3 9A5.5 5.5 0 0 0 5.6 6.6M4.7 11a5.5 5.5 0 0 0 9.7 2.4",
   pulse: "M2.5 10h3.5l2-5 4 10 2-5h3.5",
-  dot: "M10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z"
+  dot: "M10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z",
+  alert: "M10 5v6.5M10 14.6v.4"
 };
 const NavIcon = ({ name }) => html`<svg className="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d=${NAV_PATHS[name]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
 const NAV_LCU = { connected:["good", "nav.state.lcu.connected"], waiting:["wait", "nav.state.lcu.waiting"], failed:["bad", "nav.state.lcu.failed"], off:["idle", "nav.state.lcu.off"] };
@@ -2612,33 +2670,180 @@ const ViewHead = ({ title, sub, tools }) => html`<header className="view-head">
   ${tools ? html`<div className="view-tools">${tools}</div>` : null}
 </header>`;
 
-function HomeCheck({ ok, title, hint, action, onAction, test }) {
-  return html`<li className=${`check${ok ? " ok" : " todo"}`} data-test=${test}>
-    <span className="check-mark"><${NavIcon} name=${ok ? "check" : "dot"} /></span>
-    <div><b>${title}</b><p>${hint}</p></div>
-    <button type="button" className="ghost-btn" onClick=${onAction}>${action}</button>
+// ---------- Accueil (UX-8) : une seule chose forte, puis la chaîne de la draft et deux cartes d'état ----------
+// L'Accueil lit l'état sans rien changer : aucun rôle, pool ou réglage n'est modifié sans un clic sur l'action qui le dit.
+// Le guide du premier lancement ne garde que sa progression (étapes faites ou ignorées), dans sa propre clé du stockage.
+const ONBOARDING_KEY = "draftOnboarding";
+const onboarding = () => { try { return Object.assign({ started:false, skipped:[], tried:false }, JSON.parse(localStorage.getItem(ONBOARDING_KEY)) || {}); } catch (e) { return { started:false, skipped:[], tried:false }; } };
+function storeOnboarding(change) {
+  try { localStorage.setItem(ONBOARDING_KEY, JSON.stringify(Object.assign(onboarding(), change))); } catch (e) {}
+  rerender();
+}
+const frDate = d => new Date(d).toLocaleDateString("fr-FR");
+const frTime = d => new Date(d).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+// État de la lecture du client : « browser » hors application, « unavailable » si la version l'a coupée.
+function leagueState() {
+  if (!hostState.available) return "browser";
+  if (!hostState.lcuConfirmed) return "unavailable";
+  return ["connected", "waiting", "failed"].includes(hostState.lcuStatus) ? hostState.lcuStatus : "off";
+}
+const LEAGUE_DOT = { connected:"good", waiting:"wait", failed:"bad", off:"idle", unavailable:"idle", browser:"idle" };
+// Conseil en blind du rôle joué : le 1er du même calcul que les panneaux sans adversaire (aucun poids ni tri propre à l'Accueil).
+function blindAdvice() {
+  if (!PROFILE || !PICKS.length) return null;
+  const ranking = analyze([], null, PREFS.assumeFront).ranking;
+  if (!ranking.length) return { none:true };
+  return { names:[ranking[0].pick].concat(ranking[0].tiedWith || []).map(label) };
+}
+const liveDraft = () => { const s = simulating ? liveCopy : state; return s && s.sessionActive ? s : null; };
+
+function HomeGuide({ steps }) {
+  const shortcut = hostState.hotkey ? "home.guide.panels.text" : "home.guide.panels.textMenu";
+  const skip = id => storeOnboarding({ started:true, skipped:onboarding().skipped.concat(id) });
+  const step = (id, n, title, body, action) => html`<li key=${id} className="guide-step" data-test=${`guide-step-${id}`}>
+    <div className="guide-head"><span className="guide-num num" aria-hidden="true">${n}</span><h3>${title}</h3></div>
+    <div className="guide-text">${body}</div>
+    <div className="guide-acts">${action}<button type="button" className="link-btn" data-test=${`guide-skip-${id}`} aria-label=${t("home.guide.skipLabel", { step:title })} onClick=${() => skip(id)}>${t("home.guide.skip")}</button></div>
   </li>`;
+  const poolReady = !!PROFILE && PICKS.length > 0, busy = !!liveDraft() || !!hostState.panelsShown;
+  return html`<section className="box home-guide" data-test="home-guide" aria-labelledby="guide-title">
+    <h2 id="guide-title" className="home-title">${t("home.guide.title")}</h2>
+    <p className="home-lead">${t("home.guide.lead")}</p>
+    <ol className="guide-steps" aria-label=${t("home.guide.steps")}>
+      ${steps.includes("pool") ? step("pool", 1, t("home.guide.pool.title"), html`<p>${t("home.guide.pool.text")}</p>`,
+        html`<button type="button" className="cta" data-test="guide-pool" onClick=${() => { storeOnboarding({ started:true }); goView("pool"); }}>${t("home.guide.pool.action")}</button>`) : null}
+      ${steps.includes("lcu") ? step("lcu", 2, t("home.guide.lcu.title"), html`<p><span className="guide-tag">${t("home.guide.lcu.tag")}</span> ${t("home.guide.lcu.text")}</p><p className="guide-risk" data-test="guide-lcu-risk">${t("home.lcu.risk")}</p>`,
+        hostState.available ? html`<button type="button" className="ghost-btn guide-go" data-test="guide-lcu" onClick=${() => { storeOnboarding({ started:true }); hostSend({ cmd:"setLcu", value:true }); }}>${t("home.guide.lcu.action")}</button>`
+          : html`<span className="small">${t("home.appOnly")}</span>`) : null}
+      ${steps.includes("panels") ? step("panels", 3, t("home.guide.panels.title"), html`<p>${t(shortcut)}</p>${!poolReady ? html`<p className="small" data-test="guide-panels-wait">${t("home.guide.panels.needPool")}</p>` : busy ? html`<p className="small">${t("home.guide.panels.busy")}</p>` : null}`,
+        hostState.available ? html`<button type="button" className="ghost-btn guide-go" data-test="guide-panels" disabled=${!poolReady || busy} onClick=${() => { storeOnboarding({ started:true, tried:true }); hostSend({ cmd:"tryPanels" }); }}>${t("home.guide.panels.action")}</button>`
+          : html`<span className="small">${t("home.appOnly")}</span>`) : null}
+    </ol>
+    <p className="small guide-foot">${t("home.guide.tray")}</p>
+  </section>`;
+}
+
+function HomeHero() {
+  const role = PROFILES.active, count = role ? PROFILES.roles[role].pool.length : 0, lcu = leagueState(), live = liveDraft();
+  const blind = role && count ? blindAdvice() : null;
+  const toPool = html`<button type="button" className="cta" data-test="home-open-pool" onClick=${() => goView("pool")}>${t("home.action.openPool")}</button>`;
+  const simulate = html`<button type="button" className=${role && count ? "cta" : "ghost-btn"} data-test="home-simulate" onClick=${() => { startSimulation(); goView("sim"); }}>${t("home.action.simulate")}</button>`;
+  let tone = "ready", title, lead, actions;
+  if (!role) { tone = "todo"; title = t("home.hero.noRole"); lead = t("home.hero.noRole.lead"); actions = toPool; }
+  else if (!count) { tone = "todo"; title = t("home.hero.emptyPool", { role:ROLE_NAMES[role] }); lead = t("home.hero.emptyPool.lead", { role:ROLE_NAMES[role] }); actions = toPool; }
+  else if (blind && blind.none) { tone = "todo"; title = t("home.hero.allExcluded", { role:ROLE_NAMES[role] }); lead = t("home.hero.allExcluded.lead"); actions = toPool; }
+  else if (lcu === "failed") {
+    tone = "error"; title = t("home.hero.failed"); lead = t("home.hero.failed.lead");
+    actions = html`<button type="button" className="cta" data-test="home-diagnostic" onClick=${() => hostSend({ cmd:"lcuDiagnostic" })}>${t("settings.diag.lcu")}</button>
+      <button type="button" className="ghost-btn" data-test="home-league-settings" onClick=${() => goView("settings", "league")}>${t("home.action.leagueSettings")}</button>`;
+  } else if (live) {
+    tone = "live"; title = t("home.hero.live");
+    lead = tp("home.hero.live.lead", live.enemies.length) + (!simulating && V && V.shown ? " " + t("home.hero.live.advice", { champion:label(V.shown) }) : "");
+    actions = html`<button type="button" className="cta" data-test="home-see-draft" onClick=${() => openViewInPage("", "live")}>${t("home.action.seeDraft")}</button>`;
+  } else {
+    title = t("home.hero.ready");
+    lead = t(lcu === "browser" ? "home.hero.ready.browser" : !hostState.autoDraft ? (hostState.hotkey ? "home.hero.ready.manualHotkey" : "home.hero.ready.manualMenu") : lcu === "connected" ? "home.hero.ready.connected" : lcu === "waiting" ? "home.hero.ready.waiting" : "home.hero.ready.off");
+    actions = simulate;
+  }
+  const mark = { ready:"check", todo:"dot", error:"alert", live:"pulse" }[tone];
+  return html`<section className=${`box home-hero tone-${tone}`} data-test="home-hero" data-tone=${tone} aria-labelledby="home-hero-title">
+    <span className="hero-mark" aria-hidden="true"><${NavIcon} name=${mark} /></span>
+    <div className="hero-text"><h2 id="home-hero-title" className="home-title">${title}</h2><p className="home-lead">${lead}</p></div>
+    <div className="hero-acts">${actions}${tone !== "ready" && tone !== "live" && role && count ? html`<button type="button" className="ghost-btn" data-test="home-simulate" onClick=${() => { startSimulation(); goView("sim"); }}>${t("home.action.simulate")}</button>` : null}</div>
+  </section>`;
+}
+
+function HomeLeague() {
+  const lcu = leagueState();
+  const head = lcu === "browser" ? "home.league.off" : `home.league.${lcu}`;
+  return html`<section className=${`box home-card state-${LEAGUE_DOT[lcu]}`} data-test="home-league" data-state=${lcu} aria-labelledby="home-league-title">
+    <h2 id="home-league-title" className="card-kicker">${t("home.league.title")}</h2>
+    <p className="card-state"><i className=${`nav-dot ${LEAGUE_DOT[lcu]}`} aria-hidden="true"></i>${t(head)}</p>
+    <p className="card-text">${t(lcu === "browser" ? "home.appOnly" : `${head}.text`)}</p>
+    ${lcu === "off" ? html`<p className="card-text small" data-test="home-lcu-risk">${t("home.lcu.risk")}</p>` : null}
+    <div className="card-acts">
+      ${lcu === "off" ? html`<button type="button" className="ghost-btn" data-test="home-enable-lcu" onClick=${() => hostSend({ cmd:"setLcu", value:true })}>${t("home.league.enable")}</button>` : null}
+      ${lcu === "failed" || lcu === "waiting" ? html`<button type="button" className="ghost-btn" data-test="home-lcu-diagnostic" onClick=${() => hostSend({ cmd:"lcuDiagnostic" })}>${t("settings.diag.lcu")}</button>` : null}
+      ${lcu !== "browser" ? html`<button type="button" className="link-btn" data-test="home-league-more" onClick=${() => goView("settings", "league")}>${t("home.action.leagueSettings")}</button>` : null}
+    </div>
+  </section>`;
+}
+
+function HomePool() {
+  const role = PROFILES.active, pool = role ? PROFILES.roles[role].pool.map(label) : [];
+  const blind = pool.length ? blindAdvice() : null, shown = pool.slice(0, 6);
+  return html`<section className=${`box home-card state-${role && pool.length && !(blind && blind.none) ? "good" : "wait"}`} data-test="home-pool" aria-labelledby="home-pool-title">
+    <h2 id="home-pool-title" className="card-kicker">${t("home.pool.title")}</h2>
+    <p className="card-state">${role ? html`<span className="nav-role-icon"><${RoleIcon} role=${role} /></span>${t("home.pool.role", { role:ROLE_NAMES[role] })} <small className="num">${tp("home.pool.count", pool.length)}</small>` : html`<i className="nav-dot wait" aria-hidden="true"></i>${t("home.pool.none")}`}</p>
+    ${pool.length ? html`<p className="home-portraits" data-test="home-pool-list">${shown.map(n => html`<span key=${n} className="home-champ"><${Portrait} name=${n} size=${24} /><span>${n}</span></span>`)}${pool.length > shown.length ? html`<span className="small">${tp("home.pool.more", pool.length - shown.length)}</span>` : null}</p>`
+      : html`<p className="card-text">${t(role ? "home.pool.empty" : "home.pool.noneText")}</p>`}
+    ${blind ? html`<p className="card-text" data-test="home-blind">${blind.none ? t("home.pool.allExcluded") : blind.names.length > 1 ? t("home.pool.blindTie", { champions:blind.names.join(", ") }) : t("home.pool.blind", { champion:blind.names[0] })}</p>` : null}
+    <div className="card-acts"><button type="button" className="ghost-btn" data-test="home-edit-pool" onClick=${() => goView("pool")}>${t(role && pool.length ? "home.pool.edit" : "home.action.openPool")}</button></div>
+  </section>`;
+}
+
+function HomePanels() {
+  const host = hostState.available, auto = !host || !!hostState.autoDraft, lcu = leagueState();
+  return html`<section className=${`box home-card state-${auto ? "good" : "idle"}`} data-test="home-panels" aria-labelledby="home-panels-title">
+    <h2 id="home-panels-title" className="card-kicker">${t("home.panels.title")}</h2>
+    <p className="card-state"><i className=${`nav-dot ${auto ? "good" : "idle"}`} aria-hidden="true"></i>${t(auto ? "home.panels.auto" : "home.panels.manual")}</p>
+    <p className="card-text">${t(auto ? "home.panels.auto.text" : "home.panels.manual.text")} ${host ? t(lcu === "connected" || lcu === "waiting" ? "home.panels.detect.lcu" : "home.panels.detect.screen") : ""}</p>
+    <p className="card-text small" data-test="home-shortcut">${hostState.panelsShown ? t("home.panels.shown") + " " : ""}${t(!host || hostState.hotkey ? "home.panels.hotkey" : "home.panels.menu")}</p>
+    ${host ? html`<div className="card-acts"><button type="button" className="ghost-btn" data-test="home-display" onClick=${() => goView("settings", "display")}>${t("panel.tools.display")}</button></div>` : null}
+  </section>`;
+}
+
+function HomeUpdate() {
+  const host = hostState.available, when = hostState.updateChecked;
+  const today = when && new Date(when).toDateString() === new Date().toDateString();
+  return html`<section className="box home-card home-quiet" data-test="home-update" aria-labelledby="home-update-title">
+    <h2 id="home-update-title" className="card-kicker">${t("home.update.title")}</h2>
+    <p className="card-state">${t("home.update.version", { version:APP_VERSION })}</p>
+    ${host ? html`${hostState.updateStatus ? html`<p className="card-text" role="status" data-test="home-update-status">${hostState.updateStatus}</p>` : null}
+      <p className="card-text small" data-test="home-update-checked">${when ? t(today ? "home.update.checked" : "home.update.checkedOn", { date:frDate(when), time:frTime(when) }) : t("home.update.never")} ${t("home.update.privacy")}</p>
+      <div className="card-acts"><button type="button" className="ghost-btn" data-test="home-check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${t(hostState.updateRunning ? "home.update.running" : "home.update.check")}</button></div>`
+      : html`<p className="card-text">${t("home.appOnly")}</p>`}
+  </section>`;
+}
+
+function HomeData() {
+  const journal = loadJournal().length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
+  const role = PROFILES.active || "mid", rates = window.ROLE_RATES_LIVE, live = window.MATCHUPS_LIVE;
+  const status = hostState.historyStatus || hostState.rolesStatus;
+  const row = (key, label, value, ok) => html`<div key=${key} className=${`data-row${ok ? " ok" : ""}`} data-test=${`home-data-${key}`}><dt>${label}</dt><dd>${value}</dd></div>`;
+  return html`<section className="box home-card home-quiet home-data" data-test="home-data" aria-labelledby="home-data-title">
+    <h2 id="home-data-title" className="card-kicker">${t("home.data.title")}</h2>
+    <dl className="data-rows">
+      ${row("journal", t("home.data.journal"), journal ? tp("home.data.journal.count", journal) : t("home.data.journal.none"), journal > 0)}
+      ${row("history", t("home.data.history"), rows ? tp("home.data.history.count", rows.length, { date:when ? frDate(when) : "?" }) : t("home.data.history.none"), !!rows)}
+      ${row("roles", t("home.data.roles"), rates && rates.updated ? t("home.data.roles.live", { date:frDate(rates.updated) }) : typeof ROLE_RATES !== "undefined" ? t("home.data.roles.shipped", { patch:ROLE_RATES.patch }) : t("home.data.roles.manual"), !!rates)}
+      ${row("matchups", PROFILES.active ? t("home.data.matchups", { role:ROLE_NAMES[role] }) : t("home.data.matchupsAny"), live && live.updated && liveRoleOk() ? tp("home.data.matchups.live", live.games || 0, { date:frDate(live.updated) }) : live && !liveRoleOk() ? t("home.data.matchups.otherRole", { role:ROLE_NAMES[live.role || "mid"] }) : t("home.data.matchups.none"), !!live && liveRoleOk())}
+    </dl>
+    ${status ? html`<p className="card-text small" role="status" data-test="home-data-status">${status}</p>` : null}
+    <div className="card-acts">
+      <button type="button" className="ghost-btn" data-test="home-stats" onClick=${() => goView("stats")}>${t("nav.stats")}</button>
+      <button type="button" className="link-btn" data-test="home-manage-data" onClick=${() => goView("settings", "data")}>${t("home.data.manage")}</button>
+    </div>
+  </section>`;
 }
 
 function HomeView() {
-  const role = PROFILES.active, count = role ? PROFILES.roles[role].pool.length : 0;
-  const lcu = hostState.available ? (LCU_STATES[hostState.lcuStatus] || LCU_STATES.off) : null;
-  const ready = !!role && count > 0;
-  return html`<div className="view-page">
+  const role = PROFILES.active, fresh = !(role && PROFILES.roles[role].pool.length);
+  const ob = onboarding();
+  // Pendant le guide, les étapes tiennent lieu de cartes League, pool et panneaux : rien n'est dit deux fois.
+  // Profil vierge : le guide démarre et reste jusqu'à ce que chaque étape soit faite ou ignorée. Un profil déjà configuré ne le voit jamais.
+  // Dans l'application, on attend l'état du programme : un profil existant (copie de secours, ancien profil) arrive avec lui.
+  const known = !IS_HOST || hostState.available;
+  useEffect(() => { if (known && fresh && !ob.started) storeOnboarding({ started:true }); }, [known, fresh, ob.started]);
+  const done = { pool:!fresh, lcu:!!hostState.lcuEnabled || (hostState.available && !hostState.lcuConfirmed), panels:ob.tried };
+  const steps = known && (ob.started || fresh) ? ["pool", "lcu", "panels"].filter(s => !done[s] && !ob.skipped.includes(s)) : [];
+  return html`<div className="view-page home" data-test="home">
     <${ViewHead} title=${t("nav.home")} sub=${t("home.sub")} />
-    <section className="box home-ready" data-test="home-ready" aria-labelledby="home-ready-title">
-      <h2 id="home-ready-title" className="home-title">${t(ready ? "home.ready.title" : "home.todo.title")}</h2>
-      <p className="home-lead">${t(ready ? "home.ready.idle" : "home.todo.lead")}</p>
-      <ul className="checks">
-        <${HomeCheck} test="home-check-league" ok=${!!lcu && hostState.lcuStatus === "connected"} title=${t(lcu && hostState.lcuStatus === "connected" ? "home.check.league.ok" : "home.check.league.manual")}
-          hint=${lcu ? lcu[1] : t("home.check.league.browser")} action=${t("home.action.league")} onAction=${() => goView("settings", "league")} />
-        <${HomeCheck} test="home-check-pool" ok=${ready} title=${role ? tp("home.check.pool", count, { role:ROLE_NAMES[role] }) : t("home.check.noRole")}
-          hint=${role ? (count ? PROFILES.roles[role].pool.map(label).join(", ") : t("home.check.poolEmpty")) : t("home.check.noRoleHint")} action=${t("home.action.pool")} onAction=${() => goView("pool")} />
-        <${HomeCheck} test="home-check-panels" ok=${!hostState.available || !!hostState.autoDraft} title=${t(!hostState.available || hostState.autoDraft ? "home.check.panels.auto" : "home.check.panels.manual")}
-          hint=${t(hostState.hotkey ? "home.check.panels.hotkey" : "home.check.panels.menu")} action=${t("home.action.display")} onAction=${() => goView("settings", "display")} />
-      </ul>
-      <p className="home-actions"><button type="button" className="cta" data-test="home-simulate" onClick=${() => { startSimulation(); goView("sim"); }}>${t("home.action.simulate")}</button></p>
-    </section>
+    ${steps.length ? html`<${HomeGuide} steps=${steps} />` : html`<${HomeHero} />
+    <div className="home-chain">
+      <${HomeLeague} /><${HomePool} /><${HomePanels} />
+    </div>`}
+    <div className="home-more"><${HomeUpdate} /><${HomeData} /></div>
   </div>`;
 }
 
@@ -3042,8 +3247,8 @@ function App() {
   // Ouverts pendant une draft, les réglages sont seuls à l'écran : les fermer referme la fenêtre, pour ne rien laisser devant le client.
   const settingsWindow = useRef(IS_HOST && new URLSearchParams(location.search).get("solo") === "1");
   const closeSettings = useCallback(() => {
-    if (settingsWindow.current) { settingsWindow.current = false; goView(uiBack === "settings" ? "sim" : uiBack); hostSend({ cmd:"closeFull" }); return; }
-    goView(uiBack === "settings" ? "sim" : uiBack);
+    if (settingsWindow.current) { settingsWindow.current = false; goView(uiBack === "settings" ? "home" : uiBack); hostSend({ cmd:"closeFull" }); return; }
+    goView(uiBack === "settings" ? "home" : uiBack);
   }, []);
   useEffect(() => {
     rerender = force;
@@ -3073,7 +3278,7 @@ function App() {
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
         // Message gardé une version (alias) : ouvre la section Réglages.
-        if (m.kind === "openSettings") goView("settings", m.section);
+        if (m.kind === "openSettings") { goView("settings", m.section); window.__openSettingsSeen = m.token || 0; }
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
         // Ouverture d'une section ou d'un onglet sans recharger la page (« Détails », « Comparer ») : la draft affichée reste, aucune diffusion.
         if (m.kind === "openView") { openViewInPage(m.tab || "", m.source || ""); window.__openViewSeen = m.token || 0; }

@@ -518,7 +518,7 @@ public static class Autostart
         // Une lecture par seconde au maximum, et seulement si une conclusion est possible.
         async void Sample()
         {
-            if (firstRun) { firstRun = false; OpenFull("settings"); }
+            if (firstRun) { firstRun = false; OpenOnFirstLaunch(); }
             if (await PollLcuOnce())
             {
                 // Le client donne la phase exacte : rien à estimer ni à apprendre à partir de l'image.
@@ -1312,7 +1312,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", placementNote }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", updateStatus } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", rolesStatus }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", historyStatus }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", updateStatus }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1986,14 +1986,17 @@ public static class Autostart
             // Fenêtre principale déjà à l'écran : les réglages s'ouvrent par-dessus, sans la recharger.
             if (tab == "settings" && exists && panels.TryGetValue("full", out open) && open.Visible && open.Ready.IsCompleted && open.View.CoreWebView2 != null)
             {
-                open.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"openSettings\"" + (section == null ? "" : ",\"section\":\"" + section + "\"") + "}");
+                // Jeton (UX-8) : la page dit qu'elle a reçu CE message. Vérifier seulement la présence des réglages laissait une course :
+                // si la page changeait de section avant la première vérification, la fenêtre était rechargée sur les réglages.
+                int settingsToken = ++openViewToken;
+                open.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"openSettings\",\"token\":" + settingsToken + (section == null ? "" : ",\"section\":\"" + section + "\"") + "}");
                 if (opts.Script == null) open.Activate();
                 // Une page en plein rechargement (après un import, par exemple) perd ce message : on vérifie, puis on recharge sur les réglages.
                 for (int i = 0; i < 30; i++)
                 {
                     await Task.Delay(50);
                     if (open.IsDisposed || open.View.CoreWebView2 == null) return;
-                    if (await open.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"settings\"]')") == "true") return;
+                    if (await open.View.CoreWebView2.ExecuteScriptAsync("window.__openSettingsSeen || 0") == settingsToken.ToString()) return;
                 }
                 // La fenêtre principale était déjà à l'écran : fermer les réglages doit y revenir, jamais la masquer (pas de solo=1).
                 open.View.CoreWebView2.Navigate("https://draftmid.local/index.html?panel=full&tab=settings" + (section == null ? "" : "&section=" + section));
@@ -2070,6 +2073,7 @@ public static class Autostart
                 case "updateMatchups": ToggleRiotUpdate(true); break;
                 case "checkUpdate": CheckForUpdate(false); break;
                 case "importHistory": ToggleHistoryImport(); break;
+                case "tryPanels": TryPanels(); break;
                 case "setProfile":
                 {
                     object roleO, poolO;
@@ -2150,9 +2154,45 @@ public static class Autostart
             Quit();
         }
 
+        // ---------- Accueil et premier lancement (UX-8) ----------
+        // Premier lancement : la fenêtre s'ouvre sur l'Accueil, qui guide en trois étapes au plus. Plus jamais sur Réglages > Général.
+        public void OpenOnFirstLaunch() { OpenFull("home"); }
+
+        // « Essayer les panneaux » (étape 3 du premier lancement) : affiche les panneaux et y joue la draft de démonstration
+        // de la page (DEMO_SCRIPT, MockDraftProvider). Seulement hors draft et hors partie, panneaux masqués : une vraie draft n'est
+        // jamais remplacée. Rien n'est appris de l'écran (contrairement à ToggleManual) et aucun réglage ne change.
+        bool demoRunning;
+        public int DemoCount;
+        public async void TryPanels()
+        {
+            if (demoRunning || panelsShown || machine.Current == Phase.Draft || machine.Current == Phase.InGame) return;
+            demoRunning = true;
+            try
+            {
+                visibility.Manual = true;
+                ApplyVisibility();
+                RefreshUi();
+                for (int i = 0; i < 200; i++)
+                {
+                    PanelForm p = new[] { "right", "compact" }.Select(PanelFor).FirstOrDefault(x => x != null && !x.IsDisposed && x.Visible);
+                    if (p != null && !p.IsDisposed && p.Visible && p.Ready.IsCompleted && p.View.CoreWebView2 != null
+                        && await p.View.CoreWebView2.ExecuteScriptAsync("typeof runDemo === 'function' && synced") == "true")
+                    {
+                        p.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"demo\",\"stepMs\":900}");
+                        DemoCount++;
+                        return;
+                    }
+                    await Task.Delay(50);
+                }
+            }
+            finally { demoRunning = false; RefreshUi(); }
+        }
+
         // ---------- Mise à jour à la demande : voir AppUpdater ----------
         CancellationTokenSource updateCts;
         string updateStatus = "";
+        // Heure de la dernière réponse de GitHub (format ISO local), connue pour cette session seulement : rien n'est enregistré.
+        string updateChecked = "";
 
         void SetUpdateStatus(string text) { updateStatus = text; RefreshUi(); }
 
@@ -2237,6 +2277,96 @@ public static class Autostart
         }
         public string MenuReport = "";
 
+        // UX-8 : Accueil et premier lancement, dans la vraie fenêtre. Le premier lancement ouvre l'Accueil (plus Réglages > Général) ;
+        // l'Accueil suit l'état réel transmis par le programme (lecture du client sur un LCU simulé, mise à jour vérifiée) ;
+        // « Activer la lecture du client » et « Essayer les panneaux » passent par les vraies commandes de la page. Aucun appel réseau.
+        public string HomeReport = "non mesuré";
+        public async Task<string> TestHome()
+        {
+            string problem = "";
+            PanelForm f;
+            if (panels.TryGetValue("full", out f) && f.Visible) f.Hide();
+            OpenOnFirstLaunch();
+            f = null;
+            for (int i = 0; i < 200 && !(OpenPending == 0 && panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null); i++) await Task.Delay(50);
+            if (f == null || !f.Visible) return "le premier lancement n'ouvre pas la fenêtre principale ; ";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> waitFor = async code => { for (int i = 0; i < 100; i++) { if (await run("!!(" + code + ")") == "true") return true; await Task.Delay(50); } return false; };
+            if (!await waitFor("document.querySelector('[data-test=\"view-home\"]') && document.querySelector('[data-test=\"home\"]')")) problem += "le premier lancement n'ouvre pas l'Accueil (" + await run("location.search + ' ' + (document.querySelector('main') || {}).className") + ") ; ";
+            if (await run("!!document.querySelector('[data-test=\"settings\"]')") == "true") problem += "le premier lancement ouvre encore les Réglages ; ";
+            // Mise à jour vérifiée plus tôt (source simulée) : résultat et heure sur l'Accueil.
+            if (updateChecked != "" && !await waitFor("/Dernière vérification : aujourd'hui à \\d\\d:\\d\\d/.test((document.querySelector('[data-test=\"home-update-checked\"]') || {}).textContent || '')")) problem += "l'Accueil n'affiche pas l'heure de la dernière vérification ; ";
+            if (updateStatus != "" && !await waitFor("((document.querySelector('[data-test=\"home-update-status\"]') || {}).textContent || '').length > 5")) problem += "l'Accueil n'affiche pas le résultat de la mise à jour ; ";
+
+            // Lecture du client : activée par le bouton de l'Accueil, puis LCU simulé connecté, puis client injoignable.
+            bool lcuBefore = settings.LcuEnabled;
+            LcuSession lcuSaved = lcu;
+            settings.LcuEnabled = false; lcu = null; RefreshUi();
+            if (!await waitFor("document.querySelector('[data-test=\"home-enable-lcu\"]')")) problem += "lecture désactivée : pas de bouton « Activer la lecture du client » ; ";
+            else
+            {
+                await run("document.querySelector('[data-test=\"home-enable-lcu\"]').click(); 1");
+                for (int i = 0; i < 60 && !settings.LcuEnabled; i++) await Task.Delay(50);
+                if (!settings.LcuEnabled) problem += "« Activer la lecture du client » ne l'active pas ; ";
+            }
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            TestUseLcu(() => sim);
+            await PollLcuOnce(); NotifyLcuStatus();
+            if (!await waitFor("document.querySelector('[data-test=\"home-league\"][data-state=\"connected\"]') && /Client LoL connecté/.test(document.querySelector('[data-test=\"home-hero\"]').textContent)")) problem += "LCU simulé connecté : l'Accueil ne le montre pas (" + LcuStatus() + ") ; ";
+            await CaptureHome(f, "connecte");
+            sim.Offline = true;
+            await PollLcuOnce(); NotifyLcuStatus();
+            string after = LcuStatus();
+            if (!await waitFor("document.querySelector('[data-test=\"home-league\"][data-state=\"" + after + "\"]')")) problem += "client injoignable : l'Accueil ne suit pas (" + after + ") ; ";
+            if (after == "failed" && !await waitFor("document.querySelector('[data-test=\"home-diagnostic\"]')")) problem += "connexion impossible : pas d'action « Diagnostic de connexion LoL » ; ";
+            if (after == "waiting") await CaptureHome(f, "lol-ferme");
+            settings.LcuEnabled = lcuBefore; lcu = lcuSaved; Persist(); RefreshUi();
+
+            // « Essayer les panneaux » : panneaux affichés, draft de démonstration jouée, aucun réglage modifié, rien appris de l'écran.
+            string settingsBefore = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "";
+            bool? manualBefore = visibility.Manual;
+            int demos = DemoCount;
+            if (panelsShown || machine.Current == Phase.Draft) problem += "(essai des panneaux : panneaux déjà affichés, essai non vérifié) ";
+            else
+            {
+                await run("hostSend({ cmd:'tryPanels' }); 1");
+                PanelForm shown = null;
+                for (int i = 0; i < 200 && DemoCount == demos; i++) await Task.Delay(50);
+                shown = new[] { "right", "compact" }.Select(PanelFor).FirstOrDefault(x => x != null && !x.IsDisposed && x.Visible);
+                if (DemoCount != demos + 1 || !panelsShown || shown == null) problem += "« Essayer les panneaux » n'affiche pas les panneaux avec la démonstration ; ";
+                else
+                {
+                    bool seen = false;
+                    for (int i = 0; i < 80 && !seen; i++) { seen = await shown.View.CoreWebView2.ExecuteScriptAsync("state.enemies.includes('Sett')") == "true"; if (!seen) await Task.Delay(100); }
+                    if (!seen) problem += "démonstration absente des panneaux ; ";
+                    // Fin de la démonstration (8 étapes de 900 ms), puis panneaux rendus à leur état et draft vidée.
+                    for (int i = 0; i < 120 && await shown.View.CoreWebView2.ExecuteScriptAsync("!!state.sessionActive") == "true"; i++) await Task.Delay(100);
+                    await shown.View.CoreWebView2.ExecuteScriptAsync("draftApi.reset(); 1");
+                }
+                string settingsAfter = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "";
+                if (settingsAfter != settingsBefore) problem += "« Essayer les panneaux » modifie les réglages ; ";
+                visibility.Manual = manualBefore; ApplyVisibility(); RefreshUi();
+            }
+            HomeReport = "premier lancement sur l'Accueil, lecture du client " + (problem.Contains("LCU") ? "?" : "connectée puis " + after) + ", " + (DemoCount - demos) + " essai(s) des panneaux";
+            if (f.Visible) f.Hide();
+            return problem;
+        }
+
+        // Capture de l'Accueil (e2e avec --capture) : vraie WebView2, zone cliente en pixels physiques, données de test neutres.
+        async Task CaptureHome(PanelForm f, string name)
+        {
+            if (opts.CaptureDir == null) return;
+            Size keep = f.ClientSize;
+            foreach (Size size in new[] { new Size(1366, 768), new Size(1920, 1080) })
+            {
+                f.ClientSize = size;
+                await Task.Delay(700);
+                using (FileStream fs = File.Create(Path.Combine(opts.CaptureDir, "ux8-e2e-accueil-" + name + "-" + f.ClientSize.Width + "x" + f.ClientSize.Height + ".png")))
+                    await f.View.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
+            }
+            f.ClientSize = keep;
+        }
+
         // Une bulle près de l'horloge. Retenue pour les tests ; jamais affichée en mode silencieux.
         void Notify(string text, ToolTipIcon icon)
         {
@@ -2294,6 +2424,7 @@ public static class Autostart
             {
                 SetUpdateStatus("Recherche d'une mise à jour...");
                 UpdateInfo info = await source.LatestAsync(cts.Token);
+                updateChecked = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                 if (!AppUpdater.IsNewer(AppUpdater.Current, info.Version)) { done = "DRAFT est à jour (version " + AppUpdater.Current.ToString(3) + ")."; return; }
                 if (!confirm(info)) { done = "La version " + info.Version.ToString(3) + " est disponible."; return; }
                 int shown = -1;
@@ -2624,6 +2755,10 @@ public static class Autostart
             t(available == "La version 99.0.0 est disponible.", "Mise à jour depuis le menu, installation refusée : bulle « version disponible » (" + available + ")");
             string failed = await app.TestUpdateFromMenu(new StubUpdateSource { Fail = new System.Net.WebException("test") });
             t(failed == "GitHub ne répond pas. Vérifie ta connexion, puis réessaie.", "Mise à jour depuis le menu, réseau absent : bulle d'erreur en clair (" + failed + ")");
+            // UX-8 : la dernière vérification réussie (« à jour ») est rejouée pour que l'Accueil ait une heure et un résultat à montrer.
+            await app.TestUpdateFromMenu(new StubUpdateSource());
+            string homeProblem = await app.TestHome();
+            t(homeProblem == "", "Accueil et premier lancement : premier lancement sur l'Accueil, état League réel (LCU simulé), activation et essai des panneaux par la page (" + app.HomeReport + ") " + homeProblem);
         }
 
         static string s_keyReport = "";

@@ -5,7 +5,7 @@
 const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
 const wait=m=>new Promise(r=>setTimeout(r,m));
 const PROFILES={mid:{role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]},none:null};
-async function open(profile,panel,W=1280,H=720,extra=""){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(PROFILES[profile]));localStorage.setItem("draftPatch","16.22");const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html"+(panel?"?panel="+panel:"?x=1")+extra;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(350);const w=f.contentWindow;w.eval("window.$={get V(){return V},get state(){return state},get PROFILES(){return PROFILES},commit,rerender,addEnemy,myRole,hostState}");return {f,w,d:f.contentDocument,$:w.$};}
+async function open(profile,panel,W=1280,H=720,extra=""){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(PROFILES[profile]));localStorage.setItem("draftPatch","16.22");const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html"+(panel?"?panel="+panel:"?x=1")+extra+(/[?&](view|tab)=/.test(extra||"")?"":"&view=sim");document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(350);const w=f.contentWindow;w.eval("window.$={get V(){return V},get state(){return state},get PROFILES(){return PROFILES},commit,rerender,addEnemy,myRole,hostState}");return {f,w,d:f.contentDocument,$:w.$};}
 const close=x=>x.f.remove();
 const settle=()=>wait(150);
 const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";

@@ -125,4 +125,4 @@ Ne rien fermer pendant une partie. Noter ce qui diffère de l'attendu.
 
 **G. Raccourci.** Ctrl+Alt+D affiche et masque les panneaux, y compris hors sélection. L'icône près de l'horloge donne le même résultat.
 
-**H. PC sans environnement de développement.** Télécharger seulement l'exécutable sur l'autre PC, le lancer : les réglages s'ouvrent au premier lancement, le profil se choisit, et reste après relance.
+**H. PC sans environnement de développement.** Télécharger seulement l'exécutable sur l'autre PC, le lancer : l'Accueil s'ouvre au premier lancement avec ses trois étapes, le profil se choisit dans Mon pool, et reste après relance.

@@ -1,7 +1,7 @@
 # Verifie le rendu reel des panneaux dans Chrome : debordements, textes coupes ou superposes, cibles trop petites.
 # Tailles en pixels d'interface : 230 et 256 correspondent aux panneaux reels a 125 % d'affichage Windows.
 # Ce test ne remplace pas un controle a l'oeil : -Shots ecrit aussi des captures.
-param([string]$Out = (Join-Path $env:TEMP 'draftmid-layout'), [switch]$Shots)
+param([Alias('Work')][string]$Out = (Join-Path $env:TEMP 'draftmid-layout'), [switch]$Shots)
 
 $Source = Join-Path (Split-Path $PSScriptRoot -Parent) 'web'
 # Copie de test : le banc interroge la page avec eval, autorisé ici seulement, jamais dans l'application.
@@ -41,6 +41,14 @@ $Runs += , @('sources de donnees ouvertes', 'state=full&set=full&page=settings&s
 foreach ($v in 'home', 'pool', 'stats') { $Runs += , @("section $v", "state=history&set=full&page=$v&host=on", $false); $Runs += , @("section $v hors application", "state=empty&set=full&page=$v", $false) }
 foreach ($s in 'general', 'league', 'display', 'data', 'updates', 'diag') { $Runs += , @("reglages $s", "state=full&set=full&page=settings&section=$s&host=on", $false) }
 $Runs += , @('mon pool sans profil', 'state=full&set=full&page=pool&profile=none', $false)
+# UX-8 : Accueil, chaque etat : premier lancement (profil vierge), configure avec LoL ferme, connecte, erreur de connexion, draft en cours.
+$Runs += , @('accueil vierge', 'state=empty&set=full&page=home&profile=none&host=off', $false)
+$Runs += , @('accueil vierge hors application', 'state=empty&set=full&page=home&profile=none', $false)
+$Runs += , @('accueil configure lol ferme', 'state=empty&set=full&page=home&host=waiting', $false)
+$Runs += , @('accueil configure connecte', 'state=empty&set=full&page=home&host=on', $false)
+$Runs += , @('accueil configure lecture desactivee', 'state=empty&set=full&page=home&host=off', $false)
+$Runs += , @('accueil erreur de connexion', 'state=empty&set=full&page=home&host=failed', $false)
+$Runs += , @('accueil draft en cours', 'state=live&set=full&page=home&host=on', $false)
 $Runs += , @('sans reseau', 'state=full', $true)
 
 $failures = 0
