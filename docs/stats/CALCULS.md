@@ -105,13 +105,13 @@ Chaque champ est vérifié séparément. Une valeur invalide n'écarte la ligne 
 
 ## 13. Journal DRAFT
 
-Sémantique alignée sur `fix/choix-champion` (PR #33), lue **sans dépendre de son code** : un champ absent est traité comme inconnu.
+Format du journal : [`docs/technique/JOURNAL.md`](../technique/JOURNAL.md) (PR #33, fusionnée). Les marques sont lues **sans dépendre de son code** : un champ absent est traité comme inconnu. `recommended` (premier du classement) n'entre dans aucune mesure ici.
 
 | Champ | Écrit par | Sens |
 |---|---|---|
 | `picked` | « Je joue » | champion cliqué par le joueur |
 | `suggested` | « Je joue » | conseil au moment du choix ; à égalité, l'ex æquo choisi |
-| `tied`, `tiedWith` | #33, entrées nouvelles | le conseil était une égalité ; liste des ex æquo |
+| `tied`, `tiedWith` | #33, entrées nouvelles | le conseil était une égalité ; groupe complet des ex æquo |
 | `origin: "draft"`, `app` | #33, entrées nouvelles | entrée écrite pendant une vraie draft, par cette version |
 | `result` | le joueur | `null` (en attente), `win`, `loss` ou `skip` |
 | `userOrigin` | **cette PR**, le joueur | `"real"` ou `"simulation"` : choix du joueur pour une entrée d'origine inconnue |

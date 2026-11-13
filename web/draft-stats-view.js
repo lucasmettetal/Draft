@@ -285,6 +285,7 @@
       <section className="box box-pad" data-test="stats-history">
         <h2 className="box-title">${t("stats.history.title")}</h2>
         <p className=${games.length ? "stats-line ok" : "empty-note"} data-test="stats-history-summary">${read.source ? tp("stats.history.imported", games.length, { date: read.generated ? fmtDate(read.generated) : "?" }) : t("stats.history.none")}</p>
+        ${games.length ? html`<div data-test="stats-history-sample"><${Sample} s=${C.summary(read)} read=${read} /></div>` : null}
         ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${nativeText(hostState.historyStatus)}</p>` : null}
         ${hostState.available ? html`<p className="set-row"><${ImportButton} /></p>` : html`<p className="small">${t("stats.history.app")}</p>`}
         <p className="small">${t("stats.history.key")}</p>
