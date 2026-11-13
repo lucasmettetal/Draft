@@ -76,6 +76,7 @@ What you change in the pre-release (pools, exclusions, favourites) **does not go
 - **Journal**: in the pre-release, My stats > **Download the journal** (file `draft-journal.json`). In your 2.16.x: **Importer un journal**. Games are added, nothing is deleted (same file check in both versions).
 - **Imported Riot history**: it stays in the pre-release (`%LOCALAPPDATA%\DRAFT-beta`). Your 2.x keeps its own.
 - **Language**: 2.x is French only.
+- **Careful with 2.14**: what you change in a 2.14 (pool, exclusions, favourite) is not picked up by a 3.0 or by the pre-release, which read the per-role profiles first. The journal is shared. Details (French): [COMPATIBILITE-2X.md](COMPATIBILITE-2X.md).
 
 ## 7. New pre-release
 

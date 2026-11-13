@@ -31,6 +31,7 @@ English version: [NOTES-3.0.0-beta.1.en.md](https://github.com/lucasmettetal/Dra
 - **Plusieurs écrans non testés** (m1) : un seul écran sur le PC de test.
 - **m2 : langue et retour en 2.x.** La préversion ne partage plus son dossier avec la 2.x : la 2.x ne réécrit plus les réglages de la préversion. Mais tes changements faits dans la préversion ne reviennent pas dans la 2.x. Pour garder tes pools : Mon pool > Exporter mes profils, puis Importer dans la 2.x (même format de fichier). Pour le journal : Mes statistiques > Télécharger le journal, puis Importer un journal dans la 2.x.
 - **Pas de passage automatique à la 3.0 finale** : elle aussi se télécharge à la main.
+- **2.14 et 3.0 sur les mêmes données** : la 2.14 relit le rôle joué, son pool et le journal, et efface la langue choisie. Les changements de pool faits ensuite dans la 2.14 ne sont pas repris par la 3.0. Détails : [COMPATIBILITE-2X.md](https://github.com/lucasmettetal/Draft/blob/v3.0.0-beta.1/docs/release/COMPATIBILITE-2X.md).
 - **m3 : premier affichage des panneaux lent** : 4,5 à 5,1 s après la détection au premier affichage (création de WebView2), puis quelques millisecondes.
 - **Si la 2.x est ouverte au premier lancement**, un fichier qu'elle tient en exclusivité n'est pas copié. L'Accueil le dit et compte ces fichiers.
 - Si une autre DRAFT tourne pendant une draft, tu verras deux jeux de panneaux. La préversion le signale (Accueil, Réglages > Affichage et fenêtres, bulle) : masque les panneaux de l'une des deux, ou quitte l'autre toi-même.

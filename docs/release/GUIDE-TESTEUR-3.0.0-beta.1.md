@@ -76,6 +76,7 @@ Ce que tu changes dans la préversion (pools, exclusions, favoris) **ne revient 
 - **Journal** : dans la préversion, Mes statistiques > **Télécharger le journal** (fichier `draft-journal.json`). Dans ta 2.16.x : **Importer un journal**. Les parties sont ajoutées, rien n'est supprimé (même contrôle du fichier dans les deux versions).
 - **Historique Riot importé** : il reste dans la préversion (`%LOCALAPPDATA%\DRAFT-beta`). Ta 2.x garde le sien.
 - **Langue** : la 2.x n'a que le français.
+- **Attention avec la 2.14** : ce que tu changes dans une 2.14 (pool, exclusions, favori) n'est pas repris par une 3.0 ni par la préversion, qui lisent d'abord les profils par rôle. Le journal, lui, est partagé. Détails : [COMPATIBILITE-2X.md](COMPATIBILITE-2X.md).
 
 ## 7. Nouvelle préversion
 

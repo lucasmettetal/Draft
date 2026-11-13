@@ -31,6 +31,7 @@ Version française : [NOTES-3.0.0-beta.1.md](https://github.com/lucasmettetal/Dr
 - **Multiple screens not tested** (m1): a single screen on the test PC.
 - **m2: language and going back to 2.x.** The pre-release no longer shares its folder with 2.x: 2.x no longer rewrites the pre-release settings. But changes made in the pre-release don't go back to 2.x. To keep your pools: My pool > Export my profiles, then Import in 2.x (same file format). For the journal: My stats > Download the journal, then "Importer un journal" in 2.x.
 - **No automatic move to the final 3.0**: it is downloaded manually too.
+- **2.14 and 3.0 on the same data**: 2.14 reads the played role, its pool and the journal, and erases the chosen language. Pool changes made afterwards in 2.14 are not picked up by 3.0. Details (French): [COMPATIBILITE-2X.md](https://github.com/lucasmettetal/Draft/blob/v3.0.0-beta.1/docs/release/COMPATIBILITE-2X.md).
 - **m3: slow first display of the panels**: 4.5 to 5.1 s after detection the first time (WebView2 start-up), then a few milliseconds.
 - **If 2.x is open on first launch**, a file it holds exclusively is not copied. Home says so and counts these files.
 - If another DRAFT runs during a draft, you will see two sets of panels. The pre-release says so (Home, Settings > Display and windows, balloon): hide the panels of one of them, or quit the other one yourself.
