@@ -34,7 +34,7 @@ function Scenario($name, $source) {
   New-Item -ItemType Directory -Force "$dir\app" | Out-Null
   Copy-Item (Join-Path $Work 'a\DRAFT-Portable.exe') "$dir\app\DRAFT-Portable.exe"
   $state = "$dir\etat.json"; $out = "$dir\resultat.txt"
-  $p = Start-Process "$dir\app\DRAFT-Portable.exe" -ArgumentList '--data', "`"$dir\data`"", '--no-hotkey', '--no-auto-panels', '--run-key', 'Software\DRAFT-MajTest\Run', '--test-update', "`"$source`"", '--report-state', "`"$state`"", '--out', "`"$out`"" -PassThru
+  $p = Start-Process "$dir\app\DRAFT-Portable.exe" -ArgumentList '--data', "`"$dir\data`"", '--no-hotkey', '--no-auto-panels', '--run-key', 'Software\DRAFT-MajTest\Run', '--lang', 'fr', '--test-update', "`"$source`"", '--report-state', "`"$state`"", '--out', "`"$out`"" -PassThru
   $clock = [Diagnostics.Stopwatch]::StartNew()
   while ($clock.Elapsed.TotalSeconds -lt 150 -and -not ((Test-Path $state) -or (Test-Path $out))) { Start-Sleep -Milliseconds 500 }
   [void]$p.WaitForExit(30000)

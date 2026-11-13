@@ -2,13 +2,13 @@
 // Chargé par une balise <script src> avant le script principal (CSP inchangée : ni eval, ni script en ligne nouveau).
 // Les catalogues (i18n/fr.js, i18n/en.js) ne sont que des données : le programme les relit comme du JSON strict (DataScripts.Canonical).
 // I18N-1 : tous les textes de la page passent par ici (index.html et moteur : I18N.t, tp, tx).
-// I18N-2 : catalogue anglais complet, mais pas encore proposé au joueur : l'anglais ne s'ouvre qu'en mode test (&lang=en&i18ncheck=1).
+// I18N-2 : catalogue anglais complet. I18N-3 : l'anglais est proposé au joueur ; le programme passe la langue choisie (&lang=fr|en).
 (function (root) {
   "use strict";
-  // Langues proposées au joueur. L'anglais n'y entre qu'avec le sélecteur de langue (I18N-3).
-  const SUPPORTED = ["fr"];
-  // Langues ouvertes en mode test seulement : anglais complet (I18N-2) et pseudo-langue (copie de test, jamais livrée).
-  const TEST_ONLY = ["en", "qps"];
+  // Langues proposées au joueur (I18N-3 : Réglages > Général > Langue). Sans paramètre, la page reste en français.
+  const SUPPORTED = ["fr", "en"];
+  // Pseudo-langue : mode test seulement, dans une copie de test (jamais livrée ni proposée).
+  const TEST_ONLY = ["qps"];
   const CATALOGS = { fr: root.DRAFT_I18N_FR || {}, en: root.DRAFT_I18N_EN || null, qps: root.DRAFT_I18N_QPS || null };
   const params = new URLSearchParams(root.location ? root.location.search : "");
   // Mode test (&i18ncheck=1) : les clés et variables manquantes sont relevées (I18N.missing()) et signalées dans la console.

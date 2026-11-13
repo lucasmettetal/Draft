@@ -14,15 +14,15 @@ namespace DraftMid
 
     public static class PhaseText
     {
-        public static string Of(Phase p)
+        public static Msg Of(Phase p)
         {
             switch (p)
             {
-                case Phase.ClientClosed: return "Client LoL fermé";
-                case Phase.OutOfDraft: return "Client ouvert, hors draft (estimation)";
-                case Phase.Draft: return "Draft en cours (estimation)";
-                case Phase.InGame: return "Partie en cours";
-                default: return "Phase incertaine";
+                case Phase.ClientClosed: return new Msg("native.phase.closed");
+                case Phase.OutOfDraft: return new Msg("native.phase.outOfDraft");
+                case Phase.Draft: return new Msg("native.phase.draft");
+                case Phase.InGame: return new Msg("native.phase.inGame");
+                default: return new Msg("native.phase.uncertain");
             }
         }
     }
@@ -367,7 +367,7 @@ namespace DraftMid
     public class PanelVisibilityController
     {
         public bool? Manual;
-        public static readonly string Doc = "Visibles seulement pendant une draft, avec le client restauré. Le raccourci manuel décide jusqu'au prochain changement de phase.";
+        // Règle : visibles seulement pendant une draft, avec le client restauré. Le raccourci manuel décide jusqu'au prochain changement de phase.
         Phase lastPhase = Phase.ClientClosed;
 
         public bool ShouldShow(Phase phase, bool clientVisible, bool autoEnabled)

@@ -2,6 +2,8 @@
   "_lisezmoi": "Longueurs maximales par emplacement (caractères, variables comptées pour « variable » caractères). Première règle qui correspond. Valeurs de départ, à confirmer par tools/run-layout-tests.ps1 en pseudo-langue (docs/i18n/TESTS.md § 5).",
   "regles": [
     { "cle": "native.menu.*", "max": 48, "variable": 6, "emplacement": "menu de l'icône (largeur automatique, mais lisible d'un coup d'œil)" },
+    { "cle": "native.riot.dialog.intro", "max": 230, "variable": 8, "emplacement": "paragraphe du dialogue de clé, retour à la ligne (largeur fixe 380 px), I18N-3" },
+    { "cle": "native.riot.dialog.*Kept", "max": 170, "variable": 8, "emplacement": "ce que garde chaque lecture, retour à la ligne (largeur fixe 360 px), I18N-3" },
     { "cle": "native.riot.dialog.*", "max": 60, "variable": 8, "emplacement": "étiquettes du dialogue de clé (largeur fixe 340 à 360 px)" },
     { "cle": "native.history.dialog.*", "max": 120, "variable": 8, "emplacement": "dialogue d'import (largeur fixe 360 px, texte sur plusieurs lignes)" },
     { "cle": "native.balloon.*", "max": 200, "variable": 10, "emplacement": "bulle Windows (environ 255 caractères au plus)" },

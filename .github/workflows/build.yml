@@ -30,13 +30,14 @@ jobs:
       - name: Catalogues de langue
         shell: pwsh
         run: .\tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js -Target web\i18n\en.js -Code . -Security tools\i18n\securite.json
-      # Aucun texte visible écrit en dur dans la page (web/), hors exclusions justifiées (tools/i18n/exclusions.json). Lecture seule.
-      - name: Textes en dur de la page
+      # Aucun texte visible écrit en dur dans la page (web/) ni dans le programme (src/, I18N-3), hors exclusions justifiées
+      # (tools/i18n/exclusions.json). Lecture seule.
+      - name: Textes en dur de la page et du programme
         shell: pwsh
         run: |
           .\tools\i18n\detect-hardcoded.ps1 -SelfTest
           if ($LASTEXITCODE) { exit 1 }
-          .\tools\i18n\detect-hardcoded.ps1 -Only web/ -Max 0
+          .\tools\i18n\detect-hardcoded.ps1 -Max 0
       # Scénarios SYNTHÉTIQUES, jeu de développement seulement, contre l'instantané de référence. Hors ligne.
       # Chrome fait partie de l'image windows-latest ; s'il manque, le script s'arrête avec « Chrome introuvable ».
       - name: Banc d'évaluation du moteur

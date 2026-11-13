@@ -24,9 +24,8 @@ $exclusions = @(
 # Mots et lettres propres au français. « de », « la », « le » isolés suffisent : l'anglais ne les emploie pas.
 $frWords = '\b(le|la|les|des|du|de|et|ou|pas|pour|avec|sur|dans|ton|ta|tes|une|est|sont|contre|partie|parties|joueur|choix|aucun|aucune|rien|encore|déjà|réglages|sélection|adversaire|adversaires|conseil|égalité|parce|que|qui|mais|plus|moins)\b'
 $frLetters = '[àâçéèêëîïôûùüÿœæ«»]'
-# Textes natifs : envoyés par le programme C# (hostState : phase, placement, mise à jour, import), simulés en français par le banc.
-# Ils passent au catalogue en I18N-3 (clés native.*) : comptés à part, sans faire échouer ce relevé d'I18N-2.
-$natifs = @('DRAFT est à jour (version 2.16.2).', 'Client LoL fermé', 'Panneaux placés de chaque côté du client.', 'Clé Riot refusée ou expirée. Crée une nouvelle clé, puis relance : les parties déjà lues sont conservées.')
+# Textes natifs : depuis I18N-3, le programme envoie des clés (native.*) et le banc les simule ainsi : aucune exception.
+$natifs = @()
 $hits = @(); $nativeHits = @()
 foreach ($o in $r.observed) {
   $text = [string]$o[0]; $s = $text
