@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquettes Mes statistiques</title>
+<link rel="stylesheet" href="commun.css">
+<style>
+  body { padding:56px 32px 32px; }
+  h1 { font:600 34px/1.1 var(--display); margin-bottom:8px; }
+  p { color:var(--muted); font-size:var(--fs-sm); max-width:75ch; }
+  table { margin-top:24px; border-collapse:collapse; font-size:var(--fs-sm); }
+  th, td { padding:8px 16px 8px 0; border-top:1px solid var(--line); text-align:left; }
+  th { color:var(--muted); font-weight:400; }
+  a { color:var(--text); }
+</style>
+</head>
+<body>
+<div class="maq-band" role="note"><span class="maq-flag">Maquette : données fictives</span><span class="maq-flag">Mockup: fictitious data</span></div>
+<h1>Mes statistiques : maquettes</h1>
+<p>Deux propositions dans la direction B+, avec des données fictives. A : tableau de bord. B : récit par chapitres. Étude seulement : rien n'est branché dans l'application. Analyse : <a href="../RECOMMANDATION.md">RECOMMANDATION.md</a>.</p>
+<table>
+  <thead><tr><th>État</th><th>Proposition A</th><th>Proposition B</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<script>
+  const states = [["vide", "Aucun historique"], ["drafts5", "5 drafts sans résultat"], ["riot93", "93 parties Riot, 5 drafts"], ["riche", "400 parties Riot, 64 drafts"]];
+  document.getElementById("rows").innerHTML = states.map(([k, n]) => `<tr><th>${n}</th>` + ["a", "b"].map(p =>
+    `<td><a href="maquette-${p}.html?etat=${k}&lang=fr">FR</a> · <a href="maquette-${p}.html?etat=${k}&lang=en">EN</a></td>`).join("") + "</tr>").join("");
+</script>
+</body>
+</html>
