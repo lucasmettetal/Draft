@@ -1,0 +1,107 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests du calcul de Mes statistiques</title></head><body><pre id="out"></pre>
+<!-- Tests unitaires de web/draft-stats-calc.js (docs/stats/CALCULS.md) et lecture de fichiers d'historique de formats différents. Données fictives. -->
+<!-- Lancement : tools\run-v215-tests.ps1 -Page draft-stats-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
+<script src="draft-stats-calc.js"></script>
+<script>
+const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const near=(a,b)=>Math.abs(a-b)<1e-9;
+const C=window.STATS_CALC;
+const T0=Date.UTC(2026,2,1,18);
+const row=(i,o)=>Object.assign({id:"FICTIF-"+i,acct:"Joueur#TEST",time:T0+i*36e5,patch:"16.6",sec:1800,champ:"Orianna",pos:"MIDDLE",win:i%2===0,k:5,d:4,a:6,mid:"Yasuo",enemies:["Darius","Viego","Yasuo","Jinx","Thresh"]},o||{});
+const H=rows=>({generated:"2026-11-09T10:00:00Z",accounts:["Joueur#TEST"],skipped:[],rows});
+const read=(rows,resolve)=>C.readHistory(H(rows),null,resolve);
+
+// ---------- Winrate, dénominateur, petits échantillons ----------
+{const r=read([...Array(10)].map((_,i)=>row(i,{win:i<6})));const s=C.summary(r);
+t(s.record.games===10&&s.record.wins===6&&s.record.losses===4&&near(s.record.rate,.6),"winrate : 6 V sur 10 = 60 %, dénominateur 10");
+const r9=read([...Array(9)].map((_,i)=>row(i)));t(C.summary(r9).record.rate===null&&C.summary(r9).record.games===9,"moins de 10 parties : aucun taux, nombre de parties gardé");
+const champs=C.byChampion(read([...Array(12)].map((_,i)=>row(i,{champ:i<9?"Ahri":"Orianna"}))).games);
+t(champs[0].champ==="Ahri"&&champs[0].games===9&&champs[0].rate===null&&champs[1].games===3,"par champion : 9 parties, pas de taux ; tri au nombre de parties");
+t(C.record([]).games===0&&C.record([]).rate===null,"aucune partie : 0, pas de taux");}
+
+// ---------- KDA : somme des parties, aucune mort ----------
+{const g=read([row(1,{k:10,d:2,a:5}),row(2,{k:0,d:8,a:3})]).games;const k=C.kda(g);
+t(near(k.ratio,(10+5+0+3)/(2+8))&&near(k.k,5)&&near(k.d,5)&&!k.deathless,"KDA : (ΣK+ΣA)/ΣD sur la somme, pas la moyenne des parties");
+const z=C.kda(read([row(1,{k:3,d:0,a:4}),row(2,{k:2,d:0,a:1})]).games);
+t(near(z.ratio,10)&&z.deathless===true,"ΣD = 0 : ratio = ΣK + ΣA, marqué sans mort");
+const r=read([row(1),row(2,{k:"5"}),row(3,{a:-1}),row(4,{d:null})]);
+t(r.quality.noKda===3&&C.kda(r.games).games===1&&r.games.length===4,"KDA invalide : écarté du KDA seulement, partie gardée");}
+
+// ---------- Doublons ----------
+{const r=read([row(1),row(1),row(1,{acct:"Autre#TEST"}),row(2,{id:""}),row(2,{id:""})]);
+t(r.quality.duplicates===1&&r.games.length===4,"doublon même compte et même id : compté une fois ; autre compte : gardé");
+t(r.quality.noId===2,"lignes sans identifiant : gardées et comptées à part");
+t(r.accounts.length===2,"deux comptes comptés");}
+
+// ---------- Données manquantes ----------
+{const r=read([row(1,{win:undefined}),row(2,{win:"true"}),null,"x",[1],row(3,{pos:""}),row(4,{pos:"FILL"}),row(5,{pos:undefined}),row(6,{sec:undefined}),row(7,{time:undefined}),row(8,{time:1700}),row(9,{patch:"16"}),row(10,{patch:undefined}),row(11,{champ:""}),row(12,{mid:""})]);
+const q=r.quality;
+t(q.noResult===2&&q.unreadable===3,"sans résultat (absent ou texte) : écartée de toutes les mesures ; lignes illisibles comptées");
+t(q.unknownRole===3&&r.games.filter(g=>g.role==="unknown").length===3,"rôle vide, inconnu ou absent : rôle inconnu");
+t(q.noDuration===1&&C.summary(r).duration.games===r.games.length-1,"sans durée : écartée de la durée moyenne seulement");
+t(q.noTime===2&&C.timeline(r.games).undated===2&&!!C.summary(r).period,"sans date valide : écartée de la période et de la chronologie");
+t(q.noPatch===2&&C.summary(r).patches.count===1,"patch invalide : écarté des patchs");
+t(q.unknownChampion===1&&C.byChampion(r.games).some(c=>c.champ===""),"champion vide : groupe « champion inconnu »");
+t(C.matchups(r.games).withoutOpponent>=1,"mid sans adversaire : compté à part dans les vis-à-vis");
+t(r.quality.read===15&&r.games.length===10,"15 lignes lues, 10 parties comptées");}
+
+// ---------- Durées : millisecondes avant 11.20, remakes ----------
+{const r=read([row(1,{sec:1800000,patch:"11.15"}),row(2,{sec:2000}),row(3,{sec:150000}),row(4,{sec:200}),row(5,{sec:19999})]);
+t(r.quality.msConverted===2,"durées ≥ 20 000 lues comme des millisecondes : 2 converties");
+t(r.quality.remakes===2&&r.games.length===3,"après conversion, moins de 300 s : remake écarté (150 000 ms et 200 s)");
+t(near(C.summary(r).duration.meanSec,(1800+2000+19999)/3),"durée moyenne en secondes, après conversion");}
+
+// ---------- Rôles ----------
+{const g=read([row(1,{pos:"TOP"}),row(2,{pos:"TOP"}),row(3,{pos:"JUNGLE"}),row(4,{pos:"JUNGLE"}),row(5,{pos:""}),row(6,{pos:""}),row(7,{pos:""})]).games;
+t(C.mainRole(g)==="top","rôle principal : égalité Top/Jungle tranchée dans l'ordre Top, Jungle, Mid, ADC, Support ; jamais le rôle inconnu");
+const roles=C.byRole(g);t(roles.length===6&&roles[5].role==="unknown"&&roles[5].games===3&&roles.find(x=>x.role==="adc").games===0,"par rôle : les cinq rôles, plus rôle inconnu quand il existe");
+t(C.byRole(read([row(1)]).games).length===5,"sans rôle inconnu : il n'apparaît pas");
+t(C.mainRole(read([row(1,{pos:""})]).games)===null,"seulement des rôles inconnus : pas de rôle principal");
+t(C.byChampion(g)[0].mainRole==="top","rôle principal d'un champion");}
+
+// ---------- Chronologie : 93 parties, dernière tranche gardée ----------
+{const g=read([...Array(93)].map((_,i)=>row(i))).games;const tl=C.timeline(g);
+t(tl.slices.length===5&&tl.slices[4].from===81&&tl.slices[4].to===93&&!tl.slices[4].complete&&tl.slices.reduce((s,x)=>s+x.games,0)===93,"93 parties : 5 tranches, la dernière (81 à 93) gardée, aucune partie perdue");
+t(tl.slices[4].rate!==null&&C.timeline(g.slice(0,85)).slices[4].rate===null,"tranche de 13 : taux ; tranche de 5 : pas de taux");
+t(tl.points.length===93&&tl.points[0].time<tl.points[92].time,"suite des parties de la plus ancienne à la plus récente");}
+
+// ---------- Vis-à-vis : mid seulement, filtres ----------
+{const g=read([row(1,{mid:"Yasuo",champ:"Orianna"}),row(2,{mid:"Yasuo",champ:"Ahri"}),row(3,{mid:"Zed"}),row(4,{pos:"JUNGLE",champ:"LeeSin",mid:"Ahri"}),row(5,{pos:"TOP",mid:"Syndra"})]).games;
+const m=C.matchups(g);t(m.available&&m.games===3&&m.opponents[0].name==="Yasuo"&&m.opponents[0].games===2&&m.opponents[0].champs.length===2,"vis-à-vis : parties en mid seulement, champions joués contre chacun");
+const j=C.matchups(g,{role:"jungle"});t(!j.available&&j.games===1&&j.opponents.length===0,"jungle : adversaire non enregistré, nombre de parties du rôle donné");
+const f=C.matchups(g,{champ:"Ahri"});t(f.games===1&&f.opponents.length===1&&f.played.length===2,"filtre par champion joué ; liste des champions du filtre complète");}
+
+// ---------- Journal : origine, dénominateur, égalités ----------
+{const E=(i,o)=>Object.assign({id:i,date:"2026-11-0"+(i%9+1)+"T10:00:00Z",suggested:"Orianna",picked:"Orianna",close:false,enemies:[],mid:"Yasuo",result:null,engine:"2.2"},o||{});
+const J=C.journal([E(1),E(2,{picked:"Ahri"}),E(3,{result:"win"}),E(4,{origin:"draft",app:"3.0.0",result:"win"}),E(5,{origin:"draft",result:"loss",picked:"Ahri"}),E(6,{userOrigin:"real",result:"win"}),E(7,{userOrigin:"simulation",result:"win"}),E(8,{origin:"draft",result:"skip"}),E(9,{origin:"draft"})]);
+t(J.total===9&&J.unknown===3&&J.simulations===1&&J.drafts===5,"origine : 5 comptées (marque draft ou confirmée réelle), 3 inconnues et 1 simulation écartées");
+t(J.finished.games===3&&J.finished.wins===2&&J.pending===1&&J.skipped===1,"terminées, en attente, ignorées : sur les entrées comptées");
+t(J.followed.games===2&&J.followed.wins===2&&J.other.games===1,"conseil suivi : sur les parties terminées (2 sur 3), jamais sur toutes les drafts");
+const T=C.journal([E(1,{origin:"draft",result:"win",suggested:"Orianna",picked:"Ahri",tied:true,tiedWith:["Orianna","Ahri"]}),E(2,{origin:"draft",result:"win",suggested:"Orianna",picked:"Viktor",tied:true,tiedWith:["Orianna","Ahri"]}),E(3,{origin:"draft",result:"win",suggested:"Orianna",picked:"Ahri",tiedWith:["Ahri"]})]);
+t(T.followed.games===1&&T.ties===2,"égalité : un ex æquo choisi = conseil suivi ; hors du groupe, non ; sans « tied », aucune égalité reconstruite");
+t(C.journal([]).drafts===0&&C.journal(null).total===0&&C.journal([null,"x"]).total===0,"journal vide ou abîmé : zéro, sans erreur");
+const P=C.progress(read([...Array(22)].map((_,i)=>row(i))).games,J);
+t(P.champion.have===22&&P.champion.need===30&&P.trend.need===40&&P.opponent.have===22&&P.advice.have===1,"« Pas encore » : progression vers 30, 40, 10 et 10, sans conclusion");}
+
+// ---------- Lecture de fichiers de formats différents ----------
+{const OLD={generated:"2025-01-01T00:00:00Z",accounts:["Ancien#TEST"],rows:[row(1,{acct:"Ancien#TEST"})]};
+let r=C.readHistory(null,OLD);t(r.source==="script"&&r.games.length===1,"ancien draft-stats.js seul : lu (source script)");
+r=C.readHistory(H([row(1),row(2)]),OLD);t(r.source==="application"&&r.games.length===2,"les deux présents : l'import de l'application, jamais additionné à l'ancien");
+t(C.readHistory({rows:"abîmé"},null).source===null&&C.readHistory(undefined,undefined).games.length===0,"fichier sans tableau rows : aucune source, aucune erreur");
+const minimal=[{id:"M1",acct:"A#B",win:true},{id:"M2",acct:"A#B",win:false,champ:"KogMaw",pos:"MIDDLE"}];
+r=read(minimal);t(r.games.length===2&&r.quality.noTime===2&&r.quality.noPatch===2&&r.quality.noKda===2&&r.quality.noDuration===2,"lignes anciennes sans date, durée, patch ni KDA : lues, écarts comptés");
+r=read([row(1,{champ:"KogMaw",mid:"MonkeyKing"})],x=>({KogMaw:"Kog'Maw",MonkeyKing:"Wukong"})[x]);t(r.games[0].champ==="Kog'Maw"&&r.games[0].mid==="Wukong","noms de l'API traduits par le résolveur de la page");}
+
+// ---------- Noms : résolveur réel de la page (toName) sur les 173 identifiants ----------
+(async()=>{
+const f=document.createElement("iframe");f.width=1200;f.height=800;f.src="index.html?x=1";document.body.appendChild(f);
+await new Promise(r=>f.onload=r);await new Promise(r=>setTimeout(r,500));
+const w=f.contentWindow,toName=w.eval("toName"),NAMES=w.eval("NAMES"),IDS=Object.values(w.eval("CHAMPION_IDS"));
+const bad=IDS.filter(id=>!NAMES.includes(toName(id)));
+t(IDS.length>=170&&bad.length===0,`tous les identifiants Riot donnent un nom de l'application (${IDS.length}, sans correspondance : ${bad.join(", ")||"aucun"})`);
+t(toName("KogMaw")==="Kog'Maw"&&toName("MonkeyKing")==="Wukong"&&toName("Renata")==="Renata Glasc"&&toName("Leblanc")==="LeBlanc"&&toName("FiddleSticks")==="Fiddlesticks","KogMaw → Kog'Maw, MonkeyKing → Wukong, Renata → Renata Glasc, Leblanc → LeBlanc, FiddleSticks → Fiddlesticks");
+t(w.STATS_CALC===C||!!w.STATS_CALC,"module de calcul chargé par la page");
+f.remove();
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message),notes:res.notes});});
+</script></body></html>

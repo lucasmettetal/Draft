@@ -105,20 +105,51 @@ Chaque champ est vérifié séparément. Une valeur invalide n'écarte la ligne 
 
 ## 13. Journal DRAFT
 
-Sémantique alignée sur `fix/choix-champion` (PR #33) : `picked` = champion cliqué par le joueur ; `suggested` = conseil au moment du choix (à égalité, l'ex æquo choisi) ; `result` = `null`, `win`, `loss` ou `skip`, toujours saisi à la main.
+Sémantique alignée sur `fix/choix-champion` (PR #33), lue **sans dépendre de son code** : un champ absent est traité comme inconnu.
+
+| Champ | Écrit par | Sens |
+|---|---|---|
+| `picked` | « Je joue » | champion cliqué par le joueur |
+| `suggested` | « Je joue » | conseil au moment du choix ; à égalité, l'ex æquo choisi |
+| `tied`, `tiedWith` | #33, entrées nouvelles | le conseil était une égalité ; liste des ex æquo |
+| `origin: "draft"`, `app` | #33, entrées nouvelles | entrée écrite pendant une vraie draft, par cette version |
+| `result` | le joueur | `null` (en attente), `win`, `loss` ou `skip` |
+| `userOrigin` | **cette PR**, le joueur | `"real"` ou `"simulation"` : choix du joueur pour une entrée d'origine inconnue |
+
+### Origine
+
+- **Draft réelle** : `origin === "draft"`.
+- **Confirmée réelle** : pas de marque, et le joueur a choisi « Partie réelle » (`userOrigin: "real"`).
+- **Simulation** : pas de marque, et le joueur a choisi « Simulation » (`userOrigin: "simulation"`). L'entrée est gardée, jamais supprimée, et peut être reclassée.
+- **Origine inconnue** : aucune marque, aucun choix. Les anciennes versions écrivaient aussi les drafts du Simulateur dans le journal : rien ne permet de les distinguer.
+- **Seules les drafts réelles et confirmées réelles entrent dans les statistiques du journal.** Le nombre d'entrées d'origine inconnue et de simulations écartées est toujours affiché.
+- Le résultat ne se saisit que pour une entrée réelle ou confirmée réelle : une simulation ne devient jamais une partie.
+
+### Mesures (entrées comptées seulement)
 
 | Mesure | Définition | Dénominateur |
 |---|---|---|
-| Drafts notées | toutes les entrées | — |
+| Drafts notées | entrées comptées | — |
 | Parties terminées | `result` = `win` ou `loss` | drafts notées |
 | En attente | `result` absent ou `null` | drafts notées |
 | Ignorées | `result` = `skip` | drafts notées |
-| **Conseil suivi** | `picked === suggested` | **parties terminées**, partout (bandeau, vue d'ensemble, onglet Journal) |
+| **Conseil suivi** | `picked === suggested`, ou, si `tied === true`, `picked` dans `tiedWith` | **parties terminées**, partout (bandeau, vue d'ensemble, onglet Journal) |
 | Victoires avec / sans le conseil | V parmi les parties terminées de chaque groupe | parties terminées du groupe ; % à partir de 10 |
 
-- L'ancien bandeau comptait « Conseil suivi » sur toutes les drafts, l'onglet Journal sur les terminées : une seule définition maintenant.
-- Les anciennes versions écrivaient aussi les drafts du Simulateur dans le journal, sans marque : elles restent indiscernables. La page le dit.
+- Égalités : une entrée sans `tied` n'en reconstruit aucune ; seul `picked === suggested` compte.
+- L'ancien bandeau comptait « Conseil suivi » sur toutes les drafts (« 0 sur 5 » sans partie terminée), l'onglet Journal sur les terminées : une seule définition maintenant, et un tiret tant qu'aucune partie n'est terminée.
 - Le journal n'est jamais assimilé à une partie Riot.
+
+### Seuils de « Pas encore »
+
+La colonne « Pas encore » montre la progression vers les seuils de l'étude (`COACHING-ARCHITECTURE.md`), **sans tirer de conclusion**, même seuil atteint :
+
+| Ligne | Mesure | Seuil |
+|---|---|---|
+| Points forts et faibles | parties du champion le plus joué | 30 |
+| Tendance | parties dans le rôle principal | 40 |
+| Vis-à-vis | confrontations avec l'adversaire mid le plus croisé | 10 |
+| Conseil suivi ou autre choix | parties terminées du plus petit des deux groupes | 10 |
 
 ## 14. Lignes incomplètes : ce qui est affiché
 
