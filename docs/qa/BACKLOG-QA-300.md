@@ -16,3 +16,16 @@ Points à vérifier ou corriger pendant la QA finale. La direction artistique B+
 - **Ce qui montre le bon fonctionnement :** avec `--no-hotkey`, l'e2e vérifie qu'aucune tentative n'est faite (« Raccourci laissé à l'autre version ») et passe.
 - **Ce qui reste à prouver :** l'enregistrement réel sur une session sans autre DRAFT, par exemple un compte Windows de test, une machine virtuelle ou le PC de l'ami, ou après avoir quitté l'installation principale avec l'accord de l'utilisateur.
 - **Règle des rapports :** l'échec est **toujours affiché**, avec sa cause mesurée (code 1409 et processus détenteur). Il n'est jamais retiré des résultats.
+
+## État après la QA finale (13/11/2026)
+
+Détail, mesures avant/après et tests : [RAPPORT-QA-300.md](RAPPORT-QA-300.md).
+
+| N° | État |
+|---|---|
+| QA-1 | Corrigé : sous 50 %, barre en teinte neutre ; aucun pourcentage sous 10 parties (test `draft-qa300-tests.html`) |
+| QA-2 | Corrigé : menace juste après le conseil dans le compact, visible sans défilement à 125 % (252 et 282 px) |
+| QA-3 | Corrigé : outils de 32 px (32/40/48 px physiques à 100/125/150 %), 4 px d'écart, survol avec contour, focus inchangé |
+| QA-4 | Partie simulable corrigée (position enregistrée presque hors écran ignorée) ; essai réel : [PROCEDURE-MULTI-ECRANS.md](PROCEDURE-MULTI-ECRANS.md) |
+| QA-5 | Corrigé : période, nombre de parties et seuil dans l'onglet Historique Riot et les anciens imports |
+| QA-6 | Échec toujours affiché avec sa cause (Win32 1409, autre instance) ; mécanisme prouvé par un test isolé ; essai réel : [PROCEDURE-CTRL-ALT-D.md](PROCEDURE-CTRL-ALT-D.md) |
