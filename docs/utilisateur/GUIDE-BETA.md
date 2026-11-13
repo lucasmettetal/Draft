@@ -42,6 +42,7 @@ Dans la fenêtre principale (menu de l'icône) :
 
 - **Draft aléatoire** remplit une composition adverse au hasard.
 - Tu peux aussi ajouter des adversaires à la main avec la recherche, puis corriger le rôle supposé d'un adversaire d'un clic.
+- Un champion choisi dans une simulation n'est pas noté dans ton journal : tes statistiques ne comptent que les vraies drafts.
 
 ## Mettre à jour DRAFT
 
