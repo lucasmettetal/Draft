@@ -3,7 +3,7 @@
 Textes des maquettes A et B, au format du catalogue ([docs/i18n/FORMAT-CATALOGUE.md](../i18n/FORMAT-CATALOGUE.md)) : clés plates, variables nommées, pluriels `{one, other}`, aucun HTML, une phrase complète par clé.
 Source : [maquettes/textes-maquettes.js](maquettes/textes-maquettes.js). Liste générée depuis ce fichier.
 
-- **114 clés nouvelles**, en français et en anglais, mêmes variables dans les deux langues (contrôlé).
+- **115 clés nouvelles**, en français et en anglais, mêmes variables dans les deux langues (contrôlé).
 - Aucune collision avec `web/i18n/fr.js` (contrôlé ; `stats.journal.title` existait déjà avec un autre texte : la maquette utilise `stats.journal.heading`).
 - Les clés `maquette.*` servent au bandeau des maquettes : elles n'entrent pas dans l'application.
 - Clés **existantes** reprises telles quelles (ne pas recréer) : `nav.home`, `nav.pool`, `nav.sim`, `nav.stats`, `nav.settings`, `nav.beta`, `nav.state.league`, `nav.state.role`, `nav.state.lcu.off`, `role.name.top`, `role.name.jungle`, `role.name.mid`, `role.name.adc`, `role.name.support`, `stats.history.title`, `stats.history.none`, `stats.history.collect`, `stats.history.import`, `stats.history.more`, `stats.sample.period`, `stats.sample.periodOne`, `stats.record`, `stats.percent`, `stats.gauge.aria`, `stats.range`, `stats.kpi.drafts`, `stats.recent.title`, `stats.overview.emptyJournal`, `journal.result.win`, `journal.result.loss`, `journal.status.pending`, `journal.status.ignored`, `journal.download`.
@@ -105,11 +105,12 @@ Source : [maquettes/textes-maquettes.js](maquettes/textes-maquettes.js). Liste g
 | `stats.journal.kpi.finishedHow` | résultat noté | result logged |
 | `stats.journal.kpi.followed` | Conseil joué | Advice played |
 | `stats.journal.kpi.followedHow` | sur les parties terminées | over finished games |
-| `stats.journal.followedDef` | Conseil joué : tu as joué le champion que DRAFT affichait. Compté seulement sur les parties terminées. | Advice played: you played the champion DRAFT showed. Counted on finished games only. |
+| `stats.journal.followedDef` | Conseil joué : le champion cliqué est celui que DRAFT conseillait à ce moment. Compté seulement sur les parties terminées. | Advice played: the champion you clicked is the one DRAFT advised at that moment. Counted on finished games only. |
+| `stats.journal.tieNote` | À égalité, choisir l'un des ex æquo compte comme conseil joué. | On a tie, picking one of the tied champions counts as advice played. |
 | `stats.journal.pending` | one : {count} draft attend son résultat.<br>other : {count} drafts attendent leur résultat. | one : {count} draft is waiting for its result.<br>other : {count} drafts are waiting for their result. |
 | `stats.journal.pendingHelp` | Sans résultat, DRAFT ne mesure rien. Note-le juste après la partie. | Without a result, DRAFT can't measure anything. Log it right after the game. |
-| `stats.journal.originUnknown` | one : {count} draft notée avant que DRAFT distingue le Simulateur : elle peut être une simulation.<br>other : {count} drafts notées avant que DRAFT distingue le Simulateur : certaines peuvent être des simulations. | one : {count} draft logged before DRAFT told the Simulator apart: it may be a simulation.<br>other : {count} drafts logged before DRAFT told the Simulator apart: some may be simulations. |
-| `stats.journal.realOnly` | Drafts réelles seulement : le Simulateur ne compte pas. | Real drafts only: the Simulator doesn't count. |
+| `stats.journal.originUnknown` | one : {count} draft notée avant que le Simulateur cesse d'écrire dans le journal : elle peut être une simulation.<br>other : {count} drafts notées avant que le Simulateur cesse d'écrire dans le journal : certaines peuvent être des simulations. | one : {count} draft logged before the Simulator stopped writing to the journal: it may be a simulation.<br>other : {count} drafts logged before the Simulator stopped writing to the journal: some may be simulations. |
+| `stats.journal.realOnly` | Drafts réelles seulement : le Simulateur n'écrit rien dans le journal. | Real drafts only: the Simulator writes nothing to the journal. |
 | `stats.journal.row.advised` | DRAFT conseillait {champion} | DRAFT advised {champion} |
 | `stats.journal.row.played` | Tu as joué {champion} | You played {champion} |
 | `stats.journal.row.vs` | contre {champion} | against {champion} |

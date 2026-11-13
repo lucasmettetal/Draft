@@ -11,6 +11,7 @@ Aucune donnée réelle lue. Les chiffres d'exemple sont fictifs ou calculés.
 - Les deux ne partagent aucune clé. On ne peut pas les additionner, ni déduire l'un de l'autre.
 - La page actuelle mélange les deux dans le même bandeau de chiffres. Elle compte « Conseil suivi » de deux façons différentes selon l'endroit.
 - Les vues riches (par champion, évolution, type de mid) ne lisent que l'**ancien** format. L'import de l'application n'affiche que le total, le top 5 du rôle actif et une table par rôle.
+- Après le correctif `fix/choix-champion` (non fusionné), le Simulateur n'écrit plus dans le journal. Les simulations déjà écrites restent indiscernables des vraies drafts.
 
 ## 2. Historique Riot : ce qui est stocké
 
@@ -81,10 +82,24 @@ Rôle joué, origine (draft réelle ou Simulateur), compte, `matchId` Riot, clas
 
 ### Limites à connaître
 
-- **Simulateur.** `choosePick` ne regarde pas `simulating` : une draft simulée s'écrit dans le vrai journal. Correction en cours ailleurs (`fix/choix-champion`). Les entrées déjà écrites n'ont aucune marque : leur origine est **invérifiable**.
+- **Simulateur.** Sur main, `choosePick` ne regarde pas `simulating` : une draft simulée s'écrit dans le vrai journal. Voir ci-dessous le correctif en cours.
 - **Rôle.** Sans rôle enregistré, le journal ne peut pas être découpé par rôle. `mid` d'une draft en jungle est le jungler adverse.
-- **Résultat.** La saisie n'apparaît que dans le plan de jeu, pour la draft en cours ou la dernière en attente (`PlanBlock`, l. 2182). Une draft plus ancienne ne se complète qu'après les plus récentes.
+- **Résultat.** La saisie n'apparaît que dans le plan de jeu (`PlanBlock`, l. 2182) et dans le panneau de l'overlay (l. 2675), pour la draft en cours ou la dernière en attente. Une draft plus ancienne ne se complète qu'après les plus récentes. Mes statistiques ne permet aucune saisie.
 - **Partie terminée.** = `result` vaut `win` ou `loss`. `skip` (« Ignorée ») et `null` (« En attente ») n'entrent dans aucun bilan.
+
+### Après le correctif du choix de champion (`fix/choix-champion`, PR séparée, non fusionnée)
+
+Informations du coordinateur, à revérifier dans le code une fois la PR fusionnée :
+
+- **Simulation.** Plus rien n'est écrit dans le journal, ni dans le relevé de validation, pendant une simulation. Toute entrée nouvelle est une draft réelle.
+- **Journaux existants.** Les anciennes entrées simulées n'ont aucune marque : elles restent **indiscernables** des vraies. Pour les signaler (« certaines peuvent être des simulations »), il faut savoir quelles entrées datent d'avant : une marque sur les nouvelles entrées (par exemple `app`, la version qui a écrit l'entrée) ou la date du premier lancement de la version corrigée. Proposé, non fait.
+- **`picked`** = champion choisi par un clic du joueur.
+- **`suggested`** = conseil au moment du choix, mis à jour si le conseil change avant le choix.
+- **Égalité.** `suggested` = l'ex æquo choisi : il compte donc comme « conseil suivi ». Décision encore à valider par l'utilisateur. Pour pouvoir changer d'avis plus tard, il faudrait garder une marque `tied` dans l'entrée ; sans elle, ces cas ne se séparent plus.
+- **`result`** : `null` (« En attente »), `win`, `loss` ou `skip`, toujours saisi par le joueur.
+- **Riot.** Rien n'est déduit de l'historique Riot.
+
+Conséquence pour Mes statistiques : « Conseil joué » (= `picked === suggested`) devient fiable pour les entrées nouvelles. Les maquettes l'affichent avec la règle d'égalité écrite, et une ligne d'origine inconnue pour les journaux existants.
 
 ## 4. Ce que la page affiche aujourd'hui
 
@@ -213,7 +228,7 @@ Ré-import : l'import ne relit jamais une partie déjà connue (`known`, l. 229)
 | Objets, runes, sorts | identifiants + tables Data Dragon | Moyen | Oui | Faible pour un outil de draft. |
 | Flex en plus de solo/duo | `queueId` 440, choix dans la fenêtre | Moyen | Non (nouvelles parties) | Moyen ; risque de mélanger deux files. Garder la file dans la ligne. |
 | Rang, LP | `league-v4` | Moyen | Non | Faible : rang actuel seulement, pas d'historique. |
-| `role`, `matchId` et origine dans le **journal** | — (journal) | Faible | Non | **Élevé** : journal par rôle, simulations écartées, lien sûr avec Riot. |
+| `role`, `matchId`, `app` (version) et `tied` dans le **journal** | — (journal) | Faible | Non | **Élevé** : journal par rôle, anciennes entrées repérables, égalités séparables, lien sûr avec Riot. |
 | Rapprochement journal → partie Riot | `time`, `champ`, `acct` | Moyen | Non | **Élevé** pour B : résultat rempli sans saisie. À confirmer par le joueur. Risques : esquive, deux parties proches, autre file. |
 
-Ordre conseillé : origine et rôle dans le journal (avec la correction du Simulateur), puis `enemyPos`, puis le rapprochement. Le reste attend un besoin réel.
+Ordre conseillé : marque de version, `tied` et rôle dans le journal (avec ou juste après la correction du Simulateur), puis `enemyPos`, puis le rapprochement. Le reste attend un besoin réel.

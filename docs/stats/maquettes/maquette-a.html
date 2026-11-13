@@ -74,12 +74,12 @@
   .col .fill { background:var(--good); border-radius:4px 4px 0 0; }
   .col .fill.under { background:var(--muted); }
   .col.current .fill { background:transparent; border:1px dashed var(--line-strong); border-bottom:0; }
-  .col .top { position:absolute; left:50%; transform:translateX(-50%); color:var(--text); font-size:11.5px; font-variant-numeric:var(--figures); white-space:nowrap; }
+  .col .top { position:absolute; left:50%; transform:translateX(-50%); color:var(--text); font-size:var(--fs-xs); font-variant-numeric:var(--figures); white-space:nowrap; }
   .col .g { position:absolute; bottom:4px; left:50%; transform:translateX(-50%) rotate(-90deg); transform-origin:center; }
   .col .g .notches i { width:7px; height:5px; }
   .ref50 { position:absolute; left:0; right:0; border-top:1px dashed var(--text); opacity:.55; }
-  .ref50 span { position:absolute; left:-2px; top:-15px; padding-right:4px; background:var(--surface); color:var(--muted); font-size:11px; }
-  .axis { display:flex; gap:3px; color:var(--muted); font-size:11px; font-variant-numeric:var(--figures); }
+  .ref50 span { position:absolute; left:-2px; top:-15px; padding-right:4px; background:var(--surface); color:var(--muted); font-size:var(--fs-xs); }
+  .axis { display:flex; gap:3px; color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:var(--figures); }
   .axis span { flex:1 1 0; min-width:0; text-align:center; white-space:nowrap; overflow:visible; }
   .stack { display:flex; flex-direction:column; justify-content:flex-end; gap:2px; height:100%; }
   .stack .w { background:var(--good); border-radius:0 0 2px 2px; }
@@ -118,6 +118,8 @@
   .jtext .small { display:block; font-size:var(--fs-xs); }
   .jmeta { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
   .jmeta .date { color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:var(--figures); margin-right:auto; }
+  .jact { grid-column:1 / -1; display:flex; align-items:center; justify-content:flex-end; gap:6px; color:var(--muted); font-size:var(--fs-xs); }
+  .jact > span { margin-right:auto; }
   .cmp { display:grid; gap:8px; }
   .cmp-row { display:grid; grid-template-columns:96px minmax(0,1fr) auto; align-items:center; gap:var(--s2); font-size:var(--fs-sm); }
   .cmp-row .val { color:var(--muted); font-variant-numeric:var(--figures); white-space:nowrap; }
@@ -249,17 +251,19 @@
       ${kpi(t("stats.journal.kpi.followed"), fin.parties ? J.suivies.parties : `<span class="dash" aria-label="-"></span>`, esc(t("stats.journal.kpi.followedHow")))}</div>`;
     const notes = [];
     if (J.enAttente) notes.push(`<p>${esc(tp("stats.journal.pending", J.enAttente))} ${esc(t("stats.journal.pendingHelp"))}</p>`);
-    if (J.origineInconnue && M.ETAT !== "riche") notes.push(`<p>${esc(tp("stats.journal.originUnknown", J.origineInconnue))}</p>`);
-    if (M.ETAT === "riche") notes.push(`<p class="plain">${esc(t("stats.journal.realOnly"))}</p>`);
+    if (J.origineInconnue) notes.push(`<p>${esc(tp("stats.journal.originUnknown", J.origineInconnue))}</p>`);
+    else notes.push(`<p class="plain">${esc(t("stats.journal.realOnly"))}</p>`);
     const res = { win: ["win", "journal.result.win"], loss: ["loss", "journal.result.loss"], skip: ["", "journal.status.ignored"] };
     const row = e => {
       const followed = e.picked === e.suggested;
       const pair = followed ? M.portrait(e.picked, 34, { advice: true }) : `${M.portrait(e.suggested, 34, { advice: true })}<span class="arrow">→</span>${M.portrait(e.picked, 34, { role: "mid" })}`;
       const r = res[e.result];
-      const result = r ? `<span class="result-tag ${r[0]}">${esc(t(r[1]))}</span>` : `<button type="button" class="mini-btn">${esc(t("journal.result.win"))}</button><button type="button" class="mini-btn">${esc(t("journal.result.loss"))}</button>`;
+      // Trois lignes nettes dans la colonne étroite : qui contre qui, puis date et étiquettes, puis la saisie du résultat si elle manque.
+      const result = r ? `<span class="result-tag ${r[0]}">${esc(t(r[1]))}</span>` : "";
+      const act = r ? "" : `<span class="jact"><span>${esc(t("stats.journal.logResult"))}</span><button type="button" class="mini-btn">${esc(t("journal.result.win"))}</button><button type="button" class="mini-btn">${esc(t("journal.result.loss"))}</button></span>`;
       return `<li class="jrow"><span class="jpair">${pair}</span><span class="jtext"><b>${esc(t("stats.journal.row.played", { champion: e.picked }))}</b> ${esc(t("stats.journal.row.vs", { champion: e.mid }))}
         <span class="small">${esc(t("stats.journal.row.advised", { champion: e.suggested }))}</span></span>
-        <span class="jmeta"><span class="date">${esc(M.fmtDate(Date.parse(e.date)))}</span><span class="badge neutral">${esc(t(followed ? "stats.journal.tag.followed" : "stats.journal.tag.other"))}</span>${e.close ? `<span class="badge gold">${esc(t("stats.journal.row.close"))}</span>` : ""}${result}</span></li>`;
+        <span class="jmeta"><span class="date">${esc(M.fmtDate(Date.parse(e.date)))}</span><span class="badge neutral">${esc(t(followed ? "stats.journal.tag.followed" : "stats.journal.tag.other"))}</span>${e.close ? `<span class="badge gold">${esc(t("stats.journal.row.close"))}</span>` : ""}${result}</span>${act}</li>`;
     };
     const s = J.suivies, o = J.autres;
     const cmp = s.parties >= MIN && o.parties >= MIN
@@ -270,7 +274,7 @@
       ${notes.length ? `<div class="jnotes">${notes.join("")}</div>` : ""}
       <h3>${esc(t("stats.recent.title"))}</h3><ul class="jlist">${J.dernieres.slice(0, 5).map(row).join("")}</ul>
       <h3>${esc(t("stats.journal.compare.title"))}</h3>${cmp}
-      <p class="small">${esc(t("stats.journal.followedDef"))}</p>
+      <p class="small">${esc(t("stats.journal.followedDef"))} ${esc(t("stats.journal.tieNote"))}</p>
       <p><button type="button" class="ghost-btn">${esc(t("journal.download"))}</button></p>
       <p class="sep-note">${esc(t("stats.sources.separate"))}</p></section>`;
   }

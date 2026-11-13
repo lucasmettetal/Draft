@@ -118,7 +118,8 @@
     return { generated: plan.generated, accounts: [plan.account], skipped: [], rows: rows.sort((a, b) => b.time - a.time) };
   }
 
-  // Journal : entrées dans le format de choosePick. « simulation » n'existe pas encore : champ proposé, voir l'audit § 3.
+  // Journal : entrées dans le format de choosePick. Après fix/choix-champion, le Simulateur n'écrit plus rien dans le journal.
+  // « app » : marque PROPOSÉE (version qui a écrit l'entrée), absente aujourd'hui. Sans elle, une entrée ancienne peut être une simulation.
   function journal(plan) {
     const r = rng(plan.seed);
     const list = [];
@@ -127,6 +128,7 @@
       const enemies = [POOLS.TOP[n % 14], POOLS.JUNGLE[(n * 5) % 12], e.mid, POOLS.BOTTOM[(n * 3) % 13], POOLS.UTILITY[(n * 7) % 13]];
       list.push({ id: time, date: new Date(time).toISOString(), suggested: e.suggested, close: !!e.close, picked: e.picked,
         enemies, mid: e.mid, result: e.result === undefined ? null : e.result, engine: "2.2" });
+      if (plan.app) list[list.length - 1].app = plan.app;
     });
     r();
     return list.sort((a, b) => a.id - b.id);
@@ -198,7 +200,7 @@
     const time = t0 + Math.round(i * (92 / 64) * DAY) + Math.floor(jr() * 4) * 3600000;
     richEntries.push({ date: new Date(time).toISOString(), suggested, picked, mid: opps[Math.floor(jr() * opps.length)], close: jr() < 0.28, result: k.result });
   });
-  const RICH_JOURNAL = journal({ seed: 64, entries: richEntries });
+  const RICH_JOURNAL = journal({ seed: 64, app: "3.0.0", entries: richEntries });
 
   window.MAQ_DONNEES = {
     pool: ["Orianna", "Ahri", "Viktor", "Syndra"],

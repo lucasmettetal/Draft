@@ -28,7 +28,7 @@ Prototype de calcul : [`maquettes/stats-calculs.js`](maquettes/stats-calculs.js)
 | Duel difficile (autres postes) | idem en top, jungle, bot, support | poste des adversaires | **Non** | Après l'import de `enemyPos` (audit § 10). |
 | Tendance | Est-ce que je progresse dans mon poste ? | `time`, `win`, `pos` | Oui | 40 parties dans le poste, deux moitiés, \|z\| ≥ 2 (`performanceTrend`). |
 | KDA dans le temps | Mon KDA change-t-il sur ce champion ? | `k`, `d`, `a` | Oui | 20 parties sur le même champion et poste (`KDA_MIN_GAMES`). Jamais entre rôles. |
-| Conseil joué ou non | Les parties où j'ai joué le conseil se passent-elles mieux ? | journal : `suggested`, `picked`, `result` | Oui, saisi à la main | 10 parties terminées dans chaque groupe pour un taux ; **jamais** de conclusion causale. |
+| Conseil joué ou non | Les parties où j'ai joué le conseil se passent-elles mieux ? | journal : `suggested`, `picked`, `result` | Oui, saisi à la main | 10 parties terminées dans chaque groupe pour un taux ; **jamais** de conclusion causale. À égalité, l'ex æquo choisi compte comme conseil joué (règle de `fix/choix-champion`, à valider). |
 | Farm, vision, objets | — | non importés | **Non** | Hors périmètre tant que l'import ne les garde pas. |
 
 ## 3. Données disponibles et ce qu'elles permettent

@@ -73,15 +73,16 @@
     return { parties: list.length, adversaires: g.length, revus: g.filter(x => x.parties >= SEUILS.revu).length, liste: g, global: bilan(list) };
   }
   // Journal : une seule définition de « conseil joué » (picked === suggested), comptée sur les parties terminées.
-  // « simulation » : champ proposé (absent aujourd'hui). Une entrée sans ce champ est d'origine inconnue.
+  // Après fix/choix-champion, le Simulateur n'écrit plus rien : toute entrée nouvelle est une draft réelle.
+  // Les entrées anciennes, sans marque, restent indiscernables. « app » (version qui a écrit l'entrée) est une marque PROPOSÉE ; sans elle, origine inconnue.
   function journal(entries) {
     const all = entries || [];
-    const reelles = all.filter(e => e.simulation !== true);
+    const reelles = all;
     const finie = e => e.result === "win" || e.result === "loss", gagne = e => e.result === "win";
     const terminees = reelles.filter(finie);
     const dates = reelles.map(e => Date.parse(e.date)).sort((a, b) => a - b);
     return {
-      drafts: reelles.length, simulees: all.length - reelles.length, origineInconnue: reelles.filter(e => e.simulation === undefined).length,
+      drafts: reelles.length, origineInconnue: reelles.filter(e => !e.app).length,
       debut: dates[0] || null, fin: dates[dates.length - 1] || null,
       terminees: bilan(terminees, gagne), enAttente: reelles.filter(e => e.result === null || e.result === undefined).length,
       ignorees: reelles.filter(e => e.result === "skip").length, serrees: reelles.filter(e => e.close).length,

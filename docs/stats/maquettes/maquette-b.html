@@ -38,7 +38,7 @@
   .timeline svg { display:block; width:100%; height:64px; }
   .tl-legend { display:flex; justify-content:flex-end; gap:var(--s4); margin-bottom:2px; color:var(--muted); font-size:var(--fs-xs); }
   .tl-legend i { display:inline-block; width:10px; height:10px; margin-right:5px; border-radius:2px; vertical-align:-1px; }
-  .tl-axis { position:relative; height:18px; margin-top:2px; color:var(--muted); font-size:11px; font-variant-numeric:var(--figures); }
+  .tl-axis { position:relative; height:18px; margin-top:2px; color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:var(--figures); }
   .tl-axis span { position:absolute; transform:translateX(-50%); white-space:nowrap; }
   .tl-axis span.first { transform:none; } .tl-axis span.last { transform:translateX(-100%); }
   .facts { display:flex; flex-wrap:wrap; gap:var(--s2) var(--s5); margin:0; padding:var(--s3) 0 0; border-top:1px solid var(--line); }
@@ -217,8 +217,8 @@
       ${fin.parties ? esc(tp("stats.story.journal.results", fin.parties)) : esc(t("stats.story.journal.noResult"))}`;
     const notes = [];
     if (J.enAttente) notes.push(`<p>${esc(tp("stats.journal.pending", J.enAttente))} ${esc(t("stats.journal.pendingHelp"))}</p>`);
-    if (J.origineInconnue && M.ETAT !== "riche") notes.push(`<p>${esc(tp("stats.journal.originUnknown", J.origineInconnue))}</p>`);
-    if (M.ETAT === "riche") notes.push(`<p class="plain">${esc(t("stats.journal.realOnly"))}</p>`);
+    if (J.origineInconnue) notes.push(`<p>${esc(tp("stats.journal.originUnknown", J.origineInconnue))}</p>`);
+    else notes.push(`<p class="plain">${esc(t("stats.journal.realOnly"))}</p>`);
     const res = { win: ["win", "journal.result.win"], loss: ["loss", "journal.result.loss"], skip: ["", "journal.status.ignored"] };
     const row = e => {
       const followed = e.picked === e.suggested, r = res[e.result];
@@ -235,7 +235,7 @@
     return chapter("journal", num, "stats.story.nav.journal", journalTag,
       `<p class="callout">${esc(t("stats.sources.separate"))}</p><p class="lead">${lead}</p>${notes.length ? `<div class="jnotes">${notes.join("")}</div>` : ""}
        <ul class="dlist">${J.dernieres.slice(0, 6).map(row).join("")}</ul>
-       <h3 style="font:var(--fs-md)/1.2 var(--condensed)">${esc(t("stats.journal.compare.title"))}</h3>${cmp}<p class="small">${esc(t("stats.journal.followedDef"))}</p>`, "journal");
+       <h3 style="font:var(--fs-md)/1.2 var(--condensed)">${esc(t("stats.journal.compare.title"))}</h3>${cmp}<p class="small">${esc(t("stats.journal.followedDef"))} ${esc(t("stats.journal.tieNote"))}</p>`, "journal");
   }
 
   function emptyStory() {
