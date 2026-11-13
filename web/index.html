@@ -1067,6 +1067,7 @@
   /* Grand écran : les lignes adverses gardent une hauteur utile au lieu de s'étirer (130 px pour 50 px de contenu). */
   @media (min-height:900px) and (min-width:1101px) { .view .roles { flex:0 0 auto; gap:6px; } .view .roles > .role { flex:0 0 auto; min-height:88px; } .view .roles > .role.is-mid { min-height:96px; } }
 </style>
+<link rel="stylesheet" href="draft-stats.css">
 </head>
 <body>
 <div id="root"></div>
@@ -1093,6 +1094,7 @@
 <script src="draft-providers.js"></script>
 <script src="draft-champion-ids.js"></script>
 <script src="draft-stats-calc.js"></script>
+<script src="draft-stats-view.js"></script>
 <script>
 if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof analyze === "undefined" || !window.I18N) {
   document.getElementById("root").innerHTML = '<p style="padding:24px;max-width:60ch">DRAFT ne peut pas démarrer : le dossier <b>draft-vendor</b> ou le fichier <b>draft-engine.js</b> est introuvable. Replace-les à côté de ce fichier, puis recharge la page.</p>';
@@ -2397,7 +2399,11 @@ function WinBars({ title, groups }) {
 function evolutionGroups(rows) {
   const sorted = [...rows].sort((x, y) => x.time - y.time);
   const groups = [];
-  for (let i = 0; i + EVOLUTION_STEP <= sorted.length; i += EVOLUTION_STEP) groups.push({ name:t("stats.range", { from: i + 1, to: i + EVOLUTION_STEP }), rows:sorted.slice(i, i + EVOLUTION_STEP) });
+  // La dernière tranche, incomplète, est gardée (avant : 80 parties montrées sur 93) ; sous 10 parties, WinBars montre une jauge.
+  for (let i = 0; i < sorted.length; i += EVOLUTION_STEP) {
+    const part = sorted.slice(i, i + EVOLUTION_STEP);
+    groups.push({ name: part.length === EVOLUTION_STEP ? t("stats.range", { from: i + 1, to: i + EVOLUTION_STEP }) : t("stats.range.current", { from: i + 1, to: i + part.length }), rows: part });
+  }
   return groups;
 }
 
@@ -2439,31 +2445,7 @@ function StatsTab() {
   </div>`;
 }
 
-function JournalTab() {
-  const list = loadJournal();
-  if (!list.length) return html`<p className="small">${t("journal.empty")}</p>`;
-  const played = list.filter(x => x.result === "win" || x.result === "loss");
-  const tally = rows => { const w = rows.filter(x => x.result === "win").length; return { wins:w, losses:rows.length - w, games:rows.length }; };
-  const followed = tally(played.filter(x => x.picked === x.suggested));
-  const other = tally(played.filter(x => x.picked !== x.suggested));
-  return html`<div>
-    ${played.length ? html`<h3>${t("journal.recent")}</h3>
-      <div className="history" role="img" aria-label=${tp("journal.dots.aria", played.length, { wins: tp("journal.dots.wins", played.filter(x => x.result === "win").length) })}>
-        ${played.slice(-20).map((x, i) => html`<${motion.span} key=${x.id} className=${`game ${x.result}`} title=${t(x.result === "win" ? "journal.dot.win" : "journal.dot.loss", { champion: label(x.picked) })} initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${{ ...QUICK, delay:i * .012 }}><//>`)}
-      </div>
-      <${WinBars} title=${t("stats.byChampion.title")} groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
-      <${WinBars} title=${t("stats.byMidType")} groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: midTypeLabel(matchupOf(x.mid).t) })), r => r.type)} />
-      <h3>${t("journal.comps")}</h3>
-      <ul className="comps">${played.slice(-5).reverse().map(x => html`<li key=${x.id}><span className=${`game ${x.result}`}></span><b>${label(x.picked)}</b><span className="comp-faces">${(x.enemies || []).map(n => html`<${Portrait} key=${n} name=${n} size=${22} />`)}</span></li>`)}</ul>` : null}
-    <p className="small">${t("journal.followed", { followed: fmtRecord(followed), other: fmtRecord(other) })}</p>
-    <table><thead><tr><th>${t("journal.table.date")}</th><th>${t("journal.table.pick")}</th><th>${t("journal.table.mid")}</th><th>${t("journal.table.advice")}</th><th>${t("journal.table.result")}</th></tr></thead>
-    <tbody>${list.slice(-10).reverse().map(x => html`<tr key=${x.id}>
-      <td>${fmtDate(x.date)}</td><td>${label(x.picked)}</td><td>${x.mid || "-"}</td><td>${label(x.suggested || "-")}</td>
-      <td>${{ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") }[x.result] || t("journal.status.pending")}</td></tr>`)}</tbody></table>
-    <p style=${{ marginTop:10 }}><button type="button" className="ghost-btn" onClick=${exportJournal}>${t("journal.download")}</button></p>
-  </div>`;
-}
-
+// L'onglet Journal de Mes statistiques est rendu par draft-stats-view.js (JournalFull) : origine, résultat, conseil suivi.
 const RulesTab = () => html`<div>
   ${myRole() !== "mid" || !PICKS.every(p => WRITTEN_PICKS.includes(p)) ? html`<h3>${t("rules.how.title")}</h3>
   <p className="small">${t("rules.how.text")}</p>` : html`<h3>${t("rules.pool.title")}</h3>
@@ -3177,109 +3159,13 @@ function JournalImport() {
   </details>`;
 }
 
-// ---------- Mes statistiques (UX-5) : journal DRAFT, historique Riot et anciens imports au même endroit ----------
-const ROLE_POSITION = { top:"TOP", jungle:"JUNGLE", mid:"MIDDLE", adc:"BOTTOM", support:"UTILITY" };
-const STATS_TABS = ["overview", "journal", "history"];
+// ---------- Mes statistiques : rendu dans draft-stats-view.js, calculs dans draft-stats-calc.js (docs/stats/CALCULS.md) ----------
+// historyRows sert à l'Accueil ; SampleGauge sert aussi au rendu de Mes statistiques.
 const historyRows = () => window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? window.DRAFT_HISTORY.rows : null;
-const wl = rows => { const w = rows.filter(r => r.win).length; return t("stats.wl", { wins:w, losses:rows.length - w }); };
-
-function StatsKpis() {
-  const list = loadJournal(), played = list.filter(x => x.result === "win" || x.result === "loss");
-  const wins = played.filter(x => x.result === "win").length, followed = list.filter(x => x.picked === x.suggested).length;
-  const rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
-  const kpi = (label, value, rest, test, extra) => html`<div data-test=${test}><span>${label}</span><b className="num">${value}</b>${rest ? html` <small>${rest}${extra || null}</small>` : null}</div>`;
-  // B+ : sous MIN_GAMES parties terminées, jamais de pourcentage ; une jauge montre ce qui manque. Au-delà, le pourcentage, toujours avec son échantillon.
-  const enough = played.length >= MIN_GAMES;
-  const rate = enough ? html`<em className="kpi-rate num" data-test="kpi-rate">${t("stats.kpi.rate", { percent: pct({ wins, games: played.length }) })}</em>` : played.length ? html`<${SampleGauge} count=${played.length} />` : null;
-  const dates = list.map(x => x.date).filter(Boolean).sort();
-  const from = dates.length ? fmtDate(dates[0]) : "", to = dates.length ? fmtDate(dates[dates.length - 1]) : "";
-  return html`<section className="kpis-wrap" data-test="stats-kpis-wrap">
-    <div className=${`box kpis${list.length ? "" : " is-empty"}`} data-test="stats-kpis" aria-label=${t("stats.tabs.overview")}>
-    ${kpi(t("stats.kpi.drafts"), list.length, "", "kpi-drafts")}
-    ${kpi(t("stats.kpi.wins"), wins, tp("stats.kpi.winsOf", played.length), "kpi-wins", rate)}
-    ${kpi(t("stats.kpi.followed"), followed, t("stats.kpi.followedOf", { count:list.length }), "kpi-followed")}
-    ${kpi(t("stats.kpi.history"), rows ? rows.length : t("stats.kpi.none"), rows ? (when ? t("stats.kpi.historyWhen", { unit: tp("stats.kpi.historyUnit", rows.length), date: fmtDate(when) }) : tp("stats.kpi.historyUnit", rows.length)) : "", "kpi-history")}
-    </div>
-    <p className="stats-sample" data-test="stats-sample">${list.length
-      ? html`<b className="num">${from === to ? t("stats.sample.periodOne", { date: from }) : t("stats.sample.period", { from, to })}</b><span className="num">${tp("stats.sample.played", played.length)}</span><span className=${enough ? "" : "stats-few"}>${t(enough ? "stats.sample.enough" : "stats.sample.few", { min: MIN_GAMES })}</span>`
-      : html`<span>${t("stats.sample.none")}</span>`}</p>
-  </section>`;
-}
-
 // Jauge de MIN_GAMES crans : parties terminées sur celles qu'il faut avant d'afficher un pourcentage.
 function SampleGauge({ count }) {
   const n = Math.min(count, MIN_GAMES);
   return html`<span className="notches" role="img" aria-label=${tp("stats.gauge.aria", count, { min: MIN_GAMES })}>${Array.from({ length: MIN_GAMES }, (_, i) => html`<i key=${i} className=${i < n ? "on" : ""}></i>`)}</span>`;
-}
-
-function HistoryImportBox({ detailed }) {
-  const rows = historyRows(), role = PROFILES.active;
-  const mine = rows && role ? rows.filter(r => r.pos === ROLE_POSITION[role]) : [];
-  const champs = groupRows(mine.map(r => ({ win:r.win, name:toName(r.champ) })), r => r.name).slice(0, 5);
-  return html`<section className="box box-pad" data-test="stats-history">
-    <h2 className="box-title">${t("stats.history.title")} <small>${t("stats.history.sub")}</small></h2>
-    <p className=${rows ? "stats-line ok" : "empty-note"} data-test="stats-history-summary">${rows
-      ? tp("stats.history.imported", rows.length, { date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "?" })
-      : t("stats.history.none")}</p>
-    ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${nativeText(hostState.historyStatus)}</p>` : null}
-    ${hostState.available
-      ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="stats-import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? t("stats.history.stop") : hostState.historyHasMore ? t("stats.history.more") : t("stats.history.import")}</button></p>`
-      : html`<p className="small">${t("stats.history.app")}</p>`}
-    <p className="small">${t("stats.history.key")}</p>
-    <p className="small" data-test="stats-collect">${t("stats.history.collect")}</p>
-    ${rows && role ? html`<h3>${t("stats.mostPlayed", { role:ROLE_NAMES[role] })}</h3>
-      ${champs.length ? html`<${WinBars} title="" groups=${champs} />` : html`<p className="small">${t("stats.mostPlayed.empty", { role:ROLE_NAMES[role] })}</p>`}` : null}
-    ${detailed && rows ? html`<${RowsSample} rows=${rows} test="stats-history-sample" />` : null}
-    ${detailed && rows ? html`<h3>${t("stats.history.byRole")}</h3>
-      <table className="stats-table"><tbody>${ROLE_ORDER.map(r => { const list = rows.filter(x => x.pos === ROLE_POSITION[r]); return html`<tr key=${r}><th scope="row">${ROLE_NAMES[r]}</th><td className="num">${tp("stats.kpi.historyUnit", list.length)}</td><td className="num">${list.length ? wl(list) : "-"}</td></tr>`; })}</tbody></table>` : null}
-  </section>`;
-}
-
-function RecentDrafts({ onAll }) {
-  const list = loadJournal().slice(-8).reverse();
-  const results = { win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") };
-  return html`<section className="box" data-test="stats-recent">
-    <header className="box-head-row"><h2 className="box-title">${t("stats.recent.title")} <small>${t("stats.recent.sub")}</small></h2>
-      ${list.length ? html`<button type="button" className="ghost-btn" data-test="stats-all-journal" onClick=${onAll}>${t("stats.recent.all")}</button>` : null}</header>
-    ${list.length ? html`<table className="stats-table recent"><thead><tr><th scope="col">${t("stats.recent.pick")}</th><th scope="col">${t("stats.recent.opponent")}</th><th scope="col">${t("stats.recent.advice")}</th><th scope="col">${t("stats.recent.result")}</th><th scope="col">${t("stats.recent.date")}</th></tr></thead>
-      <tbody>${list.map(x => html`<tr key=${x.id}><th scope="row"><span className="pool-name"><${Portrait} name=${label(x.picked)} size=${28} />${label(x.picked)}</span></th><td>${x.mid || "-"}</td><td>${t(x.picked === x.suggested ? "stats.recent.followed" : "stats.recent.other")}</td>
-        <td><span className=${`result-tag ${x.result || "wait"}`}>${results[x.result] || t("journal.status.pending")}</span></td><td className="num">${fmtDate(x.date)}</td></tr>`)}</tbody></table>`
-      : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
-  </section>`;
-}
-
-function StatsOverview({ onAll }) {
-  const played = loadJournal().filter(x => x.result === "win" || x.result === "loss");
-  return html`<div className="stats-overview">
-    <div className="stats-grid">
-      <section className="box box-pad" data-test="stats-journal">
-        <h2 className="box-title">${t("stats.byChampion.title")} <small>${t("stats.byChampion.source")}</small></h2>
-        ${played.length ? html`<${WinBars} title="" groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
-          <${WinBars} title=${t("stats.byMidType")} groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: midTypeLabel(matchupOf(x.mid).t) })), r => r.type)} />`
-          : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
-      </section>
-      <${HistoryImportBox} detailed=${false} />
-    </div>
-    <${RecentDrafts} onAll=${onAll} />
-  </div>`;
-}
-
-function StatsView() {
-  const [tab, setTab] = useState(() => { const s = new URLSearchParams(location.search).get("section"); return STATS_TABS.includes(s) ? s : "overview"; });
-  return html`<div className="view-page">
-    <${ViewHead} title=${t("nav.stats")} sub=${t("stats.sub")} />
-    <div className="stats-tabs" role="tablist" aria-label=${t("nav.stats")}>
-      ${STATS_TABS.map(k => html`<button key=${k} type="button" role="tab" aria-selected=${tab === k} data-test=${`stats-tab-${k}`} className=${`stats-tab${tab === k ? " on" : ""}`} onClick=${() => setTab(k)}>${t({ overview:"stats.tabs.overview", journal:"stats.tabs.journal", history:"stats.tabs.history" }[k])}</button>`)}
-    </div>
-    <${StatsKpis} />
-    ${tab === "overview" ? html`<${StatsOverview} onAll=${() => setTab("journal")} />` : null}
-    ${tab === "journal" ? html`<section className="box box-pad" data-test="stats-journal-full"><h2 className="box-title">${t("stats.journal.title")}</h2><${JournalTab} /><${JournalImport} /></section>` : null}
-    ${tab === "history" ? html`<div className="stats-grid">
-      <${HistoryImportBox} detailed=${true} />
-      <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} />
-        ${hostState.available ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="import-stats" onClick=${() => hostSend({ cmd:"importStats" })}>${t("stats.oldFile.stats")}</button></p>` : null}</section>
-    </div>` : null}
-  </div>`;
 }
 
 const SECTION_ICONS = { general:"sliders", league:"plug", display:"monitor", data:"shield", updates:"refresh", diag:"pulse" };
@@ -3503,7 +3389,7 @@ function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
-  const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolPage} />` : uiView === "stats" ? html`<${StatsView} />`
+  const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolPage} />` : uiView === "stats" ? html`<${DraftStatsView.StatsView} />`
     : uiView === "settings" ? html`<${SettingsPage} onClose=${closeSettings} solo=${settingsWindow.current} />` : html`<${SimView} />`;
   return html`<${MotionConfig} reducedMotion="user">
     <div className="shell" data-test="app">
