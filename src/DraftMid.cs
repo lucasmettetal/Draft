@@ -1698,6 +1698,9 @@ public static class Autostart
                     string label1 = await text(side, Cta + " ? " + Cta + ".textContent.trim() : 'absent'");
                     if (!shown) problem += mode + " : le panneau ne montre pas le choix " + other + " (bouton « " + label1 + " ») ; ";
                     if (await run(side, "V.shown === " + R) != "true") problem += mode + " : le choix a changé le conseil du panneau ; ";
+                    // Marques de la nouvelle entrée : origine, version, pas d'égalité, premier du classement (docs/technique/JOURNAL.md).
+                    string meta = await text(full, "(() => { const e = state.current && loadJournal().find(x => x.id === state.current); return e ? [e.origin, e.app === APP_VERSION, e.tied, (e.tiedWith || []).length, e.recommended === V.res.ranking[0].pick].join('|') : 'aucune'; })()");
+                    if (meta != "draft|true|false|0|true") problem += mode + " : marques de l'entrée inattendues (origine|version|égalité|ex æquo|premier = " + meta + ") ; ";
                     // 2. Clic sur le bouton du panneau : le choix reste.
                     string journal1 = await text(full, Entry);
                     await run(side, Cta + ".click(); 1");
@@ -1728,7 +1731,7 @@ public static class Autostart
                     bool fresh = await waitIn(side, "!state.current && !document.querySelector('[data-test=\"pick-advice\"]') && state.enemies.length === 0", 4000)
                         && await waitIn(full, "!state.current && !document.querySelector('.rank.picked')", 4000);
                     if (!fresh) problem += mode + " : un choix survit à la nouvelle sélection ; ";
-                    report.Add(mode + " : conseil " + rec + ", choix " + other + ", bouton « " + label1 + " », journal " + journal1 + " puis " + journal2 + " après le clic, " + journal3 + " après le retour au conseil, " + (int.Parse(await run(full, "loadJournal().length")) - before) + " entrée(s) ajoutée(s), simulation " + (afterSim - count) + " entrée");
+                    report.Add(mode + " : conseil " + rec + ", choix " + other + ", bouton « " + label1 + " », marques " + meta + ", journal " + journal1 + " puis " + journal2 + " après le clic, " + journal3 + " après le retour au conseil, " + (int.Parse(await run(full, "loadJournal().length")) - before) + " entrée(s) ajoutée(s), simulation " + (afterSim - count) + " entrée");
                     await run(side, "draftApi.reset(); state.sessionActive = false; state.notice = null; publish(null); 1");
                     await Task.Delay(300);
                     if (full.Visible) full.Hide();

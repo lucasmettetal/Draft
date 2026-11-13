@@ -743,7 +743,7 @@ async function open(profile, panel, W, H, extra, folder) {
   w.console.error = (...args) => { const t = args.map(a => a && a.message ? a.message : String(a)).join(" "); if (!/Failed to load resource|net::/.test(t)) res.errors.push(`console (${current}) : ${t.slice(0, 300)}`); original(...args); };
   w.eval(`window.$ = { get V(){return V}, get state(){return state}, get PREFS(){return PREFS}, analyze, commit, rerender, savePrefs, addEnemy, removeEnemy, setMid, clickRole, choosePick, setResult,
     coachData, essentialAdvice, hostState, historyProfile, opponentBelief, roleBelief, beliefScenarios, deriveSlots, comparePicks, whenBetter, matchupOf, label, myRole, saveMyProfile, switchRole, draftApi,
-    reset(){ state.enemies.length = 0; state.manualMid = null; state.held = null; state.roleOf = {}; state.targetRole = null; state.selected = null; state.notice = null; state.current = null; state.picked = null; state.suggested = null; commit(); } }`);
+    reset(){ state.enemies.length = 0; state.manualMid = null; state.held = null; state.roleOf = {}; state.targetRole = null; state.selected = null; state.notice = null; state.current = null; state.picked = null; state.pickContext = null; commit(); } }`);
   if (!NAMES.length) NAMES = w.eval("NAMES.slice()");
   return { f, w, d:f.contentDocument, $:w.$ };
 }

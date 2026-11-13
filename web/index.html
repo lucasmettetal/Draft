@@ -1104,8 +1104,8 @@ if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof
 // Tous les textes de la page : t(), tp() et tx() lisent web/i18n/fr.js (draft-i18n.js, chargé avant le moteur). Dates : fmtDate.
 const { t, tp, tx, fmtDate } = window.I18N;
 // shown : conseil du moteur. picked : champion choisi par le joueur pour cette draft (« Je joue », Ton pool, égalité), ou null ;
-// suggested : conseil au moment de ce choix. current : leur entrée de journal (vraies drafts seulement ; jamais en simulation).
-const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, picked: null, suggested: null, boardKey: null };
+// pickContext : conseil au moment de ce choix (pickContextFor). current : leur entrée de journal (vraies drafts seulement, jamais en simulation).
+const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, picked: null, pickContext: null, boardKey: null };
 
 function matchByKeys(names, keysOf, query) {
   const q = norm(query);
@@ -1186,7 +1186,7 @@ function updateEntry(id, change) {
 
 // L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
 function syncCurrentEntry() {
-  if (state.current) updateEntry(state.current, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? { suggested: state.suggested, picked: state.picked } : {}));
+  if (state.current) updateEntry(state.current, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
 }
 
 
@@ -1298,9 +1298,9 @@ const PREFS = Object.assign({ excluded:[], favorite:null, assumeFront:true, coac
 ENGINE_PREFS.excluded = PREFS.excluded;
 ENGINE_PREFS.favorite = PREFS.favorite;
 const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
-// Le choix du joueur (picked, suggested) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
+// Le choix du joueur (picked, pickContext) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
 // en retard dans une autre fenêtre (autre processus WebView2), et le bouton d'un panneau montrait alors un ancien choix.
-const SHARED = ["enemies", "manualMid", "held", "current", "picked", "suggested", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled"];
+const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
 // Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
@@ -1465,7 +1465,7 @@ function resumeLiveInSimulation() {
   if (!simulating || !liveCopy) return;
   withUndo(t("draft.undo.resumed"), () => {
     ["enemies", "manualMid", "roleOf"].forEach(k => { state[k] = liveCopy[k] === undefined ? undefined : JSON.parse(JSON.stringify(liveCopy[k])); });
-    state.held = null; state.current = null; state.picked = null; state.suggested = null; state.targetRole = null; state.selected = null; state.notice = null;
+    state.held = null; state.current = null; state.picked = null; state.pickContext = null; state.targetRole = null; state.selected = null; state.notice = null;
     state.lastAction = null;
     commit();
   });
@@ -1523,7 +1523,7 @@ function resetDraft() {
   state.held = null;
   state.current = null;
   state.picked = null;
-  state.suggested = null;
+  state.pickContext = null;
   state.roleOf = {};
   state.targetRole = null;
   state.selected = null;
@@ -1535,7 +1535,7 @@ function resetDraft() {
 // Annuler (5 secondes) après une action qui retire des adversaires : Nouvelle draft, Retour arrière.
 // La draft exacte est rétablie. L'annonce reste locale à la fenêtre qui a agi.
 const UNDO_MS = 5000;
-const UNDO_KEYS = ["enemies", "manualMid", "held", "current", "picked", "suggested", "roleOf", "targetRole", "selected", "notice"];
+const UNDO_KEYS = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "roleOf", "targetRole", "selected", "notice"];
 let undoOffer = null;
 const copyOf = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
 function withUndo(text, action) {
@@ -1606,8 +1606,18 @@ function currentPick() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   return entry ? entry.picked : null;
 }
-// Conseil au moment du choix. À égalité, chaque ex æquo est conseillé : en choisir un, c'est suivre le conseil.
-const adviceFor = pick => V && V.tied && V.tied.includes(pick) ? pick : state.shown;
+// Contexte du conseil au moment du choix (format : docs/technique/JOURNAL.md). suggested : le conseil ; à égalité, chaque ex æquo
+// est conseillé, donc en choisir un, c'est suivre le conseil (règle validée). tied, tiedWith : égalité et groupe complet des ex æquo,
+// pour distinguer plus tard une égalité d'un conseil unique. recommended : premier du classement (il peut différer du nom affiché,
+// maintenu pendant la draft). close : conseil serré.
+function pickContextFor(pick) {
+  const tiedWith = V && V.tied ? V.tied.slice() : [];
+  const first = V && V.res && V.res.ranking[0];
+  return { suggested: tiedWith.includes(pick) ? pick : state.shown, close: !state.clear, tied: tiedWith.length > 0, tiedWith, recommended: first ? first.pick : null };
+}
+// Origine des entrées créées par cette version : une vraie draft (rien n'est écrit en simulation), et la version de DRAFT.
+// Une entrée sans ces champs vient d'une version plus ancienne : origine inconnue. Rien n'est reconstruit ni migré.
+const JOURNAL_ORIGIN = "draft";
 
 // Choix du joueur : toujours un champion précis (Ton pool, égalité, « Je joue », « Revenir au conseil »). Il ne touche ni au classement,
 // ni au conseil, ni aux scores. Journal : picked = champion choisi, suggested = conseil au moment du choix ; « conseil suivi » si égaux.
@@ -1616,15 +1626,15 @@ function choosePick(pick) {
   if (!pick) return;
   if (pick === currentPick() && (state.current || simulating)) { publish(null); return; }
   state.picked = pick;
-  state.suggested = adviceFor(pick);
+  state.pickContext = pickContextFor(pick);
   if (!simulating) {
     const list = loadJournal();
-    const noted = { suggested: state.suggested, close: !state.clear, picked: pick };
+    const noted = Object.assign({}, state.pickContext, { picked: pick });
     const entry = state.current && list.find(x => x.id === state.current);
     if (entry) Object.assign(entry, noted);
     else {
       const id = Date.now();
-      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION }));
+      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }));
       state.current = id;
     }
     saveJournal(list);

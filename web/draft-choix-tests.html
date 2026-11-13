@@ -34,6 +34,12 @@ async function openHost(lang,W,H){let src="";{const x=new XMLHttpRequest();x.ope
 const snap=x=>JSON.stringify({shown:x.$.V.shown,tied:x.$.V.tied,order:x.$.V.order.map(p=>p.pick),scores:x.$.V.res.ranking.map(p=>[p.pick,p.score])});
 const entry=x=>{const id=x.$.state.current;const e=id&&x.$.loadJournal().find(j=>j.id===id);return e?{suggested:e.suggested,picked:e.picked}:null;};
 const fmt=e=>e?"suggested="+e.suggested+", picked="+e.picked:"aucune entrée";
+// Entrée complète et marques d'une nouvelle entrée (docs/technique/JOURNAL.md) : origine, version, égalité, ex æquo, premier du classement.
+const raw=x=>{const id=x.$.state.current;return (id&&x.$.loadJournal().find(j=>j.id===id))||null;};
+const marks=e=>e?JSON.stringify({origin:e.origin,app:e.app,tied:e.tied,tiedWith:e.tiedWith,recommended:e.recommended}):"aucune entrée";
+const sameSet=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every(p=>b.includes(p));
+// Marques attendues au moment du choix, d'après le verdict affiché (V) de cette fenêtre.
+const marksOk=(x,e,{tied})=>!!e&&e.origin==="draft"&&e.app===x.w.eval("APP_VERSION")&&e.tied===tied&&sameSet(e.tiedWith,tied?x.$.V.tied:[])&&e.recommended===x.$.V.res.ranking[0].pick;
 async function draft(x,comp){x.$.resetDraft();comp.forEach(n=>x.$.addEnemy(n));await settle();}
 // Composition où le conseil est Twisted Fate et Vex un autre choix hors égalité ; sinon, le conseil et le premier autre champion.
 async function scenario(x){for(const comp of COMPS){await draft(x,comp);const V=x.$.V;if(V.shown==="TF"&&!V.tied&&V.order.some(p=>p.pick==="Vex"))return {comp,rec:"TF",other:"Vex"};}
@@ -65,6 +71,9 @@ for(const lang of ["fr","en"]){
     if(kind==="full"||kind==="mobile")t(checked(x).join()===sc.other,L+"la coche est sur le champion choisi ("+checked(x).join()+")");
     note.coche=(kind==="full"||kind==="mobile")?checked(x).map(x.$.label).join():"(pas de classement dans ce panneau)";
     t(snap(x)===before,L+"le choix ne change ni le classement, ni le conseil, ni les scores");
+    // Choix unique (pas d'égalité) : marques de la nouvelle entrée.
+    const r0=raw(x);note.entree=r0?JSON.stringify(Object.assign({},r0,{id:"…",date:"…"})):"aucune";
+    t(marksOk(x,r0,{tied:false}),L+"[avant : échec] choix unique : origin=draft, app, tied=false, tiedWith=[], recommended = 1er du classement ("+marks(r0)+")");
     note.bouton_apres_choix=ctaLabel(x,kind);
     const noted=kind==="mobile"?otherName+" | "+x.T("advice.mobile.saved"):x.T("advice.cta.noted",{champion:otherName});
     t(note.bouton_apres_choix===noted,L+"[avant : échec] avec un autre choix, le bouton montre ce choix (attendu « "+noted+" », lu « "+note.bouton_apres_choix+" »)");
@@ -85,6 +94,9 @@ for(const lang of ["fr","en"]){
     const notedRec=kind==="mobile"?recName+" | "+x.T("advice.mobile.saved"):x.T("advice.cta.noted",{champion:recName});
     t(!!back&&!!e2&&e2.picked===sc.rec&&e2.suggested===sc.rec&&note.bouton_apres_retour===notedRec&&!q(x,SEL[kind].box+' [data-test="pick-advice"]'),L+"[avant : échec] « Revenir au conseil » note le conseil, et le bouton le dit ("+note.journal_apres_retour+" ; « "+note.bouton_apres_retour+" »)");
     t(x.$.loadJournal().length===OLD.length+1,L+"une seule entrée pour cette draft ("+x.$.loadJournal().length+" entrées)");
+    // Le résultat s'ajoute à l'entrée sans effacer ses marques.
+    x.w.eval("setResult(state.current,'win')");await settle();const r3=raw(x);
+    t(!!r3&&r3.result==="win"&&r3.origin==="draft"&&r3.app===x.w.eval("APP_VERSION")&&r3.tied===false,L+"[avant : échec] le résultat s'ajoute sans effacer les marques ("+marks(r3)+", result="+(r3&&r3.result)+")");
     // Draft suivante : le choix ne la suit pas ; un nouveau choix différent du conseil s'y affiche.
     x.$.dispatchDraft({type:"session-start"});await settle();
     const nextLabel=ctaLabel(x,kind);
@@ -121,11 +133,15 @@ for(const lang of ["fr","en"]){
    const e1=entry(x);note.journal_ex_aequo=fmt(e1);
    t(!!x.d.querySelector(".tie-item.picked")&&text(x.d.querySelector(".tie-item.picked")).includes(x.$.label(B)),L+"le champion choisi dans l'égalité est coché");
    t(!!e1&&e1.picked===B&&e1.suggested===B,L+"[avant : échec] choisir un ex æquo compte comme conseil suivi (suggested = ce champion : "+note.journal_ex_aequo+")");
+   const r1=raw(x);note.marques_ex_aequo=marks(r1);
+   t(marksOk(x,r1,{tied:true}),L+"[avant : échec] choix dans l'égalité : tied=true, tiedWith = le groupe complet des ex æquo, origin, app, recommended ("+note.marques_ex_aequo+")");
    t(!x.d.querySelector(".cta"),L+"pas de bouton « Je joue » pour un seul nom");
    x.$.choosePick(R);await settle();
    const cur=q(x,'[data-test="pick-current"]'),e2=entry(x);note.journal_hors_egalite=fmt(e2);note.ligne_choix=cur?text(cur):"absente";
    t(!!cur&&text(cur).includes(x.$.label(R))&&!x.d.querySelector(".tie-item.picked"),L+"[avant : échec] un choix hors égalité est affiché dans le panneau (« "+note.ligne_choix+" »)");
    t(!!e2&&e2.picked===R&&e2.suggested!==R&&tied.includes(e2.suggested),L+"un choix hors égalité reste un autre choix ("+note.journal_hors_egalite+")");
+   const r2=raw(x);note.marques_hors_egalite=marks(r2);
+   t(marksOk(x,r2,{tied:true})&&!r2.tiedWith.includes(R)&&r2.id===r1.id,L+"[avant : échec] choix hors égalité : même entrée, tied=true, tiedWith sans ce champion ("+note.marques_hors_egalite+")");
    t(snap(x)===before,L+"le choix ne change ni l'égalité, ni le classement, ni les scores");
    x.f.remove();
    prepare(JUNGLE,OLD);const y=await open(lang,null,1366,900);await draft(y,TANKS);
@@ -216,12 +232,13 @@ for(const lang of ["fr","en"]){
   {const L=LG+" journal en retard : ";prepare(MID,OLD);const x=await open(lang,"right",340,760);const sc=await scenario(x);
    x.$.choosePick(sc.other);await settle();
    // Copie périmée du journal, telle qu'un autre processus peut encore la voir : l'entrée dit encore le conseil.
-   const stale=x.$.loadJournal().map(e=>e.id===x.$.state.current?Object.assign({},e,{picked:sc.rec,suggested:sc.rec}):e);x.$.saveJournal(stale);x.$.rerender();await settle();
+   const stale=x.$.loadJournal().map(e=>e.id===x.$.state.current?Object.assign({},e,{picked:sc.rec,suggested:sc.rec,tied:true,tiedWith:[sc.rec,sc.other],recommended:sc.other}):e);x.$.saveJournal(stale);x.$.rerender();await settle();
    const label1=text(q(x,SEL.right.cta));
    t(label1===x.T("advice.cta.noted",{champion:x.$.label(sc.other)}),LG+" journal en retard : [avant : échec] le bouton garde le choix de l'état partagé (« "+label1+" »)");
    x.$.commit();await settle();
    const e=entry(x);
    t(!!e&&e.picked===sc.other&&e.suggested===sc.rec,L+"[avant : échec] la fenêtre qui agit réécrit le bon choix ("+fmt(e)+")");
+   t(marksOk(x,raw(x),{tied:false}),L+"[avant : échec] et les bonnes marques d'égalité et de classement ("+marks(raw(x))+")");
    res.notes[lang+"_journal_en_retard"]="bouton « "+label1+" », journal réécrit : "+fmt(e);x.f.remove();show();}
   // ---------- 8. Aucune déduction depuis l'historique Riot : un historique fictif (Xerath, 30 parties) ne crée ni ne change aucun choix ----------
   {const L=LG+" historique Riot : ";prepare(MID,OLD);const x=await open(lang,null,1366,900);const sc=await scenario(x);
@@ -239,8 +256,9 @@ for(const lang of ["fr","en"]){
    t(!!found,L+"une draft où le conseil change après le premier clic ("+(found?found.comp.join(", ")+" : "+found.first+" puis "+found.now:"aucune")+")");
    if(found){const lab=text(q(x,SEL.right.cta)),adv=q(x,'.p-actions [data-test="pick-advice"]');
      t(lab===x.T("advice.cta.noted",{champion:x.$.label(found.first)})&&!!adv&&text(adv).includes(x.$.label(found.now)),L+"[avant : échec] le bouton garde le choix, le nouveau conseil est rappelé (« "+lab+" » ; « "+(adv?text(adv):"absent")+" »)");
-     const e0=entry(x);const b=q(x,'.p-actions [data-test="back-to-advice"]');if(b)b.click();await settle();const e1=entry(x);
+     const e0=entry(x),id0=x.$.state.current;const b=q(x,'.p-actions [data-test="back-to-advice"]');if(b)b.click();await settle();const e1=entry(x);
      t(!!e1&&e1.picked===found.now&&e1.suggested===found.now,L+"[avant : échec] « Revenir au conseil » : nouveau conseil noté et compté comme suivi (avant : "+fmt(e0)+" ; après : "+fmt(e1)+")");
+     t(marksOk(x,raw(x),{tied:false})&&x.$.state.current===id0,L+"[avant : échec] changement de conseil : même entrée, marques du nouveau moment du choix ("+marks(raw(x))+")");
      res.notes[lang+"_conseil_qui_change"]=found.comp.join(", ")+" ; premier conseil "+found.first+", puis "+found.now+" ; journal "+fmt(e0)+" → "+fmt(e1);}
    x.f.remove();show();}
 }
