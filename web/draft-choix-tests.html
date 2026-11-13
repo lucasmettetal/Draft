@@ -223,6 +223,18 @@ for(const lang of ["fr","en"]){
    q(x,`.rank[data-pick="${sc.other}"]`).click();await settle();
    const e=entry(x);t(!!e&&e.picked===sc.other&&e.suggested===sc.rec,L+"le journal note le clic du joueur, pas l'historique ("+fmt(e)+")");
    x.f.remove();show();}
+  // ---------- 9. Le conseil change après un choix : le bouton garde le choix, « Revenir au conseil » note le nouveau conseil, suivi ----------
+  {const L=LG+" conseil qui change : ";prepare(MID,OLD);const x=await open(lang,"right",340,760);let found=null;
+   for(const comp of COMPS){x.$.resetDraft();x.$.addEnemy(comp[0]);await settle();const first=x.$.V.shown;if(x.$.V.tied)continue;x.$.choosePick(first);
+     for(const n of comp.slice(1)){x.$.addEnemy(n);await settle();if(!x.$.V.tied&&x.$.V.shown!==first){found={comp,first,now:x.$.V.shown};break;}}
+     if(found)break;}
+   t(!!found,L+"une draft où le conseil change après le premier clic ("+(found?found.comp.join(", ")+" : "+found.first+" puis "+found.now:"aucune")+")");
+   if(found){const lab=text(q(x,SEL.right.cta)),adv=q(x,'.p-actions [data-test="pick-advice"]');
+     t(lab===x.T("advice.cta.noted",{champion:x.$.label(found.first)})&&!!adv&&text(adv).includes(x.$.label(found.now)),L+"[avant : échec] le bouton garde le choix, le nouveau conseil est rappelé (« "+lab+" » ; « "+(adv?text(adv):"absent")+" »)");
+     const e0=entry(x);const b=q(x,'.p-actions [data-test="back-to-advice"]');if(b)b.click();await settle();const e1=entry(x);
+     t(!!e1&&e1.picked===found.now&&e1.suggested===found.now,L+"[avant : échec] « Revenir au conseil » : nouveau conseil noté et compté comme suivi (avant : "+fmt(e0)+" ; après : "+fmt(e1)+")");
+     res.notes[lang+"_conseil_qui_change"]=found.comp.join(", ")+" ; premier conseil "+found.first+", puis "+found.now+" ; journal "+fmt(e0)+" → "+fmt(e1);}
+   x.f.remove();show();}
 }
 res.notes.fin=true;show();document.title="done";
 })().catch(e=>{res.ko.push("ERREUR "+e.message+" "+(e.stack||"").slice(0,300));show();document.title="done";});
