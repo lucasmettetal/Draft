@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes statistiques : proposition A</title>
+<link rel="stylesheet" href="commun.css">
+<style>
+  /* Proposition A : tableau de bord. Deux colonnes, une par source : Historique Riot (ouverte, large), Journal DRAFT (boîte, étroite). */
+  .board { display:grid; grid-template-columns:minmax(0,1.75fr) minmax(330px,1fr); gap:var(--s5); align-items:start; }
+  /* Sans historique : la colonne Riot garde sa place, le journal prend la largeur utile. */
+  .board.no-riot { grid-template-columns:minmax(0,1fr) minmax(0,1.35fr); }
+  @media (max-width:1180px) { .board, .board.no-riot { grid-template-columns:minmax(0,1fr); } }
+  .src { min-width:0; display:grid; gap:var(--s4); align-content:start; }
+  .src-head { display:flex; align-items:center; gap:var(--s3); }
+  .src-mark { flex:none; display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:var(--r-box); background:var(--raised); color:var(--text); }
+  .src-mark svg { width:20px; height:20px; }
+  .src-titles { flex:1; min-width:0; }
+  .src-titles h2 { font:600 20px/1.15 var(--condensed); letter-spacing:.01em; }
+  .src-titles p { margin-top:2px; color:var(--muted); font-size:var(--fs-sm); }
+  .src-journal { padding:var(--s4) var(--s5) var(--s5); background:var(--surface); border-radius:var(--r-box); gap:var(--s3); }
+  .src-journal .src-mark { background:var(--bg); }
+  .sep-note { padding:var(--s2) 0 0; border-top:1px solid var(--line); color:var(--muted); font-size:var(--fs-xs); }
+
+  /* Bandeau héros : même grammaire que le bandeau de chiffres actuel (filets, Sitka 40 px, chiffres alignés). */
+  .hero { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  .hero > div { min-width:0; padding:var(--s3) var(--s4) var(--s3); border-left:1px solid var(--line); }
+  .hero > div:first-child { padding-left:0; border-left:0; }
+  .hero span { display:block; color:var(--muted); font-size:var(--fs-sm); }
+  .hero b { display:block; margin:6px 0 4px; font:600 40px/1 var(--display); font-variant-numeric:var(--figures); white-space:nowrap; }
+  .hero small { display:block; color:var(--muted); font-size:var(--fs-xs); }
+  .hero.sm { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .hero.sm > div { padding:var(--s3) var(--s3) var(--s3); }
+  .hero.sm > div:first-child { padding-left:0; }
+  .hero.sm b { font-size:34px; }
+  .hero .dash { display:inline-block; width:26px; height:3px; margin:14px 0 13px; background:var(--muted); border-radius:2px; vertical-align:middle; }
+  .hero .notches { margin-top:6px; }
+
+  .sec-title { display:flex; align-items:baseline; gap:var(--s2); flex-wrap:wrap; }
+  .sec-title h3 { font:var(--fs-lg)/1.2 var(--condensed); }
+  .sec-title small { color:var(--muted); font-size:var(--fs-sm); }
+  .sec-title .grow { flex:1; }
+
+  /* Cartes de champions */
+  .cgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(196px,1fr)); gap:var(--s3); }
+  .ccard { display:grid; gap:var(--s2); align-content:start; padding:var(--s3) var(--s4) var(--s4); background:var(--surface); border-radius:var(--r-box); }
+  .ccard-top { display:flex; align-items:center; gap:var(--s3); min-width:0; }
+  .ccard-top > div { min-width:0; }
+  .ccard h4 { margin:0; font:18px/1.15 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ccard .meta { color:var(--muted); font-size:var(--fs-xs); white-space:nowrap; }
+  .ccard-num { display:flex; align-items:baseline; gap:6px; }
+  .ccard-num b { font:600 28px/1 var(--display); font-variant-numeric:var(--figures); }
+  .ccard-num span { color:var(--muted); font-size:var(--fs-sm); }
+  .ccard-val { color:var(--muted); font-size:var(--fs-sm); font-variant-numeric:var(--figures); }
+  .ccard-val b { color:var(--text); font-weight:600; }
+  .ccard.more { align-content:center; background:transparent; border:1px dashed var(--line-strong); }
+  .faces { display:flex; flex-wrap:wrap; gap:8px; }
+
+  /* Graphiques : marques fines, une seule échelle, valeurs en encre de texte */
+  .panels { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:var(--s3); align-items:start; }
+  .panel { min-width:0; padding:var(--s3) var(--s4) var(--s4); background:var(--surface); border-radius:var(--r-box); display:grid; gap:var(--s3); align-content:start; }
+  .panel.wide { grid-column:1 / -1; }
+  .panel h3 { font:var(--fs-md)/1.2 var(--condensed); }
+  .panel .note { color:var(--muted); font-size:var(--fs-xs); }
+  .hbars { display:grid; gap:8px; }
+  .hbar { display:grid; grid-template-columns:88px minmax(0,1fr) auto; align-items:center; gap:var(--s2); font-size:var(--fs-sm); }
+  .hbar .lbl { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .hbar .track { height:8px; background:var(--raised); border-radius:4px; overflow:hidden; }
+  .hbar .track i { display:block; height:100%; background:#CFC6BC; border-radius:4px; }
+  .hbar .val { color:var(--muted); font-variant-numeric:var(--figures); white-space:nowrap; }
+  .hbar .val b { color:var(--text); font-weight:600; }
+  .cols { position:relative; display:flex; align-items:flex-end; gap:3px; height:120px; padding-top:18px; }
+  .col { position:relative; flex:1 1 0; min-width:0; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:stretch; }
+  .col .fill { background:var(--good); border-radius:4px 4px 0 0; }
+  .col .fill.under { background:var(--muted); }
+  .col.current .fill { background:transparent; border:1px dashed var(--line-strong); border-bottom:0; }
+  .col .top { position:absolute; left:50%; transform:translateX(-50%); color:var(--text); font-size:11.5px; font-variant-numeric:var(--figures); white-space:nowrap; }
+  .col .g { position:absolute; bottom:4px; left:50%; transform:translateX(-50%) rotate(-90deg); transform-origin:center; }
+  .col .g .notches i { width:7px; height:5px; }
+  .ref50 { position:absolute; left:0; right:0; border-top:1px dashed var(--text); opacity:.55; }
+  .ref50 span { position:absolute; left:-2px; top:-15px; padding-right:4px; background:var(--surface); color:var(--muted); font-size:11px; }
+  .axis { display:flex; gap:3px; color:var(--muted); font-size:11px; font-variant-numeric:var(--figures); }
+  .axis span { flex:1 1 0; min-width:0; text-align:center; white-space:nowrap; overflow:visible; }
+  .stack { display:flex; flex-direction:column; justify-content:flex-end; gap:2px; height:100%; }
+  .stack .w { background:var(--good); border-radius:0 0 2px 2px; }
+  .stack .l { background:var(--threat); border-radius:3px 3px 0 0; }
+  .legend { display:flex; gap:var(--s4); color:var(--muted); font-size:var(--fs-xs); }
+  .legend i { display:inline-block; width:10px; height:10px; margin-right:5px; border-radius:2px; vertical-align:-1px; }
+
+  /* Vis-à-vis */
+  .duels { display:grid; grid-template-columns:repeat(auto-fill,minmax(176px,1fr)); gap:var(--s2) var(--s3); }
+  .duel { display:flex; align-items:center; gap:var(--s3); min-width:0; padding:6px 0; }
+  .duel > div { min-width:0; flex:1; }
+  .duel b { display:block; font:16px/1.15 var(--condensed); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .duel small { display:block; color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:var(--figures); white-space:nowrap; }
+  .duel .wbar { margin-top:5px; }
+  .duel .badge { margin-top:4px; }
+
+  /* Conclusions */
+  .findings { display:grid; gap:var(--s3); }
+  .finding { display:grid; gap:3px; padding-left:var(--s3); border-left:2px solid var(--line-strong); }
+  .finding.good { border-left-color:var(--good); } .finding.threat { border-left-color:var(--threat); } .finding.wait { border-left:2px dashed var(--info); }
+  .finding .ttl { display:flex; align-items:center; gap:var(--s2); flex-wrap:wrap; font-size:var(--fs-md); font-weight:600; }
+  .finding p { color:var(--muted); font-size:var(--fs-sm); font-variant-numeric:var(--figures); }
+  .finding .rule { font-size:var(--fs-xs); }
+  .finding .meter { display:inline-flex; align-items:center; gap:6px; color:var(--info); font-size:var(--fs-xs); }
+
+  /* Journal */
+  .jnotes { display:grid; gap:4px; }
+  .jnotes p { color:var(--info); font-size:var(--fs-sm); }
+  .jnotes p.plain { color:var(--muted); }
+  .jlist { display:grid; }
+  .jrow { display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px var(--s3); align-items:center; padding:10px 0; border-top:1px solid var(--line); }
+  .jpair { display:flex; align-items:center; gap:6px; }
+  .jpair .arrow { color:var(--muted); font-size:13px; }
+  .jtext { min-width:0; font-size:var(--fs-sm); }
+  .jtext b { font-weight:600; }
+  .jtext .small { display:block; font-size:var(--fs-xs); }
+  .jmeta { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+  .jmeta .date { color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:var(--figures); margin-right:auto; }
+  .cmp { display:grid; gap:8px; }
+  .cmp-row { display:grid; grid-template-columns:96px minmax(0,1fr) auto; align-items:center; gap:var(--s2); font-size:var(--fs-sm); }
+  .cmp-row .val { color:var(--muted); font-variant-numeric:var(--figures); white-space:nowrap; }
+  .cmp-row .val b { color:var(--text); }
+  .src-journal h3 { font:var(--fs-md)/1.2 var(--condensed); }
+</style>
+</head>
+<body>
+<script src="textes-maquettes.js"></script>
+<script src="donnees-fictives.js"></script>
+<script src="stats-calculs.js"></script>
+<script src="commun.js"></script>
+<script>
+(function () {
+  "use strict";
+  const M = MAQ, C = M.C, { t, tp, tx, h, esc } = M;
+  const rows = M.rows, J = C.journal(M.journal), MIN = M.MIN;
+  const ICON_RIOT = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 16.5v-6M10 16.5v-12M16 16.5v-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  const ICON_DRAFT = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" d="M4 20V9l6-5h10v5l-6 11z M9 15l6-6"/></svg>`;
+  const kpi = (label, value, sub, extra) => `<div><span>${esc(label)}</span><b>${value}</b>${sub ? `<small>${sub}</small>` : ""}${extra || ""}</div>`;
+
+  // ---------- Historique Riot ----------
+  function riotHead() {
+    const when = M.history ? esc(t("stats.riot.importedOn", { date: M.fmtDate(Date.parse(M.history.generated)) })) : "";
+    return `<header class="src-head"><span class="src-mark">${ICON_RIOT}</span><div class="src-titles"><h2>${esc(t("stats.history.title"))}</h2>
+      <p>${esc(t("stats.riot.source"))}${when ? " · " + when : ""}</p></div>
+      <button type="button" class="ghost-btn">${esc(t(rows ? "stats.history.more" : "stats.history.import"))}</button></header>`;
+  }
+  function hero() {
+    const b = C.bilan(rows), k = C.kda(rows), d = C.duree(rows);
+    const rate = b.taux !== null
+      ? kpi(t("stats.riot.kpi.rate"), esc(M.pct(b.taux)), esc(tp("stats.riot.kpi.rateOf", b.parties)) + " · " + esc(M.record(b)))
+      : kpi(t("stats.riot.kpi.rate"), esc(M.record(b)), esc(t("stats.riot.kpi.noPercent", { min: MIN })), M.gauge(b.parties));
+    return `<div class="hero">${kpi(t("stats.riot.kpi.games"), b.parties, "")}${rate}
+      ${kpi(t("stats.riot.kpi.kda"), esc(M.dec(k.ratio)), esc(t("stats.riot.kpi.kdaHow")))}
+      ${kpi(t("stats.riot.kpi.duration"), esc(M.mins(d.moyenne)), esc(t("stats.riot.kpi.durationHow")))}</div>`;
+  }
+  function sample() {
+    const e = C.echantillon(rows);
+    const period = e.debut === e.fin ? t("stats.sample.periodOne", { date: M.fmtDate(e.debut) }) : t("stats.sample.period", { from: M.fmtDate(e.debut), to: M.fmtDate(e.fin) });
+    return `<p class="stats-sample"><b class="num">${esc(period)}</b><span class="num">${esc(tp("stats.riot.sample.games", e.parties))}</span>
+      <span class="num">${esc(tp("stats.riot.sample.patches", e.patchs.length, { first: e.patchs[0], last: e.patchs[e.patchs.length - 1] }))}</span>
+      <span>${esc(tp("stats.riot.sample.accounts", e.comptes.length))}</span><span>${esc(t("stats.riot.sample.queue"))}</span></p>`;
+  }
+  function champions(found) {
+    const all = C.parChampion(rows);
+    let shown = all.filter(c => c.parties >= 5).slice(0, 8);
+    if (shown.length < 3) shown = all.slice(0, 3);
+    const rest = all.slice(shown.length);
+    const badge = c => {
+      const f = found.find(x => x.type === "champion" && x.statut === "etabli" && x.sujet === c.champ);
+      if (!f) return "";
+      return `<span class="badge ${f.sens === "fort" ? "good" : "threat"}">${esc(t(f.sens === "fort" ? "stats.champions.badgeStrength" : "stats.champions.badgeWeakness"))}</span>`;
+    };
+    const card = c => `<article class="ccard">
+      <div class="ccard-top">${M.portrait(c.champ, 52, { role: c.role })}<div><h4>${esc(M.nom(c.champ))}</h4><p class="meta">${M.roleIcon(c.role)} ${esc(M.roleName(c.role))}</p></div></div>
+      <div class="ccard-num"><b>${c.parties}</b><span>${esc(tp("stats.champions.gamesUnit", c.parties))}</span></div>
+      ${M.winbar(c)}
+      <p class="ccard-val"><b>${esc(M.record(c))}</b>${c.taux !== null ? ", " + esc(M.pct(c.taux)) : ""}${c.kda ? " · " + esc(t("stats.champions.kda", { value: M.dec(c.kda.ratio) })) : ""}</p>
+      ${badge(c)}</article>`;
+    const more = rest.length ? `<article class="ccard more"><p class="small">${esc(tp("stats.champions.others", rest.length, { games: tp("stats.champions.games", rest.reduce((s, c) => s + c.parties, 0)) }))}</p>
+      <div class="faces">${rest.slice(0, 10).map(c => M.portrait(c.champ, 26, { role: c.role, thin: true })).join("")}</div></article>` : "";
+    return `<section class="src-block"><div class="sec-title"><h3>${esc(t("stats.champions.title"))}</h3><small>${esc(t("stats.champions.sub"))}</small></div></section>
+      <div class="cgrid">${shown.map(card).join("")}${more}</div>`;
+  }
+  function roles() {
+    const list = C.parPoste(rows).filter(p => p.parties), max = Math.max(...list.map(p => p.parties));
+    return `<section class="panel"><h3>${esc(t("stats.roles.title"))}</h3><div class="hbars">${list.map(p => `<div class="hbar">
+      <span class="lbl">${M.roleIcon(p.role)}${esc(M.roleName(p.role))}</span><span class="track"><i style="width:${(100 * p.parties / max).toFixed(1)}%"></i></span>
+      <span class="val"><b>${p.parties}</b> · ${esc(M.record(p))}${p.taux !== null ? " · " + esc(M.pct(p.taux)) : ""}</span></div>`).join("")}</div></section>`;
+  }
+  function slices() {
+    const list = C.tranches(rows), many = list.length > 8;
+    const col = s => {
+      const few = s.parties < MIN, cur = !s.complete;
+      const top = few ? "" : `<span class="top" style="bottom:calc(${(s.taux * 100).toFixed(1)}% + 3px)">${esc(M.pct(s.taux))}</span>`;
+      return `<div class="col${cur ? " current" : ""}" title="${esc(t("stats.range", { from: s.de, to: s.a }) + " : " + M.record(s))}">${few ? `<span class="g">${M.gauge(s.parties)}</span>` : `${many ? "" : top}<div class="fill${s.taux < 0.5 ? " under" : ""}" style="height:${(s.taux * 100).toFixed(1)}%"></div>`}</div>`;
+    };
+    const axis = list.map((s, i) => `<span>${!many || i % 5 === 0 || i === list.length - 1 ? esc(many ? String(s.de) : t("stats.range", { from: s.de, to: s.a })) : ""}${!s.complete && !many ? "<br>" + esc(t("stats.slices.current")) : ""}</span>`).join("");
+    return `<section class="panel"><h3>${esc(t("stats.slices.title", { count: C.SEUILS.tranche }))}</h3>
+      <div class="cols">${list.map(col).join("")}<div class="ref50" style="bottom:50%"><span>50 %</span></div></div><div class="axis">${axis}</div>
+      <p class="note">${esc(t("stats.slices.note", { min: C.SEUILS.tendance }))}</p></section>`;
+  }
+  function patches() {
+    const list = C.parPatch(rows), max = Math.max(...list.map(p => p.parties)), many = list.length > 12;
+    const col = p => `<div class="col" title="${esc(p.patch + " : " + M.record(p))}"><span class="top" style="bottom:calc(${(100 * p.parties / max).toFixed(1)}% + 3px)">${many ? "" : p.parties}</span>
+      <div class="stack" style="height:${(100 * p.parties / max).toFixed(1)}%"><div class="l" style="flex:${p.defaites}"></div><div class="w" style="flex:${p.victoires}"></div></div></div>`;
+    const axis = list.map((p, i) => `<span>${!many || i % 4 === 0 || i === list.length - 1 ? esc(p.patch) : ""}</span>`).join("");
+    return `<section class="panel wide"><div class="sec-title"><h3>${esc(t("stats.patches.title"))}</h3><span class="grow"></span>
+      <span class="legend"><span><i style="background:var(--good)"></i>${esc(t("journal.result.win"))}</span><span><i style="background:var(--threat)"></i>${esc(t("journal.result.loss"))}</span></span></div>
+      <div class="cols" style="height:${many ? 96 : 110}px">${list.map(col).join("")}</div><div class="axis">${axis}</div><p class="note">${esc(t("stats.patches.note"))}</p></section>`;
+  }
+  function duels(found) {
+    const vs = C.vsMid(rows);
+    if (!vs.parties) return `<section class="panel wide"><h3>${esc(t("stats.duels.title"))}</h3><p class="note">${esc(t("stats.duels.noMid"))}</p></section>`;
+    const list = vs.liste.filter(x => x.parties >= C.SEUILS.revu).slice(0, 12);
+    const chip = x => {
+      const f = found.find(y => y.type === "duel" && y.statut === "etabli" && y.sujet === x.adversaire);
+      return `<div class="duel">${M.portrait(x.adversaire, 38, { role: "mid" })}<div><b>${esc(M.nom(x.adversaire))}</b>
+      <small>${esc(tp("stats.champions.games", x.parties))} · ${esc(M.record(x))}${x.taux !== null ? ", " + esc(M.pct(x.taux)) : ""}</small>
+      ${x.parties >= MIN ? M.winbar(x) : ""}${f ? `<span class="badge ${f.sens === "difficile" ? "threat" : "good"}">${esc(t(f.sens === "difficile" ? "stats.duels.badgeHard" : "stats.duels.badgeEasy"))}</span>` : ""}</div></div>`;
+    };
+    return `<section class="panel wide"><div class="sec-title"><h3>${esc(t("stats.duels.title"))}</h3>
+      <small>${esc(tp("stats.champions.games", vs.parties))} · ${esc(tp("stats.duels.opponents", vs.adversaires))} · ${esc(tp("stats.duels.repeated", vs.revus))}</small></div>
+      <div class="duels">${list.map(chip).join("")}</div>
+      <p class="note">${esc(t("stats.duels.midOnly"))} ${esc(t("stats.duels.noPercent", { min: MIN }))}</p></section>`;
+  }
+  // Conclusions : seules les règles décident (MAQ_CALCULS.conclusions) ; la mise en texte est commune à A et B (MAQ.describe).
+  function findingsList(found, journalOnly) {
+    return M.describe(found, journalOnly ? "journal" : "riot").map(d => d.tone === "wait"
+      ? `<div class="finding wait"><p class="ttl"><span class="badge info">${esc(d.badge)}</span>${d.need ? `<span class="meter num">${d.have} / ${d.need}</span>` : ""}</p><p>${esc(d.title)}</p></div>`
+      : `<div class="finding ${d.tone === "neutral" ? "" : d.tone}"><p class="ttl"><span class="badge ${d.tone}">${esc(d.badge)}</span>${esc(d.title)}</p>${d.proof ? `<p>${esc(d.proof)}</p>` : ""}${d.rule ? `<p class="rule">${esc(d.rule)}</p>` : ""}</div>`).join("");
+  }
+  function riotColumn(found) {
+    if (!rows) return `<section class="src src-riot">${riotHead()}<p class="empty-note">${esc(t("stats.history.none"))}</p><p class="small">${esc(t("stats.history.collect"))}</p></section>`;
+    return `<section class="src src-riot" aria-label="${esc(t("stats.history.title"))}">${riotHead()}${hero()}${sample()}${champions(found)}
+      <div class="panels">${roles()}${slices()}${patches()}${duels(found)}
+      <section class="panel wide"><div class="sec-title"><h3>${esc(t("stats.findings.title"))}</h3><small>${esc(t("stats.findings.sub"))}</small></div>
+      <div class="findings">${findingsList(found, false)}</div></section></div></section>`;
+  }
+
+  // ---------- Journal DRAFT ----------
+  function journalColumn(found) {
+    const head = `<header class="src-head"><span class="src-mark">${ICON_DRAFT}</span><div class="src-titles"><h2>${esc(t("stats.journal.title"))}</h2><p>${esc(t("stats.journal.source"))}</p></div></header>`;
+    if (!J.drafts) return `<section class="src src-journal">${head}<p class="empty-note">${esc(t("stats.overview.emptyJournal"))}</p><p class="sep-note">${esc(t("stats.sources.separate"))}</p></section>`;
+    const fin = J.terminees;
+    const hero = `<div class="hero sm">${kpi(t("stats.kpi.drafts"), J.drafts, "")}
+      ${kpi(t("stats.journal.kpi.finished"), fin.parties, fin.parties ? esc(M.record(fin)) + (fin.taux !== null ? ", " + esc(M.pct(fin.taux)) : "") : esc(t("stats.journal.kpi.finishedHow")), fin.parties < MIN ? M.gauge(fin.parties) : "")}
+      ${kpi(t("stats.journal.kpi.followed"), fin.parties ? J.suivies.parties : `<span class="dash" aria-label="-"></span>`, esc(t("stats.journal.kpi.followedHow")))}</div>`;
+    const notes = [];
+    if (J.enAttente) notes.push(`<p>${esc(tp("stats.journal.pending", J.enAttente))} ${esc(t("stats.journal.pendingHelp"))}</p>`);
+    if (J.origineInconnue && M.ETAT !== "riche") notes.push(`<p>${esc(tp("stats.journal.originUnknown", J.origineInconnue))}</p>`);
+    if (M.ETAT === "riche") notes.push(`<p class="plain">${esc(t("stats.journal.realOnly"))}</p>`);
+    const res = { win: ["win", "journal.result.win"], loss: ["loss", "journal.result.loss"], skip: ["", "journal.status.ignored"] };
+    const row = e => {
+      const followed = e.picked === e.suggested;
+      const pair = followed ? M.portrait(e.picked, 34, { advice: true }) : `${M.portrait(e.suggested, 34, { advice: true })}<span class="arrow">→</span>${M.portrait(e.picked, 34, { role: "mid" })}`;
+      const r = res[e.result];
+      const result = r ? `<span class="result-tag ${r[0]}">${esc(t(r[1]))}</span>` : `<button type="button" class="mini-btn">${esc(t("journal.result.win"))}</button><button type="button" class="mini-btn">${esc(t("journal.result.loss"))}</button>`;
+      return `<li class="jrow"><span class="jpair">${pair}</span><span class="jtext"><b>${esc(t("stats.journal.row.played", { champion: e.picked }))}</b> ${esc(t("stats.journal.row.vs", { champion: e.mid }))}
+        <span class="small">${esc(t("stats.journal.row.advised", { champion: e.suggested }))}</span></span>
+        <span class="jmeta"><span class="date">${esc(M.fmtDate(Date.parse(e.date)))}</span><span class="badge neutral">${esc(t(followed ? "stats.journal.tag.followed" : "stats.journal.tag.other"))}</span>${e.close ? `<span class="badge gold">${esc(t("stats.journal.row.close"))}</span>` : ""}${result}</span></li>`;
+    };
+    const s = J.suivies, o = J.autres;
+    const cmp = s.parties >= MIN && o.parties >= MIN
+      ? `<div class="cmp">${[["stats.journal.tag.followed", s], ["stats.journal.tag.other", o]].map(([k, b]) => `<div class="cmp-row"><span>${esc(t(k))}</span>${M.winbar(b)}<span class="val"><b>${esc(M.record(b))}</b>, ${esc(M.pct(b.taux))}</span></div>`).join("")}</div>
+         <div class="findings">${findingsList(found, true)}</div>`
+      : `<p class="small">${esc(t("stats.journal.compare.notEnough", { min: MIN, followed: s.parties, other: o.parties }))}</p>`;
+    return `<section class="src src-journal" aria-label="${esc(t("stats.journal.title"))}">${head}${hero}
+      ${notes.length ? `<div class="jnotes">${notes.join("")}</div>` : ""}
+      <h3>${esc(t("stats.recent.title"))}</h3><ul class="jlist">${J.dernieres.slice(0, 5).map(row).join("")}</ul>
+      <h3>${esc(t("stats.journal.compare.title"))}</h3>${cmp}
+      <p class="small">${esc(t("stats.journal.followedDef"))}</p>
+      <p><button type="button" class="ghost-btn">${esc(t("journal.download"))}</button></p>
+      <p class="sep-note">${esc(t("stats.sources.separate"))}</p></section>`;
+  }
+
+  const found = rows || J.drafts ? C.conclusions(rows || [], M.journal) : [];
+  M.shell("A", `<header class="view-head"><div><h1>${esc(t("nav.stats"))}</h1><p>${esc(t("stats.page.sub"))}</p></div></header>
+    <div class="board${rows ? "" : " no-riot"}">${riotColumn(found)}${journalColumn(found)}</div>`);
+})();
+</script>
+</body>
+</html>

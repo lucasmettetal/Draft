@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes statistiques : proposition B</title>
+<link rel="stylesheet" href="commun.css">
+<style>
+  /* Proposition B : récit. Une colonne de lecture en chapitres numérotés ; le journal DRAFT est un chapitre à part, sur fond distinct. */
+  .story-wrap { display:grid; grid-template-columns:minmax(0,940px) 210px; gap:var(--s6); align-items:start; }
+  .toc { position:sticky; top:var(--s5); display:grid; gap:2px; padding-top:var(--s2); }
+  .toc a { display:flex; gap:var(--s2); align-items:baseline; padding:6px var(--s2); border-radius:var(--r-ctl); color:var(--muted); font-size:var(--fs-sm); text-decoration:none; }
+  .toc a b { font:600 13px var(--display); font-variant-numeric:var(--figures); color:var(--muted); width:14px; }
+  .toc a.journal { margin-top:var(--s2); border-top:1px solid var(--line); border-radius:0; padding-top:var(--s3); }
+  .toc .count { margin-left:auto; font-variant-numeric:var(--figures); }
+  @media (max-width:1400px) {
+    .story-wrap { grid-template-columns:minmax(0,1fr); gap:0; }
+    .toc { position:static; display:flex; flex-wrap:wrap; gap:var(--s1) var(--s2); order:-1; margin:calc(-1 * var(--s3)) 0 var(--s3); padding:0; }
+    .toc a { padding:4px var(--s2); border:1px solid var(--line); border-radius:var(--r-tag); }
+    .toc a.journal { margin:0 0 0 var(--s2); padding-top:4px; border-top:1px solid var(--line); border-radius:var(--r-tag); }
+    .toc .count { margin-left:4px; }
+  }
+  .story { min-width:0; }
+  .chapter { padding:var(--s5) 0 var(--s5); border-top:1px solid var(--line); }
+  .chapter:first-child { border-top:0; padding-top:0; }
+  .ch-head { display:flex; align-items:baseline; gap:var(--s3); margin-bottom:var(--s3); }
+  .ch-num { flex:none; width:20px; color:var(--muted); font:600 18px/1 var(--display); font-variant-numeric:var(--figures); }
+  .ch-head h2 { font:600 22px/1.15 var(--condensed); letter-spacing:.01em; }
+  .src-tag { margin-left:auto; padding:1px 10px; border:1px solid var(--line-strong); border-radius:var(--r-tag); color:var(--muted); font-size:var(--fs-xs); white-space:nowrap; }
+  .ch-body { display:grid; gap:var(--s3); padding-left:32px; }
+  .lead { font-size:18px; line-height:1.45; max-width:68ch; }
+  .lead b { font-weight:600; }
+  .lead .hero-num { font:600 40px/1 var(--display); font-variant-numeric:var(--figures); margin-right:2px; }
+  .lead.sm { font-size:var(--fs-md); }
+
+  /* Frise : une partie = un trait ; victoires au-dessus, défaites au-dessous */
+  .timeline { position:relative; }
+  .timeline svg { display:block; width:100%; height:64px; }
+  .tl-legend { display:flex; justify-content:flex-end; gap:var(--s4); margin-bottom:2px; color:var(--muted); font-size:var(--fs-xs); }
+  .tl-legend i { display:inline-block; width:10px; height:10px; margin-right:5px; border-radius:2px; vertical-align:-1px; }
+  .tl-axis { position:relative; height:18px; margin-top:2px; color:var(--muted); font-size:11px; font-variant-numeric:var(--figures); }
+  .tl-axis span { position:absolute; transform:translateX(-50%); white-space:nowrap; }
+  .tl-axis span.first { transform:none; } .tl-axis span.last { transform:translateX(-100%); }
+  .facts { display:flex; flex-wrap:wrap; gap:var(--s2) var(--s5); margin:0; padding:var(--s3) 0 0; border-top:1px solid var(--line); }
+  .facts div { display:grid; gap:2px; }
+  .facts dt { color:var(--muted); font-size:var(--fs-xs); }
+  .facts dd { margin:0; font-size:var(--fs-md); font-weight:600; font-variant-numeric:var(--figures); }
+  .facts dd small { color:var(--muted); font-weight:400; font-size:var(--fs-xs); }
+  .split { display:flex; gap:2px; height:10px; border-radius:5px; overflow:hidden; }
+  .split i { display:block; height:100%; }
+  .split-legend { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s4); margin-top:6px; font-size:var(--fs-sm); color:var(--muted); }
+  .split-legend b { color:var(--text); font-weight:600; font-variant-numeric:var(--figures); }
+
+  /* Champions : une ligne par champion */
+  .clist { display:grid; }
+  .crow { display:grid; grid-template-columns:44px minmax(120px,170px) minmax(60px,1fr) 46px 130px minmax(120px,auto) 64px; align-items:center; gap:var(--s3); padding:10px 0; border-top:1px solid var(--line); }
+  .crow:first-child { border-top:0; }
+  .crow .name b { display:block; font:18px/1.15 var(--condensed); }
+  .crow .name small { color:var(--muted); font-size:var(--fs-xs); }
+  .crow .vol { height:6px; background:var(--raised); border-radius:3px; overflow:hidden; }
+  .crow .vol i { display:block; height:100%; background:#CFC6BC; border-radius:3px; }
+  .crow .games { font:600 22px/1 var(--display); font-variant-numeric:var(--figures); text-align:right; }
+  .crow .val { color:var(--muted); font-size:var(--fs-sm); font-variant-numeric:var(--figures); white-space:nowrap; }
+  .crow .val b { color:var(--text); font-weight:600; }
+  .crow .kda { color:var(--muted); font-size:var(--fs-sm); font-variant-numeric:var(--figures); text-align:right; white-space:nowrap; }
+  .crow .badge { margin-top:3px; }
+  .chead { color:var(--muted); font-size:var(--fs-xs); padding:0 0 4px; border-top:0; }
+  .chead .games, .chead .kda { font:inherit; text-align:right; }
+  .others { display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap; padding-top:var(--s3); border-top:1px solid var(--line); color:var(--muted); font-size:var(--fs-sm); }
+  .others .faces { display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* Vis-à-vis */
+  .opp { display:flex; flex-wrap:wrap; gap:var(--s3) var(--s4); }
+  .opp li { display:flex; align-items:center; gap:var(--s2); min-width:150px; }
+  .opp b { display:block; font:15px/1.15 var(--condensed); }
+  .opp small { display:block; color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:var(--figures); white-space:nowrap; }
+  .opp .badge { margin-left:4px; }
+  .note { color:var(--muted); font-size:var(--fs-xs); }
+
+  /* Ce qu'on peut dire */
+  .says { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--s5); }
+  .says h3 { margin-bottom:var(--s2); font:var(--fs-md)/1.2 var(--condensed); }
+  .says ul { display:grid; gap:var(--s3); }
+  .say { display:grid; gap:3px; padding-left:var(--s3); border-left:2px solid var(--line-strong); }
+  .say.good { border-left-color:var(--good); } .say.threat { border-left-color:var(--threat); } .say.wait { border-left:2px dashed var(--info); }
+  .say .ttl { font-weight:600; }
+  .say p { color:var(--muted); font-size:var(--fs-sm); font-variant-numeric:var(--figures); }
+  .say .rule { font-size:var(--fs-xs); }
+  .say .meter { display:flex; align-items:center; gap:var(--s2); color:var(--info); font-size:var(--fs-xs); font-variant-numeric:var(--figures); }
+  .say .prog { position:relative; width:120px; height:6px; background:var(--raised); border-radius:3px; overflow:hidden; }
+  .say .prog i { position:absolute; left:0; top:0; bottom:0; background:var(--info); border-radius:3px; }
+
+  /* Chapitre du journal : autre source, autre fond */
+  .chapter.journal { margin-top:var(--s3); padding:var(--s5) var(--s5) var(--s5); background:var(--surface); border-radius:var(--r-box); border-top:0; }
+  .chapter.journal .ch-body { padding-left:32px; }
+  .callout { padding:var(--s2) var(--s3); border-left:2px solid var(--line-strong); color:var(--muted); font-size:var(--fs-sm); }
+  .jnotes p { color:var(--info); font-size:var(--fs-sm); }
+  .jnotes p.plain { color:var(--muted); }
+  .dlist { display:grid; }
+  .drow { display:grid; grid-template-columns:96px auto minmax(0,1fr) auto; align-items:center; gap:var(--s3); padding:10px 0; border-top:1px solid var(--line); font-size:var(--fs-sm); }
+  .drow .date { color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:var(--figures); }
+  .drow .faces { display:flex; align-items:center; gap:6px; }
+  .drow .faces .arrow { color:var(--muted); }
+  .drow .txt b { font-weight:600; }
+  .drow .txt small { display:block; color:var(--muted); font-size:var(--fs-xs); }
+  .drow .acts { display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+  .cmp { display:grid; gap:8px; max-width:560px; }
+  .cmp-row { display:grid; grid-template-columns:120px minmax(0,1fr) 120px; align-items:center; gap:var(--s3); font-size:var(--fs-sm); }
+  .cmp-row .val { color:var(--muted); font-variant-numeric:var(--figures); white-space:nowrap; }
+  .cmp-row .val b { color:var(--text); }
+  .steps { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--s4); }
+  .step { display:grid; gap:var(--s3); align-content:start; padding:var(--s4) var(--s5); background:var(--surface); border-radius:var(--r-box); }
+  .step b { font:600 18px/1.2 var(--condensed); }
+  .step p { color:var(--muted); font-size:var(--fs-sm); }
+  .step .ghost-btn { justify-self:start; }
+</style>
+</head>
+<body>
+<script src="textes-maquettes.js"></script>
+<script src="donnees-fictives.js"></script>
+<script src="stats-calculs.js"></script>
+<script src="commun.js"></script>
+<script>
+(function () {
+  "use strict";
+  const M = MAQ, C = M.C, { t, tp, tx, h, esc } = M;
+  const rows = M.rows, J = C.journal(M.journal), MIN = M.MIN;
+  const b = s => h(`<b>${esc(s)}</b>`);
+  const chapter = (id, num, titleKey, tag, body, extra) => `<section class="chapter${extra ? " " + extra : ""}" id="${id}"><header class="ch-head"><span class="ch-num">${num}</span><h2>${esc(t(titleKey))}</h2>${tag ? `<span class="src-tag">${esc(tag)}</span>` : ""}</header><div class="ch-body">${body}</div></section>`;
+  const riotTag = t("stats.history.title"), journalTag = t("stats.journal.title");
+
+  // ---------- 1. Ton échantillon ----------
+  function sampleChapter() {
+    if (!rows) return chapter("echantillon", 1, "stats.story.nav.sample", riotTag,
+      `<p class="empty-note">${esc(t("stats.history.none"))}</p><p><button type="button" class="ghost-btn">${esc(t("stats.history.import"))}</button></p><p class="small">${esc(t("stats.history.collect"))}</p>`);
+    const e = C.echantillon(rows), bl = C.bilan(rows), k = C.kda(rows), d = C.duree(rows), postes = C.parPoste(rows).filter(p => p.parties).sort((x, y) => y.parties - x.parties);
+    const lead = tx("stats.story.sample.lead", {
+      games: h(tx("stats.riot.sample.games", { count: h(`<span class="hero-num">${e.parties}</span>`) }, e.parties)),
+      from: b(M.fmtDate(e.debut)), to: b(M.fmtDate(e.fin)), patches: b(tp("stats.story.patches", e.patchs.length)) });
+    const main = postes[0];
+    const mainLine = tx("stats.story.sample.main", { role: b(M.roleName(main.role)), count: b(String(main.parties)), total: h(String(e.parties)) });
+    // Frise : position = date ; au-dessus, victoires ; au-dessous, défaites.
+    const span = Math.max(1, e.fin - e.debut), W = 1000;
+    const x = tm => ((tm - e.debut) / span) * (W - 4) + 2;
+    const ticks = rows.map(r => `<rect x="${x(r.time).toFixed(1)}" y="${r.win ? 6 : 38}" width="2.4" height="28" rx="1" fill="${r.win ? "var(--good)" : "var(--threat)"}" opacity=".9"/>`).join("");
+    const firstOf = {}; rows.slice().sort((a, c) => a.time - c.time).forEach(r => { if (!(r.patch in firstOf)) firstOf[r.patch] = r.time; });
+    const pl = Object.entries(firstOf), every = pl.length > 10 ? 4 : 1;
+    const labels = pl.map(([p, tm], i) => i % every === 0 || i === pl.length - 1 ? `<span class="${i === 0 ? "first" : i === pl.length - 1 && every === 1 ? "" : ""}" style="left:${(100 * (x(tm) / W)).toFixed(2)}%">${esc(p)}</span>` : "").join("");
+    const shades = ["#CFC6BC", "#9C938C", "#6E6670", "#4E4855", "#3E3846"];
+    const split = `<div class="split">${postes.map((p, i) => `<i style="flex:${p.parties};background:${shades[i] || shades[4]}"></i>`).join("")}</div>
+      <p class="split-legend">${postes.map((p, i) => `<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${shades[i] || shades[4]};margin-right:4px"></i>${M.roleIcon(p.role)} ${esc(M.roleName(p.role))} <b>${p.parties}</b></span>`).join("")}</p>`;
+    const rate = bl.taux !== null ? `${esc(M.record(bl))}, ${esc(M.pct(bl.taux))}` : esc(M.record(bl));
+    const facts = `<dl class="facts"><div><dt>${esc(t("stats.riot.kpi.rate"))}</dt><dd>${rate}</dd></div><div><dt>${esc(t("stats.riot.kpi.kda"))}</dt><dd>${esc(M.dec(k.ratio))} <small>${esc(t("stats.riot.kpi.kdaHow"))}</small></dd></div>
+      <div><dt>${esc(t("stats.riot.kpi.duration"))}</dt><dd>${esc(M.mins(d.moyenne))} <small>${esc(t("stats.riot.kpi.durationHow"))}</small></dd></div>
+      <div><dt>${esc(t("stats.riot.sample.queue"))}</dt><dd>${esc(tp("stats.riot.sample.accounts", e.comptes.length))} <small>${esc(t("stats.riot.importedOn", { date: M.fmtDate(Date.parse(M.history.generated)) }))}</small></dd></div></dl>`;
+    return chapter("echantillon", 1, "stats.story.nav.sample", riotTag,
+      `<p class="lead">${lead} ${mainLine}</p>
+       <div class="timeline"><p class="tl-legend"><span><i style="background:var(--good)"></i>${esc(t("journal.result.win"))}</span><span><i style="background:var(--threat)"></i>${esc(t("journal.result.loss"))}</span></p>
+         <svg viewBox="0 0 ${W} 72" preserveAspectRatio="none" role="img" aria-label="${esc(t("stats.story.sample.timeline"))}"><line x1="0" y1="36" x2="${W}" y2="36" stroke="var(--line-strong)" stroke-width="1"/>${ticks}</svg>
+         <div class="tl-axis">${labels}</div></div>
+       <p class="note">${esc(t("stats.story.sample.timeline"))}</p>${split}${facts}`);
+  }
+
+  // ---------- 2. Tes champions ----------
+  function championsChapter(found) {
+    if (!rows) return "";
+    const all = C.parChampion(rows), enough = all.filter(c => c.parties >= MIN).length, max = all[0].parties;
+    let shown = all.filter(c => c.parties >= 5).slice(0, 8); if (shown.length < 3) shown = all.slice(0, 3);
+    const rest = all.slice(shown.length);
+    const lead = `${esc(tp("stats.story.champions.count", all.length))} ${esc(enough ? tp("stats.story.champions.enough", enough, { min: MIN }) : t("stats.story.champions.noneEnough", { min: MIN }))}`;
+    const badge = c => { const f = found.find(x => x.type === "champion" && x.statut === "etabli" && x.sujet === c.champ); return f ? `<span class="badge ${f.sens === "fort" ? "good" : "threat"}">${esc(t(f.sens === "fort" ? "stats.champions.badgeStrength" : "stats.champions.badgeWeakness"))}</span>` : ""; };
+    const row = c => `<li class="crow">${M.portrait(c.champ, 44, { role: c.role })}<span class="name"><b>${esc(M.nom(c.champ))}</b><small>${M.roleIcon(c.role)} ${esc(M.roleName(c.role))}</small>${badge(c)}</span>
+      <span class="vol" title="${esc(tp("stats.champions.games", c.parties))}"><i style="width:${(100 * c.parties / max).toFixed(1)}%"></i></span><span class="games">${c.parties}</span>
+      <span>${M.winbar(c)}</span><span class="val"><b>${esc(M.record(c))}</b>${c.taux !== null ? ", " + esc(M.pct(c.taux)) : ""}</span><span class="kda">${c.kda ? esc(t("stats.champions.kda", { value: M.dec(c.kda.ratio) })) : "–"}</span></li>`;
+    const head = `<li class="crow chead"><span></span><span></span><span>${esc(t("stats.riot.kpi.games"))}</span><span class="games"></span><span>${esc(t("stats.riot.kpi.rate"))}</span><span></span><span class="kda">KDA</span></li>`;
+    const others = rest.length ? `<div class="others"><span>${esc(tp("stats.champions.others", rest.length, { games: tp("stats.champions.games", rest.reduce((s, c) => s + c.parties, 0)) }))}</span>
+      <span class="faces">${rest.slice(0, 12).map(c => M.portrait(c.champ, 26, { role: c.role, thin: true })).join("")}</span></div>` : "";
+    return chapter("champions", 2, "stats.story.nav.champions", riotTag, `<p class="lead sm">${lead}</p><p class="small">${esc(t("stats.champions.sub"))}</p>
+      <ul class="clist">${head}${shown.map(row).join("")}</ul>${others}`);
+  }
+
+  // ---------- 3. Tes vis-à-vis ----------
+  function duelsChapter(found) {
+    if (!rows) return "";
+    const vs = C.vsMid(rows);
+    if (!vs.parties) return chapter("visavis", 3, "stats.story.nav.duels", riotTag, `<p class="small">${esc(t("stats.duels.noMid"))}</p>`);
+    const lead = `${tx("stats.story.duels.lead", { games: b(tp("stats.champions.games", vs.parties)), opponents: b(tp("stats.duels.opponents", vs.adversaires)) })} ${esc(tp("stats.story.duels.repeated", vs.revus))}`;
+    const list = vs.liste.filter(x => x.parties >= C.SEUILS.revu).slice(0, 14);
+    const item = x => {
+      const f = found.find(y => y.type === "duel" && y.statut === "etabli" && y.sujet === x.adversaire);
+      return `<li>${M.portrait(x.adversaire, 34, { role: "mid" })}<span><b>${esc(M.nom(x.adversaire))}${f ? `<span class="badge ${f.sens === "difficile" ? "threat" : "good"}">${esc(t(f.sens === "difficile" ? "stats.duels.badgeHard" : "stats.duels.badgeEasy"))}</span>` : ""}</b>
+        <small>${esc(tp("stats.champions.games", x.parties))} · ${esc(M.record(x))}${x.taux !== null ? ", " + esc(M.pct(x.taux)) : ""}</small></span></li>`;
+    };
+    return chapter("visavis", 3, "stats.story.nav.duels", riotTag + " · " + t("role.name.mid"), `<p class="lead sm">${lead}</p><ul class="opp">${list.map(item).join("")}</ul>
+      <p class="note">${esc(t("stats.duels.midOnly"))} ${esc(t("stats.duels.noPercent", { min: MIN }))}</p>`);
+  }
+
+  // ---------- 4. Ce qu'on peut dire ----------
+  function saysChapter(found) {
+    const all = M.describe(found, "riot").concat(rows ? [] : M.describe(found, "journal"));
+    if (!rows && !J.drafts) return "";
+    const said = all.filter(d => d.tone !== "wait"), wait = all.filter(d => d.tone === "wait");
+    const li = d => d.tone === "wait"
+      ? `<li class="say wait">${d.need ? `<span class="meter"><span class="prog"><i style="width:${Math.min(100, 100 * d.have / d.need).toFixed(0)}%"></i></span>${d.have} / ${d.need}</span>` : ""}<p>${esc(d.title)}</p></li>`
+      : `<li class="say ${d.tone}"><span class="ttl"><span class="badge ${d.tone}">${esc(d.badge)}</span> ${esc(d.title)}</span>${d.proof ? `<p>${esc(d.proof)}</p>` : ""}${d.rule ? `<p class="rule">${esc(d.rule)}</p>` : ""}</li>`;
+    return chapter("conclusions", 4, "stats.story.nav.findings", "", `<p class="small">${esc(t("stats.findings.sub"))}</p>
+      <div class="says"><div><h3>${esc(t("stats.findings.title"))}</h3>${said.length ? `<ul>${said.map(li).join("")}</ul>` : `<p class="small">${esc(t("stats.findings.none"))}</p>`}</div>
+      <div><h3>${esc(t("stats.findings.notYet"))}</h3>${wait.length ? `<ul>${wait.map(li).join("")}</ul>` : `<p class="small">–</p>`}</div></div>`);
+  }
+
+  // ---------- 5. Tes drafts DRAFT ----------
+  function journalChapter(found) {
+    const num = rows ? 5 : 2;
+    if (!J.drafts) return chapter("journal", num, "stats.story.nav.journal", journalTag, `<p class="lead sm">${esc(t("stats.story.journal.leadNone"))}</p><p class="empty-note">${esc(t("stats.overview.emptyJournal"))}</p>`, "journal");
+    const fin = J.terminees;
+    const lead = `${tx("stats.story.journal.lead", { drafts: h(tx("stats.story.drafts", { count: h(`<span class="hero-num">${J.drafts}</span>`) }, J.drafts)), from: b(M.fmtDate(J.debut)), to: b(M.fmtDate(J.fin)) })}
+      ${fin.parties ? esc(tp("stats.story.journal.results", fin.parties)) : esc(t("stats.story.journal.noResult"))}`;
+    const notes = [];
+    if (J.enAttente) notes.push(`<p>${esc(tp("stats.journal.pending", J.enAttente))} ${esc(t("stats.journal.pendingHelp"))}</p>`);
+    if (J.origineInconnue && M.ETAT !== "riche") notes.push(`<p>${esc(tp("stats.journal.originUnknown", J.origineInconnue))}</p>`);
+    if (M.ETAT === "riche") notes.push(`<p class="plain">${esc(t("stats.journal.realOnly"))}</p>`);
+    const res = { win: ["win", "journal.result.win"], loss: ["loss", "journal.result.loss"], skip: ["", "journal.status.ignored"] };
+    const row = e => {
+      const followed = e.picked === e.suggested, r = res[e.result];
+      const faces = followed ? M.portrait(e.picked, 32, { advice: true }) : `${M.portrait(e.suggested, 32, { advice: true })}<span class="arrow">→</span>${M.portrait(e.picked, 32, { role: "mid" })}`;
+      return `<li class="drow"><span class="date">${esc(M.fmtDate(Date.parse(e.date)))}</span><span class="faces">${faces}</span>
+        <span class="txt"><b>${esc(t("stats.journal.row.played", { champion: e.picked }))}</b> ${esc(t("stats.journal.row.vs", { champion: e.mid }))}<small>${esc(t("stats.journal.row.advised", { champion: e.suggested }))} · ${esc(t(followed ? "stats.journal.tag.followed" : "stats.journal.tag.other"))}</small></span>
+        <span class="acts">${e.close ? `<span class="badge gold">${esc(t("stats.journal.row.close"))}</span>` : ""}${r ? `<span class="result-tag ${r[0]}">${esc(t(r[1]))}</span>` : `<button type="button" class="mini-btn">${esc(t("journal.result.win"))}</button><button type="button" class="mini-btn">${esc(t("journal.result.loss"))}</button>`}</span></li>`;
+    };
+    const s = J.suivies, o = J.autres;
+    const cmp = s.parties >= MIN && o.parties >= MIN
+      ? `<div class="cmp">${[["stats.journal.tag.followed", s], ["stats.journal.tag.other", o]].map(([k, x]) => `<div class="cmp-row"><span>${esc(t(k))}</span>${M.winbar(x)}<span class="val"><b>${esc(M.record(x))}</b>, ${esc(M.pct(x.taux))}</span></div>`).join("")}</div>
+         ${M.describe(found, "journal").map(d => `<div class="say ${d.tone}"><span class="ttl"><span class="badge ${d.tone}">${esc(d.badge)}</span> ${esc(d.title)}</span><p>${esc(d.proof)}</p><p class="rule">${esc(d.rule)}</p></div>`).join("")}`
+      : `<p class="small">${esc(t("stats.journal.compare.notEnough", { min: MIN, followed: s.parties, other: o.parties }))}</p>`;
+    return chapter("journal", num, "stats.story.nav.journal", journalTag,
+      `<p class="callout">${esc(t("stats.sources.separate"))}</p><p class="lead">${lead}</p>${notes.length ? `<div class="jnotes">${notes.join("")}</div>` : ""}
+       <ul class="dlist">${J.dernieres.slice(0, 6).map(row).join("")}</ul>
+       <h3 style="font:var(--fs-md)/1.2 var(--condensed)">${esc(t("stats.journal.compare.title"))}</h3>${cmp}<p class="small">${esc(t("stats.journal.followedDef"))}</p>`, "journal");
+  }
+
+  function emptyStory() {
+    return `<section class="chapter"><header class="ch-head"><h2>${esc(t("stats.story.empty.title"))}</h2></header><div class="ch-body" style="padding-left:0">
+      <p class="lead">${esc(t("stats.story.empty.lead"))}</p>
+      <div class="steps"><div class="step"><b>${esc(t("stats.history.title"))}</b><p>${esc(t("stats.story.empty.riot"))}</p><p class="small">${esc(t("stats.history.collect"))}</p><button type="button" class="ghost-btn">${esc(t("stats.history.import"))}</button></div>
+      <div class="step"><b>${esc(t("stats.journal.title"))}</b><p>${esc(t("stats.story.empty.journal"))}</p><p class="small">${esc(t("stats.journal.followedDef"))}</p></div></div>
+      <p class="callout">${esc(t("stats.sources.separate"))}</p></div></section>`;
+  }
+
+  const found = rows || J.drafts ? C.conclusions(rows || [], M.journal) : [];
+  const toc = () => {
+    const items = rows ? [["echantillon", 1, "stats.story.nav.sample", rows.length], ["champions", 2, "stats.story.nav.champions", C.parChampion(rows).length], ["visavis", 3, "stats.story.nav.duels", C.vsMid(rows).adversaires], ["conclusions", 4, "stats.story.nav.findings", ""]]
+      : [["echantillon", 1, "stats.story.nav.sample", ""]];
+    items.push(["journal", rows ? 5 : 2, "stats.story.nav.journal", J.drafts]);
+    return `<nav class="toc" aria-label="Sommaire">${items.map(([id, n, k, c]) => `<a href="#${id}"${id === "journal" ? ' class="journal"' : ""}><b>${n}</b>${esc(t(k))}<span class="count">${c}</span></a>`).join("")}</nav>`;
+  };
+  const body = !rows && !J.drafts ? emptyStory()
+    : sampleChapter() + championsChapter(found) + duelsChapter(found) + (rows ? saysChapter(found) : "") + journalChapter(found);
+  M.shell("B", `<header class="view-head"><div><h1>${esc(t("nav.stats"))}</h1><p>${esc(t("stats.page.sub"))}</p></div></header>
+    <div class="story-wrap"><article class="story">${body}</article>${!rows && !J.drafts ? "" : toc()}</div>`);
+})();
+</script>
+</body>
+</html>
