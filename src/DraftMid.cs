@@ -1638,6 +1638,112 @@ public static class Autostart
             return problem;
         }
 
+        // Choix du champion, dans les vraies fenêtres (un WebView2 par fenêtre) : le bouton « Je joue » du panneau droit, puis du compact,
+        // montre le choix fait dans la fenêtre principale, même différent du conseil ; un clic sur ce bouton ne le remplace pas ;
+        // « Revenir au conseil » note le conseil partout ; une simulation n'écrit rien dans le journal ; une nouvelle sélection repart
+        // sans choix. Pool du test (fictif), aucun appel au client.
+        public string PickReport = "non mesuré";
+        public async Task<string> TestPickChoice()
+        {
+            string problem = "";
+            bool? manualBefore = visibility.Manual;
+            bool compactBefore = settings.Compact;
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            Func<PanelForm, string, Task<string>> run = async (p, code) => await p.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<PanelForm, string, Task<string>> text = async (p, code) => json.Deserialize<string>(await run(p, code)) ?? "";
+            Func<PanelForm, string, int, Task<bool>> waitIn = async (p, code, ms) =>
+            {
+                for (int i = 0; i < ms / 50; i++)
+                {
+                    try { if (p != null && !p.IsDisposed && p.Ready.IsCompleted && p.View.CoreWebView2 != null && await run(p, "!!(" + code + ")") == "true") return true; }
+                    catch (Exception e) { if (e is OutOfMemoryException) throw; }
+                    await Task.Delay(50);
+                }
+                return false;
+            };
+            const string Cta = "document.querySelector('.p-actions [data-test=\"choose-pick\"]')", FullCta = "document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]')";
+            const string Entry = "(() => { const e = state.current && loadJournal().find(x => x.id === state.current); return e ? e.suggested + ' > ' + e.picked : 'aucune'; })()";
+            Func<string, string> noted = pick => "I18N.t('advice.cta.noted', { champion: label(" + pick + ") })";
+            List<string> report = new List<string>();
+            try
+            {
+                foreach (string mode in new[] { "right", "compact" })
+                {
+                    if (settings.Compact != (mode == "compact")) SetCompact(mode == "compact");
+                    visibility.Manual = true;
+                    ApplyVisibility();
+                    PanelForm side = null, full = null;
+                    for (int i = 0; i < 300; i++) { side = PanelFor(mode); if (panelsShown && side != null && side.Visible && side.Ready.IsCompleted && side.View.CoreWebView2 != null) break; side = null; await Task.Delay(50); }
+                    if (side == null || !await waitIn(side, "typeof choosePick === 'function' && typeof draftApi !== 'undefined' && synced", 8000)) { problem += "panneau " + mode + " absent ou non prêt ; "; continue; }
+                    OpenFull("", "live");
+                    for (int i = 0; i < 300 && !(OpenPending == 0 && panels.TryGetValue("full", out full) && full.Visible && full.Ready.IsCompleted && full.View.CoreWebView2 != null); i++) await Task.Delay(50);
+                    if (full == null || !await waitIn(full, "typeof choosePick === 'function' && !simulating && synced", 8000)) { problem += mode + " : fenêtre principale absente ; "; continue; }
+                    // Draft saisie dans le panneau, reçue par la fenêtre : un conseil net et un autre champion du pool.
+                    string rec = "", other = "";
+                    foreach (string comp in new[] { "['Ahri','Ornn','Vi','Jinx','Lulu']", "['Syndra','Ornn','Lee Sin','Jinx','Thresh']", "['Zed','Malphite','Vi','Caitlyn','Leona']", "['Ahri','Ornn','Jinx']", "['Sett','Vi']" })
+                    {
+                        await run(side, "draftApi.reset(); " + comp + ".forEach(c => draftApi.add(c)); 1");
+                        if (!await waitIn(full, "state.enemies.join() === " + comp + ".join() && !!V && !V.none", 3000)) continue;
+                        string pair = await text(full, "(() => { const o = V.order.find(p => p.pick !== V.shown && !(V.tied || []).includes(p.pick)); return V.tied || !o ? '' : V.shown + '|' + o.pick; })()");
+                        if (pair == "") continue;
+                        rec = pair.Split('|')[0]; other = pair.Split('|')[1];
+                        break;
+                    }
+                    if (other == "") { problem += mode + " : aucune draft sans égalité avec un second champion ; "; continue; }
+                    string R = json.Serialize(rec), O = json.Serialize(other);
+                    int before = int.Parse(await run(full, "loadJournal().length"));
+                    // 1. Choix dans « Ton pool » de la fenêtre principale, différent du conseil.
+                    await run(full, "[...document.querySelectorAll('.rank')].find(b => b.dataset.pick === " + O + ").click(); 1");
+                    bool shown = await waitIn(side, Cta + " && " + Cta + ".textContent.trim() === " + noted(O) + " && !!document.querySelector('.p-actions [data-test=\"pick-advice\"]')", 4000);
+                    string label1 = await text(side, Cta + " ? " + Cta + ".textContent.trim() : 'absent'");
+                    if (!shown) problem += mode + " : le panneau ne montre pas le choix " + other + " (bouton « " + label1 + " ») ; ";
+                    if (await run(side, "V.shown === " + R) != "true") problem += mode + " : le choix a changé le conseil du panneau ; ";
+                    // 2. Clic sur le bouton du panneau : le choix reste.
+                    string journal1 = await text(full, Entry);
+                    await run(side, Cta + ".click(); 1");
+                    await Task.Delay(600);
+                    string journal2 = await text(full, Entry);
+                    if (journal2 != rec + " > " + other) problem += mode + " : le clic sur le bouton du panneau a remplacé le choix (" + journal1 + " → " + journal2 + ") ; ";
+                    // 3. Retour au conseil depuis le panneau : noté dans la fenêtre principale.
+                    await run(side, "(document.querySelector('.p-actions [data-test=\"back-to-advice\"]') || { click() {} }).click(); 1");
+                    if (!await waitIn(full, FullCta + " && " + FullCta + ".textContent.trim() === " + noted(R) + " && loadJournal().find(x => x.id === state.current).picked === " + R, 4000)) problem += mode + " : « Revenir au conseil » n'est pas noté dans la fenêtre principale (" + await text(full, Entry) + ") ; ";
+                    string journal3 = await text(full, Entry);
+                    // 4. Simulation dans la fenêtre principale : rien dans le journal, le panneau garde la vraie draft et son choix.
+                    int count = int.Parse(await run(full, "loadJournal().length"));
+                    await run(full, "document.querySelector('[data-test=\"source-sim\"]').click(); 1");
+                    await waitIn(full, "simulating", 2000);
+                    await run(full, "['Syndra','Ornn','Lee Sin','Jinx','Thresh'].forEach(addEnemy); 1");
+                    await Task.Delay(300);
+                    await run(full, "(() => { const b = [...document.querySelectorAll('.rank')].find(x => x.dataset.pick !== V.shown) || document.querySelector('.rank'); if (b) b.click(); return 1; })()");
+                    await Task.Delay(300);
+                    await run(full, "(" + FullCta + " || { click() {} }).click(); 1");
+                    await Task.Delay(500);
+                    int afterSim = int.Parse(await run(full, "loadJournal().length"));
+                    if (afterSim != count) problem += mode + " : la simulation a écrit dans le journal (" + count + " → " + afterSim + ") ; ";
+                    if (await run(side, Cta + " && " + Cta + ".textContent.trim() === " + noted(R)) != "true") problem += mode + " : la simulation a changé le choix du panneau ; ";
+                    await run(full, "document.querySelector('[data-test=\"leave-simulation\"]').click(); 1");
+                    await waitIn(full, "!simulating", 2000);
+                    // 5. Nouvelle sélection (signal du programme) : plus aucun choix, dans aucune fenêtre.
+                    SendAll("{\"kind\":\"draftStart\"}");
+                    bool fresh = await waitIn(side, "!state.current && !document.querySelector('[data-test=\"pick-advice\"]') && state.enemies.length === 0", 4000)
+                        && await waitIn(full, "!state.current && !document.querySelector('.rank.picked')", 4000);
+                    if (!fresh) problem += mode + " : un choix survit à la nouvelle sélection ; ";
+                    report.Add(mode + " : conseil " + rec + ", choix " + other + ", bouton « " + label1 + " », journal " + journal1 + " puis " + journal2 + " après le clic, " + journal3 + " après le retour au conseil, " + (int.Parse(await run(full, "loadJournal().length")) - before) + " entrée(s) ajoutée(s), simulation " + (afterSim - count) + " entrée");
+                    await run(side, "draftApi.reset(); state.sessionActive = false; state.notice = null; publish(null); 1");
+                    await Task.Delay(300);
+                    if (full.Visible) full.Hide();
+                }
+            }
+            finally
+            {
+                if (settings.Compact != compactBefore) SetCompact(compactBefore);
+                visibility.Manual = manualBefore;
+                ApplyVisibility();
+            }
+            PickReport = string.Join(" ; ", report);
+            return problem;
+        }
+
         public async Task<string> TestPageSecurity()
         {
             OpenFull("");
@@ -2952,6 +3058,8 @@ public static class Autostart
             t(historyProblem == "", "Import Riot simulé depuis l'application, sans appel réel, sans trace de clé " + historyProblem);
             string detailProblem = await app.TestDraftSurvivesDetail(50);
             t(detailProblem == "", "Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (" + app.DetailOpenReport + " ; " + app.SimulationReport + ") " + detailProblem);
+            string pickProblem = await app.TestPickChoice();
+            t(pickProblem == "", "Choix du champion dans les vraies fenêtres : le bouton du panneau montre le choix de la fenêtre, un clic ne le remplace pas, retour au conseil, simulation hors du journal, nouvelle sélection sans choix (" + app.PickReport + ") " + pickProblem);
             string securityProblem = await app.TestPageSecurity();
             t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
             // Mise à jour lancée depuis le menu de l'icône : chaque issue répond par une bulle, réglages fermés (UX-1).

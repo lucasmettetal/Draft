@@ -1,0 +1,210 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests du choix de champion</title></head><body><pre id="out"></pre>
+<!-- Choix du champion : le bouton « Je joue » suit le choix du joueur, le conseil reste visible à part, un clic ne remplace jamais
+     un choix différent, la simulation n'écrit rien dans le journal. Vraie page : fenêtre (large et étroite), panneaux gauche, droit,
+     compact, plusieurs fenêtres synchronisées. En français et en anglais. Pools et journaux FICTIFS, aucune donnée réelle.
+     « [avant : échec] » : le test échoue sur main 6218022. Lancement : tools\run-v215-tests.ps1 -Page draft-choix-tests.html -Work <dossier>.
+     Page de test : exclue de la compilation. -->
+<script>
+const res={ok:0,ko:[],notes:{}};
+const show=()=>{document.getElementById("out").textContent=JSON.stringify(res);};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const settle=()=>wait(250);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+// Pool fictif du scénario signalé : DRAFT conseille Twisted Fate, le joueur choisit Vex.
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]};
+// Égalité avec un autre champion hors égalité (fiches de la jungle, tanks en face).
+const JUNGLE={role:"jungle",pool:["Cho'Gath","Viego","Master Yi","Lee Sin"]};
+const TANKS=["Ornn","Sion","Maokai","Jinx","Thresh"];
+const COMPS=[["Ahri","Ornn","Vi","Jinx","Lulu"],["Ahri","Ornn","Jinx"],["Syndra","Ornn","Lee Sin","Jinx","Thresh"],["Kassadin","Ornn","Vi"],["Katarina","Sion","Vi","Jinx","Thresh"],["Zed","Malphite","Vi","Caitlyn","Leona"],["Annie","Ornn","Vi"],["Lissandra","Ornn","Vi","Jinx","Lulu"],["LeBlanc","Ornn"],["Akali"]];
+// Journal fictif déjà présent : il doit rester intact.
+const OLD=[{id:1,date:"2026-10-01T10:00:00Z",suggested:"TF",close:false,picked:"Fizz",enemies:["Ahri"],mid:"Ahri",result:"win",engine:"x"},{id:2,date:"2026-10-02T10:00:00Z",suggested:"Xerath",close:true,picked:"Xerath",enemies:["Syndra"],mid:"Syndra",result:"loss",engine:"x"}];
+const EXPOSE="window.$={get V(){return V},get state(){return state},get simulating(){return simulating},addEnemy,choosePick,loadJournal,saveJournal,startSimulation,leaveSimulation,resetDraft,commit,rerender,hostState,sendValidationRow,dispatchDraft,label}";
+function prepare(profile,journal){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(profile));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));}
+async function ready(f){for(let i=0;i<120;i++){try{if(f.contentWindow.I18N&&f.contentWindow.eval("typeof V!=='undefined'&&!!V")&&f.contentDocument.querySelector('[data-test="panel"],[data-test="app"],.app'))break;}catch(e){}await wait(50);}
+  await wait(300);const w=f.contentWindow;w.eval(EXPOSE);return {f,w,d:f.contentDocument,$:w.$,T:(k,v)=>w.I18N.t(k,v)};}
+// Fenêtre (panel = null) ou panneau ; la langue passe par l'adresse, comme dans l'application.
+async function open(lang,panel,W,H){const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?"+(panel?"panel="+panel:"view=sim")+"&lang="+lang+"&i18ncheck=1";document.body.appendChild(f);await new Promise(r=>f.onload=r);return ready(f);}
+// Page dans l'application : hôte WebView2 simulé, qui garde les messages envoyés au programme (aucun n'est transmis).
+async function openHost(lang,W,H){let src="";{const x=new XMLHttpRequest();x.open("GET","index.html",false);x.send();src=x.responseText;}
+  const host='<script>window.__sent=[];window.chrome=window.chrome||{};window.chrome.webview={postMessage(m){window.__sent.push(m)},addEventListener(){},removeEventListener(){}};<\/script>';
+  window.history.replaceState(null,"",location.pathname+"?view=sim&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=W;f.height=H;document.body.appendChild(f);const d0=f.contentDocument;d0.open();d0.write(src.replace('<script src="draft-stats.js"><\/script>',host));d0.close();return ready(f);}
+// Classement, conseil et scores : ce que le choix du joueur ne doit jamais changer.
+const snap=x=>JSON.stringify({shown:x.$.V.shown,tied:x.$.V.tied,order:x.$.V.order.map(p=>p.pick),scores:x.$.V.res.ranking.map(p=>[p.pick,p.score])});
+const entry=x=>{const id=x.$.state.current;const e=id&&x.$.loadJournal().find(j=>j.id===id);return e?{suggested:e.suggested,picked:e.picked}:null;};
+const fmt=e=>e?"suggested="+e.suggested+", picked="+e.picked:"aucune entrée";
+async function draft(x,comp){x.$.resetDraft();comp.forEach(n=>x.$.addEnemy(n));await settle();}
+// Composition où le conseil est Twisted Fate et Vex un autre choix hors égalité ; sinon, le conseil et le premier autre champion.
+async function scenario(x){for(const comp of COMPS){await draft(x,comp);const V=x.$.V;if(V.shown==="TF"&&!V.tied&&V.order.some(p=>p.pick==="Vex"))return {comp,rec:"TF",other:"Vex"};}
+  const comp=COMPS[0];await draft(x,comp);const V=x.$.V;const o=V.order.find(p=>p.pick!==V.shown&&!(V.tied||[]).includes(p.pick));return {comp,rec:V.shown,other:o&&o.pick};}
+const SEL={full:{cta:'[data-test="stage"] [data-test="choose-pick"]',box:'[data-test="stage"]'},mobile:{cta:'.mobile-bar [data-test="choose-pick"]',box:'.mobile-bar'},right:{cta:'.p-actions [data-test="choose-pick"]',box:'.p-actions'},compact:{cta:'.p-actions [data-test="choose-pick"]',box:'.p-actions'}};
+const SIZE={full:[1366,900],mobile:[680,900],right:[340,760],compact:[282,576]};
+const q=(x,s)=>x.d.querySelector(s);
+const ctaLabel=(x,kind)=>kind==="mobile"?text(q(x,".mobile-bar .mobile-name"))+" | "+text(q(x,SEL.mobile.cta)):text(q(x,SEL[kind].cta));
+const checked=x=>[...x.d.querySelectorAll(".rank.picked")].map(b=>b.getAttribute("data-pick"));
+const visible=(x,e,H)=>{if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&r.top>=-0.5&&r.bottom<=H+0.5;};
+
+(async()=>{
+for(const lang of ["fr","en"]){
+  const LG=lang.toUpperCase();
+  // ---------- 1. Chaque format seul : fenêtre large, fenêtre étroite (barre du bas), panneau droit, panneau compact ----------
+  for(const kind of ["full","mobile","right","compact"]){
+    const L=LG+" "+kind+" : ";
+    prepare(MID,OLD);
+    const [W,H]=SIZE[kind];const x=await open(lang,kind==="full"||kind==="mobile"?null:kind,W,H);
+    const sc=await scenario(x);const recName=x.$.label(sc.rec),otherName=x.$.label(sc.other);
+    const note={composition:sc.comp.join(", "),conseil:recName,choix:otherName};
+    note.bouton_sans_choix=ctaLabel(x,kind);
+    const playRec=kind==="mobile"?recName+" | "+x.T("advice.mobile.play"):x.T("advice.cta.play",{champion:recName});
+    t(note.bouton_sans_choix===playRec,L+"sans choix, le bouton propose le conseil (« "+note.bouton_sans_choix+" »)");
+    const before=snap(x);
+    // Le choix : clic dans « Ton pool » (fenêtre) ; dans un panneau, le même choix arrive d'une autre fenêtre (choosePick).
+    if(kind==="full"||kind==="mobile")q(x,`.rank[data-pick="${sc.other}"]`).click();else x.$.choosePick(sc.other);
+    await settle();
+    if(kind==="full"||kind==="mobile")t(checked(x).join()===sc.other,L+"la coche est sur le champion choisi ("+checked(x).join()+")");
+    note.coche=(kind==="full"||kind==="mobile")?checked(x).map(x.$.label).join():"(pas de classement dans ce panneau)";
+    t(snap(x)===before,L+"le choix ne change ni le classement, ni le conseil, ni les scores");
+    note.bouton_apres_choix=ctaLabel(x,kind);
+    const noted=kind==="mobile"?otherName+" | "+x.T("advice.mobile.saved"):x.T("advice.cta.noted",{champion:otherName});
+    t(note.bouton_apres_choix===noted,L+"[avant : échec] avec un autre choix, le bouton montre ce choix (attendu « "+noted+" », lu « "+note.bouton_apres_choix+" »)");
+    const adv=q(x,SEL[kind].box+' [data-test="pick-advice"]'),back=q(x,SEL[kind].box+' [data-test="back-to-advice"]');
+    note.conseil_a_part=adv?text(adv):"absent";
+    t(!!adv&&text(adv).includes(recName)&&!!back,L+"[avant : échec] le conseil reste visible à part, avec un retour explicite au conseil (« "+note.conseil_a_part+" »)");
+    if(kind==="compact"){const det=q(x,'[data-test="open-analysis"]');t(visible(x,q(x,SEL.compact.cta),H)&&visible(x,adv,H)&&visible(x,det,H),L+"[avant : échec] compact 282x576 : bouton, conseil et Détails visibles sans défiler");}
+    note.journal_avant_clic=fmt(entry(x));
+    q(x,SEL[kind].cta).click();await settle();
+    note.journal_apres_clic=fmt(entry(x));
+    note.bouton_apres_clic=ctaLabel(x,kind);
+    const e1=entry(x);
+    t(!!e1&&e1.picked===sc.other&&e1.suggested===sc.rec,L+"[avant : échec] un clic sur le bouton ne remplace pas le choix (avant : "+note.journal_avant_clic+" ; après : "+note.journal_apres_clic+")");
+    t(snap(x)===before,L+"après le clic, classement, conseil et scores identiques");
+    // Retour explicite au conseil.
+    if(back){back.click();await settle();}
+    const e2=entry(x);note.journal_apres_retour=fmt(e2);note.bouton_apres_retour=ctaLabel(x,kind);
+    const notedRec=kind==="mobile"?recName+" | "+x.T("advice.mobile.saved"):x.T("advice.cta.noted",{champion:recName});
+    t(!!back&&!!e2&&e2.picked===sc.rec&&e2.suggested===sc.rec&&note.bouton_apres_retour===notedRec&&!q(x,SEL[kind].box+' [data-test="pick-advice"]'),L+"[avant : échec] « Revenir au conseil » note le conseil, et le bouton le dit ("+note.journal_apres_retour+" ; « "+note.bouton_apres_retour+" »)");
+    t(x.$.loadJournal().length===OLD.length+1,L+"une seule entrée pour cette draft ("+x.$.loadJournal().length+" entrées)");
+    // Draft suivante : le choix ne la suit pas ; un nouveau choix différent du conseil s'y affiche.
+    x.$.dispatchDraft({type:"session-start"});await settle();
+    const nextLabel=ctaLabel(x,kind);
+    t(!entry(x)&&!q(x,SEL[kind].box+' [data-test="pick-advice"]')&&checked(x).length===0&&(kind==="mobile"?nextLabel.endsWith(x.T("advice.mobile.play")):nextLabel===x.T("advice.cta.play",{champion:x.$.label(x.$.V.shown)})),L+"draft suivante : le choix précédent ne la suit pas (« "+nextLabel+" »)");
+    await draft(x,sc.comp);
+    if(kind==="full"||kind==="mobile")q(x,`.rank[data-pick="${sc.other}"]`).click();else x.$.choosePick(sc.other);
+    await settle();
+    t(ctaLabel(x,kind)===noted&&x.$.loadJournal().length===OLD.length+2,L+"[avant : échec] draft suivante : le nouveau choix s'affiche (« "+ctaLabel(x,kind)+" »), journal à "+x.$.loadJournal().length+" entrées");
+    t(JSON.stringify(x.$.loadJournal().slice(0,OLD.length))===JSON.stringify(OLD),L+"les entrées déjà présentes restent intactes");
+    t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+    if(lang==="en")t(!/Conseil|Revenir|noté|Je joue/.test(text(q(x,SEL[kind].box))),L+"aucun français visible près du bouton");
+    res.notes[lang+"_"+kind]=note;
+    x.f.remove();show();
+  }
+  // ---------- 2. Panneau gauche : adversaires seulement, rien qui contredise le choix ----------
+  {prepare(MID,OLD);const x=await open(lang,"left",256,576);const sc=await scenario(x);x.$.choosePick(sc.other);await settle();
+   t(!q(x,'[data-test="choose-pick"]')&&!q(x,'[data-test="pick-advice"]')&&!q(x,'[data-test="pick-current"]'),LG+" left : ni bouton « Je joue » ni conseil dans le panneau gauche (adversaires seulement)");
+   res.notes[lang+"_left"]="aucun bouton, aucun choix affiché : "+text(q(x,'[data-test="panel"]')).slice(0,80);x.f.remove();}
+  // ---------- 3. Égalité ----------
+  {const L=LG+" égalité : ";prepare(JUNGLE,OLD);const x=await open(lang,"right",340,760);await draft(x,TANKS);
+   const V=x.$.V,tied=V.tied||[],A=V.shown,B=tied.find(p=>p!==A),R=(V.order.find(p=>!tied.includes(p.pick))||{}).pick;
+   const note={egalite:tied.map(x.$.label).join(" = "),nom_affiche:x.$.label(A),autre_ex_aequo:B&&x.$.label(B),hors_egalite:R&&x.$.label(R)};
+   t(tied.length>=2&&!!B&&!!R,L+"égalité avec un autre champion hors égalité ("+note.egalite+" ; hors égalité : "+note.hors_egalite+")");
+   const before=snap(x);
+   const item=[...x.d.querySelectorAll(".tie-item")].find(e=>text(e).includes(x.$.label(B)));if(item)item.click();await settle();
+   const e1=entry(x);note.journal_ex_aequo=fmt(e1);
+   t(!!x.d.querySelector(".tie-item.picked")&&text(x.d.querySelector(".tie-item.picked")).includes(x.$.label(B)),L+"le champion choisi dans l'égalité est coché");
+   t(!!e1&&e1.picked===B&&e1.suggested===B,L+"[avant : échec] choisir un ex æquo compte comme conseil suivi (suggested = ce champion : "+note.journal_ex_aequo+")");
+   t(!x.d.querySelector(".cta"),L+"pas de bouton « Je joue » pour un seul nom");
+   x.$.choosePick(R);await settle();
+   const cur=q(x,'[data-test="pick-current"]'),e2=entry(x);note.journal_hors_egalite=fmt(e2);note.ligne_choix=cur?text(cur):"absente";
+   t(!!cur&&text(cur).includes(x.$.label(R))&&!x.d.querySelector(".tie-item.picked"),L+"[avant : échec] un choix hors égalité est affiché dans le panneau (« "+note.ligne_choix+" »)");
+   t(!!e2&&e2.picked===R&&e2.suggested!==R&&tied.includes(e2.suggested),L+"un choix hors égalité reste un autre choix ("+note.journal_hors_egalite+")");
+   t(snap(x)===before,L+"le choix ne change ni l'égalité, ni le classement, ni les scores");
+   x.f.remove();
+   prepare(JUNGLE,OLD);const y=await open(lang,null,1366,900);await draft(y,TANKS);
+   const r=q(y,`.rank[data-pick="${R}"]`);if(r)r.click();await settle();
+   const cur2=q(y,'[data-test="stage"] [data-test="pick-current"]');note.fenetre_ligne_choix=cur2?text(cur2):"absente";
+   t(checked(y).join()===R&&!!cur2&&text(cur2).includes(y.$.label(R)),L+"[avant : échec] fenêtre : choix hors égalité coché et rappelé sous l'égalité (« "+note.fenetre_ligne_choix+" »)");
+   res.notes[lang+"_egalite"]=note;y.f.remove();show();}
+  // ---------- 4. Simulation ----------
+  {const L=LG+" simulation : ";prepare(MID,OLD);const x=await open(lang,null,1366,900);
+   q(x,'[data-test="source-sim"]').click();await settle();
+   const sc=await scenario(x);const otherName=x.$.label(sc.other),recName=x.$.label(sc.rec);
+   const note={journal_avant:x.$.loadJournal().length+" entrées"};
+   t(x.$.simulating&&!!q(x,'[data-test="simulation"]'),L+"simulation signalée");
+   const band=text(q(x,'[data-test="simulation"]'));note.bandeau=band;
+   t(/journal/i.test(band),L+"[avant : échec] le bandeau dit que rien n'est noté dans le journal (« "+band+" »)");
+   q(x,`.rank[data-pick="${sc.other}"]`).click();await settle();
+   t(checked(x).join()===sc.other,L+"le choix est coché dans la simulation");
+   note.bouton=text(q(x,SEL.full.cta));
+   t(note.bouton===x.T("advice.cta.chosen",{champion:otherName}),L+"[avant : échec] le bouton dit « choisi », pas « noté » (« "+note.bouton+" »)");
+   t((q(x,SEL.full.cta)||{}).title===x.T("advice.cta.simHelp"),L+"[avant : échec] l'aide du bouton dit que la simulation n'est pas notée");
+   const back=q(x,'[data-test="stage"] [data-test="back-to-advice"]');
+   t(!!back,L+"[avant : échec] retour au conseil possible dans la simulation");
+   q(x,SEL.full.cta).click();await settle();if(back)back.click();await settle();
+   const after=x.$.loadJournal();note.journal_apres=after.length+" entrées"+(after.length>OLD.length?" ; ajoutée(s) : "+JSON.stringify(after.slice(OLD.length).map(e=>({suggested:e.suggested,picked:e.picked,result:e.result,simulated:e.simulated}))):"");
+   t(JSON.stringify(after)===JSON.stringify(OLD),L+"[avant : échec] une draft simulée n'écrit rien dans le journal ("+note.journal_apres+")");
+   t(!x.$.state.current,L+"[avant : échec] aucune entrée de journal liée à la simulation");
+   q(x,'[data-test="leave-simulation"]').click();await settle();
+   const pending=q(x,".result-note");note.apres_simulation=pending?text(pending):"aucune partie en attente";
+   t(!x.$.simulating&&!entry(x)&&!q(x,'[data-test="result-buttons"]'),L+"[avant : échec] en quittant la simulation : aucun résultat demandé pour la draft simulée (« "+note.apres_simulation+" »)");
+   // Une vraie draft (saisie à la main, hors simulation) reste notée.
+   const n0=x.$.loadJournal().length;
+   await draft(x,sc.comp);q(x,`.rank[data-pick="${sc.other}"]`).click();await settle();
+   const real=x.$.loadJournal();const last=real[real.length-1];note.vraie_draft=last?JSON.stringify({suggested:last.suggested,picked:last.picked,result:last.result}):"rien";
+   t(real.length===n0+1&&last.picked===sc.other&&last.suggested===sc.rec&&last.result===null&&!("simulated" in last),L+"hors simulation, la vraie draft est notée ("+note.vraie_draft+")");
+   t(text(q(x,SEL.full.cta))===x.T("advice.cta.noted",{champion:otherName}),L+"[avant : échec] hors simulation, le bouton dit « noté »");
+   t(JSON.stringify(real.slice(0,OLD.length))===JSON.stringify(OLD),L+"entrées anciennes intactes, sans migration");
+   t(x.w.I18N.missing().length===0,L+"[avant : échec] aucune clé absente : les textes de la simulation existent en FR et EN ("+x.w.I18N.missing().join(" | ")+")");
+   res.notes[lang+"_simulation"]=note;x.f.remove();show();}
+  // ---------- 5. Relevé de validation (diagnostic) : une simulation n'y entre pas ----------
+  {const L=LG+" relevé : ";prepare(MID,OLD);const x=await openHost(lang,1366,900);
+   x.w.eval("hostState.diagnostics=true");x.$.startSimulation();await draft(x,COMPS[0]);x.w.__sent.length=0;x.$.sendValidationRow();
+   const simRows=x.w.__sent.filter(m=>m&&m.cmd==="logDraft").length;
+   x.$.leaveSimulation();await settle();await draft(x,COMPS[1]);x.w.__sent.length=0;x.$.sendValidationRow();
+   const liveRows=x.w.__sent.filter(m=>m&&m.cmd==="logDraft").length;
+   res.notes[lang+"_releve"]="simulation : "+simRows+" ligne(s) ; draft réelle : "+liveRows+" ligne(s)";
+   t(simRows===0,L+"[avant : échec] une simulation n'envoie aucune ligne au relevé de validation ("+simRows+")");
+   t(liveRows===1,L+"une draft réelle envoie sa ligne ("+liveRows+")");
+   x.f.remove();window.history.replaceState(null,"",location.pathname);}
+  // ---------- 6. Plusieurs fenêtres : fenêtre, panneaux gauche, droit et compact synchronisés ----------
+  {const L=LG+" fenêtres : ";prepare(MID,OLD);
+   const full=await open(lang,null,1366,900),left=await open(lang,"left",256,576),right=await open(lang,"right",340,760),compact=await open(lang,"compact",282,576);
+   await wait(1800);
+   const sc=await scenario(full);await wait(400);const recName=full.$.label(sc.rec),otherName=full.$.label(sc.other);
+   const panels=[left,right,compact];
+   const synced=panels.every(p=>p.$.state.enemies.join()===full.$.state.enemies.join());
+   t(synced,L+"la draft arrive dans les trois panneaux ("+panels.map(p=>p.$.state.enemies.length).join("/")+")");
+   const note={conseil:recName,choix:otherName};
+   q(full,`.rank[data-pick="${sc.other}"]`).click();await wait(500);
+   note.droit=text(q(right,SEL.right.cta));note.compact=text(q(compact,SEL.compact.cta));note.fenetre=text(q(full,SEL.full.cta));
+   const noted=full.T("advice.cta.noted",{champion:otherName});
+   t(note.droit===noted&&note.compact===noted&&note.fenetre===noted,L+"[avant : échec] le choix fait dans la fenêtre s'affiche partout (fenêtre « "+note.fenetre+" », droit « "+note.droit+" », compact « "+note.compact+" »)");
+   t([right,compact].every(p=>!!q(p,'.p-actions [data-test="pick-advice"]')),L+"[avant : échec] le conseil reste visible à part dans les panneaux");
+   t([right,compact].every(p=>p.$.V.shown===full.$.V.shown&&snap(p)===snap(full)),L+"panneaux et fenêtre gardent le même conseil et le même classement");
+   t(!q(left,'[data-test="choose-pick"]'),L+"panneau gauche : pas de bouton");
+   note.journal_avant_clic=fmt(entry(full));
+   q(right,SEL.right.cta).click();await wait(500);
+   note.journal_apres_clic_droit=fmt(entry(full));
+   const e1=entry(full);
+   t(!!e1&&e1.picked===sc.other,L+"[avant : échec] un clic sur le bouton du panneau droit ne remplace pas le choix (avant : "+note.journal_avant_clic+" ; après : "+note.journal_apres_clic_droit+")");
+   const back=q(compact,'.p-actions [data-test="back-to-advice"]');if(back)back.click();await wait(500);
+   const notedRec=full.T("advice.cta.noted",{champion:recName}),e2=entry(full);note.journal_apres_retour=fmt(e2);
+   t(!!back&&!!e2&&e2.picked===sc.rec&&text(q(full,SEL.full.cta))===notedRec&&text(q(right,SEL.right.cta))===notedRec&&checked(full).join()===sc.rec,L+"[avant : échec] « Revenir au conseil » dans le compact : noté partout ("+note.journal_apres_retour+")");
+   // Simulation dans la fenêtre pendant la draft : les panneaux et le journal ne bougent pas.
+   const n0=full.$.loadJournal().length;
+   q(full,'[data-test="source-sim"]').click();await settle();await draft(full,COMPS[2]);
+   const o=full.$.V.order.find(p=>p.pick!==full.$.V.shown&&!(full.$.V.tied||[]).includes(p.pick));if(o)q(full,`.rank[data-pick="${o.pick}"]`).click();await wait(500);
+   t(full.$.loadJournal().length===n0,L+"[avant : échec] simulation pendant la draft : journal inchangé ("+n0+" → "+full.$.loadJournal().length+")");
+   t(text(q(right,SEL.right.cta))===notedRec&&right.$.state.enemies.join()===compact.$.state.enemies.join(),L+"simulation pendant la draft : les panneaux gardent la vraie draft et son choix");
+   q(full,'[data-test="leave-simulation"]').click();await wait(500);
+   t(text(q(full,SEL.full.cta))===notedRec,L+"retour de simulation : la fenêtre retrouve le choix de la vraie draft");
+   // Nouvelle sélection (signal du programme, reçu par un panneau) : plus aucun choix, nulle part.
+   right.$.dispatchDraft({type:"session-start"});await wait(500);
+   t([full,right,compact].every(p=>!entry(p)&&!q(p,'[data-test="pick-advice"]')&&!p.d.querySelector(".rank.picked")),L+"nouvelle sélection : aucun choix ne survit, dans aucune fenêtre");
+   await draft(full,sc.comp);await wait(300);q(full,`.rank[data-pick="${sc.other}"]`).click();await wait(500);
+   t(text(q(right,SEL.right.cta))===noted&&text(q(compact,SEL.compact.cta))===noted,L+"[avant : échec] nouvelle sélection : le nouveau choix s'affiche dans les panneaux");
+   res.notes[lang+"_fenetres"]=note;[full,left,right,compact].forEach(p=>p.f.remove());show();}
+}
+res.notes.fin=true;show();document.title="done";
+})().catch(e=>{res.ko.push("ERREUR "+e.message+" "+(e.stack||"").slice(0,300));show();document.title="done";});
+</script></body></html>
