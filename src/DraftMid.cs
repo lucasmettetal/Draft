@@ -2996,8 +2996,12 @@ public static class Autostart
             if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
             Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
             Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            Func<string, Task<string>> everywhere = async code => { List<string> r = new List<string> { await run(code) }; foreach (string id in new[] { "left", "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null) r.Add(id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code)); } return string.Join(" ", r); };
+            // La fenêtre vient de s'ouvrir : tant qu'elle n'est pas synchronisée (1,5 s au plus), elle ne diffuse rien aux panneaux.
+            await wait("synced");
             await run("saveMyProfile('top',['Sett','Ornn']); saveMyProfile('jungle',['Viego','Lee Sin']); saveMyProfile('mid',['Fizz','Xerath']); saveMyProfile('adc',['Jinx','Caitlyn']); saveMyProfile('support',['Janna','Lulu']); savePrefs({autoRole:'auto'}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
             if (!await wait("PREFS.autoRole==='auto' && myRole()==='mid'")) return "(préparation)";
+            if (!await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && ['top','jungle','mid','adc','support'].every(r => PROFILES.roles[r].pool.length===2)")).Contains("false"), 8000)) return "(profils non partagés par toutes les pages : " + await everywhere("PROFILE_ROLES.map(r => PROFILES.roles[r].pool.length).join()") + ")";
             string[][] cases = { new[] { "TOP", "top", "Sett,Ornn" }, new[] { "JUNGLE", "jungle", "Viego,Lee Sin" }, new[] { "MIDDLE", "mid", "Fizz,Xerath" }, new[] { "BOTTOM", "adc", "Jinx,Caitlyn" }, new[] { "UTILITY", "support", "Janna,Lulu" } };
             int ok = 0;
             // Champion allié du joueur : Janna (support) quel que soit le poste ; il ne doit jamais décider du rôle.
@@ -3038,9 +3042,12 @@ public static class Autostart
             // Sans LCU : le rôle choisi à la main reste, aucun rôle attribué.
             sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce();
             sim.Offline = true; await app.PollLcuOnce();
+            // Toutes les pages (fenêtre et panneaux) doivent d'abord partager le même état : une page en retard rediffuserait l'ancien rôle.
+            await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && myRole()===PROFILES.active && !state.assignedRole")).Contains("false"), 5000);
             await run("savePrefs({autoRole:'auto'}); switchRole('support','manual'); resetRoleSession(); 1");
+            await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && myRole()==='support'")).Contains("false"), 5000);
             await Task.Delay(300);
-            if (app.AssignedRole != null || !await wait("!state.assignedRole && myRole()==='support' && PICKS.join()==='Janna,Lulu'")) p += "sans LCU : rôle manuel non respecté ; ";
+            if (app.AssignedRole != null || !await wait("!state.assignedRole && myRole()==='support' && PICKS.join()==='Janna,Lulu'")) p += "sans LCU : rôle manuel non respecté (programme " + app.AssignedRole + ", page " + await run("myRole() + ' ' + PICKS.join() + ' attribué ' + state.assignedRole + ' auto ' + PREFS.autoRole") + " ; toutes les pages : " + await everywhere("myRole()") + ") ; ";
             await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); 1");
             bool getOnly = sim.Requests.All(LcuEndpoints.IsAllowed);
             if (!getOnly) p += "endpoint non autorisé appelé ; ";

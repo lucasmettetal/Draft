@@ -1305,7 +1305,10 @@ let simulating = false;
 function publish(action) {
   rerender();
   if (!channel || !synced || simulating) return;
-  const snapshot = { kind:"state", action: action || null, prefs: PREFS, profile: PROFILE };
+  // QA 3.0 : les profils voyagent avec l'état. Relus dans localStorage, ils pouvaient être en retard : l'écriture d'une autre
+  // fenêtre (autre processus WebView2) n'y est pas toujours visible à l'arrivée du message, et un panneau resté sur d'anciens
+  // profils les réenregistrait ensuite (rôle automatique en début de draft), effaçant les derniers pools modifiés.
+  const snapshot = { kind:"state", action: action || null, prefs: PREFS, profile: PROFILE, profiles: { version:PROFILES_VERSION, active:PROFILES.active, roles:PROFILES.roles } };
   SHARED.forEach(k => { snapshot[k] = state[k]; });
   channel.postMessage(snapshot);
 }
@@ -1388,7 +1391,8 @@ if (channel) channel.onmessage = e => {
 };
 function applyRemote(m) {
   SHARED.forEach(k => { state[k] = m[k]; });
-  PROFILES = loadProfiles(localStorage, PREFS);
+  const sent = m.profiles ? normalizeProfiles(m.profiles) : null;
+  PROFILES = sent || loadProfiles(localStorage, PREFS);
   if (m.profile) applyProfile(m.profile);
   if (m.prefs) { Object.assign(PREFS, m.prefs); ENGINE_PREFS.excluded = PREFS.excluded; ENGINE_PREFS.favorite = PREFS.favorite; }
   state.lastAction = m.action;
