@@ -5,7 +5,7 @@ Statut au 13/11/2026 : **non prouvé sur le PC de développement**. Cette procé
 ## Pourquoi un essai manuel
 
 - Sur le PC de développement, `RegisterHotKey(Ctrl+Alt+D)` échoue avec l'erreur Windows **1409** (`ERROR_HOTKEY_ALREADY_REGISTERED`).
-- La seule autre instance DRAFT de la session est l'installation principale de l'utilisateur, `C:\Users\lucas\Desktop\DraftMid.exe` (2.14). Elle tient le raccourci. L'e2e l'écrit dans sa ligne d'échec : « Win32 1409 : déjà pris par un autre programme ; autres instances DRAFT de la session : DraftMid.exe pid … ».
+- La seule autre instance DRAFT de la session est l'installation principale de l'utilisateur, `%USERPROFILE%\Desktop\DraftMid.exe` (2.14). Elle tient le raccourci. L'e2e l'écrit dans sa ligne d'échec : « Win32 1409 : déjà pris par un autre programme ; autres instances DRAFT de la session : DraftMid.exe pid … ».
 - Les raccourcis sont propres à la station Windows : un bureau caché ne contourne pas le conflit. Le même échec existe sur main.
 - Ce qui est prouvé ici, par un test isolé (`--e2e`, ligne « QA-6. Mécanisme du raccourci ») : enregistrement réel d'une autre combinaison (Ctrl+Alt+Maj+F11), réception de `WM_HOTKEY`, bascule des panneaux, détection du conflit 1409 sans plantage, et message à l'utilisateur (menu sans raccourci annoncé, consigne dans Réglages > Affichage).
 - Ce qui reste à prouver : le vrai Ctrl+Alt+D, pressé au clavier, sur une session sans autre DRAFT.
