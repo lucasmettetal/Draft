@@ -66,6 +66,16 @@ seed();{const f=document.createElement("iframe");f.width=1920;f.height=1080;f.sr
 const d=f.contentDocument,page=d.querySelector(".pool-page"),h=page?page.scrollHeight:0;res.notes.pool1920=Math.round(h)+" px pour 1080";
 t(h>=1080*0.75,`[avant : échec] 1920x1080 : Mon pool occupe la hauteur (${Math.round(h)} px pour 1080)`);
 t(d.documentElement.scrollWidth<=1921&&h<=1080*1.15,"1920x1080 : Mon pool sans débordement, tient sur un écran ou presque");f.remove();}
+// Pool changé dans une 2.14 après la 3.0 : repris au lancement suivant, ancien pool gardé, notice dans Mon pool et sur l'Accueil.
+seed();x=await load("&view=pool");const p30=x.ev("PROFILES.roles.mid.pool.join()");x.ev("savePrefs({coachLevel:'beginner'})");x.f.remove();
+localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Kog'Maw","Xerath","Zed"]}));
+x=await load("&view=pool");
+t(x.ev("PROFILES.roles.mid.pool.join()")==="TF,Kog'Maw,Xerath,Zed"&&x.ev("PROFILES.roles.top.pool.join()")==="Darius,Garen,Malphite","[avant : échec] pool Mid changé dans une 2.14 : repris, autres rôles intacts");
+const kept=JSON.parse(localStorage.getItem("draftLegacyBackups")||"[]").find(b=>b.reason==="taken");t(!!kept&&kept.before.pool.join()===p30,"[avant : échec] ancien pool Mid de la 3.0 gardé ("+p30+")");
+t(/Ton pool Mid a été modifié dans DRAFT 2\.x : DRAFT reprend ces changements\. L'ancien pool est conservé\./.test(text(q(x,"legacy-notice"))),"[avant : échec] notice dans Mon pool");
+x.f.remove();x=await load("&view=home");t(!!q(x,"legacy-notice"),"[avant : échec] notice aussi sur l'Accueil");
+{const ok=q(x,"legacy-notice-ok");if(ok)ok.click();}await settle();t(!q(x,"legacy-notice"),"notice lue : elle disparaît");x.f.remove();
+x=await load("&view=pool");t(!q(x,"legacy-notice")&&x.ev("PROFILES.roles.mid.pool.join()")==="TF,Kog'Maw,Xerath,Zed","relancé : plus de notice, pool repris gardé");x.f.remove();
 document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
 })().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
 </script></body></html>

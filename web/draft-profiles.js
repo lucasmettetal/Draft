@@ -49,18 +49,116 @@ function readJson(storage, key) {
   try { return { value:JSON.parse(text), text }; } catch (e) { return { broken:true, text }; }
 }
 
+// ---------- Reprise des changements faits par une 2.x ----------
+// Une 2.x (2.14, 2.16) n'écrit que draftProfile (rôle et pool) et draftPrefs (exclusions, favori, avec d'autres préférences).
+// Cette version mémorise une empreinte de ce qu'elle-même y a écrit (draftLegacyMark). Au chargement, une empreinte différente
+// signifie qu'une 2.x a écrit depuis : ses changements sont repris dans le rôle correspondant, après une copie datée de l'ancien
+// profil de ce rôle (liste bornée draftLegacyBackups), et une notice est laissée (draftLegacyNotice). Rien n'est supprimé.
+// Sans empreinte (données d'une 3.0 plus ancienne, ou empreinte abîmée) : rien n'est repris, les profils présents font
+// référence ; une copie de ce que contient l'ancienne clé est gardée, et l'empreinte est posée.
+const LEGACY_MARK_KEY = "draftLegacyMark", LEGACY_BACKUP_KEY = "draftLegacyBackups", LEGACY_NOTICE_KEY = "draftLegacyNotice", LEGACY_BACKUPS = 10;
+
+// FNV-1a 32 bits : empreinte courte d'un texte.
+function textHash(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, "0");
+}
+
+// Ce qu'une 2.x lit et écrit, ramené à son sens (rôle, pool ; exclusions, favori) : une simple réécriture du même contenu
+// (ordre des champs, autres préférences) ne compte pas comme un changement.
+function legacyState(storage) {
+  const p = readJson(storage, "draftProfile"), q = readJson(storage, "draftPrefs");
+  const profile = p.missing ? null : p.broken || !p.value || typeof p.value !== "object" ? { broken:true }
+    : { role:p.value.role === undefined ? null : p.value.role, pool:Array.isArray(p.value.pool) ? p.value.pool.map(String) : null };
+  const prefs = q.missing ? null : q.broken || !q.value || typeof q.value !== "object" ? { broken:true }
+    : { excluded:Array.isArray(q.value.excluded) ? q.value.excluded.map(String).sort() : [], favorite:q.value.favorite === undefined ? null : q.value.favorite };
+  return { profile, prefs, keys:{ profile:textHash(JSON.stringify(profile)), prefs:textHash(JSON.stringify(prefs)) } };
+}
+
+function writeLegacyMark(storage, now) {
+  const s = legacyState(storage);
+  try { storage.setItem(LEGACY_MARK_KEY, JSON.stringify({ profile:s.keys.profile, prefs:s.keys.prefs, at:now || new Date().toISOString() })); return true; } catch (e) { return false; }
+}
+
+// Liste bornée et datée : chaque entrée s'ajoute en tête, aucune ne remplace la précédente.
+function keepLegacyBackup(storage, entry) {
+  const old = readJson(storage, LEGACY_BACKUP_KEY);
+  const list = Array.isArray(old.value) ? old.value : [];
+  list.unshift(entry);
+  try { storage.setItem(LEGACY_BACKUP_KEY, JSON.stringify(list.slice(0, LEGACY_BACKUPS))); return true; } catch (e) { return false; }
+}
+
+const sameRoleProfile = (a, b) => JSON.stringify([a.pool, a.excluded.slice().sort(), a.favorite]) === JSON.stringify([b.pool, b.excluded.slice().sort(), b.favorite]);
+
+// profiles : profils valides lus dans draftProfiles. Modifiés en place si une 2.x a écrit ; renvoie le rôle repris, ou null.
+function takeLegacyChanges(profiles, storage, now) {
+  const at = now || new Date().toISOString();
+  const mark = readJson(storage, LEGACY_MARK_KEY);
+  const s = legacyState(storage);
+  const usable = s.profile && !s.profile.broken && PROFILE_ROLES.includes(s.profile.role) && Array.isArray(s.profile.pool);
+  const prefsOk = s.prefs && !s.prefs.broken;
+  const legacy = usable ? cleanRoleProfile({ pool:s.profile.pool, excluded:prefsOk ? s.prefs.excluded : [], favorite:prefsOk ? s.prefs.favorite : null }) : null;
+  const raw = () => { const g = k => { try { return storage.getItem(k); } catch (e) { return null; } }; return { draftProfile:g("draftProfile"), draftPrefs:g("draftPrefs") }; };
+  if (!mark.value || typeof mark.value !== "object" || typeof mark.value.profile !== "string" || typeof mark.value.prefs !== "string") {
+    // Première fois : on ne sait pas qui a écrit en dernier. Rien n'est repris ; une copie est gardée si l'ancienne clé existe.
+    if (s.profile || s.prefs) keepLegacyBackup(storage, { at, reason:"first-mark", role:usable ? s.profile.role : null, legacy, raw:raw(), current:usable ? profiles.roles[s.profile.role] : null });
+    if (usable && legacy.pool.join() !== profiles.roles[s.profile.role].pool.join()) {
+      profiles.legacyKept = s.profile.role;
+      try { storage.setItem(LEGACY_NOTICE_KEY, JSON.stringify({ kind:"kept", role:s.profile.role, at, seen:false })); } catch (e) {}
+    }
+    writeLegacyMark(storage, at);
+    return null;
+  }
+  const profileChanged = mark.value.profile !== s.keys.profile, prefsChanged = mark.value.prefs !== s.keys.prefs;
+  if (!profileChanged && !prefsChanged) return null;
+  if (!usable) {
+    // Ancienne clé illisible ou incomplète : rien n'est repris, son contenu brut est gardé, les profils restent tels quels.
+    keepLegacyBackup(storage, { at, reason:"unusable", role:null, raw:raw() });
+    writeLegacyMark(storage, at);
+    return null;
+  }
+  const role = s.profile.role, before = profiles.roles[role];
+  const after = cleanRoleProfile({
+    pool:profileChanged ? s.profile.pool : before.pool,
+    excluded:prefsChanged && prefsOk ? s.prefs.excluded : before.excluded,
+    favorite:prefsChanged && prefsOk ? s.prefs.favorite : before.favorite
+  });
+  // Même contenu (réécriture sans changement, ou écriture de cette version pas encore marquée) : rien à reprendre.
+  if (sameRoleProfile(after, before)) { writeLegacyMark(storage, at); return null; }
+  // Copie AVANT tout changement ; sans copie, rien n'est repris.
+  if (!keepLegacyBackup(storage, { at, reason:"taken", role, before, after, raw:raw() })) return null;
+  profiles.roles[role] = after;
+  profiles.legacyTaken = role;
+  try { storage.setItem(LEGACY_NOTICE_KEY, JSON.stringify({ kind:"taken", role, at, seen:false })); } catch (e) {}
+  try { persistProfiles(profiles, storage); } catch (e) {}
+  return role;
+}
+
+// Notice laissée par une reprise (ou par une première empreinte qui n'a rien repris), tant qu'elle n'est pas lue.
+function legacyNotice(storage) {
+  const n = readJson(storage, LEGACY_NOTICE_KEY);
+  return n.value && !n.value.seen && PROFILE_ROLES.includes(n.value.role) && (n.value.kind === "taken" || n.value.kind === "kept") ? n.value : null;
+}
+function dismissLegacyNotice(storage) {
+  const n = readJson(storage, LEGACY_NOTICE_KEY);
+  if (!n.value || typeof n.value !== "object") return;
+  try { storage.setItem(LEGACY_NOTICE_KEY, JSON.stringify(Object.assign({}, n.value, { seen:true }))); } catch (e) {}
+}
+
 // Ordre : profils valides, dernière sauvegarde si le contenu est abîmé, puis ancien profil unique.
+// Dans les deux premiers cas, les changements d'une 2.x sont repris d'abord (voir takeLegacyChanges).
 function loadProfiles(storage, prefs) {
   const read = readJson(storage, PROFILES_KEY);
   const found = read.missing || read.broken ? null : normalizeProfiles(read.value);
-  if (found) return found;
+  if (found) { takeLegacyChanges(found, storage); return found; }
   if (!read.missing) {
     // Un contenu abîmé est mis de côté, jamais effacé sans trace.
     try { storage.setItem(PROFILES_CORRUPT_KEY, String(read.text)); } catch (e) {}
     const backups = readJson(storage, PROFILES_BACKUP_KEY);
     if (Array.isArray(backups.value)) for (const b of backups.value) {
       const ok = normalizeProfiles(b && b.data);
-      if (ok) { ok.recovered = true; try { persistProfiles(ok, storage); } catch (e) {} return ok; }
+      if (ok) { ok.recovered = true; takeLegacyChanges(ok, storage); try { persistProfiles(ok, storage); } catch (e) {} return ok; }
     }
   }
   const out = emptyProfiles();
@@ -77,9 +175,16 @@ function loadProfiles(storage, prefs) {
 
 function persistProfiles(profiles, storage) {
   storage.setItem(PROFILES_KEY, JSON.stringify({ version:PROFILES_VERSION, active:profiles.active, roles:profiles.roles }));
-  // Pour une version plus ancienne : le rôle actif, seulement s'il a des champions.
+  // Pour une version plus ancienne : le rôle actif, seulement s'il a des champions, avec ses exclusions et son favori dans
+  // draftPrefs (les autres préférences ne bougent pas). Une 2.x relancée voit ainsi un profil cohérent.
   const active = profiles.active && profiles.roles[profiles.active];
-  if (active && active.pool.length) storage.setItem("draftProfile", JSON.stringify({ role:profiles.active, pool:active.pool }));
+  if (active && active.pool.length) {
+    storage.setItem("draftProfile", JSON.stringify({ role:profiles.active, pool:active.pool }));
+    const p = readJson(storage, "draftPrefs");
+    if (!p.broken && (p.missing || (p.value && typeof p.value === "object" && !Array.isArray(p.value))))
+      storage.setItem("draftPrefs", JSON.stringify(Object.assign({}, p.value || {}, { excluded:active.excluded.slice(), favorite:active.favorite })));
+  }
+  writeLegacyMark(storage);
   return true;
 }
 
@@ -176,7 +281,7 @@ function parseConfig(text) {
 function applyConfig(parsed, current, storage, now) {
   if (!parsed || !parsed.ok) return { ok:false, error:I18N.t("profiles.import.invalid") };
   const get = k => { try { return storage.getItem(k); } catch (e) { return null; } };
-  const before = get(PROFILES_KEY), beforeOld = get("draftProfile"), beforeBackup = get(PROFILES_BACKUP_KEY);
+  const before = get(PROFILES_KEY), beforeOld = get("draftProfile"), beforeBackup = get(PROFILES_BACKUP_KEY), beforePrefs = get("draftPrefs"), beforeMark = get(LEGACY_MARK_KEY);
   const next = emptyProfiles();
   // Un ancien profil unique ne remplace que son rôle.
   PROFILE_ROLES.forEach(r => { next.roles[r] = parsed.legacy && r !== parsed.active ? cleanRoleProfile(current.roles[r]) : parsed.roles[r]; });
@@ -189,7 +294,7 @@ function applyConfig(parsed, current, storage, now) {
     return { ok:true, profiles:next };
   } catch (e) {
     const put = (k, v) => { try { if (v === null) storage.removeItem(k); else storage.setItem(k, v); } catch (e2) {} };
-    put(PROFILES_KEY, before); put("draftProfile", beforeOld); put(PROFILES_BACKUP_KEY, beforeBackup);
+    put(PROFILES_KEY, before); put("draftProfile", beforeOld); put(PROFILES_BACKUP_KEY, beforeBackup); put("draftPrefs", beforePrefs); put(LEGACY_MARK_KEY, beforeMark);
     return { ok:false, error:I18N.t("profiles.import.saveFailed") };
   }
 }

@@ -32,6 +32,57 @@ const P=s=>JSON.parse(s);
  const st4=memory({draftProfiles:JSON.stringify({version:99,active:"mid",roles:{}})});t(loadProfiles(st4,{}).active===null,"format futur : pas interprété au hasard");
  const st5=memory({draftProfiles:"[]"});const r5=loadProfiles(st5,{});t(r5.lost&&r5.active===null,"contenu inutilisable sans relais : signalé, rien d'inventé");}
 
+// Reprise des changements faits par une 2.x (2.14 : draftProfile et draftPrefs seulement). Sur main, ces tests échouent :
+// la 3.0 ignore ce que la 2.14 a changé, puis l'écrase. Les fonctions absentes sur main sont appelées avec prudence.
+{const has=n=>typeof window[n]==="function";const backups=st=>{try{return JSON.parse(st.getItem("draftLegacyBackups"))||[]}catch(e){return[]}};const notice=st=>has("legacyNotice")?legacyNotice(st):null;
+ // État écrit par la 3.0 : trois rôles, Mid joué.
+ const base=()=>{const st=memory({draftPrefs:JSON.stringify({coachLevel:"advanced",autoRole:"auto",assumeFront:true})});const p=emptyProfiles();p.roles.mid={pool:["Ahri","Syndra","Orianna","Viktor"],excluded:["Syndra"],favorite:"Ahri"};p.roles.support={pool:["Lulu","Janna","Nami"],excluded:["Nami"],favorite:"Lulu"};p.roles.top={pool:["Ornn","Malphite"],excluded:[],favorite:null};p.active="mid";persistProfiles(p,st);return st;};
+ // Ce que fait une 2.14 : son profil unique dans draftProfile, ses exclusions et son favori dans draftPrefs (autres préférences gardées).
+ const v214=(st,role,pool,excluded,favorite)=>{st.setItem("draftProfile",JSON.stringify({role,pool}));if(excluded!==undefined){const pr=P(st.getItem("draftPrefs")||"{}");pr.excluded=excluded;pr.favorite=favorite;st.setItem("draftPrefs",JSON.stringify(pr));}};
+ {const st=base();const prefs=P(st.getItem("draftPrefs"));t((prefs.excluded||[]).join()==="Syndra"&&prefs.favorite==="Ahri"&&prefs.coachLevel==="advanced","[reprise] la 3.0 écrit pour une 2.x un profil cohérent : exclusions et favori du rôle joué, autres préférences gardées");
+  const a=loadProfiles(st,{});const b=loadProfiles(st,{});t(a.roles.mid.pool.join()==="Ahri,Syndra,Orianna,Viktor"&&!a.legacyTaken&&!b.legacyTaken&&!notice(st)&&!backups(st).some(x=>x.reason==="taken"),"[reprise] 3.0 seule, relue deux fois : aucune reprise, aucune notice");
+  const c=loadProfiles(st,{});c.active="support";persistProfiles(c,st);const d=loadProfiles(st,{});d.active="mid";persistProfiles(d,st);st.setItem("draftPrefs",JSON.stringify(Object.assign(P(st.getItem("draftPrefs")),{coachLevel:"beginner"})));if(has("writeLegacyMark"))writeLegacyMark(st);
+  const e=loadProfiles(st,{});t(!e.legacyTaken&&!notice(st)&&e.roles.support.pool.join()==="Lulu,Janna,Nami"&&e.roles.mid.excluded.join()==="Syndra","[reprise] 3.0 seule, changements de rôle et de préférences : aucune reprise");}
+ {const st=base();v214(st,"mid",["Ahri","Orianna","Viktor","Zed"],[],"Orianna");const r=loadProfiles(st,{});const k=backups(st).find(x=>x.reason==="taken");
+  t(r.roles.mid.pool.join()==="Ahri,Orianna,Viktor,Zed"&&r.roles.mid.excluded.length===0&&r.roles.mid.favorite==="Orianna","[reprise] 3.0, puis 2.14 qui change le pool Mid, l'exclusion et le favori, puis 3.0 : changements repris");
+  t(!!k&&k.role==="mid"&&k.before.pool.join()==="Ahri,Syndra,Orianna,Viktor"&&k.before.excluded.join()==="Syndra"&&k.before.favorite==="Ahri"&&!!k.at,"[reprise] l'ancien pool Mid de la 3.0 est conservé, daté, avant tout changement");
+  t(!!notice(st)&&notice(st).kind==="taken"&&notice(st).role==="mid"&&r.legacyTaken==="mid","[reprise] notice laissée pour le rôle Mid");
+  t(r.roles.support.pool.join()==="Lulu,Janna,Nami"&&r.roles.support.favorite==="Lulu"&&r.roles.top.pool.join()==="Ornn,Malphite"&&r.active==="mid","[reprise] autres rôles et rôle joué inchangés");
+  t(P(st.getItem(PROFILES_KEY)).roles.mid.pool.join()==="Ahri,Orianna,Viktor,Zed","[reprise] enregistrée dans les profils par rôle");
+  const again=loadProfiles(st,{});t(!again.legacyTaken&&backups(st).filter(x=>x.reason==="taken").length===1,"[reprise] faite une seule fois");
+  if(has("dismissLegacyNotice"))dismissLegacyNotice(st);t(!notice(st)&&st.getItem("draftLegacyNotice")!==null,"[reprise] notice lue : masquée, sans rien effacer");}
+ {const st=base();v214(st,"mid",["Ahri","Syndra","Orianna","Viktor","Zed"]);const r=loadProfiles(st,{});t(r.roles.mid.pool.join()==="Ahri,Syndra,Orianna,Viktor,Zed"&&r.roles.mid.excluded.join()==="Syndra"&&r.roles.mid.favorite==="Ahri","[reprise] pool seul changé : exclusions et favori de la 3.0 gardés");}
+ {const st=base();v214(st,"mid",["Ahri","Syndra","Orianna","Viktor"],["Orianna"],"Viktor");const r=loadProfiles(st,{});t(r.roles.mid.excluded.join()==="Orianna"&&r.roles.mid.favorite==="Viktor"&&r.roles.mid.pool.length===4,"[reprise] exclusions et favori seuls changés : repris, pool gardé");}
+ {const st=base();const pr=P(st.getItem("draftPrefs"));st.setItem("draftPrefs",JSON.stringify({autoRole:pr.autoRole,favorite:pr.favorite,excluded:(pr.excluded||[]).slice(),coachLevel:pr.coachLevel,assumeFront:pr.assumeFront,nouveau:1}));st.setItem("draftProfile",JSON.stringify({pool:P(st.getItem("draftProfile")).pool,role:"mid"}));
+  const r=loadProfiles(st,{});t(!r.legacyTaken&&!notice(st)&&!backups(st).some(x=>x.reason==="taken"),"[reprise] 2.x qui réécrit le même contenu (ordre des champs, préférence en plus) : rien n'est repris");}
+ {const st=base();v214(st,"support",["Lulu","Janna","Nami","Thresh"],["Janna"],"Thresh");const r=loadProfiles(st,{});
+  t(r.roles.support.pool.join()==="Lulu,Janna,Nami,Thresh"&&r.roles.support.excluded.join()==="Janna"&&r.roles.support.favorite==="Thresh"&&r.roles.mid.pool.join()==="Ahri,Syndra,Orianna,Viktor"&&r.roles.mid.favorite==="Ahri"&&r.active==="mid"&&notice(st)&&notice(st).role==="support","[reprise] rôle différent (Support dans la 2.14) : repris dans Support, Mid et rôle joué inchangés");}
+ {const st=base();const pools=[["Ahri","Zed"],["Ahri","Zed","Yasuo"],["Viktor"]];let r;pools.forEach(pool=>{v214(st,"mid",pool);r=loadProfiles(st,{});r.roles.top.pool.push("Darius");persistProfiles(r,st);r=loadProfiles(st,{});});
+  const k=backups(st).filter(x=>x.reason==="taken");t(r.roles.mid.pool.join()==="Viktor"&&r.roles.top.pool.join()==="Ornn,Malphite,Darius,Darius".split(",").filter((x,i,a)=>a.indexOf(x)===i).join()&&k.length===3&&k[0].before.pool.join()==="Ahri,Zed,Yasuo"&&k[2].before.pool.join()==="Ahri,Syndra,Orianna,Viktor","[reprise] trois aller-retours 3.0 et 2.14 : chaque changement repris, chaque ancien pool gardé dans l'ordre");}
+ {const st=base();const p=P(st.getItem(PROFILES_KEY));for(let i=0;i<14;i++){v214(st,"mid",i%2?["Ahri"]:["Zed"]);loadProfiles(st,{});}t(backups(st).length===10&&backups(st).every(x=>x.at),"[reprise] sauvegardes bornées à 10, datées, la plus récente en tête");}
+ // Première exécution sans empreinte : données d'une 3.0 plus ancienne (comme l'essai), puis peut-être une 2.14.
+ {const st=memory();const p=emptyProfiles();p.roles.mid={pool:["Ahri","Syndra","Orianna","Viktor"],excluded:["Syndra"],favorite:"Ahri"};p.active="mid";st.setItem(PROFILES_KEY,JSON.stringify(p));st.setItem("draftProfile",JSON.stringify({role:"mid",pool:["Ahri","Zed"]}));st.setItem("draftPrefs",JSON.stringify({excluded:[],favorite:"Zed"}));
+  const r=loadProfiles(st,{});const k=backups(st).find(x=>x.reason==="first-mark");
+  t(r.roles.mid.pool.join()==="Ahri,Syndra,Orianna,Viktor"&&r.roles.mid.favorite==="Ahri"&&!r.legacyTaken,"[première empreinte] rien n'est repris : les pools de la 3.0 restent");
+  t(!!k&&k.legacy&&k.legacy.pool.join()==="Ahri,Zed"&&k.raw&&/Zed/.test(k.raw.draftProfile),"[première empreinte] une copie du profil 2.x non repris est gardée");
+  t(!!notice(st)&&notice(st).kind==="kept"&&r.legacyKept==="mid"&&st.getItem("draftLegacyMark")!==null,"[première empreinte] notice « gardé sans reprise », empreinte posée");
+  persistProfiles(r,st);const r2=loadProfiles(st,{});t(!r2.legacyTaken&&r2.roles.mid.pool.length===4,"[première empreinte] la suite repart de l'empreinte : aucune reprise");}
+ {const st=memory();const p=emptyProfiles();p.roles.mid={pool:["Ahri","Zed"],excluded:[],favorite:null};p.active="mid";st.setItem(PROFILES_KEY,JSON.stringify(p));st.setItem("draftProfile",JSON.stringify({role:"mid",pool:["Ahri","Zed"]}));
+  const r=loadProfiles(st,{});t(!notice(st)&&!r.legacyKept&&r.roles.mid.pool.join()==="Ahri,Zed","[première empreinte] même pool des deux côtés : aucune notice");}
+ // Données abîmées ou partielles : rien de perdu.
+ {const st=base();st.setItem("draftProfile","{abim");const r=loadProfiles(st,{});const k=backups(st).find(x=>x.reason==="unusable");t(r.roles.mid.pool.join()==="Ahri,Syndra,Orianna,Viktor"&&!r.legacyTaken&&!!k&&k.raw.draftProfile==="{abim","[abîmé] ancienne clé illisible : rien repris, son contenu brut gardé, pools intacts");}
+ {const st=base();st.setItem("draftProfile",JSON.stringify({role:"mid"}));const r=loadProfiles(st,{});t(r.roles.mid.pool.length===4&&!r.legacyTaken,"[partiel] ancienne clé sans pool : rien repris");}
+ {const st=base();st.setItem("draftProfile",JSON.stringify({role:"mage",pool:["Ahri"]}));const r=loadProfiles(st,{});t(PROFILE_ROLES.every(x=>JSON.stringify(r.roles[x])===JSON.stringify(loadProfiles(base(),{}).roles[x]))&&!r.legacyTaken,"[partiel] rôle inconnu : rien repris");}
+ {const st=base();v214(st,"mid",["Ahri","Zed"]);st.setItem("draftPrefs","{abim");const r=loadProfiles(st,{});t(r.roles.mid.pool.join()==="Ahri,Zed"&&r.roles.mid.favorite==="Ahri"&&r.roles.mid.excluded.length===0,"[abîmé] préférences illisibles : pool repris, favori de la 3.0 gardé s'il est encore dans le pool");}
+ {const st=base();v214(st,"mid",["Ahri","Zed"]);st.setItem("draftLegacyMark","{abim");const r=loadProfiles(st,{});t(r.roles.mid.pool.join()==="Ahri,Syndra,Orianna,Viktor"&&!r.legacyTaken,"[abîmé] empreinte illisible : prudence, rien repris");}
+ {const st=base();backupProfiles(st,"test","2026-11-13");v214(st,"mid",["Ahri","Zed"]);st.setItem(PROFILES_KEY,"{abim");const r=loadProfiles(st,{});t(r.recovered&&r.roles.mid.pool.join()==="Ahri,Zed"&&r.roles.support.pool.join()==="Lulu,Janna,Nami"&&st.getItem(PROFILES_CORRUPT_KEY)==="{abim","[abîmé] profils abîmés et 2.14 passée : sauvegarde reprise, puis changement de la 2.14 repris");}
+ // 2.16.2 : elle écrit le même format que la 3.0 (draftProfiles), sans empreinte. Ses changements sont déjà là : rien à reprendre.
+ {const st=base();const p=P(st.getItem(PROFILES_KEY));p.roles.mid={pool:["Ahri","Orianna","Viktor","Zed"],excluded:[],favorite:"Orianna"};st.setItem(PROFILES_KEY,JSON.stringify(p));st.setItem("draftProfile",JSON.stringify({role:"mid",pool:p.roles.mid.pool}));st.setItem("draftPrefs",JSON.stringify(Object.assign(P(st.getItem("draftPrefs")),{excluded:[],favorite:"Orianna"})));
+  const r=loadProfiles(st,{});t(r.roles.mid.pool.join()==="Ahri,Orianna,Viktor,Zed"&&r.roles.mid.favorite==="Orianna"&&!r.legacyTaken&&!notice(st),"[2.16.2] changements déjà dans les profils par rôle : gardés, sans reprise ni notice");}
+ // Aucune suppression : les clés d'origine restent.
+ {const st=base();v214(st,"mid",["Zed"]);loadProfiles(st,{});t(["draftProfiles","draftProfile","draftPrefs","draftLegacyMark","draftLegacyBackups","draftLegacyNotice"].every(k=>st.getItem(k)!==null),"[reprise] aucune clé supprimée");}
+}
+
 // Export
 {const p=emptyProfiles();p.roles.mid={pool:["Fizz","TF"],excluded:["TF"],favorite:"Fizz"};p.active="mid";
  const text=exportConfig(p,{assumeFront:false,coachLevel:"advanced",autoRole:"auto",riotKey:"RGAPI-secret",excluded:["Fizz"],journal:[1,2]},"2.16.0","2026-11-06T10:00:00Z");const j=P(text);

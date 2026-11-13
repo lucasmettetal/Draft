@@ -1368,6 +1368,8 @@ function savePrefs(change) {
     storeProfiles();
   }
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS)); } catch (e) {}
+  // Empreinte de ce que cette version a écrit (reprise des changements d'une 2.x, draft-profiles.js).
+  writeLegacyMark(localStorage);
   ENGINE_PREFS.excluded = PREFS.excluded;
   ENGINE_PREFS.favorite = PREFS.favorite;
   commit();
@@ -2729,6 +2731,7 @@ function ProfileBackup() {
       PROFILES = done.profiles;
       Object.assign(PREFS, parsed.preferences);
       try { localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS)); } catch (e2) {}
+      writeLegacyMark(localStorage);
       storeProfiles();
       useActiveRole();
       sendProfile();
@@ -3003,6 +3006,14 @@ function HomeData() {
   </section>`;
 }
 
+// Pool changé dans une 2.x et repris (ou, à la première empreinte, gardé sans reprise) : notice non bloquante, jusqu'à « Compris ».
+function LegacyNotice() {
+  const [, setSeen] = useState(0);
+  const n = legacyNotice(localStorage);
+  if (!n) return null;
+  return html`<p className="set-hint flush" role="status" data-test="legacy-notice" data-kind=${n.kind}>${t(n.kind === "taken" ? "profiles.legacy.taken" : "profiles.legacy.kept", { role:ROLE_NAMES[n.role] })} <button type="button" className="link-btn" data-test="legacy-notice-ok" onClick=${() => { dismissLegacyNotice(localStorage); setSeen(x => x + 1); }}>${t("profiles.legacy.dismiss")}</button></p>`;
+}
+
 function HomeView() {
   const role = PROFILES.active, fresh = !(role && PROFILES.roles[role].pool.length);
   const ob = onboarding();
@@ -3015,6 +3026,7 @@ function HomeView() {
   const steps = known && (ob.started || fresh) ? ["pool", "lcu", "panels"].filter(s => !done[s] && !ob.skipped.includes(s)) : [];
   return html`<div className="view-page home" data-test="home">
     <h1 className="sr" data-test="home-h1">${t("nav.home")}</h1>
+    <${LegacyNotice} />
     ${steps.length ? html`<${HomeGuide} steps=${steps} />` : html`<${HomeHero} />
     <div className="home-chain">
       <${HomeLeague} /><${HomePool} /><${HomePanels} />
@@ -3103,6 +3115,7 @@ function PoolPage() {
   return html`<div className="view-page pool-page">
     <${ViewHead} title=${t("nav.pool")} sub=${t("pool.sub")} />
     <${PlayedRoleBar} />
+    <${LegacyNotice} />
     <div className="pool-layout">
       <${PoolRoleList} role=${role} onPick=${pickRole} />
       <div className="pool-main">
