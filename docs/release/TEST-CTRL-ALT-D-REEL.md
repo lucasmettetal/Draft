@@ -4,7 +4,7 @@
 
 ## Pourquoi ce test
 
-- Sur le PC de développement, l'installation principale tient Ctrl+Alt+D. Une autre copie de DRAFT reçoit l'erreur Windows 1409 (raccourci déjà pris).
+- Sur le PC de développement, une DRAFT de l'utilisateur est toujours ouverte (l'installation principale, ou une autre version qu'il a lancée lui-même) et tient Ctrl+Alt+D. Une autre copie de DRAFT reçoit l'erreur Windows 1409 (raccourci déjà pris).
 - La préversion ne tente même pas Ctrl+Alt+D quand une autre DRAFT tourne dans la session, ou quand la 2.x démarre avec Windows : elle le **laisse** à la 2.x. L'e2e le montre : « laissé volontairement à la 2.x (raison « instance ») ; aucune tentative, donc pas de conflit 1409 ».
 - Prouvé par les tests automatiques : le mécanisme sur une autre combinaison (Ctrl+Alt+Maj+F11 : enregistrement, réception, bascule, conflit 1409 signalé), et l'activation explicite depuis Réglages (vraie tentative, conflit 1409 affiché).
 - Reste à prouver : Ctrl+Alt+D lui-même, au clavier, dans une session où rien d'autre ne le tient.

@@ -42,7 +42,8 @@ Repères : dépôt `lucasmettetal/Draft`, branche `release/3.0.0-beta.1`, tag pr
   gh release view v3.0.0-beta.1 -R lucasmettetal/Draft --json isPrerelease,isDraft,name,assets --jq "{pre: .isPrerelease, draft: .isDraft, name: .name, assets: [.assets[].name]}"
   ```
   Attendu : `pre: true`, `draft: false`, `assets: ["DRAFT-Portable.exe"]` (pas de `DRAFT-Setup.exe`).
-- [ ] La page de la release porte l'étiquette « Pre-release » et les notes de `NOTES-3.0.0-beta.1.md`.
+- [ ] La page de la release porte l'étiquette « Pre-release » et les notes de `NOTES-3.0.0-beta.1.md`, accents compris (lues depuis le fichier). Pour mémoire, les notes en ligne des releases stables arrivent abîmées (« approuvÃ© » sur v2.16.2) : défaut connu de la commande stable, laissée telle quelle.
+- [ ] Noter le SHA-256 de `DRAFT-Portable.exe` publié (`gh api repos/lucasmettetal/Draft/releases/tags/v3.0.0-beta.1 --jq ".assets[] | {name, digest}"`). Il diffère de celui de la candidate locale : c'est une autre compilation du même code.
 
 ## 5. /releases/latest reste v2.16.2
 
