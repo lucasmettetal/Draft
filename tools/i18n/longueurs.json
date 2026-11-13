@@ -14,6 +14,10 @@
     { "cle": "advice.badge.tie", "max": 16, "variable": 6, "emplacement": "badge Égalité du panneau droit (230 px), I18N-2" },
     { "cle": "advice.cta.play", "max": 28, "variable": 12, "emplacement": "bouton « Je joue » (panneau 230 px), I18N-2" },
     { "cle": "advice.cta.noted", "max": 28, "variable": 12, "emplacement": "bouton « Je joue » une fois noté (panneau 230 px), I18N-2" },
+    { "cle": "advice.cta.chosen", "max": 28, "variable": 12, "emplacement": "bouton « Je joue » une fois choisi en simulation (fenêtre), correctif du choix" },
+    { "cle": "advice.pick.back", "max": 22, "variable": 6, "emplacement": "lien « Revenir au conseil » sous le bouton (panneau 230 px), correctif du choix" },
+    { "cle": "advice.pick.advice", "max": 28, "variable": 12, "emplacement": "conseil rappelé sous le bouton (panneau 230 px), correctif du choix" },
+    { "cle": "advice.pick.current", "max": 28, "variable": 12, "emplacement": "choix hors égalité rappelé (panneau 230 px), correctif du choix" },
     { "cle": "advice.rank.*", "max": 16, "variable": 6, "emplacement": "étiquette de rang des picks (panneau 230 px), I18N-2" },
     { "cle": "sim.tab.*", "max": 14, "variable": 6, "emplacement": "onglet du Simulateur, I18N-2" },    { "cle": "panel.*", "max": 90, "variable": 12, "emplacement": "panneau droit étroit (230 px)" },
     { "cle": "enemy.slot.*", "max": 60, "variable": 12, "emplacement": "ligne adverse du panneau gauche" }

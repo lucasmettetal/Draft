@@ -204,6 +204,25 @@ for(const lang of ["fr","en"]){
    await draft(full,sc.comp);await wait(300);q(full,`.rank[data-pick="${sc.other}"]`).click();await wait(500);
    t(text(q(right,SEL.right.cta))===noted&&text(q(compact,SEL.compact.cta))===noted,L+"[avant : échec] nouvelle sélection : le nouveau choix s'affiche dans les panneaux");
    res.notes[lang+"_fenetres"]=note;[full,left,right,compact].forEach(p=>p.f.remove());show();}
+  // ---------- 7. Journal en retard (autre processus WebView2) : le bouton garde le choix, la fenêtre qui agit réécrit le bon choix ----------
+  {const L=LG+" journal en retard : ";prepare(MID,OLD);const x=await open(lang,"right",340,760);const sc=await scenario(x);
+   x.$.choosePick(sc.other);await settle();
+   // Copie périmée du journal, telle qu'un autre processus peut encore la voir : l'entrée dit encore le conseil.
+   const stale=x.$.loadJournal().map(e=>e.id===x.$.state.current?Object.assign({},e,{picked:sc.rec,suggested:sc.rec}):e);x.$.saveJournal(stale);x.$.rerender();await settle();
+   const label1=text(q(x,SEL.right.cta));
+   t(label1===x.T("advice.cta.noted",{champion:x.$.label(sc.other)}),LG+" journal en retard : [avant : échec] le bouton garde le choix de l'état partagé (« "+label1+" »)");
+   x.$.commit();await settle();
+   const e=entry(x);
+   t(!!e&&e.picked===sc.other&&e.suggested===sc.rec,L+"[avant : échec] la fenêtre qui agit réécrit le bon choix ("+fmt(e)+")");
+   res.notes[lang+"_journal_en_retard"]="bouton « "+label1+" », journal réécrit : "+fmt(e);x.f.remove();show();}
+  // ---------- 8. Aucune déduction depuis l'historique Riot : un historique fictif (Xerath, 30 parties) ne crée ni ne change aucun choix ----------
+  {const L=LG+" historique Riot : ";prepare(MID,OLD);const x=await open(lang,null,1366,900);const sc=await scenario(x);
+   const rows=[];for(let i=0;i<30;i++)rows.push({id:"H"+i,acct:"Test#TEST",time:Date.now()-(i+1)*864e5,patch:"16.22",sec:1800,champ:"Xerath",pos:"MIDDLE",win:i%2===0,k:5,d:4,a:6,mid:"",enemies:[]});
+   x.w.DRAFT_HISTORY={generated:new Date().toISOString(),accounts:["Test#TEST"],rows};x.w.eval("historyProfile.done=false;historyProfile.value=null;");x.$.commit();await settle();
+   t(!x.$.state.picked&&!x.$.state.current&&x.$.loadJournal().length===OLD.length&&checked(x).length===0&&text(q(x,SEL.full.cta))===x.T("advice.cta.play",{champion:x.$.label(sc.rec)}),L+"aucun choix déduit de l'historique (bouton « "+text(q(x,SEL.full.cta))+" », journal "+x.$.loadJournal().length+" entrées)");
+   q(x,`.rank[data-pick="${sc.other}"]`).click();await settle();
+   const e=entry(x);t(!!e&&e.picked===sc.other&&e.suggested===sc.rec,L+"le journal note le clic du joueur, pas l'historique ("+fmt(e)+")");
+   x.f.remove();show();}
 }
 res.notes.fin=true;show();document.title="done";
 })().catch(e=>{res.ko.push("ERREUR "+e.message+" "+(e.stack||"").slice(0,300));show();document.title="done";});
