@@ -110,6 +110,7 @@ window.DRAFT_I18N_EN = {
 "home.prerelease.copy": "DRAFT works on a copy of your 2.x data, made on {date}. Your 2.x version is not changed.",
 "home.prerelease.fresh": "Separate data folder: your 2.x version is not touched.",
 "home.prerelease.skipped": "Files not copied because they were open elsewhere: {count}.",
+"prerelease.otherDraft": "Another DRAFT is open ({names}): its panels may show up next to the pre-release panels during a draft. Hide the panels of one of them (its tray icon menu), or close the other one yourself.",
 "home.data.title": "Your data",
 "home.data.journal": "DRAFT journal",
 "home.data.journal.count": {"one": "{count} draft logged", "other": "{count} drafts logged"},
@@ -1528,5 +1529,6 @@ window.DRAFT_I18N_EN = {
 "native.dialog.prototypeData": "OP.GG prototype: specify a test folder with --data.",
 "native.dialog.alreadyOpen": "DRAFT is already open: use its icon near the clock.",
 "native.beta.copied": "Pre-release: DRAFT works on a copy of your 2.x data. Your 2.x version is not changed.",
+"native.beta.otherPanels": "Another DRAFT is open ({names}): its panels may show up next to the pre-release panels. Hide those of one of them, or close the other one yourself.",
 "native.beta.noInstall": "This test pre-release is portable: it doesn't install or uninstall. Run DRAFT-Portable.exe directly: your 2.x version stays in place."
 };

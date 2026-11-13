@@ -2981,6 +2981,7 @@ function HomePrerelease() {
     ${host ? html`<p className="card-text small" data-test="home-beta-copy">${copy && copy.sourceFound && copy.copiedAt
       ? t("home.prerelease.copy", { date:frDate(copy.copiedAt) }) : t("home.prerelease.fresh")}${copy && copy.skipped ? " " + t("home.prerelease.skipped", { count:copy.skipped }) : ""}</p>` : null}
     <p className="card-text small" data-test="home-update-prerelease">${t("home.update.prerelease")}</p>
+    ${host && hostState.otherDraft ? html`<p className="card-text small" role="status" data-test="home-other-draft">${t("prerelease.otherDraft", { names:hostState.otherDraft })}</p>` : null}
   </section>`;
 }
 
@@ -3331,6 +3332,7 @@ function SettingsSection({ id }) {
     ${hostState.hotkeyLeft ? html`<p className="set-hint" role="status" data-test="hotkey-left">${t(hostState.hotkeyLeft === "autostart" ? "settings.display.hotkeyLeftAutostart" : "settings.display.hotkeyLeftInstance")}</p>` : null}
     ${hostState.prerelease && (hostState.hotkeyLeft || hostState.hotkeyForced) ? html`<label className="set-check"><input type="checkbox" data-test="hotkey-use" checked=${!!hostState.hotkeyForced} onChange=${e => hostSend({ cmd:"setHotkeyBeta", value:e.target.checked })} /> ${t("settings.display.hotkeyUse")}</label>
       <p className="set-hint">${t("settings.display.hotkeyUseHint")}</p>` : null}
+    ${hostState.prerelease && hostState.otherDraft ? html`<p className="set-hint" role="status" data-test="other-draft">${t("prerelease.otherDraft", { names:hostState.otherDraft })}</p>` : null}
     <h3>${t("settings.display.windows")}</h3>
     <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> ${t("settings.display.follow")}</label>
     <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> ${t("settings.display.compact")}</label>

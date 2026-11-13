@@ -629,6 +629,36 @@ public static class Autostart
             RefreshUi();
         }
 
+        // Préversion : une autre DRAFT ouverte affiche aussi ses panneaux pendant une draft. C'est signalé (Accueil, Réglages >
+        // Affichage, bulle au premier passage en draft de la session), avec un conseil ; aucune action sur l'autre processus.
+        // Liste relue au démarrage, toutes les 10 s et à chaque début de draft. Source remplaçable par les tests.
+        public Func<List<string>> OtherDraftSource = Edition.OtherDraftProcesses;
+        public string OtherDraft { get { return otherDraft; } }
+        string otherDraft = "";
+        bool otherDraftWarned;
+        int otherDraftTicks;
+
+        string ComputeOtherDraft()
+        {
+            if (!Edition.Prerelease) return "";
+            return string.Join(", ", OtherDraftSource().Select(n => n.Split(' ')[0]).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+        }
+
+        public void RefreshOtherDraft()
+        {
+            string names = ComputeOtherDraft();
+            if (names != otherDraft) { otherDraft = names; RefreshUi(); }
+        }
+
+        void WarnOtherPanels()
+        {
+            if (!Edition.Prerelease) return;
+            RefreshOtherDraft();
+            if (otherDraft == "" || otherDraftWarned) return;
+            otherDraftWarned = true;
+            Notify(new Msg("native.beta.otherPanels", "names", otherDraft), ToolTipIcon.Info);
+        }
+
         // Préversion, premier lancement : la copie des données 2.x est annoncée par une bulle, et l'Accueil s'ouvre pour l'expliquer.
         public void AnnounceBetaCopy(BetaState copied)
         {
@@ -708,7 +738,8 @@ public static class Autostart
             };
             tracker.BroughtToFront += RaisePanels;
             slowPoll = new System.Windows.Forms.Timer { Interval = SlowPollMs };
-            slowPoll.Tick += (s, e) => { tracker.Refresh(); OnClientChanged(); };
+            slowPoll.Tick += (s, e) => { tracker.Refresh(); OnClientChanged(); if (Edition.Prerelease && ++otherDraftTicks % 5 == 0) RefreshOtherDraft(); };
+            otherDraft = ComputeOtherDraft();
             sampler = new System.Windows.Forms.Timer { Interval = SampleMs };
             sampler.Tick += (s, e) => Sample();
             SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
@@ -905,7 +936,7 @@ public static class Autostart
         {
             if (now != before)
             {
-                if (now == Phase.Draft && before != Phase.Draft) NotifyDraftStart();
+                if (now == Phase.Draft && before != Phase.Draft) { NotifyDraftStart(); WarnOtherPanels(); }
                 else if (before == Phase.Draft) { validationPending = true; SendAll("{\"kind\":\"draftEnd\"}"); }
                 if (env == null && now != Phase.ClientClosed) Prewarm();
                 // Le mot de passe change à chaque lancement du client : il est oublié dès sa fermeture.
@@ -1589,6 +1620,7 @@ public static class Autostart
                 state["prerelease"] = true;
                 state["hotkeyLeft"] = hotkeyLeft ?? "";
                 state["hotkeyForced"] = beta != null && beta.Hotkey;
+                state["otherDraft"] = otherDraft;
                 state["betaCopy"] = beta == null ? null : new Dictionary<string, object> { { "copiedAt", beta.CopiedAt }, { "sourceFound", beta.SourceFound }, { "files", beta.Files }, { "skipped", beta.Skipped } };
             }
             return new JavaScriptSerializer().Serialize(state);
@@ -2619,8 +2651,23 @@ public static class Autostart
                 if (BetaState.Load(dataDir).Hotkey || (hotkeyLeft != null && hotkey != null)) problem += "désactivation : Ctrl+Alt+D pas rendu ; ";
                 if (!await waitFor("document.querySelector('[data-test=\"hotkey-left\"]') && !document.querySelector('[data-test=\"hotkey-use\"]').checked")) problem += "désactivation : la page ne le montre pas ; ";
             }
+            // Autre DRAFT ouverte (source simulée « DraftMid.exe ») : notice et conseil dans Réglages > Affichage et sur l'Accueil,
+            // puis plus rien quand elle disparaît. Aucune action sur un autre processus.
+            Func<List<string>> realSource = OtherDraftSource;
+            OtherDraftSource = () => new List<string> { "DraftMid.exe pid 1", "DraftMid.exe pid 2" };
+            RefreshOtherDraft();
+            string notice = "document.body.innerText.includes(I18N.t('prerelease.otherDraft', { names: 'DraftMid.exe' }))";
+            if (!await waitFor("document.querySelector('[data-test=\"other-draft\"]') && " + notice)) problem += "autre DRAFT : Réglages > Affichage ne le signale pas ; ";
+            await run("goView('home'); 1");
+            if (!await waitFor("document.querySelector('[data-test=\"home-other-draft\"]') && " + notice)) problem += "autre DRAFT : l'Accueil ne le signale pas ; ";
+            OtherDraftSource = () => new List<string>();
+            RefreshOtherDraft();
+            if (!await waitFor("!document.querySelector('[data-test=\"home-other-draft\"]')")) problem += "autre DRAFT fermée : la notice reste ; ";
+            string otherReport = "notice « " + Strings.T("prerelease.otherDraft", "names", "DraftMid.exe").Substring(0, 40) + "… » affichée puis retirée";
+            OtherDraftSource = realSource;
+            RefreshOtherDraft();
             f.Hide();
-            PrereleaseReport = "mise à jour : bulle « " + LastBalloon + " », aucune vérification ; Ctrl+Alt+D laissé : " + left + " ; activation explicite : " + forced + " ; puis " + back;
+            PrereleaseReport = "mise à jour : bulle « " + LastBalloon + " », aucune vérification ; Ctrl+Alt+D laissé : " + left + " ; activation explicite : " + forced + " ; puis " + back + " ; " + otherReport;
             return problem;
         }
 
@@ -3436,8 +3483,13 @@ public static class Autostart
                 t(!app.PanelsShown, "Une seule lecture positive ne suffit pas");
                 feed(Evidence.NotDraft, 1);
 
+                // Préversion : une autre DRAFT simulée (« DraftMid.exe ») doit être signalée au premier passage en draft.
+                int balloonsBeforeDraft = app.BalloonCount;
+                if (Edition.Prerelease) app.OtherDraftSource = () => new List<string> { "DraftMid.exe pid 1" };
                 Stopwatch appear = Stopwatch.StartNew();
                 feed(Evidence.Draft, 2);
+                if (Edition.Prerelease) t(app.LastBalloonKey == "native.beta.otherPanels" && app.LastBalloon.Contains("DraftMid.exe") && app.BalloonCount == balloonsBeforeDraft + 1 && app.OtherDraft == "DraftMid.exe",
+                    "Préversion : autre DRAFT ouverte signalée par une bulle au premier passage en draft (« " + app.LastBalloon + " »)");
                 for (int i = 0; i < 200 && !(app.PanelFor("left") != null && app.PanelFor("left").Visible); i++) await Task.Delay(50);
                 s.AppendLine("MESURE : panneaux visibles " + appear.ElapsedMilliseconds + " ms après la détection");
                 await Task.Delay(300);
@@ -4444,6 +4496,8 @@ public static class Autostart
                 {
                     copied = LegacyCopy.Run(legacySource, dataDir);
                     copied.Save(dataDir);
+                    // La langue choisie dans la version copiée vaut dès ce premier lancement (avant la copie, le dossier était vide).
+                    Strings.Use(InitialLanguage(o, dataDir));
                     Log(dataDir, "Préversion : copie des données 2.x, " + copied.Files + " fichier(s) copié(s), " + copied.Skipped + " sauté(s), source " + (copied.SourceFound ? "trouvée" : "absente"));
                 }
                 else if (Edition.Prerelease && !File.Exists(Path.Combine(dataDir, BetaState.FileName))) new BetaState().Save(dataDir);

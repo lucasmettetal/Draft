@@ -110,6 +110,7 @@ window.DRAFT_I18N_FR = {
 "home.prerelease.copy": "DRAFT travaille sur une copie de tes données 2.x, faite le {date}. Ta version 2.x n'est pas modifiée.",
 "home.prerelease.fresh": "Dossier de données séparé : ta version 2.x n'est pas touchée.",
 "home.prerelease.skipped": "Fichiers non copiés car ouverts ailleurs : {count}.",
+"prerelease.otherDraft": "Une autre DRAFT est ouverte ({names}) : ses panneaux peuvent s'afficher avec ceux de la préversion pendant une draft. Masque les panneaux de l'une des deux (menu de son icône), ou ferme l'autre toi-même.",
 "home.data.title": "Tes données",
 "home.data.journal": "Journal DRAFT",
 "home.data.journal.count": {"one": "{count} draft notée", "other": "{count} drafts notées"},
@@ -1528,5 +1529,6 @@ window.DRAFT_I18N_FR = {
 "native.dialog.prototypeData": "Prototype OP.GG : indique un dossier de test avec --data.",
 "native.dialog.alreadyOpen": "DRAFT est déjà ouvert : utilise son icône près de l'horloge.",
 "native.beta.copied": "Préversion : DRAFT travaille sur une copie de tes données 2.x. Ta version 2.x n'est pas modifiée.",
+"native.beta.otherPanels": "Une autre DRAFT est ouverte ({names}) : ses panneaux peuvent s'afficher avec ceux de la préversion. Masque ceux de l'une des deux, ou ferme l'autre toi-même.",
 "native.beta.noInstall": "Cette préversion de test est portable : elle ne s'installe pas et ne se désinstalle pas. Lance DRAFT-Portable.exe directement : ta version 2.x reste en place."
 };

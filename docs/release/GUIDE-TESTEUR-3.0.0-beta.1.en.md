@@ -29,7 +29,7 @@ You need Windows 10 or 11 with Microsoft Edge WebView2 (already on most PCs).
 | Running | The pre-release and 2.x can run at the same time. Neither closes the other. |
 | Start with Windows | Separate. Ticking "Start with Windows" in the pre-release does not touch your 2.x one. |
 | Ctrl+Alt+D | If your 2.x is running, or if it starts with Windows, the pre-release **leaves** it Ctrl+Alt+D. The panels stay in the tray icon menu ("Show panels"). Settings > Display and windows explains why, and the "Use Ctrl+Alt+D in this pre-release" box lets you take it. |
-| Duplicate panels | If your 2.x runs during a draft, **its panels show up too**. To avoid it without changing it: quit it before the draft (right-click its icon > Quit), and start it again after the test. |
+| Duplicate panels | If your 2.x runs during a draft, **its panels show up too**. The pre-release says so: a notice on Home and in Settings > Display and windows, with the other program's name, and a balloon the first time a draft starts. To avoid it without changing it: hide the panels of one of them (its tray icon menu), or quit 2.x before the draft (right-click its icon > Quit) and start it again after the test. |
 | Updates | The pre-release does not check for any. Your 2.x will never offer the pre-release. |
 
 Good to know: if your 2.x is **open** on the pre-release's first launch, a file it holds exclusively is not copied. Home says so ("Files not copied because they were open elsewhere"). For a complete copy, quit your 2.x before the first launch.

@@ -33,7 +33,7 @@ Version française : [NOTES-3.0.0-beta.1.md](https://github.com/lucasmettetal/Dr
 - **No automatic move to the final 3.0**: it is downloaded manually too.
 - **m3: slow first display of the panels**: 4.5 to 5.1 s after detection the first time (WebView2 start-up), then a few milliseconds.
 - **If 2.x is open on first launch**, a file it holds exclusively is not copied. Home says so and counts these files.
-- If the 2.x panels also run during a draft, you will see two sets of panels: quit 2.x (tray icon menu > Quit) while testing.
+- If another DRAFT runs during a draft, you will see two sets of panels. The pre-release says so (Home, Settings > Display and windows, balloon): hide the panels of one of them, or quit the other one yourself.
 
 ## Files
 

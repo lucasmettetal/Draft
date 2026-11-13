@@ -33,7 +33,7 @@ English version: [NOTES-3.0.0-beta.1.en.md](https://github.com/lucasmettetal/Dra
 - **Pas de passage automatique à la 3.0 finale** : elle aussi se télécharge à la main.
 - **m3 : premier affichage des panneaux lent** : 4,5 à 5,1 s après la détection au premier affichage (création de WebView2), puis quelques millisecondes.
 - **Si la 2.x est ouverte au premier lancement**, un fichier qu'elle tient en exclusivité n'est pas copié. L'Accueil le dit et compte ces fichiers.
-- Si les panneaux de la 2.x tournent aussi pendant une draft, tu verras deux jeux de panneaux : quitte la 2.x (menu de l'icône > Quitter) pendant le test.
+- Si une autre DRAFT tourne pendant une draft, tu verras deux jeux de panneaux. La préversion le signale (Accueil, Réglages > Affichage et fenêtres, bulle) : masque les panneaux de l'une des deux, ou quitte l'autre toi-même.
 
 ## Fichiers
 

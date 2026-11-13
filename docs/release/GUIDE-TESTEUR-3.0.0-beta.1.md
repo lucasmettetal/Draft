@@ -29,7 +29,7 @@ Il faut Windows 10 ou 11 avec Microsoft Edge WebView2 (présent sur la plupart d
 | Lancement | La préversion et la 2.x peuvent tourner en même temps. Aucune ne ferme l'autre. |
 | Démarrage avec Windows | Séparé. Cocher « Démarrer avec Windows » dans la préversion ne touche pas celui de ta 2.x. |
 | Ctrl+Alt+D | Si ta 2.x tourne, ou si elle démarre avec Windows, la préversion lui **laisse** Ctrl+Alt+D. Les panneaux restent dans le menu de l'icône (« Afficher les panneaux »). Réglages > Affichage et fenêtres explique pourquoi, et la case « Utiliser Ctrl+Alt+D dans cette préversion » te permet de le prendre. |
-| Panneaux en double | Si ta 2.x tourne pendant une draft, **ses panneaux apparaissent aussi**. Pour l'éviter sans la modifier : quitte-la avant la draft (clic droit sur son icône > Quitter), et relance-la après le test. |
+| Panneaux en double | Si ta 2.x tourne pendant une draft, **ses panneaux apparaissent aussi**. La préversion le signale : notice sur l'Accueil et dans Réglages > Affichage et fenêtres, avec le nom de l'autre programme, et une bulle au premier passage en draft. Pour l'éviter sans la modifier : masque les panneaux de l'une des deux (menu de son icône), ou quitte la 2.x avant la draft (clic droit sur son icône > Quitter) et relance-la après le test. |
 | Mises à jour | La préversion n'en cherche pas. Ta 2.x ne te proposera jamais la préversion. |
 
 Bon à savoir : si ta 2.x est **ouverte** au premier lancement de la préversion, un fichier qu'elle tient en exclusivité n'est pas copié. L'Accueil l'indique (« Fichiers non copiés car ouverts ailleurs »). Pour une copie complète, quitte ta 2.x avant le premier lancement.
