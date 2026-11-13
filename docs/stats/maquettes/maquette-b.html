@@ -127,7 +127,7 @@
   const rows = M.rows, J = C.journal(M.journal), MIN = M.MIN;
   const b = s => h(`<b>${esc(s)}</b>`);
   const chapter = (id, num, titleKey, tag, body, extra) => `<section class="chapter${extra ? " " + extra : ""}" id="${id}"><header class="ch-head"><span class="ch-num">${num}</span><h2>${esc(t(titleKey))}</h2>${tag ? `<span class="src-tag">${esc(tag)}</span>` : ""}</header><div class="ch-body">${body}</div></section>`;
-  const riotTag = t("stats.history.title"), journalTag = t("stats.journal.title");
+  const riotTag = t("stats.history.title"), journalTag = t("stats.journal.heading");
 
   // ---------- 1. Ton échantillon ----------
   function sampleChapter() {
@@ -242,7 +242,7 @@
     return `<section class="chapter"><header class="ch-head"><h2>${esc(t("stats.story.empty.title"))}</h2></header><div class="ch-body" style="padding-left:0">
       <p class="lead">${esc(t("stats.story.empty.lead"))}</p>
       <div class="steps"><div class="step"><b>${esc(t("stats.history.title"))}</b><p>${esc(t("stats.story.empty.riot"))}</p><p class="small">${esc(t("stats.history.collect"))}</p><button type="button" class="ghost-btn">${esc(t("stats.history.import"))}</button></div>
-      <div class="step"><b>${esc(t("stats.journal.title"))}</b><p>${esc(t("stats.story.empty.journal"))}</p><p class="small">${esc(t("stats.journal.followedDef"))}</p></div></div>
+      <div class="step"><b>${esc(t("stats.journal.heading"))}</b><p>${esc(t("stats.story.empty.journal"))}</p><p class="small">${esc(t("stats.journal.followedDef"))}</p></div></div>
       <p class="callout">${esc(t("stats.sources.separate"))}</p></div></section>`;
   }
 

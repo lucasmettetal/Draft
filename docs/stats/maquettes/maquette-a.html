@@ -241,7 +241,7 @@
 
   // ---------- Journal DRAFT ----------
   function journalColumn(found) {
-    const head = `<header class="src-head"><span class="src-mark">${ICON_DRAFT}</span><div class="src-titles"><h2>${esc(t("stats.journal.title"))}</h2><p>${esc(t("stats.journal.source"))}</p></div></header>`;
+    const head = `<header class="src-head"><span class="src-mark">${ICON_DRAFT}</span><div class="src-titles"><h2>${esc(t("stats.journal.heading"))}</h2><p>${esc(t("stats.journal.source"))}</p></div></header>`;
     if (!J.drafts) return `<section class="src src-journal">${head}<p class="empty-note">${esc(t("stats.overview.emptyJournal"))}</p><p class="sep-note">${esc(t("stats.sources.separate"))}</p></section>`;
     const fin = J.terminees;
     const hero = `<div class="hero sm">${kpi(t("stats.kpi.drafts"), J.drafts, "")}
@@ -266,7 +266,7 @@
       ? `<div class="cmp">${[["stats.journal.tag.followed", s], ["stats.journal.tag.other", o]].map(([k, b]) => `<div class="cmp-row"><span>${esc(t(k))}</span>${M.winbar(b)}<span class="val"><b>${esc(M.record(b))}</b>, ${esc(M.pct(b.taux))}</span></div>`).join("")}</div>
          <div class="findings">${findingsList(found, true)}</div>`
       : `<p class="small">${esc(t("stats.journal.compare.notEnough", { min: MIN, followed: s.parties, other: o.parties }))}</p>`;
-    return `<section class="src src-journal" aria-label="${esc(t("stats.journal.title"))}">${head}${hero}
+    return `<section class="src src-journal" aria-label="${esc(t("stats.journal.heading"))}">${head}${hero}
       ${notes.length ? `<div class="jnotes">${notes.join("")}</div>` : ""}
       <h3>${esc(t("stats.recent.title"))}</h3><ul class="jlist">${J.dernieres.slice(0, 5).map(row).join("")}</ul>
       <h3>${esc(t("stats.journal.compare.title"))}</h3>${cmp}
