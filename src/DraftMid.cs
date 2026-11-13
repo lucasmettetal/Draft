@@ -22,8 +22,10 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyTitle("DRAFT")]
 [assembly: AssemblyDescription("DRAFT : ton assistant stratégique pour League of Legends. Non approuvé par Riot Games.")]
 [assembly: AssemblyProduct("DRAFT")]
-[assembly: AssemblyVersion("2.16.2.0")]
-[assembly: AssemblyFileVersion("2.16.2.0")]
+[assembly: AssemblyVersion("3.0.0.0")]
+[assembly: AssemblyFileVersion("3.0.0.0")]
+// Seule donnée qui fixe l'édition (classe Edition) : un « - » signifie préversion. Doit être égale à APP_VERSION (web/index.html).
+[assembly: AssemblyInformationalVersion("3.0.0-beta.1")]
 
 namespace DraftMid
 {
@@ -244,11 +246,163 @@ namespace DraftMid
         }
     }
 
+    // Édition de l'exécutable, déduite d'une seule donnée de build : AssemblyInformationalVersion. Un « - » (3.0.0-beta.1) signifie
+    // préversion : dossier de données, instance unique, démarrage automatique et raccourci séparés de la 2.x installée, ni
+    // installation ni mise à jour automatique. Sans « - », l'édition stable garde exactement les noms d'avant (DraftMid).
+    public static class Edition
+    {
+        public const string StableName = "DraftMid", BetaName = "DRAFT-beta";
+        public static readonly string Version = InformationalOf(typeof(Edition).Assembly);
+        public static readonly bool Prerelease = IsPrerelease(Version);
+
+        public static string InformationalOf(Assembly a)
+        {
+            AssemblyInformationalVersionAttribute info = (AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(a, typeof(AssemblyInformationalVersionAttribute));
+            return info != null && info.InformationalVersion != "" ? info.InformationalVersion : a.GetName().Version.ToString(3);
+        }
+        public static bool IsPrerelease(string version) { return version != null && version.IndexOf('-') >= 0; }
+
+        // Noms propres à chaque édition. Stable : ceux de la 2.x, inchangés.
+        public static string Name(bool prerelease) { return prerelease ? BetaName : StableName; }
+        public static string DefaultDataDir(bool prerelease) { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Name(prerelease)); }
+        public static string MutexName(bool prerelease, string dataDirOption) { return Name(prerelease) + (dataDirOption == null ? ".Instance" : ".Test." + dataDirOption.GetHashCode()); }
+        public static string RunValue(bool prerelease) { return Name(prerelease); }
+
+        // Préversion : ni --install, ni --uninstall, ni --test-install, ni installation automatique d'un exe nommé « Setup ».
+        public static bool RefusesInstall(bool prerelease, Options o, string self)
+        {
+            return prerelease && (o.Install || o.Uninstall || o.TestInstall || Path.GetFileName(self ?? "").IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        // Préversion : Ctrl+Alt+D laissé à la 2.x (« instance » : un autre DRAFT tourne dans la session ; « autostart » : la 2.x
+        // démarre avec Windows), sauf si le joueur l'a demandé dans Réglages > Affichage. Null : le raccourci est tenté.
+        public static string HotkeyLeftReason(bool prerelease, bool forced, bool otherDraftRunning, bool legacyAutostart)
+        {
+            if (!prerelease || forced) return null;
+            if (otherDraftRunning) return "instance";
+            if (legacyAutostart) return "autostart";
+            return null;
+        }
+
+        // Autres processus DRAFT ou DraftMid de la session (noms et numéros seulement, aucun échange avec eux).
+        public static List<string> OtherDraftProcesses()
+        {
+            List<string> found = new List<string>();
+            using (Process me = Process.GetCurrentProcess())
+            {
+                foreach (Process p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        string n = p.ProcessName;
+                        if (p.Id != me.Id && p.SessionId == me.SessionId && (n.StartsWith("DraftMid", StringComparison.OrdinalIgnoreCase) || n.StartsWith("DRAFT", StringComparison.OrdinalIgnoreCase))) found.Add(n + /* i18n-ignore : nom et numéro de processus, pour les rapports de test */ ".exe pid " + p.Id);
+                    }
+                    catch (InvalidOperationException) { }
+                    catch (System.ComponentModel.Win32Exception) { }
+                    finally { p.Dispose(); }
+                }
+            }
+            return found;
+        }
+    }
+
+    // Préversion : état propre à la bêta (copie initiale des données 2.x, choix explicite de Ctrl+Alt+D), dans son propre dossier.
+    public class BetaState
+    {
+        public const string FileName = "draft-beta.json";
+        public string CopiedAt;
+        public bool SourceFound;
+        public int Files, Skipped;
+        public bool Hotkey;
+
+        public static BetaState Load(string dataDir)
+        {
+            try
+            {
+                string path = Path.Combine(dataDir, FileName);
+                if (File.Exists(path)) return new JavaScriptSerializer().Deserialize<BetaState>(File.ReadAllText(path, Encoding.UTF8)) ?? new BetaState();
+            }
+            catch (Exception e) { if (e is OutOfMemoryException) throw; }
+            return new BetaState();
+        }
+
+        public void Save(string dataDir)
+        {
+            try
+            {
+                string path = Path.Combine(dataDir, FileName), tmp = path + ".tmp";
+                File.WriteAllText(tmp, new JavaScriptSerializer().Serialize(this), new UTF8Encoding(false));
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(tmp, path);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    // Préversion, premier lancement : COPIE des données d'une 2.x (réglages, profils, pools, journal, historique) vers le dossier
+    // de la bêta. La source est seulement lue : chaque fichier est ouvert en lecture partagée (la 2.x peut écrire en même temps),
+    // jamais écrit, renommé, déplacé ni verrouillé. Un fichier qu'une autre application tient en exclusivité est sauté et compté.
+    public static class LegacyCopy
+    {
+        // Fichiers de données à la racine du dossier 2.x : réglages, profils, historique, statistiques, rôles, matchups, relevés.
+        static readonly string[] Extensions = { ".json", ".js", ".csv", ".precedent" };
+        // Stockage de la page (pools, journal, profils) : seul ce dossier de WebView2 est repris, sans cache ni fichier de verrou.
+        public static readonly string StorageRelative = Path.Combine("webview", "EBWebView", "Default", /* i18n-ignore : nom de dossier de WebView2 */ "Local Storage");
+
+        public static bool IsDataFile(string name)
+        {
+            string n = name.ToLowerInvariant();
+            return !n.EndsWith(".tmp") && !n.StartsWith("selftest") && Extensions.Any(n.EndsWith);
+        }
+
+        public static bool IsEmpty(string dir) { return !Directory.Exists(dir) || !Directory.EnumerateFileSystemEntries(dir).Any(); }
+
+        public static BetaState Run(string source, string target)
+        {
+            BetaState st = new BetaState { CopiedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) };
+            if (source == null || !Directory.Exists(source)) return st;
+            st.SourceFound = true;
+            Directory.CreateDirectory(target);
+            foreach (string file in Directory.GetFiles(source))
+                if (IsDataFile(Path.GetFileName(file))) CopyOne(file, Path.Combine(target, Path.GetFileName(file)), st);
+            string storage = Path.Combine(source, StorageRelative);
+            if (Directory.Exists(storage))
+                foreach (string file in Directory.GetFiles(storage, "*", SearchOption.AllDirectories))
+                {
+                    if (string.Equals(Path.GetFileName(file), "LOCK", StringComparison.OrdinalIgnoreCase)) continue;
+                    CopyOne(file, Path.Combine(target, StorageRelative, file.Substring(storage.Length + 1)), st);
+                }
+            return st;
+        }
+
+        static void CopyOne(string from, string to, BetaState st)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(to));
+                using (FileStream input = new FileStream(from, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                using (FileStream output = new FileStream(to, FileMode.Create, FileAccess.Write, FileShare.None)) input.CopyTo(output);
+                st.Files++;
+            }
+            catch (IOException) { st.Skipped++; }
+            catch (UnauthorizedAccessException) { st.Skipped++; }
+        }
+    }
+
 public static class Autostart
     {
         public const string DefaultKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         public static string Key = DefaultKey;
-        const string Value = "DraftMid";
+        // Stable : « DraftMid », comme la 2.x. Préversion : « DRAFT-beta ».
+        static readonly string Value = Edition.RunValue(Edition.Prerelease);
+        public static string ValueName { get { return Value; } }
+        // Préversion : existence de la valeur de la 2.x, par son nom seulement. Sa donnée n'est ni lue ni modifiée.
+        public static bool LegacyValueExists()
+        {
+            using (RegistryKey k = Registry.CurrentUser.OpenSubKey(Key))
+                return k != null && k.GetValueNames().Any(n => string.Equals(n, Edition.StableName, StringComparison.OrdinalIgnoreCase));
+        }
         public static bool IsOn() { using (RegistryKey k = Registry.CurrentUser.OpenSubKey(Key)) return k != null && k.GetValue(Value) != null; }
         public static string Target() { using (RegistryKey k = Registry.CurrentUser.OpenSubKey(Key)) { object v = k == null ? null : k.GetValue(Value); return v == null ? null : v.ToString().Trim('"'); } }
         // Un seul démarrage automatique : s'il visait l'ancien fichier, il vise désormais le nouveau.
@@ -446,6 +600,43 @@ public static class Autostart
         public bool HotkeyRegistered { get { return hotkey != null && hotkey.Registered; } }
         public bool HotkeyCreated { get { return hotkey != null; } }
         public int HotkeyError { get { return hotkey != null ? hotkey.Error : 0; } }
+        // Préversion : raison pour laquelle Ctrl+Alt+D est laissé à la 2.x (« instance », « autostart »), null sinon.
+        public string HotkeyLeftReason { get { return hotkeyLeft; } }
+        string hotkeyLeft;
+        BetaState beta;
+
+        // Préversion : Ctrl+Alt+D laissé à la 2.x si elle tourne dans la session ou démarre avec Windows (existence de la valeur
+        // seulement), sauf choix explicite du joueur. Stable : toujours tenté, comme avant.
+        void ApplyHotkeyPolicy()
+        {
+            hotkeyLeft = Edition.Prerelease ? Edition.HotkeyLeftReason(true, beta != null && beta.Hotkey, Edition.OtherDraftProcesses().Count > 0, Autostart.LegacyValueExists()) : null;
+            if (hotkeyLeft == null && hotkey == null)
+            {
+                hotkey = new HotkeyWindow();
+                hotkey.Pressed += ToggleManual;
+            }
+            else if (hotkeyLeft != null && hotkey != null) { hotkey.Dispose(); hotkey = null; }
+        }
+
+        // Réglages > Affichage, préversion : activer ou rendre Ctrl+Alt+D. Un échec (1409) reste signalé comme dans la 2.x.
+        public void SetBetaHotkey(bool on)
+        {
+            if (!Edition.Prerelease || beta == null || opts.NoHotkey) return;
+            beta.Hotkey = on;
+            beta.Save(dataDir);
+            if (on && hotkey != null && !hotkey.Registered) { hotkey.Dispose(); hotkey = null; }
+            ApplyHotkeyPolicy();
+            RefreshUi();
+        }
+
+        // Préversion, premier lancement : la copie des données 2.x est annoncée par une bulle, et l'Accueil s'ouvre pour l'expliquer.
+        public void AnnounceBetaCopy(BetaState copied)
+        {
+            beta = copied;
+            if (!opts.Silent) firstRun = true;
+            if (copied.SourceFound) Notify(new Msg("native.beta.copied"), ToolTipIcon.Info);
+            RefreshUi();
+        }
         public UserPreferences Prefs { get { return settings; } }
 
         public PanelForm PanelFor(string id) { PanelForm f; return panels.TryGetValue(id, out f) ? f : null; }
@@ -501,11 +692,9 @@ public static class Autostart
             tray.DoubleClick += (s, e) => openFromTray();
 
             // Essai à côté d'une autre version : le raccourci reste à celle-ci, sans même tenter de l'enregistrer.
-            if (!o.NoHotkey)
-            {
-                hotkey = new HotkeyWindow();
-                hotkey.Pressed += ToggleManual;
-            }
+            // Préversion : il reste aussi à la 2.x quand elle tourne ou démarre avec Windows, sauf choix du joueur (Réglages > Affichage).
+            if (Edition.Prerelease) beta = BetaState.Load(dataDir);
+            if (!o.NoHotkey) ApplyHotkeyPolicy();
 
             tracker = new ClientWindowTracker(clientMatcher, false);
             // Réaction immédiate au premier événement, puis au plus une mise à jour toutes les 16 ms.
@@ -1393,10 +1582,24 @@ public static class Autostart
 
         string HostJson()
         {
-            return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
+            Dictionary<string, object> state = HostState();
+            // Préversion seulement : l'édition stable envoie exactement l'état d'avant.
+            if (Edition.Prerelease)
+            {
+                state["prerelease"] = true;
+                state["hotkeyLeft"] = hotkeyLeft ?? "";
+                state["hotkeyForced"] = beta != null && beta.Hotkey;
+                state["betaCopy"] = beta == null ? null : new Dictionary<string, object> { { "copiedAt", beta.CopiedAt }, { "sourceFound", beta.SourceFound }, { "files", beta.Files }, { "skipped", beta.Skipped } };
+            }
+            return new JavaScriptSerializer().Serialize(state);
+        }
+
+        Dictionary<string, object> HostState()
+        {
+            return new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } };
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1849,7 +2052,12 @@ public static class Autostart
             if (await run("window.keepMark === 1") != "true") problem += "la page principale est rechargée à l'ouverture ; ";
             // UX-3 : les réglages sont une section à six rubriques ; la mise à jour est dans « Mises à jour », le pool dans Mon pool.
             await run("goView('settings', 'updates'); 1");
-            if (!await waitFor("!!document.querySelector('[data-test=\"check-update\"]')")) problem += "bouton de mise à jour absent ; ";
+            if (Edition.Prerelease)
+            {
+                // Préversion : pas de bouton, la consigne « télécharge les nouvelles versions à la main ».
+                if (!await waitFor("!!document.querySelector('[data-test=\"update-prerelease\"]') && !document.querySelector('[data-test=\"check-update\"]') && document.querySelector('[data-test=\"update-prerelease\"]').textContent.includes(I18N.t('home.update.prerelease'))")) problem += "préversion : consigne de mise à jour à la main absente, ou bouton présent ; ";
+            }
+            else if (!await waitFor("!!document.querySelector('[data-test=\"check-update\"]')")) problem += "bouton de mise à jour absent ; ";
             await run("goView('pool'); 1");
             if (!await waitFor(Search)) problem += "Mon pool ne s'ouvre pas depuis la navigation ; ";
 
@@ -2157,6 +2365,7 @@ public static class Autostart
                 case "updateRoles": ToggleRiotUpdate(false); break;
                 case "updateMatchups": ToggleRiotUpdate(true); break;
                 case "checkUpdate": CheckForUpdate(false); break;
+                case "setHotkeyBeta": SetBetaHotkey(val); break;
                 case "importHistory": ToggleHistoryImport(); break;
                 case "tryPanels": TryPanels(); break;
                 case "setLanguage": SetLanguage(m.ContainsKey("value") ? m["value"] as string : null); break;
@@ -2365,6 +2574,56 @@ public static class Autostart
             return problem;
         }
 
+        // Préversion : mise à jour à la main (aucune vérification, aucun accès réseau) ; Ctrl+Alt+D laissé à la 2.x avec sa raison
+        // dans Réglages > Affichage, puis activé explicitement par la case de la page (vraie tentative : enregistré ou conflit 1409
+        // signalé), puis rendu. Le choix est enregistré dans le dossier de la bêta seulement.
+        public string PrereleaseReport = "non mesuré";
+        public async Task<string> TestPrereleaseEdition()
+        {
+            string problem = "";
+            int balloons = BalloonCount;
+            string checkedBefore = updateChecked;
+            CheckForUpdate(true);
+            if (updateCts != null || updateChecked != checkedBefore || LastBalloonKey != "native.update.prerelease" || BalloonCount != balloons + 1 || updateStatus == null || updateStatus.Key != "native.update.prerelease")
+                problem += "mise à jour depuis le menu : vérification lancée ou bulle absente (" + LastBalloonKey + ") ; ";
+            string left = hotkeyLeft ?? "aucune";
+            OpenFull("settings");
+            PanelForm f = null;
+            for (int i = 0; i < 200 && !(OpenPending == 0 && panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null); i++) await Task.Delay(50);
+            if (f == null || f.View.CoreWebView2 == null) return problem + "réglages absents ; ";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> waitFor = async code => { for (int i = 0; i < 100; i++) { if (await run("!!(" + code + ")") == "true") return true; await Task.Delay(50); } return false; };
+            // La rubrique est redemandée tant qu'elle n'est pas affichée : l'ouverture des réglages peut arriver après le premier appel.
+            await waitFor("document.querySelector('[data-test=\"replace-panels\"]') || (goView('settings', 'display'), false)");
+            string forced = "non essayé", back = "non essayé";
+            if (hotkeyLeft != null)
+            {
+                string key = hotkeyLeft == "instance" ? "settings.display.hotkeyLeftInstance" : "settings.display.hotkeyLeftAutostart";
+                if (!await waitFor("document.querySelector('[data-test=\"hotkey-left\"]') && document.querySelector('[data-test=\"hotkey-left\"]').textContent.includes(I18N.t('" + key + "')) && document.querySelector('[data-test=\"hotkey-use\"]') && !document.querySelector('[data-test=\"hotkey-use\"]').checked"))
+                {
+                    string seen = await run("JSON.stringify({ left: hostState.hotkeyLeft, pre: hostState.prerelease, forced: hostState.hotkeyForced, settings: !!document.querySelector('[data-test=\"settings\"]'), text: ((document.querySelector('main') || document.body).innerText || '').slice(0, 300) })");
+                    problem += "Réglages > Affichage n'explique pas pourquoi Ctrl+Alt+D est laissé à la 2.x (" + seen + ") ; ";
+                }
+                await run("document.querySelector('[data-test=\"hotkey-use\"]').click(); 1");
+                for (int i = 0; i < 60 && hotkey == null; i++) await Task.Delay(50);
+                if (hotkey == null || hotkeyLeft != null || !BetaState.Load(dataDir).Hotkey) problem += "activation explicite : aucune tentative d'enregistrement ; ";
+                else
+                {
+                    forced = hotkey.Registered ? "Ctrl+Alt+D enregistré" : "Win32 " + hotkey.Error + (hotkey.Error == HotkeyWindow.AlreadyRegistered ? " (déjà pris : autres instances " + string.Join(", ", Edition.OtherDraftProcesses()) + ")" : "");
+                    string expect = hotkey.Registered ? "!document.querySelector('[data-test=\"hotkey-taken\"]')" : hotkey.Error == HotkeyWindow.AlreadyRegistered ? "document.querySelector('[data-test=\"hotkey-taken\"]')" : "true";
+                    if (!await waitFor(expect + " && document.querySelector('[data-test=\"hotkey-use\"]').checked")) problem += "activation explicite : état de la page faux (" + forced + ") ; ";
+                }
+                await run("document.querySelector('[data-test=\"hotkey-use\"]').click(); 1");
+                for (int i = 0; i < 60 && hotkey != null; i++) await Task.Delay(50);
+                back = hotkey == null && hotkeyLeft != null ? "rendu à la 2.x (" + hotkeyLeft + ")" : "gardé (" + (hotkeyLeft ?? "aucune raison") + ")";
+                if (BetaState.Load(dataDir).Hotkey || (hotkeyLeft != null && hotkey != null)) problem += "désactivation : Ctrl+Alt+D pas rendu ; ";
+                if (!await waitFor("document.querySelector('[data-test=\"hotkey-left\"]') && !document.querySelector('[data-test=\"hotkey-use\"]').checked")) problem += "désactivation : la page ne le montre pas ; ";
+            }
+            f.Hide();
+            PrereleaseReport = "mise à jour : bulle « " + LastBalloon + " », aucune vérification ; Ctrl+Alt+D laissé : " + left + " ; activation explicite : " + forced + " ; puis " + back;
+            return problem;
+        }
+
         // Menu et overlay (UX-6) : 8 entrées au plus, double-clic qui ouvre DRAFT, fonctions sorties du menu présentes dans la fenêtre,
         // bulle au premier masquage depuis un panneau.
         // I18N-3 : changement de langue sans redémarrage, depuis le programme puis depuis le vrai sélecteur de la page.
@@ -2474,9 +2733,15 @@ public static class Autostart
             Func<string, Task<bool>> waitFor = async code => { for (int i = 0; i < 100; i++) { if (await run("!!(" + code + ")") == "true") return true; await Task.Delay(50); } return false; };
             if (!await waitFor("document.querySelector('[data-test=\"view-home\"]') && document.querySelector('[data-test=\"home\"]')")) problem += "le premier lancement n'ouvre pas l'Accueil (" + await run("location.search + ' ' + (document.querySelector('main') || {}).className") + ") ; ";
             if (await run("!!document.querySelector('[data-test=\"settings\"]')") == "true") problem += "le premier lancement ouvre encore les Réglages ; ";
+            // Préversion : ni heure ni bouton de vérification, la consigne de mise à jour à la main et l'état de la copie des données.
+            if (Edition.Prerelease)
+            {
+                if (!await waitFor("document.querySelector('[data-test=\"home-update-prerelease\"]') && !document.querySelector('[data-test=\"home-check-update\"]') && document.querySelector('[data-test=\"home-update\"]').textContent.includes(I18N.t('home.update.prerelease'))")) problem += "préversion : l'Accueil n'affiche pas la consigne de mise à jour à la main, ou garde le bouton ; ";
+                if (!await waitFor("document.querySelector('[data-test=\"home-beta-copy\"]')")) problem += "préversion : l'Accueil ne dit pas d'où viennent les données ; ";
+            }
             // Mise à jour vérifiée plus tôt (source simulée) : résultat et heure sur l'Accueil.
-            if (updateChecked != "" && !await waitFor("(() => { const s = (document.querySelector('[data-test=\"home-update-checked\"]') || {}).textContent || ''; return s.startsWith(I18N.t('home.update.checked', { time: '@' }).split('@')[0]) && /\\d:\\d\\d/.test(s); })()")) problem += "l'Accueil n'affiche pas l'heure de la dernière vérification ; ";
-            if (updateStatus != null && !await waitFor("((document.querySelector('[data-test=\"home-update-status\"]') || {}).textContent || '').length > 5")) problem += "l'Accueil n'affiche pas le résultat de la mise à jour ; ";
+            else if (updateChecked != "" &&!await waitFor("(() => { const s = (document.querySelector('[data-test=\"home-update-checked\"]') || {}).textContent || ''; return s.startsWith(I18N.t('home.update.checked', { time: '@' }).split('@')[0]) && /\\d:\\d\\d/.test(s); })()")) problem += "l'Accueil n'affiche pas l'heure de la dernière vérification ; ";
+            if (!Edition.Prerelease && updateStatus != null && !await waitFor("((document.querySelector('[data-test=\"home-update-status\"]') || {}).textContent || '').length > 5")) problem += "l'Accueil n'affiche pas le résultat de la mise à jour ; ";
 
             // Lecture du client : activée par le bouton de l'Accueil, puis LCU simulé connecté, puis client injoignable.
             bool lcuBefore = settings.LcuEnabled;
@@ -2576,6 +2841,14 @@ public static class Autostart
         // fromMenu : lancée depuis le menu de l'icône, la recherche répond par une bulle, réglages ouverts ou non.
         public void CheckForUpdate(bool fromMenu)
         {
+            // Préversion de test : aucune vérification ni installation automatique, aucun accès à GitHub. Mise à jour à la main.
+            if (Edition.Prerelease)
+            {
+                Msg manual = new Msg("native.update.prerelease");
+                SetUpdateStatus(manual);
+                if (fromMenu) Notify(manual, ToolTipIcon.Info);
+                return;
+            }
             RunUpdate(new GitHubUpdateSource(), fromMenu, info => MessageBox.Show(Strings.T("native.update.confirm", "version", info.Version.ToString(3), "current", AppUpdater.Current.ToString(3)), "DRAFT", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
         }
 
@@ -2963,6 +3236,11 @@ public static class Autostart
             t(failed == Strings.T("native.update.offline"), "Mise à jour depuis le menu, réseau absent : bulle d'erreur en clair (" + failed + ")");
             // UX-8 : la dernière vérification réussie (« à jour ») est rejouée pour que l'Accueil ait une heure et un résultat à montrer.
             await app.TestUpdateFromMenu(new StubUpdateSource());
+            if (Edition.Prerelease)
+            {
+                string preProblem = await app.TestPrereleaseEdition();
+                t(preProblem == "", "Préversion " + Edition.Version + " : mise à jour à la main, Ctrl+Alt+D laissé à la 2.x et activable dans Réglages > Affichage (" + app.PrereleaseReport + ") " + preProblem);
+            }
             string homeProblem = await app.TestHome();
             t(homeProblem == "", "Accueil et premier lancement : premier lancement sur l'Accueil, état League réel (LCU simulé), activation et essai des panneaux par la page (" + app.HomeReport + ") " + homeProblem);
         }
@@ -3173,6 +3451,8 @@ public static class Autostart
                 t(!PanelHasFocus(app), "Aucun vol de focus à l'apparition");
                 // QA-6 : l'échec reste toujours visible, avec sa cause mesurée (code Win32 et autres instances DRAFT de la session).
                 if (o.NoHotkey) t(!app.HotkeyCreated, "Raccourci laissé à l'autre version : aucune tentative");
+                // Préversion : l'échec reste visible, mais distingué du conflit 1409 (aucune tentative, donc aucun conflit).
+                else if (app.HotkeyLeftReason != null) t(false, "Raccourci Ctrl+Alt+D non enregistré : laissé volontairement à la 2.x par la préversion (raison « " + app.HotkeyLeftReason + " » ; autres instances DRAFT de la session : " + OtherInstances() + ") ; aucune tentative, donc pas de conflit 1409");
                 else t(app.HotkeyRegistered, "Raccourci Ctrl+Alt+D enregistré" + (app.HotkeyRegistered ? "" : " (Win32 " + app.HotkeyError + (app.HotkeyError == HotkeyWindow.AlreadyRegistered ? " : déjà pris par un autre programme" : "") + " ; autres instances DRAFT de la session : " + OtherInstances() + ")"));
 
                 feed(Evidence.NotDraft, 1); feed(Evidence.Draft, 1); feed(Evidence.Unknown, 2); feed(Evidence.NotDraft, 2); feed(Evidence.Draft, 1);
@@ -3448,6 +3728,8 @@ public static class Autostart
         public int AutoExit, SettleMs = 2500, Soak;
         public bool CheckRuntime, OpggPrototype, OpggTest, OpggLive;
         public string RunKey, TestUpdate;
+        // Préversion : --legacy-data <dossier> remplace la source de la copie initiale (essais : jamais le vrai dossier 2.x).
+        public string LegacyData;
         // --lang fr|en : langue imposée pour un essai (tests), sans toucher au réglage enregistré.
         public string Lang;
         public int AfterUpdate;
@@ -3466,6 +3748,7 @@ public static class Autostart
                     case "--capture": o.CaptureDir = next(); break;
                     case "--out": o.Out = next(); break;
                     case "--data": o.DataDir = next(); break;
+                    case "--legacy-data": o.LegacyData = next(); break;
                     case "--auto-exit": o.AutoExit = int.Parse(next()); o.Silent = true; break;
                     case "--settle": o.SettleMs = int.Parse(next()); break;
                     case "--selftest": o.SelfTest = true; o.Silent = true; break;
@@ -3526,7 +3809,7 @@ public static class Autostart
             using (RegistryKey k = Registry.CurrentUser.CreateSubKey(o.TestInstall ? TestUninstallKey : UninstallKey))
             {
                 k.SetValue("DisplayName", "DRAFT");
-                k.SetValue("DisplayVersion", "2.16.2");
+                k.SetValue("DisplayVersion", Edition.Version);
                 k.SetValue("Publisher", "DRAFT");
                 k.SetValue("DisplayIcon", target);
                 k.SetValue("InstallLocation", dir);
@@ -3729,6 +4012,108 @@ public static class Autostart
         }
     }
 
+    // Édition (stable ou préversion) : noms séparés, copie initiale en lecture seule, raccourci, installation refusée.
+    // Tout se passe dans le dossier de test et sur la clé de registre de test : ni le vrai dossier 2.x, ni la vraie valeur Run.
+    static class EditionTests
+    {
+        static Dictionary<string, string> Snapshot(string dir)
+        {
+            Dictionary<string, string> d = new Dictionary<string, string>();
+            foreach (string f in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+                using (FileStream s = new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    d[f.Substring(dir.Length + 1)] = BitConverter.ToString(System.Security.Cryptography.SHA256.Create().ComputeHash(s)) + "|" + File.GetLastWriteTimeUtc(f).Ticks + "|" + File.GetCreationTimeUtc(f).Ticks;
+            foreach (string sub in Directory.GetDirectories(dir, "*", SearchOption.AllDirectories)) d[sub.Substring(dir.Length + 1) + "\\"] = "dossier";
+            return d;
+        }
+
+        public static void Run(Action<bool, string> t, string dataDir, string self)
+        {
+            string v = Edition.Version;
+            t(Edition.IsPrerelease("3.0.0-beta.1") && !Edition.IsPrerelease("3.0.0") && !Edition.IsPrerelease("2.16.2") && !Edition.IsPrerelease(null), "Édition : un « - » dans la version signifie préversion (3.0.0-beta.1 oui ; 3.0.0, 2.16.2 non)");
+            Version file = new Version(FileVersionInfo.GetVersionInfo(self).FileVersion);
+            t(v.StartsWith(file.ToString(3)) && Edition.Prerelease == Edition.IsPrerelease(v) && FileVersionInfo.GetVersionInfo(self).ProductVersion == v, "Édition : version " + v + " (fichier " + file + "), " + (Edition.Prerelease ? "préversion" : "stable"));
+            string page;
+            using (Stream res = typeof(EditionTests).Assembly.GetManifestResourceStream("web/index.html"))
+            using (StreamReader r = new StreamReader(res, Encoding.UTF8)) page = r.ReadToEnd();
+            string appVersion = Regex.Match(page, "const APP_VERSION = \"([^\"]+)\";").Groups[1].Value;
+            t(appVersion == v, "Édition : APP_VERSION de la page (" + appVersion + ") égale à la version de l'exe (" + v + ")");
+            // Stable : exactement les noms de la 2.x. Préversion : des noms à elle.
+            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            t(Edition.DefaultDataDir(false) == Path.Combine(local, "DraftMid") && Edition.MutexName(false, null) == "DraftMid.Instance" && Edition.MutexName(false, @"C:\essai") == "DraftMid.Test." + @"C:\essai".GetHashCode() && Edition.RunValue(false) == "DraftMid",
+                "Édition stable : dossier %LOCALAPPDATA%\\DraftMid, Mutex DraftMid.Instance (DraftMid.Test.* avec --data), valeur Run DraftMid : inchangés");
+            t(Edition.DefaultDataDir(true) == Path.Combine(local, "DRAFT-beta") && Edition.MutexName(true, null) == "DRAFT-beta.Instance" && Edition.MutexName(true, @"C:\essai") == "DRAFT-beta.Test." + @"C:\essai".GetHashCode() && Edition.RunValue(true) == "DRAFT-beta",
+                "Édition préversion : dossier %LOCALAPPDATA%\\DRAFT-beta, Mutex DRAFT-beta.Instance (DRAFT-beta.Test.* avec --data), valeur Run DRAFT-beta");
+            t(Autostart.ValueName == Edition.RunValue(Edition.Prerelease), "Édition : valeur Run utilisée par cet exe : " + Autostart.ValueName);
+            // Installation : refusée en préversion seulement (y compris un exe renommé « Setup »).
+            Func<bool, Options, string, bool> refuses = Edition.RefusesInstall;
+            bool betaRefuses = refuses(true, new Options { Install = true }, "DRAFT.exe") && refuses(true, new Options { Uninstall = true }, "DRAFT.exe") && refuses(true, new Options { TestInstall = true }, "DRAFT.exe") && refuses(true, new Options(), @"C:\x\DRAFT-Setup.exe") && !refuses(true, new Options(), @"C:\x\DRAFT-Portable.exe");
+            bool stableAllows = !refuses(false, new Options { Install = true }, "DRAFT.exe") && !refuses(false, new Options { Uninstall = true }, "DRAFT.exe") && !refuses(false, new Options(), @"C:\x\DRAFT-Setup.exe");
+            t(betaRefuses && stableAllows, "Édition : --install, --uninstall, --test-install et exe « Setup » refusés en préversion, permis en stable");
+            // Raccourci : laissé à la 2.x en préversion seulement, sauf choix explicite.
+            t(Edition.HotkeyLeftReason(true, false, true, false) == "instance" && Edition.HotkeyLeftReason(true, false, false, true) == "autostart" && Edition.HotkeyLeftReason(true, false, true, true) == "instance"
+                && Edition.HotkeyLeftReason(true, false, false, false) == null && Edition.HotkeyLeftReason(true, true, true, true) == null && Edition.HotkeyLeftReason(false, false, true, true) == null,
+                "Édition : Ctrl+Alt+D laissé à la 2.x en préversion (autre DRAFT ouvert, ou 2.x au démarrage de Windows), sauf choix du joueur ; stable : toujours tenté");
+            // Valeur « DraftMid » de la 2.x : existence seulement, sur la clé de test (Autostart.Key), jamais sur la vraie clé Run.
+            bool onTestKey = Autostart.Key != Autostart.DefaultKey;
+            if (onTestKey)
+            {
+                bool before = Autostart.LegacyValueExists();
+                using (RegistryKey k = Registry.CurrentUser.CreateSubKey(Autostart.Key)) k.SetValue(Edition.StableName, "\"essai.exe\"");
+                bool seen = Autostart.LegacyValueExists();
+                string kept;
+                using (RegistryKey k = Registry.CurrentUser.OpenSubKey(Autostart.Key)) kept = Convert.ToString(k.GetValue(Edition.StableName));
+                using (RegistryKey k = Registry.CurrentUser.CreateSubKey(Autostart.Key)) k.DeleteValue(Edition.StableName, false);
+                t(!before && seen && kept == "\"essai.exe\"" && !Autostart.LegacyValueExists(), "Édition : valeur Run DraftMid de la 2.x vue par son nom seulement, sans être modifiée (clé de test)");
+            }
+            else t(false, "Édition : clé Run de test absente, essai de la valeur DraftMid non fait");
+
+            // Copie initiale : faux dossier 2.x, un fichier tenu en écriture partagée (2.x ouverte), un autre en exclusivité.
+            string root = Path.Combine(dataDir, "test-edition");
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+            string src = Path.Combine(root, "DraftMid"), dst = Path.Combine(root, "DRAFT-beta");
+            string storage = Path.Combine(src, LegacyCopy.StorageRelative, "leveldb");
+            Directory.CreateDirectory(storage);
+            Directory.CreateDirectory(Path.Combine(src, "app", "abc"));
+            Directory.CreateDirectory(Path.Combine(src, "webview", "EBWebView", "Default", "Cache"));
+            Dictionary<string, string> files = new Dictionary<string, string> {
+                { "settings.json", "{\"Compact\":true,\"ProfileKnown\":true}" }, { "draft-profiles.json", "{\"roles\":{}}" }, { "draft-profiles.json.precedent", "{}" },
+                { "draft-history.js", "window.DRAFT_HISTORY = {\"rows\":[]};" }, { "draft-history.js.precedent", "window.DRAFT_HISTORY = {\"rows\":[]};" }, { "draft-stats.js", "window.DRAFT_STATS = {\"rows\":[]};" },
+                { "validation-drafts.csv", "a;b" }, { "draftmid.log", "journal" }, { "diagnostic.log", "diag" }, { "settings.json.tmp", "x" },
+                { Path.Combine("app", "abc", "index.html"), "<p>" }, { Path.Combine("webview", "EBWebView", "Default", "Cache", "f_000001"), "cache" },
+                { Path.Combine(LegacyCopy.StorageRelative, "leveldb", "000003.log"), "journal-de-la-page" }, { Path.Combine(LegacyCopy.StorageRelative, "leveldb", "CURRENT"), "MANIFEST-000001" },
+                { Path.Combine(LegacyCopy.StorageRelative, "leveldb", "MANIFEST-000001"), "manifeste" }, { Path.Combine(LegacyCopy.StorageRelative, "leveldb", "LOCK"), "" },
+                { Path.Combine(LegacyCopy.StorageRelative, "leveldb", "000005.ldb"), "table" } };
+            foreach (KeyValuePair<string, string> p in files) File.WriteAllText(Path.Combine(src, p.Key), p.Value);
+            DateTime old = new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            foreach (string f in Directory.GetFiles(src, "*", SearchOption.AllDirectories)) { File.SetLastWriteTimeUtc(f, old); File.SetCreationTimeUtc(f, old); }
+            Dictionary<string, string> before2 = Snapshot(src);
+            BetaState st;
+            using (new FileStream(Path.Combine(storage, "000003.log"), FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+            using (new FileStream(Path.Combine(storage, "000005.ldb"), FileMode.Open, FileAccess.Read, FileShare.None))
+            using (new FileStream(Path.Combine(storage, "LOCK"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                st = LegacyCopy.Run(src, dst);
+            string[] expected = { "settings.json", "draft-profiles.json", "draft-profiles.json.precedent", "draft-history.js", "draft-history.js.precedent", "draft-stats.js", "validation-drafts.csv",
+                Path.Combine(LegacyCopy.StorageRelative, "leveldb", "000003.log"), Path.Combine(LegacyCopy.StorageRelative, "leveldb", "CURRENT"), Path.Combine(LegacyCopy.StorageRelative, "leveldb", "MANIFEST-000001") };
+            string[] got = Directory.GetFiles(dst, "*", SearchOption.AllDirectories).Select(f => f.Substring(dst.Length + 1)).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+            bool sameContent = expected.All(e => File.Exists(Path.Combine(dst, e)) && File.ReadAllText(Path.Combine(dst, e)) == files[e]);
+            t(st.SourceFound && st.Files == expected.Length && st.Skipped == 1 && got.SequenceEqual(expected.OrderBy(x => x, StringComparer.Ordinal)) && sameContent,
+                "Copie initiale : " + st.Files + " fichiers de données copiés à l'identique (réglages, profils, historique, statistiques, relevé, stockage de la page), " + st.Skipped + " sauté (tenu en exclusivité) ; ni journal, ni cache, ni verrou, ni fichier temporaire");
+            Dictionary<string, string> after2 = Snapshot(src);
+            bool untouched = before2.Count == after2.Count && before2.All(p => after2.ContainsKey(p.Key) && after2[p.Key] == p.Value);
+            bool unlocked = true;
+            foreach (string f in Directory.GetFiles(src, "*", SearchOption.AllDirectories)) try { using (new FileStream(f, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { } } catch (IOException) { unlocked = false; }
+            t(untouched && unlocked, "Copie initiale : dossier source identique octet pour octet (" + before2.Count + " entrées, empreintes et dates), aucun fichier ajouté, aucun verrou laissé");
+            BetaState again = LegacyCopy.IsEmpty(dst) ? LegacyCopy.Run(src, dst) : null;
+            BetaState none = LegacyCopy.Run(Path.Combine(root, "absent"), Path.Combine(root, "vide"));
+            t(again == null && !LegacyCopy.IsEmpty(dst) && LegacyCopy.IsEmpty(Path.Combine(root, "pas-encore")) && !none.SourceFound && none.Files == 0 && !Directory.Exists(Path.Combine(root, "vide")),
+                "Copie initiale : seulement si le dossier de la bêta est vide ; source absente : rien de copié, rien de créé");
+            st.Hotkey = true; st.Save(dst);
+            BetaState back = BetaState.Load(dst);
+            t(back.Hotkey && back.Files == st.Files && back.CopiedAt == st.CopiedAt && BetaState.Load(Path.Combine(root, "absent")).Files == 0, "Préversion : état de la copie et choix de Ctrl+Alt+D relus à l'identique (" + BetaState.FileName + ")");
+            Directory.Delete(root, true);
+        }
+    }
+
     static class SelfTest
     {
         public static int Run(Options o, string dataDir, string self)
@@ -3850,6 +4235,7 @@ public static class Autostart
             t(Autostart.IsOn(), "activation du démarrage automatique");
             Autostart.Set(false, self);
             t(!Autostart.IsOn(), "désactivation du démarrage automatique");
+            EditionTests.Run(t, dataDir, self);
             Registry.CurrentUser.DeleteSubKeyTree(@"Software\DraftMid-SelfTest", false);
             Autostart.Key = Autostart.DefaultKey;
 
@@ -3996,7 +4382,18 @@ public static class Autostart
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             string self = Application.ExecutablePath;
-            string dataDir = o.DataDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DraftMid");
+            // Préversion : portable seulement. Rien n'est créé ni modifié avant ce refus (ni dossier, ni registre, ni raccourci).
+            if (Edition.RefusesInstall(Edition.Prerelease, o, self))
+            {
+                if (!o.Silent) MessageBox.Show(Strings.T("native.beta.noInstall"), "DRAFT", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return 3;
+            }
+            // Stable : %LOCALAPPDATA%\DraftMid, comme la 2.x. Préversion : %LOCALAPPDATA%\DRAFT-beta. --data reste prioritaire.
+            string dataDir = o.DataDir ?? Edition.DefaultDataDir(Edition.Prerelease);
+            // Préversion, premier lancement (dossier absent ou vide) : copie des données 2.x. Source : --legacy-data, sinon, sans
+            // --data, le dossier de la 2.x. Avec --data seul, aucune copie : un essai ne lit jamais le vrai dossier 2.x.
+            string legacySource = !Edition.Prerelease ? null : o.LegacyData ?? (o.DataDir == null ? Edition.DefaultDataDir(false) : null);
+            bool copyLegacy = legacySource != null && !o.SelfTest && LegacyCopy.IsEmpty(dataDir);
             try
             {
                 Directory.CreateDirectory(dataDir);
@@ -4026,6 +4423,7 @@ public static class Autostart
             }
 #endif
             if (o.SelfTest) return SelfTest.Run(o, dataDir, self);
+            // Inaccessible en préversion (refus plus haut) : installation, désinstallation et migration de l'ancien exe.
             if (o.Uninstall) { Installer.Uninstall(o, self); return 0; }
             if (o.Install || (!o.TestInstall && Path.GetFileName(self).IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0)) { Installer.Install(o, self); return 0; }
             if (o.TestInstall) { Installer.Install(o, self); return 0; }
@@ -4033,18 +4431,28 @@ public static class Autostart
             if (o.TestSignature != null) return AppUpdater.ValidSignature(o.TestSignature[1], AppUpdater.Sha256Of(o.TestSignature[0]), File.ReadAllText(o.TestSignature[2]), AppUpdater.ReleaseKey) ? 0 : 1;
 
             bool created;
-            using (Mutex single = new Mutex(true, o.DataDir == null ? "DraftMid.Instance" : "DraftMid.Test." + o.DataDir.GetHashCode(), out created))
+            // Stable : « DraftMid.Instance », comme la 2.x. Préversion : « DRAFT-beta.Instance » : la bêta et une 2.x ne se bloquent pas.
+            using (Mutex single = new Mutex(true, Edition.MutexName(Edition.Prerelease, o.DataDir), out created))
             {
                 if (!created)
                 {
                     if (!o.Silent) MessageBox.Show(Strings.T("native.dialog.alreadyOpen"), "DRAFT");
                     return 0;
                 }
+                BetaState copied = null;
+                if (copyLegacy && LegacyCopy.IsEmpty(Path.Combine(dataDir, "webview")) && !File.Exists(Path.Combine(dataDir, "settings.json")))
+                {
+                    copied = LegacyCopy.Run(legacySource, dataDir);
+                    copied.Save(dataDir);
+                    Log(dataDir, "Préversion : copie des données 2.x, " + copied.Files + " fichier(s) copié(s), " + copied.Skipped + " sauté(s), source " + (copied.SourceFound ? "trouvée" : "absente"));
+                }
+                else if (Edition.Prerelease && !File.Exists(Path.Combine(dataDir, BetaState.FileName))) new BetaState().Save(dataDir);
                 string webDir = Extract(dataDir);
                 string runtime = RuntimeHelp.Version(webDir);
                 if (o.CheckRuntime) { File.WriteAllText(o.Out, runtime ?? "absent"); return 0; }
                 if (runtime == null && !o.Silent) { RuntimeHelp.Explain(); return 0; }
                 CompanionApp app = new CompanionApp(o, dataDir, webDir, self, o.EndToEnd ? EndToEnd.Matcher : ClientWindowTracker.IsRealClient);
+                if (copied != null) app.AnnounceBetaCopy(copied);
                 if (o.AfterUpdate <= 0) AppUpdater.CleanUp(self);
                 if (o.UpdateRolledBack) app.AnnounceRolledBack();
                 // Après une mise à jour : quelques secondes sans plantage valent confirmation pour l'ancienne version, qui surveille.

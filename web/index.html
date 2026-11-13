@@ -1314,7 +1314,10 @@ function publish(action) {
 }
 
 // ---------- Profils par rôle : un pool, des exclusions et un favori par rôle, enregistrés à chaque changement ----------
-const APP_VERSION = "2.16.2";
+// Égale à AssemblyInformationalVersion de l'exe (contrôlé par --selftest). Un « - » signifie préversion, comme côté programme :
+// mise à jour à la main, données dans un dossier séparé de la 2.x.
+const APP_VERSION = "3.0.0-beta.1";
+const PRERELEASE = APP_VERSION.includes("-");
 let PROFILES = loadProfiles(localStorage, PREFS);
 function useActiveRole() {
   if (!PROFILES.active) return;
@@ -2834,7 +2837,7 @@ function MainNav() {
       <p className="nav-line" title=${t("nav.state.league")}><i className=${`nav-dot ${lcu ? lcu[0] : "idle"}`} aria-hidden="true"></i><span className="lbl">${t("nav.state.league")}</span><span className="val">${lcu ? t(lcu[1]) : t("nav.state.lcu.browser")}</span></p>
       <p className="nav-line" data-test="nav-role" title=${t("nav.state.role")}>${role ? html`<span className="nav-role-icon"><${RoleIcon} role=${role} /></span>` : html`<i className="nav-dot wait" aria-hidden="true"></i>`}<span className="lbl">${t("nav.state.role")}</span><span className="val">${role ? ROLE_NAMES[role] : t("nav.state.noRole")}</span></p>
     </div>
-    <p className="nav-legal">${t("nav.legal", { version:APP_VERSION })}</p>
+    <p className="nav-legal">${t(PRERELEASE ? "nav.legal.prerelease" : "nav.legal", { version:APP_VERSION })}</p>
   </nav>`;
 }
 
@@ -2969,7 +2972,20 @@ function HomePanels() {
   </section>`;
 }
 
+// Préversion : pas de recherche de mise à jour ; la carte dit d'où viennent les données (copie de la 2.x ou dossier neuf).
+function HomePrerelease() {
+  const host = hostState.available, copy = hostState.betaCopy;
+  return html`<section className="box home-card home-quiet" data-test="home-update" aria-labelledby="home-update-title">
+    <h2 id="home-update-title" className="card-kicker">${t("home.prerelease.title")}</h2>
+    <p className="card-state">${t("home.update.version.prerelease", { version:APP_VERSION })}</p>
+    ${host ? html`<p className="card-text small" data-test="home-beta-copy">${copy && copy.sourceFound && copy.copiedAt
+      ? t("home.prerelease.copy", { date:frDate(copy.copiedAt) }) : t("home.prerelease.fresh")}${copy && copy.skipped ? " " + t("home.prerelease.skipped", { count:copy.skipped }) : ""}</p>` : null}
+    <p className="card-text small" data-test="home-update-prerelease">${t("home.update.prerelease")}</p>
+  </section>`;
+}
+
 function HomeUpdate() {
+  if (PRERELEASE) return html`<${HomePrerelease} />`;
   const host = hostState.available, when = hostState.updateChecked;
   const today = when && new Date(when).toDateString() === new Date().toDateString();
   return html`<section className="box home-card home-quiet" data-test="home-update" aria-labelledby="home-update-title">
@@ -3283,7 +3299,7 @@ function StatsView() {
 
 const SECTION_ICONS = { general:"sliders", league:"plug", display:"monitor", data:"shield", updates:"refresh", diag:"pulse" };
 // Titre et sous-titre de chaque rubrique : clés écrites en entier, pour que le contrôle du catalogue les retrouve.
-const SECTION_KEYS = { general:["settings.section.general", "settings.general.sub"], league:["settings.section.league", "settings.league.sub"], display:["settings.section.display", "settings.display.sub"], data:["settings.section.data", "settings.data.sub"], updates:["settings.section.updates", "settings.updates.sub"], diag:["settings.section.diag", "settings.diag.sub"] };
+const SECTION_KEYS = { general:["settings.section.general", "settings.general.sub"], league:["settings.section.league", "settings.league.sub"], display:["settings.section.display", "settings.display.sub"], data:["settings.section.data", "settings.data.sub"], updates:["settings.section.updates", PRERELEASE ? "settings.updates.sub.prerelease" : "settings.updates.sub"], diag:["settings.section.diag", "settings.diag.sub"] };
 const HostOnly = () => html`<p className="empty-note" data-test="settings-host-only">${t("settings.hostOnly")}</p>`;
 
 function SettingsSection({ id }) {
@@ -3312,6 +3328,9 @@ function SettingsSection({ id }) {
     <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> ${t("settings.display.auto")}</label>
     <p className="set-hint">${t(hostState.hotkey ? "settings.display.toggleHotkey" : "settings.display.toggleMenu")}</p>
     ${!hostState.hotkey && hostState.hotkeyError === 1409 ? html`<p className="set-hint" role="status" data-test="hotkey-taken">${t("settings.display.hotkeyTaken")}</p>` : null}
+    ${hostState.hotkeyLeft ? html`<p className="set-hint" role="status" data-test="hotkey-left">${t(hostState.hotkeyLeft === "autostart" ? "settings.display.hotkeyLeftAutostart" : "settings.display.hotkeyLeftInstance")}</p>` : null}
+    ${hostState.prerelease && (hostState.hotkeyLeft || hostState.hotkeyForced) ? html`<label className="set-check"><input type="checkbox" data-test="hotkey-use" checked=${!!hostState.hotkeyForced} onChange=${e => hostSend({ cmd:"setHotkeyBeta", value:e.target.checked })} /> ${t("settings.display.hotkeyUse")}</label>
+      <p className="set-hint">${t("settings.display.hotkeyUseHint")}</p>` : null}
     <h3>${t("settings.display.windows")}</h3>
     <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> ${t("settings.display.follow")}</label>
     <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> ${t("settings.display.compact")}</label>
@@ -3341,13 +3360,18 @@ function SettingsSection({ id }) {
     </div>` : null}
     <${DataSources} />
   </div>`;
+  // Préversion de test : ni bouton ni lien, la consigne de mise à jour à la main.
+  if (id === "updates" && PRERELEASE) return host ? html`<div>
+    <p className="small">${t("home.update.version.prerelease", { version: APP_VERSION })}</p>
+    <p className="small" data-test="update-prerelease">${t("home.update.prerelease")}</p>
+  </div>` : html`<${HostOnly} />`;
   if (id === "updates") return host ? html`<div>
     <p className="small">${t("settings.updates.version", { version: APP_VERSION })}</p>
     ${hostState.updateStatus ? html`<p className="small" role="status" data-test="update-status">${nativeText(hostState.updateStatus)}</p>` : null}
     <p className="set-row"><button type="button" className="ghost-btn" data-test="check-update" disabled=${!!hostState.updateRunning} onClick=${() => hostSend({ cmd:"checkUpdate" })}>${hostState.updateRunning ? t("home.update.running") : t("home.update.check")}</button></p>
   </div>` : html`<${HostOnly} />`;
   return html`<div>
-    <p className="small brand-sub">${t("settings.diag.about", { version: APP_VERSION })}</p>
+    <p className="small brand-sub">${t(PRERELEASE ? "settings.diag.about.prerelease" : "settings.diag.about", { version: APP_VERSION })}</p>
     ${host ? html`<div>
       <label className="set-check"><input type="checkbox" checked=${hostState.diagnostics} onChange=${e => hostSend({ cmd:"setDiagnostics", value:e.target.checked })} /> ${t("settings.diag.journal")}</label>
       <dl className="facts" data-test="diag-state">
