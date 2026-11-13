@@ -63,6 +63,10 @@ $Runs += , @('partial', 'state=partial&frozen=1', $false)
 $Runs += , @('sans profil', 'state=full&set=full&profile=none&frozen=1', $false)
 $Runs += , @('sources de donnees ouvertes', 'state=full&set=full&page=settings&section=data&host=on&open=1', $false)
 # UX-3 : chaque section de la fenetre principale, et chaque rubrique des reglages, dans l'application et hors application.
+# Mes statistiques (tableau de bord) : historiques fictifs de 93 et 400 parties, données incomplètes, onglets Journal et Historique Riot.
+foreach ($st in 'stats93', 'statsrich', 'statsincomplete') { $Runs += , @("statistiques $st", "state=$st&set=full&page=stats&host=on", $false) }
+$Runs += , @('statistiques journal', 'state=statsrich&set=full&page=stats&section=journal&host=on', $false)
+$Runs += , @('statistiques historique riot', 'state=statsrich&set=full&page=stats&section=history', $false)
 foreach ($v in 'home', 'pool', 'stats') { $Runs += , @("section $v", "state=history&set=full&page=$v&host=on", $false); $Runs += , @("section $v hors application", "state=empty&set=full&page=$v", $false) }
 foreach ($s in 'general', 'league', 'display', 'data', 'updates', 'diag') { $Runs += , @("reglages $s", "state=full&set=full&page=settings&section=$s&host=on", $false) }
 $Runs += , @('mon pool sans profil', 'state=full&set=full&page=pool&profile=none', $false)

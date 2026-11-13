@@ -63,7 +63,7 @@
 .sd-prog-n { color:var(--info); font-size:var(--fs-xs); }
 
 /* Chronologie repliée */
-.sd-timeline summary { display:flex; align-items:baseline; gap:var(--s2); cursor:pointer; font:var(--fs-md)/1.2 var(--condensed); }
+.sd-timeline summary { display:flex; align-items:center; gap:var(--s2); min-height:32px; cursor:pointer; font:var(--fs-md)/1.2 var(--condensed); }
 .sd-timeline summary small { color:var(--muted); font:var(--fs-xs) var(--body); }
 .sd-timeline[open] summary { margin-bottom:var(--s2); }
 .sd-legend { display:flex; justify-content:flex-end; gap:var(--s4); color:var(--muted); font-size:var(--fs-xs); }
