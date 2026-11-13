@@ -93,6 +93,20 @@ namespace DraftMid
     {
         const int MinW = 230, IdealW = 340, MinH = 520, Gap = 0;
 
+        // QA-4 : une position enregistrée par l'utilisateur n'est reprise que si le panneau reste utilisable sur un écran présent :
+        // au moins la moitié de sa largeur et toute sa barre de titre (40 px à l'échelle de l'écran) visibles. Sinon (écran débranché,
+        // résolution réduite, écran déplacé), la place par défaut. Avant : un seul pixel commun suffisait.
+        public static bool KeepSaved(Native.RECT saved, IList<Monitor> monitors)
+        {
+            if (saved.W <= 0 || saved.H <= 0) return false;
+            foreach (Monitor m in monitors)
+            {
+                int visible = Math.Min(saved.Right, m.Work.Right) - Math.Max(saved.Left, m.Work.Left);
+                if (visible * 2 >= saved.W && saved.Top >= m.Work.Top && saved.Top + (int)(40 * m.Scale) <= m.Work.Bottom) return true;
+            }
+            return false;
+        }
+
         public static Placement Compute(Native.RECT client, IList<Monitor> monitors, bool preferCompact)
         {
             Monitor home = monitors.OrderByDescending(m => OverlapArea(m.Work, client)).First();
@@ -353,20 +367,31 @@ public static class Autostart
 
     public class HotkeyWindow : NativeWindow, IDisposable
     {
+        public const uint Alt = 0x0001, Ctrl = 0x0002, Shift = 0x0004, NoRepeat = 0x4000;
+        public const int WM_HOTKEY = 0x0312, AlreadyRegistered = 1409;
         public event Action Pressed;
         public readonly bool Registered;
-        public HotkeyWindow()
+        // Code Win32 de l'échec (0 si enregistré). 1409 (ERROR_HOTKEY_ALREADY_REGISTERED) : un autre programme tient la combinaison.
+        public readonly int Error;
+        public readonly int Id;
+        public int Received;
+        // Ctrl + Alt + D, sans répétition automatique.
+        public HotkeyWindow() : this(Ctrl | Alt | NoRepeat, (uint)Keys.D, 1) { }
+        // QA-6 : une autre combinaison (essai isolé, sans toucher au Ctrl+Alt+D d'une autre instance).
+        public HotkeyWindow(uint modifiers, uint key, int id)
         {
+            Id = id;
             CreateHandle(new CreateParams());
-            // Ctrl + Alt + D, sans répétition automatique.
-            Registered = NativeHook.RegisterHotKey(Handle, 1, 0x0002 | 0x0001 | 0x4000, (uint)Keys.D);
+            Registered = NativeHook.RegisterHotKey(Handle, id, modifiers, key);
+            Error = Registered ? 0 : System.Runtime.InteropServices.Marshal.GetLastWin32Error();
         }
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == 0x0312) { Action p = Pressed; if (p != null) p(); }
+            if (m.Msg == WM_HOTKEY && m.WParam.ToInt64() == Id) { Received++; Action p = Pressed; if (p != null) p(); }
             base.WndProc(ref m);
         }
-        public void Dispose() { NativeHook.UnregisterHotKey(Handle, 1); DestroyHandle(); }
+        public void Dispose() { if (Registered) NativeHook.UnregisterHotKey(Handle, Id); DestroyHandle(); }
+
     }
 
     // Libellés du menu de l'icône : catalogue (native.menu.*, I18N-3), dans la langue du programme au moment de l'affichage.
@@ -402,7 +427,7 @@ public static class Autostart
         readonly PanelVisibilityController visibility = new PanelVisibilityController();
         readonly FrameGrabber grabber;
         readonly Frame frame = new Frame();
-        readonly HotkeyWindow hotkey;
+        HotkeyWindow hotkey;
         CoreWebView2Environment env;
         Task envTask;
         string shownMode = "", pendingMode = "";
@@ -420,6 +445,7 @@ public static class Autostart
         public ClientWindowTracker Tracker { get { return tracker; } }
         public bool HotkeyRegistered { get { return hotkey != null && hotkey.Registered; } }
         public bool HotkeyCreated { get { return hotkey != null; } }
+        public int HotkeyError { get { return hotkey != null ? hotkey.Error : 0; } }
         public UserPreferences Prefs { get { return settings; } }
 
         public PanelForm PanelFor(string id) { PanelForm f; return panels.TryGetValue(id, out f) ? f : null; }
@@ -1077,8 +1103,10 @@ public static class Autostart
         // La fenêtre principale change tout de suite ; les panneaux seulement hors draft, car les recharger efface leur état.
         bool langReloadPending;
         public int LanguageReloads;
-        public void SetLanguage(string value)
+        public bool SetLanguage(string value)
         {
+            // QA 3.0 : commande de la page validée. Une valeur hors liste (ni langue livrée, ni « auto ») est refusée : rien ne change.
+            if (value != "auto" && (value == null || Array.IndexOf(Strings.Supported, value) < 0)) return false;
             settings.Language = Strings.NormalizeSetting(value);
             Persist();
             string next = Strings.Resolve(settings.Language, System.Globalization.CultureInfo.CurrentUICulture);
@@ -1092,9 +1120,15 @@ public static class Autostart
                 ReloadLanguageIfIdle();
             }
             RefreshUi();
+            return true;
         }
 
         public bool LanguagePending { get { return langReloadPending; } }
+        public string MenuOpenText { get { return miOpen.Text; } }
+        // Essais : commande reçue comme si elle venait d'une page de DRAFT, et retour au réglage de départ.
+        public void TestMessage(string json) { PanelForm f = panels.Values.FirstOrDefault(p => !p.IsDisposed); if (f != null) OnMessage(f, json); }
+        public void TestRestoreLanguageSetting(string value) { settings.Language = value; Persist(); }
+        public void TestOpenFull(string tab) { OpenFull(tab); }
 
         void ReloadLanguageIfIdle()
         {
@@ -1281,8 +1315,8 @@ public static class Autostart
                 if (settings.Rects.TryGetValue(id, out sv))
                 {
                     Native.RECT saved = new Native.RECT(sv.X, sv.Y, sv.X + sv.W, sv.Y + sv.H);
-                    // Une position sur un écran débranché est ignorée.
-                    if (mons.Any(m => m.Work.Overlaps(saved))) r = saved;
+                    // Une position sur un écran débranché, ou presque hors de tout écran, est ignorée (QA-4).
+                    if (Layout.KeepSaved(saved, mons)) r = saved;
                 }
                 if (!f.Visible) f.Show();
                 f.PlaceNoActivate(r, settings.Topmost);
@@ -1362,7 +1396,7 @@ public static class Autostart
             return new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } });
+                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } });
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -1749,7 +1783,7 @@ public static class Autostart
                 for (int i = 0; i < 100 && f != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof PROFILES !== 'undefined' && hostState.available") != "true"; i++) await Task.Delay(100);
                 if (f != null && f.View.CoreWebView2 != null)
                 {
-                    string js = "JSON.stringify({version:typeof APP_VERSION!=='undefined'?APP_VERSION:null,actif:PROFILES.active,parRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].pool.length])),exclusParRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].excluded.length])),favorisParRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].favorite?1:0])),exclusCalcul:ENGINE_PREFS.excluded.length,favoriCalcul:ENGINE_PREFS.favorite?1:0,ancienProfil:!!localStorage.getItem('draftProfile'),profilsEnregistres:!!localStorage.getItem('draftProfiles'),historique:window.DRAFT_HISTORY&&Array.isArray(window.DRAFT_HISTORY.rows)?window.DRAFT_HISTORY.rows.length:0,journal:loadJournal().length,niveau:PREFS.coachLevel,role:myRole()})";
+                    string js = "JSON.stringify({version:typeof APP_VERSION!=='undefined'?APP_VERSION:null,actif:PROFILES.active,parRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].pool.length])),exclusParRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].excluded.length])),favorisParRole:Object.fromEntries(PROFILE_ROLES.map(r=>[r,PROFILES.roles[r].favorite?1:0])),exclusCalcul:ENGINE_PREFS.excluded.length,favoriCalcul:ENGINE_PREFS.favorite?1:0,ancienProfil:!!localStorage.getItem('draftProfile'),profilsEnregistres:!!localStorage.getItem('draftProfiles'),historique:window.DRAFT_HISTORY&&Array.isArray(window.DRAFT_HISTORY.rows)?window.DRAFT_HISTORY.rows.length:0,journal:loadJournal().length,niveau:PREFS.coachLevel,role:myRole(),langue:typeof I18N!=='undefined'?I18N.lang:null,langueHtml:document.documentElement.lang})";
                     result = new JavaScriptSerializer().Deserialize<string>(await f.View.CoreWebView2.ExecuteScriptAsync(js));
                 }
             }
@@ -2271,6 +2305,66 @@ public static class Autostart
             return list;
         }
 
+        // QA-6 : mécanisme du raccourci prouvé sans toucher au Ctrl+Alt+D d'une autre instance. Combinaison libre et improbable
+        // (Ctrl+Alt+Maj+F11) : RegisterHotKey réel, WM_HOTKEY envoyé à la fenêtre (aucune frappe simulée), bascule des panneaux.
+        // Puis conflit réel : la même combinaison une seconde fois échoue en 1409, sans plantage, et l'utilisateur en est averti
+        // (menu sans raccourci annoncé, consigne dans Réglages > Affichage).
+        public string HotkeyReport = "non mesuré";
+        public async Task<string> TestHotkeyMechanism()
+        {
+            string problem = "";
+            uint mods = HotkeyWindow.Ctrl | HotkeyWindow.Alt | HotkeyWindow.Shift | HotkeyWindow.NoRepeat, key = (uint)Keys.F11;
+            IntPtr lParam = (IntPtr)(int)((key << 16) | (mods & 0x7));
+            HotkeyWindow probe = new HotkeyWindow(mods, key, 0x5151);
+            if (!probe.Registered) { probe.Dispose(); HotkeyReport = "Ctrl+Alt+Maj+F11 refusé (Win32 " + probe.Error + ")"; return "combinaison d'essai non enregistrée (Win32 " + probe.Error + ") ; "; }
+            probe.Pressed += ToggleManual;
+            bool? manualBefore = visibility.Manual;
+            bool before = panelsShown;
+            CloseProbe.SendMessage(probe.Handle, HotkeyWindow.WM_HOTKEY, (IntPtr)0x5151, lParam);
+            for (int i = 0; i < 100 && panelsShown == before; i++) await Task.Delay(50);
+            bool first = panelsShown;
+            CloseProbe.SendMessage(probe.Handle, HotkeyWindow.WM_HOTKEY, (IntPtr)0x5151, lParam);
+            for (int i = 0; i < 100 && panelsShown != before; i++) await Task.Delay(50);
+            bool second = panelsShown;
+            CloseProbe.SendMessage(probe.Handle, HotkeyWindow.WM_HOTKEY, (IntPtr)0x7777, lParam);
+            await Task.Delay(150);
+            if (probe.Received != 2) problem += probe.Received + " WM_HOTKEY reçu(s) pour 2 envoyés (un autre identifiant doit être ignoré) ; ";
+            if (first == before || second != before || panelsShown != before) problem += "bascule des panneaux absente (" + before + " > " + first + " > " + second + ") ; ";
+            // Conflit : même combinaison pour une seconde fenêtre.
+            HotkeyWindow clash = null;
+            try { clash = new HotkeyWindow(mods, key, 0x5152); }
+            catch (Exception e) { if (e is OutOfMemoryException) throw; problem += "plantage au second enregistrement (" + e.GetType().Name + ") ; "; }
+            if (clash != null)
+            {
+                if (clash.Registered || clash.Error != HotkeyWindow.AlreadyRegistered) problem += "conflit non détecté (Win32 " + clash.Error + ") ; ";
+                HotkeyWindow real = hotkey;
+                hotkey = clash;
+                RefreshUi();
+                string expected = Strings.T(panelsShown ? "native.menu.hidePanels" : "native.menu.showPanels");
+                if (miShow.Text != expected) problem += "menu : raccourci encore annoncé (" + miShow.Text + ") ; ";
+                if (!HostJson().Contains("\"hotkeyError\":1409") || HostJson().Contains("\"hotkey\":true")) problem += "état envoyé à la page sans le conflit ; ";
+                OpenFull("settings");
+                PanelForm f = null;
+                for (int i = 0; i < 200 && !(OpenPending == 0 && panels.TryGetValue("full", out f) && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null); i++) await Task.Delay(50);
+                bool hint = false;
+                if (f != null && f.View.CoreWebView2 != null)
+                {
+                    await f.View.CoreWebView2.ExecuteScriptAsync("goView('settings', 'display'); 1");
+                    for (int i = 0; i < 100 && !hint; i++) { hint = await f.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"hotkey-taken\"]') && document.body.innerText.includes(I18N.t('settings.display.hotkeyTaken'))") == "true"; if (!hint) await Task.Delay(50); }
+                    f.Hide();
+                }
+                if (!hint) problem += "Réglages > Affichage n'explique pas le raccourci pris ; ";
+                hotkey = real;
+                RefreshUi();
+                clash.Dispose();
+            }
+            probe.Dispose();
+            visibility.Manual = manualBefore;
+            ApplyVisibility();
+            HotkeyReport = "Ctrl+Alt+Maj+F11 enregistré, " + probe.Received + " WM_HOTKEY, panneaux " + before + " > " + first + " > " + second + ", second enregistrement : Win32 " + (clash == null ? -1 : clash.Error);
+            return problem;
+        }
+
         // Menu et overlay (UX-6) : 8 entrées au plus, double-clic qui ouvre DRAFT, fonctions sorties du menu présentes dans la fenêtre,
         // bulle au premier masquage depuis un panneau.
         // I18N-3 : changement de langue sans redémarrage, depuis le programme puis depuis le vrai sélecteur de la page.
@@ -2692,6 +2786,25 @@ public static class Autostart
             return new[] { "left", "right", "compact" }.Select(app.PanelFor).Any(p => p != null && p.Handle == front);
         }
 
+        // Autres processus DRAFT de la session (lecture seule des noms) : le détenteur probable d'un raccourci déjà pris.
+        public static string OtherInstances()
+        {
+            int self = Process.GetCurrentProcess().Id, session = Process.GetCurrentProcess().SessionId;
+            List<string> found = new List<string>();
+            foreach (Process p in Process.GetProcesses())
+            {
+                try
+                {
+                    string n = p.ProcessName;
+                    if (p.Id != self && p.SessionId == session && (n.StartsWith("DraftMid", StringComparison.OrdinalIgnoreCase) || n.StartsWith("DRAFT", StringComparison.OrdinalIgnoreCase))) found.Add(n + ".exe pid " + p.Id);
+                }
+                catch (InvalidOperationException) { }
+                catch (System.ComponentModel.Win32Exception) { }
+                finally { p.Dispose(); }
+            }
+            return found.Count == 0 ? "aucune" : string.Join(", ", found);
+        }
+
         public static Func<IntPtr, bool> Matcher { get { return IsFake; } }
 
         static string TheirTeam(params int[] ids)
@@ -2831,6 +2944,8 @@ public static class Autostart
             t(menuProblem == "", "Menu de l'icône (8 entrées au plus, rien de perdu), double-clic, bulle de masquage (" + app.MenuReport + ") " + menuProblem);
             if (Strings.Lang == "en") t(app.MenuReport.Contains("Open DRAFT") && app.MenuReport.Contains("Settings") && !app.MenuReport.Contains("Réglages"), "Langue : menu de l'icône en anglais");
             else t(app.MenuReport.Contains("Ouvrir DRAFT") && app.MenuReport.Contains("Réglages"), "Langue : menu de l'icône en français");
+            string hotkeyProblem = await app.TestHotkeyMechanism();
+            t(hotkeyProblem == "", "QA-6. Mécanisme du raccourci, essai isolé sur Ctrl+Alt+Maj+F11 : enregistrement, WM_HOTKEY, bascule, conflit 1409 signalé sans plantage (" + app.HotkeyReport + ") " + hotkeyProblem);
             string profileProblem = await app.TestProfilesAndRole();
             t(profileProblem == "", "Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre " + profileProblem);
             string historyProblem = await app.TestHistoryImport();
@@ -2853,6 +2968,158 @@ public static class Autostart
         }
 
         static string s_keyReport = "";
+
+        // Session LCU simulée avec le poste du joueur (myTeam[localPlayerCellId].assignedPosition) et un champion allié choisi
+        // exprès dans un autre rôle : le rôle doit venir du poste seul, jamais du champion.
+        static string SessionWithPosition(string position, int myChampion, params int[] enemies)
+        {
+            return "{\"localPlayerCellId\":2,\"myTeam\":[{\"cellId\":1,\"assignedPosition\":\"middle\",\"championId\":103},{\"cellId\":2,\"assignedPosition\":\"" + position + "\",\"championId\":" + myChampion + "}],\"theirTeam\":[" + string.Join(",", enemies.Select(i => "{\"championId\":" + i + "}")) + "]}";
+        }
+
+        static async Task<bool> Until(Func<Task<bool>> ok, int ms)
+        {
+            for (int i = 0; i < ms / 50; i++) { try { if (await ok()) return true; } catch (Exception e) { if (e is OutOfMemoryException) throw; } await Task.Delay(50); }
+            return false;
+        }
+
+        // QA A2 : rôle attribué par League, de bout en bout (LCU simulé > programme > pages). Pools fictifs, un par rôle.
+        public static string RoleReport = "non mesuré";
+        static async Task<string> TestAssignedRoleThroughLcu(CompanionApp app)
+        {
+            string p = "";
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof PROFILES !== 'undefined' && hostState.available") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            Func<string, Task<string>> everywhere = async code => { List<string> r = new List<string> { await run(code) }; foreach (string id in new[] { "left", "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null) r.Add(id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code)); } return string.Join(" ", r); };
+            // La fenêtre vient de s'ouvrir : tant qu'elle n'est pas synchronisée (1,5 s au plus), elle ne diffuse rien aux panneaux.
+            await wait("synced");
+            await run("saveMyProfile('top',['Sett','Ornn']); saveMyProfile('jungle',['Viego','Lee Sin']); saveMyProfile('mid',['Fizz','Xerath']); saveMyProfile('adc',['Jinx','Caitlyn']); saveMyProfile('support',['Janna','Lulu']); savePrefs({autoRole:'auto'}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
+            if (!await wait("PREFS.autoRole==='auto' && myRole()==='mid'")) return "(préparation)";
+            if (!await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && ['top','jungle','mid','adc','support'].every(r => PROFILES.roles[r].pool.length===2)")).Contains("false"), 8000)) return "(profils non partagés par toutes les pages : " + await everywhere("PROFILE_ROLES.map(r => PROFILES.roles[r].pool.length).join()") + ")";
+            string[][] cases = { new[] { "TOP", "top", "Sett,Ornn" }, new[] { "JUNGLE", "jungle", "Viego,Lee Sin" }, new[] { "MIDDLE", "mid", "Fizz,Xerath" }, new[] { "BOTTOM", "adc", "Jinx,Caitlyn" }, new[] { "UTILITY", "support", "Janna,Lulu" } };
+            int ok = 0;
+            // Champion allié du joueur : Janna (support) quel que soit le poste ; il ne doit jamais décider du rôle.
+            foreach (string[] c in cases)
+            {
+                sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+                sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition(c[0], 40, 875);
+                await app.PollLcuOnce(); await app.PollLcuOnce();
+                bool good = app.AssignedRole == c[1] && await wait("state.assignedRole==='" + c[1] + "' && myRole()==='" + c[1] + "' && PICKS.join()==='" + c[2] + "'");
+                if (good) ok++; else p += c[0] + " : rôle " + app.AssignedRole + " / page " + await run("myRole() + ' ' + PICKS.join()") + " ; ";
+            }
+            // Poste vide (sélection aveugle) ou inconnu : aucun rôle deviné, le rôle choisi reste.
+            foreach (string pos in new[] { "", "NOUVEAU" })
+            {
+                sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+                await run("switchRole('jungle','manual'); resetRoleSession(); 1");
+                sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition(pos, 103, 875);
+                await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
+                if (app.AssignedRole != null || !await wait("!state.assignedRole && myRole()==='jungle' && PICKS.join()==='Viego,Lee Sin'")) p += "poste « " + pos + " » : un rôle a été deviné (" + app.AssignedRole + ") ; ";
+            }
+            // Changement de rôle entre deux drafts (MIDDLE puis TOP), sans reste de la première.
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+            sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition("MIDDLE", 40, 875, 254); await app.PollLcuOnce(); await app.PollLcuOnce();
+            bool firstMid = await wait("myRole()==='mid'");
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+            bool cleared = app.AssignedRole == null && await wait("!state.assignedRole");
+            sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition("TOP", 40, 3); await app.PollLcuOnce(); await app.PollLcuOnce();
+            if (!firstMid || !cleared || !await wait("myRole()==='top' && PICKS.join()==='Sett,Ornn'")) p += "changement de rôle entre deux drafts (" + firstMid + ", " + cleared + ", " + await run("myRole()") + ") ; ";
+            // Réglage autoRole : « suggest » propose sans changer, « off » ne fait rien.
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+            await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); 1");
+            sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition("JUNGLE", 40, 875); await app.PollLcuOnce(); await app.PollLcuOnce();
+            if (!await wait("state.assignedRole==='jungle' && myRole()==='mid' && roleSuggestion()==='jungle'")) p += "autoRole suggest : " + await run("myRole() + ' ' + roleSuggestion()") + " ; ";
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+            await run("savePrefs({autoRole:'off'}); switchRole('mid','manual'); resetRoleSession(); 1");
+            sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition("JUNGLE", 40, 875); await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
+            if (!await wait("myRole()==='mid' && roleSuggestion()===null")) p += "autoRole off : " + await run("myRole() + ' ' + roleSuggestion()") + " ; ";
+            // Sans LCU : le rôle choisi à la main reste, aucun rôle attribué.
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce();
+            sim.Offline = true; await app.PollLcuOnce();
+            // Toutes les pages (fenêtre et panneaux) doivent d'abord partager le même état : une page en retard rediffuserait l'ancien rôle.
+            await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && myRole()===PROFILES.active && !state.assignedRole")).Contains("false"), 5000);
+            await run("savePrefs({autoRole:'auto'}); switchRole('support','manual'); resetRoleSession(); 1");
+            await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && myRole()==='support'")).Contains("false"), 5000);
+            await Task.Delay(300);
+            if (app.AssignedRole != null || !await wait("!state.assignedRole && myRole()==='support' && PICKS.join()==='Janna,Lulu'")) p += "sans LCU : rôle manuel non respecté (programme " + app.AssignedRole + ", page " + await run("myRole() + ' ' + PICKS.join() + ' attribué ' + state.assignedRole + ' auto ' + PREFS.autoRole") + " ; toutes les pages : " + await everywhere("myRole()") + ") ; ";
+            await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); 1");
+            bool getOnly = sim.Requests.All(LcuEndpoints.IsAllowed);
+            if (!getOnly) p += "endpoint non autorisé appelé ; ";
+            RoleReport = ok + "/5 postes, vide et inconnu sans déduction, changement entre drafts, suggest/off, sans LCU ; " + sim.Requests.Count + " requêtes, toutes autorisées : " + getOnly;
+            f.Hide();
+            return p;
+        }
+
+        // QA A1 : changement de langue PENDANT une draft (LCU simulé). Les panneaux gardent la draft et leur langue jusqu'à la fin
+        // de la sélection, puis se rechargent ; la draft suivante est dans la nouvelle langue, sans reste de la précédente.
+        // Menu et bulles changent tout de suite. Valeur hors liste refusée, « auto » = langue de Windows.
+        public static string LanguageDraftReport = "non mesuré";
+        static async Task<string> TestLanguageDuringDraft(CompanionApp app)
+        {
+            string p = "", before = Strings.Lang, other = before == "fr" ? "en" : "fr", saved = app.Prefs.Language;
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce(); await Task.Delay(200);
+            sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = TheirTeam(875, 254, 3);
+            await app.PollLcuOnce();
+            await Until(() => Task.FromResult(app.PanelsShown), 10000);
+            Func<string, Task<string>> inPanels = async code =>
+            {
+                List<string> r = new List<string>();
+                foreach (string id in new[] { "left", "right", "compact" }) { PanelForm f = app.PanelFor(id); if (f != null && f.Visible && f.View.CoreWebView2 != null) r.Add(await f.View.CoreWebView2.ExecuteScriptAsync(code)); }
+                return string.Join("|", r);
+            };
+            Func<string, Task<bool>> allPanels = code => Until(async () => { string v = await inPanels("!!(" + code + ")"); return v != "" && v.Split('|').All(x => x == "true"); }, 8000);
+            await app.PollLcuOnce();
+            if (!await allPanels("typeof state!=='undefined' && state.enemies.length===3 && I18N.lang==='" + before + "'")) return "(draft simulée absente : " + await inPanels("state.enemies.join() + ' ' + I18N.lang") + ")";
+            // Correction manuelle dans la première draft : elle ne doit pas survivre à la draft suivante.
+            await inPanels("setMid('Sett'); 1");
+            await Task.Delay(300);
+            int reloads = app.LanguageReloads;
+            app.SetLanguage(other);
+            await Task.Delay(1000);
+            if (Strings.Lang != other) p += "langue du programme inchangée ; ";
+            if (!app.LanguagePending) p += "aucune attente signalée pendant la draft ; ";
+            string during = await inPanels("I18N.lang + ':' + state.enemies.length");
+            if (during.Split('|').Any(x => x != "\"" + before + ":3\"")) p += "panneaux rechargés ou draft perdue en pleine sélection (" + during + ") ; ";
+            if (app.MenuOpenText != Strings.T("native.menu.open")) p += "menu non traduit pendant la draft ; ";
+            string balloon = await app.TestUpdateFromMenu(new StubUpdateSource { Latest = new Version(99, 0, 0) });
+            if (balloon != Strings.T("native.update.blockedDraft")) p += "bulle pas dans la nouvelle langue (" + balloon + ") ; ";
+            // Fin de la sélection : rechargement dans la nouvelle langue.
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = "";
+            await app.PollLcuOnce();
+            await Task.Delay(300);
+            if (app.LanguagePending) p += "rechargement toujours en attente après la draft ; ";
+            sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = TheirTeam(134);
+            await app.PollLcuOnce();
+            await Until(() => Task.FromResult(app.PanelsShown), 10000);
+            await app.PollLcuOnce();
+            if (!await allPanels("typeof I18N!=='undefined' && I18N.lang==='" + other + "' && document.documentElement.lang==='" + other + "' && state.enemies.join()==='Syndra' && state.manualMid===null && I18N.missing().length===0")) p += "draft suivante pas dans la nouvelle langue ou reste de la précédente (" + await inPanels("I18N.lang + ' ' + state.enemies.join() + ' mid ' + state.manualMid") + ") ; ";
+            // Retour hors draft, valeur hors liste refusée, « auto ».
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(200);
+            string setting = app.Prefs.Language;
+            app.TestMessage("{\"cmd\":\"setLanguage\",\"value\":\"de\"}");
+            app.TestMessage("{\"cmd\":\"setLanguage\",\"value\":\"<img src=x>\"}");
+            app.TestMessage("{\"cmd\":\"setLanguage\",\"value\":3}");
+            app.TestMessage("{\"cmd\":\"setLanguage\"}");
+            if (Strings.Lang != other || app.Prefs.Language != setting) p += "valeur hors liste acceptée (" + app.Prefs.Language + ") ; ";
+            app.TestMessage("{\"cmd\":\"setLanguage\",\"value\":\"auto\"}");
+            string windows = Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture);
+            if (app.Prefs.Language != "auto" || Strings.Lang != windows) p += "auto : " + app.Prefs.Language + "/" + Strings.Lang + " ; ";
+            app.SetLanguage(before);
+            await Task.Delay(300);
+            sim.PhaseJson = "\"None\""; await app.PollLcuOnce();
+            await Task.Delay(1500);
+            app.TestRestoreLanguageSetting(saved);
+            LanguageDraftReport = before + " > " + other + " pendant la draft (panneaux gardés : " + during + "), " + (app.LanguageReloads - reloads) + " rechargement(s) après, bulle « " + balloon + " »";
+            return p;
+        }
 
         public static async void Run(CompanionApp app, Options o)
         {
@@ -2904,7 +3171,9 @@ public static class Autostart
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
                 t(l.Top == c.Top && l.H == c.H, "4. Hauteur et alignement sur le client");
                 t(!PanelHasFocus(app), "Aucun vol de focus à l'apparition");
-                if (o.NoHotkey) t(!app.HotkeyCreated, "Raccourci laissé à l'autre version : aucune tentative"); else t(app.HotkeyRegistered, "Raccourci Ctrl+Alt+D enregistré");
+                // QA-6 : l'échec reste toujours visible, avec sa cause mesurée (code Win32 et autres instances DRAFT de la session).
+                if (o.NoHotkey) t(!app.HotkeyCreated, "Raccourci laissé à l'autre version : aucune tentative");
+                else t(app.HotkeyRegistered, "Raccourci Ctrl+Alt+D enregistré" + (app.HotkeyRegistered ? "" : " (Win32 " + app.HotkeyError + (app.HotkeyError == HotkeyWindow.AlreadyRegistered ? " : déjà pris par un autre programme" : "") + " ; autres instances DRAFT de la session : " + OtherInstances() + ")"));
 
                 feed(Evidence.NotDraft, 1); feed(Evidence.Draft, 1); feed(Evidence.Unknown, 2); feed(Evidence.NotDraft, 2); feed(Evidence.Draft, 1);
                 t(app.PanelsShown, "Lectures fugitives : pas de clignotement");
@@ -3118,6 +3387,10 @@ public static class Autostart
                 t(sim.Requests.All(LcuEndpoints.IsAllowed), "LCU simulé : seuls les deux endpoints documentés sont appelés");
 
                 await RunLcuScenario(app, t, js);
+                string roleProblem = await TestAssignedRoleThroughLcu(app);
+                t(roleProblem == "", "QA A2. Rôle attribué par League (LCU simulé, de bout en bout) : 5 postes, poste vide ou inconnu, changement entre deux drafts, autoRole, sans LCU ; jamais déduit du champion (" + RoleReport + ") " + roleProblem);
+                string langDraftProblem = await TestLanguageDuringDraft(app);
+                t(langDraftProblem == "", "QA A1. Langue changée pendant une draft : panneaux gardés jusqu'à la fin, draft suivante dans la nouvelle langue, menu et bulle traduits, valeur hors liste refusée, auto (" + LanguageDraftReport + ") " + langDraftProblem);
                 // En dernier : recharger les pages efface l'état des panneaux, que les étapes précédentes vérifient.
                 string languageProblem = await app.TestLanguageSwitch();
                 t(languageProblem == "", "Langue : changement sans redémarrage, menu, fenêtre et panneaux (" + app.LanguageReport + ") " + languageProblem);
@@ -3433,6 +3706,17 @@ public static class Autostart
             UserPreferences back = UserPreferences.Load(sp);
             t(back.Language == "en" && back.Compact && back.LcuEnabled, "Langue : réglage enregistré et relu à l'identique, autres réglages conservés");
             File.Delete(sp);
+            // QA 3.0 : langue au démarrage, telle que la lit un vrai lancement (sans --selftest ni --e2e), d'après settings.json.
+            string ld = Path.Combine(dataDir, "selftest-langue-dossier");
+            Directory.CreateDirectory(ld);
+            string lp = Path.Combine(ld, "settings.json"), windows = Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture);
+            Func<string, Options, string> startWith = (content, opt) => { if (content == null) { if (File.Exists(lp)) File.Delete(lp); } else File.WriteAllText(lp, content); return Program.InitialLanguage(opt ?? new Options(), ld); };
+            string sEn = startWith("{\"Language\":\"en\",\"Compact\":true}", null), sFr = startWith("{\"Language\":\"fr\"}", null), sAuto = startWith("{\"Language\":\"auto\"}", null);
+            string s2x = startWith("{\"Compact\":true,\"Follow\":false,\"ProfileKnown\":true}", null), sBad = startWith("pas du json", null), sNone = startWith(null, null), sOdd = startWith("{\"Language\":\"de\"}", null);
+            string sForced = startWith("{\"Language\":\"fr\"}", new Options { Lang = "en" }), sForcedBad = startWith("{\"Language\":\"en\"}", new Options { Lang = "xx" });
+            t(sEn == "en" && sFr == "fr" && sAuto == windows && s2x == windows && sBad == windows && sNone == windows && sOdd == windows && sForced == "en" && sForcedBad == "en",
+                "Langue au démarrage : réglage relu après redémarrage (en " + sEn + ", fr " + sFr + "), auto, 2.x sans Language, fichier abîmé, absent, valeur inconnue : langue de Windows (" + windows + ") ; --lang prioritaire, --lang inconnu ignoré");
+            Directory.Delete(ld, true);
             // Pluriels : mêmes catégories que Intl.PluralRules (relevées dans Chrome) pour 15 nombres et 2 langues.
             double[] numbers = { 0, 1, 1.5, 2, 3, 5, 10, 21, 100, 101, 1000, 0.5, 2.5, 1000000, 2000000 };
             string[] frWant = { "one", "one", "one", "other", "other", "other", "other", "other", "other", "other", "other", "one", "other", "many", "many" };
@@ -3531,6 +3815,20 @@ public static class Autostart
             check("2 écrans, client 1280 sur l'écran secondaire", new Native.RECT(-1600, 300, -320, 1020), dual, false, "two");
             check("2 écrans, client à cheval : l'écran le plus couvert compte", new Native.RECT(-300, 100, 1300, 1000), dual, false, "compact");
             check("2 écrans, plein écran en panneau unique", new Native.RECT(0, 0, 1920, 1040), dual, true, "compact");
+
+            // QA-4 (simulable sur un seul écran) : position enregistrée sur un écran débranché, presque hors écran, barre de titre
+            // au-dessus de l'écran ; position valide sur un second écran à 150 %. Entre parenthèses : la règle d'avant (un pixel commun).
+            {
+                List<Monitor> two = new List<Monitor> { mon(0, 0, 1920, 1040, 1.25), mon(-2560, 0, 2560, 1400, 1.5) };
+                List<Monitor> onlyMain = new List<Monitor> { two[0] };
+                Func<int, int, int, int, Native.RECT> rr = (x, y, w, h) => new Native.RECT(x, y, x + w, y + h);
+                Native.RECT onSecond = rr(-600, 100, 510, 1200), sliver = rr(-330, 100, 340, 700), aboveTop = rr(100, -200, 340, 700), onMain = rr(1500, 100, 400, 800), halfOut = rr(1750, 100, 340, 700);
+                Func<Native.RECT, List<Monitor>, string> before216 = (box, ms) => ms.Any(m => m.Work.Overlaps(box)) ? "gardée" : "ignorée";
+                t(Layout.KeepSaved(onSecond, two) && !Layout.KeepSaved(onSecond, onlyMain) && Layout.KeepSaved(onMain, onlyMain) && Layout.KeepSaved(halfOut, onlyMain),
+                    "QA-4 : position sur le second écran gardée tant qu'il est branché, ignorée quand il est retiré ; position sur l'écran principal gardée");
+                t(!Layout.KeepSaved(sliver, onlyMain), "QA-4 : panneau dont 10 px seulement restent sur l'écran : place par défaut (avant : " + before216(sliver, onlyMain) + ")");
+                t(!Layout.KeepSaved(aboveTop, onlyMain), "QA-4 : barre de titre au-dessus de l'écran : place par défaut (avant : " + before216(aboveTop, onlyMain) + ")");
+            }
 
             string sp = Path.Combine(dataDir, "selftest-settings.json");
             UserPreferences a = new UserPreferences { Compact = true, Follow = false, Topmost = true, AutoDraft = false };

@@ -822,7 +822,7 @@ function checks(x, where) {
       if (!shown || shown === top || m[order.indexOf(top)] - m[order.indexOf(shown)] < .1) return;
       const row = [...d.querySelectorAll(".role")].find(r => text(r.querySelector(".role-name")) === name);
       const mark = row ? text(row.querySelector(".role-flex") || row.querySelector(".assumed")) : "";
-      if (row && !/(\?| ou )/.test(mark)) constat("B-06 rôle affiché moins probable qu'un autre, sans marque d'incertitude", `${tag} ${name} affiché ${shown}, calcul ${top} (${(m[order.indexOf(top)] * 100).toFixed(0)} % contre ${(m[order.indexOf(shown)] * 100).toFixed(0)} %)`);
+      if (row && !/(\?| ou | or )/.test(mark)) constat("B-06 rôle affiché moins probable qu'un autre, sans marque d'incertitude", `${tag} ${name} affiché ${shown}, calcul ${top} (${(m[order.indexOf(top)] * 100).toFixed(0)} % contre ${(m[order.indexOf(shown)] * 100).toFixed(0)} %)`);
     });
   } catch (e) { res.errors.push("B12 " + e.message); }
   // B-09 : le texte de l'analyse doit suivre le calcul du pick affiché (matchup présent = moyenne des hypothèses).
@@ -855,7 +855,7 @@ function checks(x, where) {
     const written = advice.items.find(i => i.id === "matchup.written");
     if (written && V.mid) {
       const m = $.matchupOf(V.mid), pick = shownEntry && shownEntry.pick;
-      const good = /bon choix/.test(written.title), avoid = m && (m.avoid || "").split(", ").includes(pick), top = m && (m.first === pick || m.second === pick);
+      const good = /bon choix|good pick/.test(written.title), avoid = m && (m.avoid || "").split(", ").includes(pick), top = m && (m.first === pick || m.second === pick);
       if ((good && avoid) || (!good && top)) constat("Contrôle titre du matchup écrit contraire au tableau pour l'adversaire nommé (moyenne des hypothèses)", `${tag} ${written.title}`);
     }
     const unknown = advice.items.find(i => i.id === "matchup.unknown");
@@ -870,11 +870,11 @@ function checks(x, where) {
     const conflict = advice.items.find(i => i.id === "draft.conflict");
     if (conflict && !heldNotFirst && ranking.length > 1 && /reste devant|reste le meilleur/.test(conflict.text) && shownEntry && shownEntry.tiedWith && shownEntry.tiedWith.length) constat("Contrôle « reste devant » alors qu'il est à égalité", tag);
   }
-  if (V.change && V.change.reason && !/est pris en face|Il menait déjà/.test(V.change.reason)) {
+  if (V.change && V.change.reason && !/est pris en face|Il menait déjà|was taken by the enemy|It was already slightly ahead/.test(V.change.reason)) {
     const now = ranking.find(p => p.pick === V.shown), old = ranking.find(p => $.label(p.pick) === V.change.from);
     if (now && old) {
       const row = $.comparePicks(now, old).decisive.find(r => r.diff > 0);
-      if (row && row.textA !== V.change.reason && row.textB !== V.change.reason && !V.change.reason.includes(`« ${row.label} »`) && !(now.criteria.find(c => c.key === row.key) && w.eval("signedText")(now.criteria.find(c => c.key === row.key), 1) === V.change.reason)) constat("B-16 raison du changement de conseil différente du critère décisif", `${tag} ${V.change.from} → ${V.change.to} : « ${V.change.reason} », décisif « ${row.label} »`);
+      if (row && row.textA !== V.change.reason && row.textB !== V.change.reason && !V.change.reason.includes(`« ${row.label} »`) && !V.change.reason.includes(`"${row.label}"`) && !(now.criteria.find(c => c.key === row.key) && w.eval("signedText")(now.criteria.find(c => c.key === row.key), 1) === V.change.reason)) constat("B-16 raison du changement de conseil différente du critère décisif", `${tag} ${V.change.from} → ${V.change.to} : « ${V.change.reason} », décisif « ${row.label} »`);
     }
   }
   if (V.n < 5 && d.getElementById("root").textContent.includes("basé sur les 5 champions adverses")) constat("B-11 « basé sur les 5 champions adverses » avec une draft incomplète", tag);
