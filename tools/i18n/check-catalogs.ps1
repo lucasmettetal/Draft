@@ -80,6 +80,8 @@ function Check-Values($cat) {
       $req = $pluralRequired[$cat.Lang]; if (-not $req) { $req = @('other') }
       foreach ($r in $req) { if ($names -notcontains $r) { Err "$($cat.Path) : « $key » : forme de pluriel « $r » absente" } }
       if ((Vars ([string]$v.other)) -notcontains 'count') { Warn "$($cat.Path) : « $key » : pluriel sans {count} dans la forme other" }
+      # Singulier oublié : forme « one » identique à « other » alors qu'un nom au pluriel suit {count} (« 1 parties », « 1 games »).
+      if ($names -contains 'one' -and [string]$v.one -eq [string]$v.other -and [string]$v.other -match '\{count\}\s+(\p{L}+[sx])\b') { $noun = $Matches[1]; Err "$($cat.Path) : « $key » : la forme one est identique à other alors que « {count} $noun » est au pluriel" }
     }
     foreach ($e in (Forms $v).GetEnumerator()) {
       $s = [string]$e.Value
@@ -317,7 +319,8 @@ namespace DraftI18nKeys
 '@
   }
   $web = Join-Path (Resolve-Path $Code) 'web'
-  $skipFiles = @('draft-i18n.js', 'draft-champions.js', 'draft-champion-ids.js', 'draft-champion-official.js', 'draft-role-sheet.js', 'draft-vendor', 'draft-stats.js', 'draft-history.js', 'draft-role-rates.js', 'draft-role-rates-live.js', 'draft-matchups-live.js')
+  # draft-i18n.js est relu : ses fonctions de liste (listOr, listAnd) citent list.or, list.and et list.comma.
+  $skipFiles = @('draft-champions.js', 'draft-champion-ids.js', 'draft-champion-official.js', 'draft-role-sheet.js', 'draft-vendor', 'draft-stats.js', 'draft-history.js', 'draft-role-rates.js', 'draft-role-rates-live.js', 'draft-matchups-live.js')
   $sources = @(Get-ChildItem $web -File -Filter '*.js' | Where-Object { $skipFiles -notcontains $_.Name }) + @(Get-Item (Join-Path $web 'index.html'))
   $used = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
   $nCalls = 0; $nDynamic = 0
@@ -345,6 +348,20 @@ namespace DraftI18nKeys
       foreach ($v in $call.Vars) { if ($needAll -notcontains $v) { Warn "$where : variable {$v} fournie mais inutilisée par $($call.Keys -join ', ')" } }
     }
   }
+  # I18N-3 : clés du programme (native.*), citées en entier dans src/*.cs (Strings.T, new Msg, tables). Chacune doit exister.
+  $src = Join-Path (Resolve-Path $Code) 'src'
+  $nNative = 0
+  if (Test-Path $src) {
+    foreach ($f in Get-ChildItem $src -File -Filter '*.cs') {
+      $text = [IO.File]::ReadAllText($f.FullName)
+      foreach ($m in [regex]::Matches($text, '"(native\.[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+)"')) {
+        $k = $m.Groups[1].Value; [void]$used.Add($k); $nNative++
+        if (-not $ref.Map.Contains($k)) { Err "src/$($f.Name) : clé absente du catalogue « $k »" }
+        foreach ($t in $Target) { $tc = Read-Catalog $t; if ($tc -and -not $tc.Map.Contains($k)) { Err "src/$($f.Name) : clé absente de $t « $k »" } }
+      }
+    }
+  }
+  "Programme relu : $nNative citations de clés native.* dans src/."
   $orphans = @($ref.Map.Keys | Where-Object { $_ -ne '_meta' -and -not $used.Contains($_) })
   foreach ($o in $orphans) { Err "clé orpheline (citée nulle part dans web/) : « $o »" }
   "Code relu : $($sources.Count) fichiers, $nCalls appels t/tp/tx, dont $nDynamic avec une clé en variable (vérifiée en mode test de la page), $(@($orphans).Count) clé(s) orpheline(s)."

@@ -213,10 +213,11 @@ const MASTERY_REVIEWED = "2026-11-05";
 const MASTERY_BASIS = { official:I18N.t("mastery.basis.official"), measured:I18N.t("mastery.basis.measured"), smallSample:I18N.t("mastery.basis.smallSample"), estimate:I18N.t("mastery.basis.estimate"), heuristic:I18N.t("mastery.basis.heuristic"), general:I18N.t("mastery.basis.general") };
 // Nombres de parties : pluriels du catalogue (tp).
 const masteryPct = v => I18N.t("mastery.percent", { value: Math.round(v * 100) });
-const masteryDecimal = (v, n = 1) => v.toFixed(n).replace(".", ",");
+// Décimales : virgule en français, point en anglais (I18N.fmtDecimal).
+const masteryDecimal = (v, n = 1) => I18N.fmtDecimal(v, n);
 const masteryItem = (id, section, basis, title, text, limits, extra) => Object.assign({ id, section, title, text, basis, basisLabel:MASTERY_BASIS[basis], limits:limits || null, reviewed:MASTERY_REVIEWED, verification:"human" }, extra || {});
 const byLevel = (level, texts) => texts[Math.min(level, texts.length) - 1];
-const nameList = names => names.length < 2 ? names.join("") : I18N.t("mastery.list.and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1] });
+const nameList = names => I18N.listAnd(names);
 
 function theorySection(x) {
   const { top, level, opponent } = x, out = [];
@@ -228,11 +229,11 @@ function theorySection(x) {
   else if (!x.enemiesCount) out.push(masteryItem("theory.empty", "theory", "general", I18N.t("mastery.theory.empty.title"), I18N.t("mastery.theory.empty.text"), null));
   else out.push(masteryItem("theory.none", "theory", "heuristic", I18N.t("mastery.theory.none.title", { champion: top.name }), I18N.t("mastery.theory.none.text"), I18N.t("mastery.theory.none.limit")));
   const worst = top.reasons.filter(c => c.impact <= -2).sort((a, b) => a.impact - b.impact)[0];
-  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", I18N.t("mastery.theory.risk.title", { champion: top.name }), I18N.t("mastery.sentence", { text: `${(signedText(worst, -1) || worst.text).charAt(0).toUpperCase()}${(signedText(worst, -1) || worst.text).slice(1)}` }), I18N.t("mastery.limit.rule")));
+  if (worst) out.push(masteryItem("theory.risk", "theory", "heuristic", I18N.t("mastery.theory.risk.title", { champion: top.name }), I18N.t("mastery.sentence", { text: I18N.upperFirst(signedText(worst, -1) || worst.text) }), I18N.t("mastery.limit.rule")));
   const stat = providedMatchup(top.name, opponent, x.role);
   if (stat) {
     out.push(masteryItem("theory.matchup-stat", "theory", "measured", I18N.t("mastery.theory.stat.title", { champion: top.name, opponent }), byLevel(level, [
-      I18N.t(stat.gap > 0 ? "mastery.theory.stat.l1.favorable" : "mastery.theory.stat.l1.unfavorable", { games: stat.games }), I18N.t("mastery.theory.stat.l2", { gap: masteryDecimal(stat.gap * 100), games: stat.games, provider: stat.provider }), I18N.t("mastery.theory.stat.l3", { gap: masteryDecimal(stat.gap * 100), games: stat.games, patch: stat.patch || I18N.t("mastery.unknown"), rank: stat.rank || I18N.t("mastery.unknown"), region: stat.region || I18N.t("mastery.unknownF"), provider: stat.provider })]), I18N.t("mastery.theory.stat.limit"), { provider:stat.provider, license:stat.license }));
+      I18N.t(stat.gap > 0 ? "mastery.theory.stat.l1.favorable" : "mastery.theory.stat.l1.unfavorable", { games: stat.games }), I18N.tp("mastery.theory.stat.l2", Math.abs(+(stat.gap * 100).toFixed(1)), { gap: masteryDecimal(stat.gap * 100), games: stat.games, provider: stat.provider }), I18N.tp("mastery.theory.stat.l3", Math.abs(+(stat.gap * 100).toFixed(1)), { gap: masteryDecimal(stat.gap * 100), games: stat.games, patch: stat.patch || I18N.t("mastery.unknown"), rank: stat.rank || I18N.t("mastery.unknown"), region: stat.region || I18N.t("mastery.unknownF"), provider: stat.provider })]), I18N.t("mastery.theory.stat.limit"), { provider:stat.provider, license:stat.license }));
     if (stat.gap > 0 && (!top.familiarity || top.familiarity.count < FAMILIARITY_STEPS.learning)) out.push(masteryItem("theory.matchup-to-exploit", "theory", "estimate", I18N.t("mastery.theory.exploit.title"), I18N.t("mastery.theory.exploit.text", { champion: top.name }), I18N.t("mastery.theory.exploit.limit")));
   }
   // La difficulté enrichit le conseil, sans jamais changer le score.
@@ -255,9 +256,9 @@ function experienceSection(x) {
   if (top.learning) out.push(masteryItem("experience.learning", "experience", "general", I18N.t("mastery.experience.learning.title", { champion: top.name }), I18N.t("mastery.experience.learning.text"), null));
   const e = top.familiarity;
   if (e && e.resultGap !== null) out.push(masteryItem("experience.results", "experience", "measured", I18N.t(e.clear ? "mastery.experience.results.clear" : "mastery.experience.results.unclear", { champion: top.name }), byLevel(level, [
-    I18N.t(e.clear ? "mastery.experience.results.l1.clear" : "mastery.experience.results.l1.unclear", { wins: e.wins, count: e.count, reference: masteryPct(e.reference) }),
+    I18N.tp(e.clear ? "mastery.experience.results.l1.clear" : "mastery.experience.results.l1.unclear", e.wins, { games: e.count, reference: masteryPct(e.reference) }),
     I18N.t("mastery.experience.results.l2", { rate: masteryPct(e.wins / e.count), count: e.count, low: masteryPct(e.interval[0]), high: masteryPct(e.interval[1]), reference: masteryPct(e.reference) }),
-    I18N.t("mastery.experience.results.l3", { gap: `${e.resultGap >= 0 ? "+" : ""}${masteryDecimal(e.resultGap * 100)}` })]), I18N.t("mastery.experience.results.limit")));
+    I18N.tp("mastery.experience.results.l3", Math.abs(+(e.resultGap * 100).toFixed(1)), { gap: `${e.resultGap >= 0 ? "+" : ""}${masteryDecimal(e.resultGap * 100)}` })]), I18N.t("mastery.experience.results.limit")));
   if (e && e.trend && (e.trend.status === "up" || e.trend.status === "down") && level >= 2) out.push(masteryItem("experience.trend", "experience", "measured", I18N.t(e.trend.status === "up" ? "mastery.experience.trend.up" : "mastery.experience.trend.down", { champion: top.name }), byLevel(level, ["", I18N.t("mastery.experience.trend.l2", { older: masteryPct(e.trend.older), newer: masteryPct(e.trend.newer) }), I18N.t("mastery.experience.trend.l3", { older: masteryPct(e.trend.older), newer: masteryPct(e.trend.newer), z: masteryDecimal(e.trend.z) })]), I18N.t("mastery.experience.trend.limit")));
   return out;
 }

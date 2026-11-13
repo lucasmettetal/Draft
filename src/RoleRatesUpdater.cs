@@ -70,15 +70,16 @@ namespace DraftMid
 
     public class RiotRegion
     {
-        public string Label, Platform, Routing;
-        public override string ToString() { return Label; }
+        // Label : valeur écrite dans les fichiers de données (inchangée). LabelKey : nom affiché, traduit (native.region.*).
+        public string Label, LabelKey, Platform, Routing;
+        public override string ToString() { return LabelKey == null ? Label : Strings.T(LabelKey); }
 
         public static readonly RiotRegion[] All = {
-            new RiotRegion { Label = "Europe Ouest (EUW)", Platform = "euw1", Routing = "europe" },
-            new RiotRegion { Label = "Europe Nord et Est (EUNE)", Platform = "eun1", Routing = "europe" },
-            new RiotRegion { Label = "Turquie (TR)", Platform = "tr1", Routing = "europe" },
-            new RiotRegion { Label = "Amérique du Nord (NA)", Platform = "na1", Routing = "americas" },
-            new RiotRegion { Label = "Corée (KR)", Platform = "kr", Routing = "asia" }
+            new RiotRegion { Label = "Europe Ouest (EUW)", LabelKey = "native.region.euw", Platform = "euw1", Routing = "europe" },
+            new RiotRegion { Label = "Europe Nord et Est (EUNE)", LabelKey = "native.region.eune", Platform = "eun1", Routing = "europe" },
+            new RiotRegion { Label = "Turquie (TR)", LabelKey = "native.region.tr", Platform = "tr1", Routing = "europe" },
+            new RiotRegion { Label = "Amérique du Nord (NA)", LabelKey = "native.region.na", Platform = "na1", Routing = "americas" },
+            new RiotRegion { Label = "Corée (KR)", LabelKey = "native.region.kr", Platform = "kr", Routing = "asia" }
         };
     }
 
@@ -86,7 +87,9 @@ namespace DraftMid
     {
         public int Games, Champions;
         public bool Saved, Cancelled, UpToDate;
-        public string Error = "";
+        // Erreur affichée (clé native.riot.*), null s'il n'y en a pas.
+        public Msg Error;
+        public string ErrorText { get { return Msg.TextOrEmpty(Error); } }
     }
 
     // Socle commun : limite de requêtes, refus de Riot, écriture du résultat.
@@ -128,7 +131,7 @@ namespace DraftMid
         protected string PlatformUrl { get { return "https://" + region.Platform + ".api.riotgames.com"; } }
         protected string RoutingUrl { get { return "https://" + region.Routing + ".api.riotgames.com"; } }
 
-        protected class StopRequest : Exception { public StopRequest(string text) : base(text) { } }
+        protected class StopRequest : Exception { public readonly Msg Msg; public StopRequest(Msg msg) : base(msg.Key) { Msg = msg; } }
 
         protected static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = 16 * 1024 * 1024 }; }
         public static string ChampionKey(string name) { return Regex.Replace((name ?? "").ToLowerInvariant(), "[^a-z0-9]", ""); }
@@ -138,7 +141,7 @@ namespace DraftMid
             List<string> players = new List<string>();
             foreach (string tier in Tiers)
             {
-                string body = await Get(PlatformUrl + "/lol/league-exp/v4/entries/RANKED_SOLO_5x5/" + tier + "/II?page=1", "liste de joueurs", ct);
+                string body = await Get(PlatformUrl + "/lol/league-exp/v4/entries/RANKED_SOLO_5x5/" + tier + "/II?page=1", "native.riot.whatPlayers", ct);
                 if (body == null) continue;
                 foreach (object o in (IEnumerable)Json().DeserializeObject(body))
                 {
@@ -147,7 +150,7 @@ namespace DraftMid
                     if (entry != null && entry.TryGetValue("puuid", out id) && id is string) players.Add((string)id);
                 }
             }
-            if (players.Count == 0) throw new StopRequest("Aucun joueur lu : le format de réponse de Riot a peut-être changé.");
+            if (players.Count == 0) throw new StopRequest(new Msg("native.riot.noPlayers"));
             return players;
         }
 
@@ -248,8 +251,8 @@ namespace DraftMid
             RoleUpdateResult result = new RoleUpdateResult();
             try { LoadSaved(); await Crawl(ct); }
             catch (OperationCanceledException) { result.Cancelled = true; }
-            catch (StopRequest e) { result.Error = e.Message; }
-            catch (Exception) { result.Error = "Réponse de Riot illisible."; }
+            catch (StopRequest e) { result.Error = e.Msg; }
+            catch (Exception) { result.Error = new Msg("native.riot.unreadable"); }
 
             SaveState();
             result.Games = GamesCounted;
@@ -258,7 +261,7 @@ namespace DraftMid
             if (result.Games >= MinGamesToSave && !UpToDate)
             {
                 try { Save(); result.Saved = true; }
-                catch (Exception) { result.Error = "Écriture du fichier impossible."; }
+                catch (Exception) { result.Error = new Msg("native.riot.writeFailed"); }
             }
             return result;
         }
@@ -272,9 +275,9 @@ namespace DraftMid
                 RiotReply reply = await fetcher.GetAsync(url);
                 if (reply.Status == 200) { failures = 0; return reply.Body; }
                 if (reply.Status == 429) { await Wait(1000 * (reply.RetryAfterSeconds > 0 ? reply.RetryAfterSeconds : 120), ct); continue; }
-                if (reply.Status == 401 || reply.Status == 403) throw new StopRequest("Clé Riot refusée ou expirée (code " + reply.Status + ").");
+                if (reply.Status == 401 || reply.Status == 403) throw new StopRequest(new Msg("native.riot.keyRefused", "code", reply.Status));
                 if (reply.Status == 404) return null;
-                if (++failures >= MaxFailures) throw new StopRequest("Riot a refusé " + MaxFailures + " requêtes de suite (" + what + ", code " + reply.Status + ").");
+                if (++failures >= MaxFailures) throw new StopRequest(new Msg("native.riot.failures", "count", MaxFailures, "what", new Msg(what), "code", reply.Status));
                 return null;
             }
         }
@@ -436,14 +439,14 @@ namespace DraftMid
             foreach (string player in players.OrderBy(_ => random.Next()))
             {
                 if (NewestGames() >= TargetGames) break;
-                string list = await Get(RoutingUrl + "/lol/match/v5/matches/by-puuid/" + Uri.EscapeDataString(player) + "/ids?queue=" + QueueSoloDuo + "&startTime=" + since + "&start=0&count=" + MatchesPerPlayer, "historique d'un joueur", ct);
+                string list = await Get(RoutingUrl + "/lol/match/v5/matches/by-puuid/" + Uri.EscapeDataString(player) + "/ids?queue=" + QueueSoloDuo + "&startTime=" + since + "&start=0&count=" + MatchesPerPlayer, "native.riot.whatHistory", ct);
                 if (list == null) continue;
                 foreach (object idObject in (IEnumerable)Json().DeserializeObject(list))
                 {
                     string id = idObject as string;
                     if (NewestGames() >= TargetGames) break;
                     if (id == null || Seen.Contains(id)) continue;
-                    string match = await Get(RoutingUrl + "/lol/match/v5/matches/" + Uri.EscapeDataString(id), "détail d'une partie", ct);
+                    string match = await Get(RoutingUrl + "/lol/match/v5/matches/" + Uri.EscapeDataString(id), "native.riot.whatMatch", ct);
                     if (match == null) continue;
                     Seen.Add(id);
                     if (StatePath != null && IsHoldout(id)) AddHoldout(match); else AddMatch(match);
@@ -633,14 +636,14 @@ namespace DraftMid
 
         async Task ReadHistory(string player, int games, long since, CancellationToken ct)
         {
-            string list = await Get(RoutingUrl + "/lol/match/v5/matches/by-puuid/" + Uri.EscapeDataString(player) + "/ids?queue=" + QueueSoloDuo + "&startTime=" + since + "&start=0&count=" + games, "historique d'un joueur", ct);
+            string list = await Get(RoutingUrl + "/lol/match/v5/matches/by-puuid/" + Uri.EscapeDataString(player) + "/ids?queue=" + QueueSoloDuo + "&startTime=" + since + "&start=0&count=" + games, "native.riot.whatHistory", ct);
             if (list == null) return;
             foreach (object idObject in (IEnumerable)Json().DeserializeObject(list))
             {
                 string id = idObject as string;
                 if (Requests >= MaxRequests) return;
                 if (id == null || Seen.Contains(id)) continue;
-                string match = await Get(RoutingUrl + "/lol/match/v5/matches/" + Uri.EscapeDataString(id), "détail d'une partie", ct);
+                string match = await Get(RoutingUrl + "/lol/match/v5/matches/" + Uri.EscapeDataString(id), "native.riot.whatMatch", ct);
                 if (match == null) continue;
                     Seen.Add(id);
                 AddMatch(match);
@@ -762,7 +765,7 @@ namespace DraftMid
             string kept = File.ReadAllText(path);
             MatchupStatsUpdater refused = make(new Sim { Answer = url => new RiotReply { Status = 403 } });
             RoleUpdateResult bad = Task.Run(() => refused.Run(CancellationToken.None)).GetAwaiter().GetResult();
-            t(bad.Error.Contains("Clé Riot refusée") && File.ReadAllText(path) == kept, "Matchups : une clé refusée n'abîme pas les données existantes");
+            t(bad.ErrorText.Contains("Clé Riot refusée") && File.ReadAllText(path) == kept, "Matchups : une clé refusée n'abîme pas les données existantes");
             File.Delete(path);
         }
     }
@@ -793,7 +796,7 @@ namespace DraftMid
 
             SimFetcher sim = new SimFetcher { Answer = normal };
             RoleUpdateResult ok = run(make(sim, 3, 2));
-            t(ok.Saved && ok.Games == 3 && ok.Error == "", "Rôles : le calcul s'arrête au nombre de parties voulu et enregistre le résultat");
+            t(ok.Saved && ok.Games == 3 && ok.Error == null, "Rôles : le calcul s'arrête au nombre de parties voulu et enregistre le résultat");
             t(sim.Urls.All(u => u.StartsWith("https://euw1.api.riotgames.com/lol/league-exp/v4/") || u.StartsWith("https://europe.api.riotgames.com/lol/match/v5/")), "Rôles : seuls les serveurs officiels de Riot sont appelés");
             string file = File.ReadAllText(path);
             t(file.Contains("\"galio\":[0,0,3,0,0]") && file.Contains("\"monkeyking\":[0,3,0,0,0]") && file.Contains("window.ROLE_RATES_LIVE") && file.Contains("\"games\":3"), "Rôles : les compteurs sont corrects, au format lu par le moteur");
@@ -835,7 +838,7 @@ namespace DraftMid
             File.WriteAllText(statePath, "{abimé");
             RoleRatesUpdater repaired = resumed();
             RoleUpdateResult afterDamage = run(repaired);
-            t(afterDamage.Error == "" && File.Exists(statePath + ".abime") && File.Exists(resumePath + ".abime") && File.ReadAllText(resumePath).Contains("\"legacy\""), "Collecte : un fichier de reprise abîmé ne bloque rien et n'efface rien");
+            t(afterDamage.Error == null && File.Exists(statePath + ".abime") && File.Exists(resumePath + ".abime") && File.ReadAllText(resumePath).Contains("\"legacy\""), "Collecte : un fichier de reprise abîmé ne bloque rien et n'efface rien");
 
             // Mesure indépendante : une partie réservée n'entre jamais dans les compteurs.
             string fullTeam = "{\"info\":{\"gameDuration\":1800,\"gameVersion\":\"16.22.1\",\"participants\":[";
@@ -854,12 +857,12 @@ namespace DraftMid
             remake.AddMatch("{\"info\":{\"gameDuration\":120,\"participants\":[{\"championName\":\"Sett\",\"teamPosition\":\"TOP\"}]}}");
             remake.AddMatch("pas du json");
             t(remake.Counted == 0, "Rôles : les remakes et les réponses abîmées sont ignorés");
-            t(run(make(new SimFetcher { Answer = u => new RiotReply { Status = 403 } }, 1, 1)).Error.Contains("Clé Riot refusée"), "Rôles : une clé refusée arrête tout de suite le calcul");
+            t(run(make(new SimFetcher { Answer = u => new RiotReply { Status = 403 } }, 1, 1)).ErrorText.Contains("Clé Riot refusée"), "Rôles : une clé refusée arrête tout de suite le calcul");
 
             string before = File.ReadAllText(path);
             int calls = 0;
             RoleUpdateResult refused = run(make(new SimFetcher { Answer = u => { calls++; return u.Contains("league-exp") ? Ok("[{\"puuid\":\"a\"},{\"puuid\":\"b\"},{\"puuid\":\"c\"},{\"puuid\":\"d\"},{\"puuid\":\"e\"},{\"puuid\":\"f\"}]") : new RiotReply { Status = 400 }; } }, 5, 1));
-            t(refused.Error.Contains("5 requêtes") && File.ReadAllText(path) == before, "Rôles : plusieurs refus de suite arrêtent le calcul sans abîmer les données existantes");
+            t(refused.ErrorText.Contains("5 requêtes") && File.ReadAllText(path) == before, "Rôles : plusieurs refus de suite arrêtent le calcul sans abîmer les données existantes");
 
             RoleUpdateResult tooFew = run(make(new SimFetcher { Answer = normal }, 3, 50));
             t(!tooFew.Saved && File.ReadAllText(path) == before, "Rôles : un calcul trop court ne remplace pas de meilleures données");

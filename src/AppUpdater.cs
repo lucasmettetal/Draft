@@ -24,7 +24,8 @@ namespace DraftMid
     }
 
     // Message destiné à l'utilisateur.
-    public class UpdateError : Exception { public UpdateError(string text) : base(text) { } }
+    // Erreur de mise à jour : le message est une clé du catalogue (native.update.*), traduite à l'affichage.
+    public class UpdateError : Exception { public readonly Msg Msg; public UpdateError(Msg msg) : base(msg.Key) { Msg = msg; } public UpdateError(string key) : this(new Msg(key)) { } }
 
     public interface IUpdateSource
     {
@@ -103,14 +104,14 @@ namespace DraftMid
         public static void CheckFile(string path, UpdateInfo info)
         {
             FileInfo file = new FileInfo(path);
-            if (!file.Exists || file.Length != info.Size) throw new UpdateError("Le téléchargement est incomplet. Rien n'a été changé.");
+            if (!file.Exists || file.Length != info.Size) throw new UpdateError("native.update.incomplete");
             using (FileStream f = File.OpenRead(path))
-                if (f.ReadByte() != 'M' || f.ReadByte() != 'Z') throw new UpdateError("Le fichier reçu n'est pas un exécutable. Rien n'a été changé.");
-            if (!string.Equals(Sha256Of(path), info.Sha256, StringComparison.OrdinalIgnoreCase)) throw new UpdateError("L'empreinte du fichier reçu ne correspond pas à celle de GitHub. Rien n'a été changé.");
+                if (f.ReadByte() != 'M' || f.ReadByte() != 'Z') throw new UpdateError("native.update.notExe");
+            if (!string.Equals(Sha256Of(path), info.Sha256, StringComparison.OrdinalIgnoreCase)) throw new UpdateError("native.update.hashMismatch");
             Version inside;
             try { inside = Short(new Version(FileVersionInfo.GetVersionInfo(path).FileVersion)); }
             catch (Exception e) { if (e is OutOfMemoryException) throw; inside = null; }
-            if (inside == null || inside != Short(info.Version)) throw new UpdateError("La version du fichier reçu ne correspond pas à celle annoncée. Rien n'a été changé.");
+            if (inside == null || inside != Short(info.Version)) throw new UpdateError("native.update.versionMismatch");
         }
 
         // La signature couvre le tag et l'empreinte : un ancien fichier signé ne peut pas passer pour une version plus récente.
@@ -145,10 +146,10 @@ namespace DraftMid
                     {
                         try { p.Kill(); } catch (InvalidOperationException) { } catch (System.ComponentModel.Win32Exception) { }
                         ct.ThrowIfCancellationRequested();
-                        throw new UpdateError("La nouvelle version n'a pas fini ses tests à temps. Rien n'a été changé.");
+                        throw new UpdateError("native.update.selfCheckTimeout");
                     }
                 }
-                if (p.ExitCode != 0) throw new UpdateError("La nouvelle version a échoué à ses tests sur ce PC. Rien n'a été changé.");
+                if (p.ExitCode != 0) throw new UpdateError("native.update.selfCheckFailed");
             }
         }
 
@@ -163,7 +164,7 @@ namespace DraftMid
                 await source.DownloadAsync(info, candidate, progress, ct).ConfigureAwait(false);
                 CheckFile(candidate, info);
                 string signature = await source.SignatureAsync(info, ct).ConfigureAwait(false);
-                if (!ValidSignature(info.Tag, Sha256Of(candidate), signature, source.PublicKey)) throw new UpdateError("La signature de cette version n'est pas valide. Rien n'a été changé.");
+                if (!ValidSignature(info.Tag, Sha256Of(candidate), signature, source.PublicKey)) throw new UpdateError("native.update.badSignature");
                 ct.ThrowIfCancellationRequested();
                 DeleteDirectoryQuietly(temp);
                 Directory.CreateDirectory(temp);
@@ -265,13 +266,13 @@ namespace DraftMid
             catch (ArgumentException) { } catch (InvalidOperationException) { }
         }
 
-        public static string FriendlyError(Exception e)
+        public static Msg FriendlyError(Exception e)
         {
-            if (e is UpdateError) return e.Message;
-            if (e is UnauthorizedAccessException) return "DRAFT ne peut pas écrire dans son dossier : télécharge la mise à jour depuis GitHub.";
-            if (e is IOException) return "Un fichier de DRAFT est bloqué. Réessaie dans un instant.";
-            if (e is WebException) return "GitHub ne répond pas. Vérifie ta connexion, puis réessaie.";
-            return "La mise à jour a échoué. Rien n'a été changé.";
+            if (e is UpdateError) return ((UpdateError)e).Msg;
+            if (e is UnauthorizedAccessException) return new Msg("native.update.noWriteAccess");
+            if (e is IOException) return new Msg("native.update.fileLocked");
+            if (e is WebException) return new Msg("native.update.offline");
+            return new Msg("native.update.failed");
         }
 
         static void DeleteQuietly(string path) { try { if (File.Exists(path)) File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
@@ -293,7 +294,7 @@ namespace DraftMid
                 int n;
                 while ((n = await input.ReadAsync(chunk, 0, chunk.Length, ct)) > 0)
                 {
-                    if (buffer.Length + n > max) throw new UpdateError("La réponse de GitHub est anormalement grosse. Rien n'a été changé.");
+                    if (buffer.Length + n > max) throw new UpdateError("native.update.tooBig");
                     buffer.Write(chunk, 0, n);
                 }
                 return Encoding.UTF8.GetString(buffer.ToArray());
@@ -302,7 +303,7 @@ namespace DraftMid
 
         public async Task<string> SignatureAsync(UpdateInfo info, CancellationToken ct)
         {
-            if (info.SignatureUrl == null) throw new UpdateError("Cette version n'est pas encore signée. Réessaie dans un moment.");
+            if (info.SignatureUrl == null) throw new UpdateError("native.update.notSigned");
             HttpWebRequest r = (HttpWebRequest)WebRequest.Create(info.SignatureUrl);
             r.UserAgent = "DRAFT";
             r.ReadWriteTimeout = TimeoutMs;
@@ -325,7 +326,7 @@ namespace DraftMid
                     using (HttpWebResponse w = (HttpWebResponse)await r.GetResponseAsync())
                     {
                         UpdateInfo info = AppUpdater.ParseRelease(await ReadLimited(w.GetResponseStream(), 2 * 1024 * 1024, ct));
-                        if (info == null) throw new UpdateError("La dernière version publiée n'est pas utilisable par la mise à jour automatique.");
+                        if (info == null) throw new UpdateError("native.update.unusable");
                         return info;
                     }
                 }
@@ -333,8 +334,8 @@ namespace DraftMid
                 {
                     ct.ThrowIfCancellationRequested();
                     HttpWebResponse h = e.Response as HttpWebResponse;
-                    if (h != null && h.StatusCode == HttpStatusCode.NotFound) throw new UpdateError("Aucune version publiée pour le moment.");
-                    if (h != null && h.StatusCode == HttpStatusCode.Forbidden) throw new UpdateError("GitHub limite les requêtes pour le moment. Réessaie dans une heure.");
+                    if (h != null && h.StatusCode == HttpStatusCode.NotFound) throw new UpdateError("native.update.noRelease");
+                    if (h != null && h.StatusCode == HttpStatusCode.Forbidden) throw new UpdateError("native.update.rateLimited");
                     throw;
                 }
             }
@@ -349,7 +350,7 @@ namespace DraftMid
             using (HttpWebResponse w = (HttpWebResponse)await r.GetResponseAsync())
             {
                 string host = w.ResponseUri.Host.ToLowerInvariant();
-                if (w.ResponseUri.Scheme != "https" || !(host == "github.com" || host.EndsWith(".githubusercontent.com"))) throw new UpdateError("Le téléchargement a été redirigé vers un site inconnu. Rien n'a été changé.");
+                if (w.ResponseUri.Scheme != "https" || !(host == "github.com" || host.EndsWith(".githubusercontent.com"))) throw new UpdateError("native.update.redirected");
                 using (Stream input = w.GetResponseStream())
                 using (FileStream output = File.Create(path))
                 {
@@ -359,7 +360,7 @@ namespace DraftMid
                     while ((n = await input.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
                     {
                         total += n;
-                        if (total > info.Size) throw new UpdateError("Le fichier reçu est plus gros qu'annoncé. Rien n'a été changé.");
+                        if (total > info.Size) throw new UpdateError("native.update.biggerThanAnnounced");
                         await output.WriteAsync(buffer, 0, n, ct);
                         if (progress != null) progress.Report(total);
                     }
@@ -483,7 +484,7 @@ namespace DraftMid
                 t(!AppUpdater.ValidSignature("v2.17.0", sha, Sign(other, "v2.17.0", sha), pub), "Mise à jour : signature d'une autre clé refusée");
                 t(!AppUpdater.ValidSignature("v2.17.0", sha, "pas de la base64 !", pub) && !AppUpdater.ValidSignature("v2.17.0", sha, null, pub), "Mise à jour : signature absente ou illisible refusée");
 
-            Action<string, string, CancellationToken> pass = (c, d, ct) => { }, stop = (c, d, ct) => { throw new UpdateError("tests"); };
+            Action<string, string, CancellationToken> pass = (c, d, ct) => { }, stop = (c, d, ct) => { throw new UpdateError("native.update.selfCheckFailed"); };
             exe = Path.Combine(dir, "DRAFT.exe"); place("ancien");
             string prepared = Task.Run(() => AppUpdater.Prepare(new Sim { Bytes = real, Key = key }, ok, exe, dir, null, pass, CancellationToken.None)).GetAwaiter().GetResult();
             t(prepared == candidate && File.Exists(candidate) && File.ReadAllText(exe) == "ancien" && !Directory.Exists(Path.Combine(dir, "maj-test")), "Mise à jour : préparation sans toucher à la version actuelle");
@@ -502,7 +503,7 @@ namespace DraftMid
             bool big = false;
             try { GitHubUpdateSource.ReadLimited(new MemoryStream(new byte[40000]), 16 * 1024, CancellationToken.None).GetAwaiter().GetResult(); } catch (UpdateError) { big = true; }
             t(big && GitHubUpdateSource.ReadLimited(new MemoryStream(Encoding.UTF8.GetBytes("abc")), 16 * 1024, CancellationToken.None).GetAwaiter().GetResult() == "abc", "Mise à jour : réponse réseau plafonnée");
-            t(AppUpdater.FriendlyError(new WebException("x")).Contains("GitHub") && AppUpdater.FriendlyError(new UpdateError("message")) == "message", "Mise à jour : erreurs compréhensibles");
+            t(AppUpdater.FriendlyError(new WebException("x")).Key == "native.update.offline" && AppUpdater.FriendlyError(new UpdateError("native.update.notSigned")).Key == "native.update.notSigned" && AppUpdater.FriendlyError(new WebException("x")).ToString().Contains("GitHub"), "Mise à jour : erreurs compréhensibles");
             Directory.Delete(dir, true);
         }
     }

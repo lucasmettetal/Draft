@@ -4,7 +4,9 @@
 # -Lang qps : pseudo-langue (tools/i18n/pseudo-localize.ps1), dans la copie de test seulement. Chaque texte du catalogue devient
 #   [Texte accentue et allonge] : les debordements sont listes (sans faire echouer le banc) et tout texte visible hors crochets est
 #   un texte reste en dur. La pseudo-langue n'est jamais livree ni proposee au joueur (draft-i18n.js ne l'accepte qu'en mode test).
-param([Alias('Work')][string]$Out = (Join-Path $env:TEMP 'draftmid-layout'), [switch]$Shots, [ValidateSet('', 'qps')][string]$Lang = '')
+# -Lang en : catalogue anglais reel (I18N-2, mode test). Les debordements font echouer le banc comme en francais ; les cles absentes
+#   et le francais reste visible (lettres ou mots propres au francais, hors noms de champions) sont listes et font echouer le banc.
+param([Alias('Work')][string]$Out = (Join-Path $env:TEMP 'draftmid-layout'), [switch]$Shots, [ValidateSet('', 'qps', 'en')][string]$Lang = '')
 
 $Source = Join-Path (Split-Path $PSScriptRoot -Parent) 'web'
 # Copie de test : le banc interroge la page avec eval, autorisé ici seulement, jamais dans l'application.
@@ -22,6 +24,14 @@ if ($Lang -eq 'qps') {
     # Textes visibles hors crochets (textes en dur) et cles absentes, releves dans chaque cadre.
     $hard = 'const HARD=w=>{let names=["DRAFT","TF"];try{names=names.concat(w.eval("NAMES"))}catch(e){}let s=w.document.body.innerText+"\n"+[...w.document.querySelectorAll("[title],[aria-label],[placeholder]")].map(e=>[e.getAttribute("title"),e.getAttribute("aria-label"),e.getAttribute("placeholder")].filter(Boolean).join("\n")).join("\n");let prev;do{prev=s;s=s.replace(/\[[^\[\]]*\]/g," ")}while(s!==prev);names.sort((a,b)=>b.length-a.length).forEach(n=>{s=s.split(n).join(" ")});const lines=[...new Set(s.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(x=>/\p{L}{2}/u.test(x)))];return{words:lines.slice(0,40),missing:w.I18N?w.I18N.missing():["I18N absent"]}};'
     $page = $page.Replace("'index.html?panel='", "'index.html?lang=qps&i18ncheck=1&panel='").Replace('(async()=>{const o=', $hard + '(async()=>{const o=').Replace('o.frames[f.dataset.k]=measure(f.contentWindow)', 'o.frames[f.dataset.k]=Object.assign(measure(f.contentWindow),{pseudo:HARD(f.contentWindow)})')
+    [IO.File]::WriteAllText($lt, $page, [Text.UTF8Encoding]::new($false))
+}
+if ($Lang -eq 'en') {
+    $lt = Join-Path $Web 'draft-layout-tests.html'
+    $page = [IO.File]::ReadAllText($lt)
+    # Francais reste visible (texte, title, aria-label, placeholder), noms de champions et nom de la langue francaise (selecteur, I18N-3) retires ; cles absentes.
+    $hard = 'const HARD=w=>{let names=["DRAFT","Fran\u00e7ais"];try{names=names.concat(w.eval("NAMES"))}catch(e){}let s=w.document.body.innerText+"\n"+[...w.document.querySelectorAll("[title],[aria-label],[placeholder]")].map(e=>[e.getAttribute("title"),e.getAttribute("aria-label"),e.getAttribute("placeholder")].filter(Boolean).join("\n")).join("\n");names.sort((a,b)=>b.length-a.length).forEach(n=>{s=s.split(n).join(" ")});const fr=/[\u00e0\u00e2\u00e7\u00e9\u00e8\u00ea\u00eb\u00ee\u00ef\u00f4\u00fb\u00f9\u0153\u00ab\u00bb]|\b(le|la|les|des|du|de|et|ou|pas|pour|avec|sur|dans|ton|ta|tes|une|est|sont|contre|partie|parties)\b/i;const lines=[...new Set(s.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(x=>fr.test(x)))];return{words:lines.slice(0,40),missing:w.I18N?w.I18N.missing():["I18N absent"]}};'
+    $page = $page.Replace("'index.html?panel='", "'index.html?lang=en&i18ncheck=1&panel='").Replace('(async()=>{const o=', $hard + '(async()=>{const o=').Replace('o.frames[f.dataset.k]=measure(f.contentWindow)', 'o.frames[f.dataset.k]=Object.assign(measure(f.contentWindow),{pseudo:HARD(f.contentWindow)})')
     [IO.File]::WriteAllText($lt, $page, [Text.UTF8Encoding]::new($false))
 }
 $Chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
@@ -67,6 +77,9 @@ $Runs += , @('sans reseau', 'state=full', $true)
 
 $failures = 0
 $qpsHard = @{}; $qpsMissing = @{}; $qpsOverflow = 0
+# Anglais : donnees fictives de l'etat 'extreme' (noms et raisons tres longs, ecrits en francais pour le test), pas de l'interface.
+# Depuis I18N-3, l'etat simule du programme (phase, placement) passe par des cles : plus aucune exception.
+$enFixtures = @()
 foreach ($run in $Runs) {
     $args_ = $Common + @('--virtual-time-budget=120000', '--dump-dom')
     if ($run[2]) { $args_ += $OfflineArg }
@@ -74,8 +87,8 @@ foreach ($run in $Runs) {
     $json = [Net.WebUtility]::HtmlDecode([regex]::Match($dom, '<pre id="out"[^>]*>([\s\S]*?)</pre>').Groups[1].Value)
     if (-not $json) { Write-Host "ECHEC : $($run[0]) : aucune mesure"; $failures++; continue }
     $found = @{}
-    if ($Lang -eq 'qps') {
-        foreach ($frame in ($json | ConvertFrom-Json).frames.PSObject.Properties) { foreach ($w in $frame.Value.pseudo.words) { $script:qpsHard[$w] = 1 + [int]$script:qpsHard[$w] }; foreach ($m in $frame.Value.pseudo.missing) { $script:qpsMissing[$m] = 1 } }
+    if ($Lang -eq 'qps' -or $Lang -eq 'en') {
+        foreach ($frame in ($json | ConvertFrom-Json).frames.PSObject.Properties) { foreach ($w in $frame.Value.pseudo.words) { if ($Lang -eq 'en' -and ($run[0] -eq 'extreme' -or @($enFixtures | Where-Object { $w -like $_ }).Count)) { continue }; $script:qpsHard[$w] = 1 + [int]$script:qpsHard[$w] }; foreach ($m in $frame.Value.pseudo.missing) { $script:qpsMissing[$m] = 1 } }
     }
     $frames = ($json | ConvertFrom-Json).frames
     foreach ($frame in $frames.PSObject.Properties) {
@@ -106,6 +119,12 @@ if ($Lang -eq 'qps') {
     if ($qpsHard.Count) { $qpsHard.Keys | Sort-Object | ForEach-Object { Write-Host "  Hors crochets : $_" } }
     if ($qpsMissing.Count) { Write-Host ("  Absentes : " + (($qpsMissing.Keys | Sort-Object) -join ' | ')) }
     if ($qpsMissing.Count) { exit 1 }; exit 0
+}
+if ($Lang -eq 'en') {
+    Write-Host "Anglais : francais visible : $($qpsHard.Count) ; cles ou variables absentes : $($qpsMissing.Count)"
+    if ($qpsHard.Count) { $qpsHard.Keys | Sort-Object | ForEach-Object { Write-Host "  Francais visible : $_" } }
+    if ($qpsMissing.Count) { Write-Host ("  Absentes : " + (($qpsMissing.Keys | Sort-Object) -join ' | ')) }
+    if ($qpsHard.Count -or $qpsMissing.Count) { $failures++ }
 }
 if ($failures) { Write-Host "$failures DEFAUT(S)"; exit 1 }
 Write-Host 'TOUT EST BON'
