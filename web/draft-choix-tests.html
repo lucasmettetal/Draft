@@ -99,6 +99,14 @@ for(const lang of ["fr","en"]){
     res.notes[lang+"_"+kind]=note;
     x.f.remove();show();
   }
+  // ---------- 1 bis. QA-2 avec un autre choix : compact à 125 % (252 et 282 x 576), menace, bouton, conseil et Détails sans défiler ----------
+  for(const W of [252,282]){prepare(MID,OLD);const x=await open(lang,"compact",W,576);const sc=await scenario(x);x.$.choosePick(sc.other);await settle();
+   const th=q(x,".p-threat"),act=q(x,".p-actions"),adv=q(x,'.p-actions [data-test="pick-advice"]');const a=th&&th.getBoundingClientRect(),b=act.getBoundingClientRect();
+   const all=[q(x,SEL.compact.cta),adv,q(x,'[data-test="open-analysis"]'),q(x,'[data-test="back-to-advice"]')].every(e=>visible(x,e,576));
+   const m=th?"menace "+Math.round(a.top)+".."+Math.round(a.bottom)+", actions à "+Math.round(b.top):"aucune menace";
+   res.notes[lang+"_compact_"+W]=m+" ; actions "+Math.round(b.height)+" px de haut";
+   t(all&&(!th||(a.top>=0&&a.bottom<=b.top+0.5)),LG+" compact "+W+"x576 : [avant : échec] avec un autre choix, menace, bouton, conseil et Détails visibles sans défiler ("+m+")");
+   x.f.remove();}
   // ---------- 2. Panneau gauche : adversaires seulement, rien qui contredise le choix ----------
   {prepare(MID,OLD);const x=await open(lang,"left",256,576);const sc=await scenario(x);x.$.choosePick(sc.other);await settle();
    t(!q(x,'[data-test="choose-pick"]')&&!q(x,'[data-test="pick-advice"]')&&!q(x,'[data-test="pick-current"]'),LG+" left : ni bouton « Je joue » ni conseil dans le panneau gauche (adversaires seulement)");
