@@ -2,7 +2,6 @@
 // Fichier chargé avant le script principal : les fonctions de la page (html, t, Portrait, loadJournal...) sont lues au moment du rendu.
 // Écritures : uniquement par updateEntry (origine confirmée par le joueur) et setResult (résultat saisi). Rien n'est supprimé.
 (function (root) {
-  "use strict";
   const C = root.STATS_CALC;
   const MIN = C.MIN_GAMES;
   const ROLE_KEY = { top: "role.name.top", jungle: "role.name.jungle", mid: "role.name.mid", adc: "role.name.adc", support: "role.name.support", unknown: "stats.role.unknown" };
@@ -113,7 +112,7 @@
   const champLabel = c => c.champ || t("stats.champions.unknown");
   const Kda = ({ k }) => k ? html`<span className="sd-kda num">${t("stats.champions.kda", { value: I18N.fmtDecimal(k.ratio, 1) })}${k.deathless ? html` <small>${t("stats.champions.deathless")}</small>` : null}</span>` : html`<span className="sd-kda">–</span>`;
   function ChampionRows({ list, max }) {
-    return html`<table className="sd-table sd-champs"><thead><tr><th scope="col">${t("stats.champions.col.champion")}</th><th scope="col" className="num">${t("stats.riot.kpi.games")}</th><th scope="col">${t("stats.riot.kpi.rate")}</th><th scope="col"></th><th scope="col">KDA</th></tr></thead>
+    return html`<table className="sd-table sd-champs"><thead><tr><th scope="col">${t("stats.champions.col.champion")}</th><th scope="col" className="num">${t("stats.riot.kpi.games")}</th><th scope="col">${t("stats.riot.kpi.rate")}</th><th scope="col"></th><th scope="col">${t("stats.champions.col.kda")}</th></tr></thead>
       <tbody>${list.map(c => html`<tr key=${c.champ || "?"}><th scope="row"><span className="sd-champ">${c.champ ? html`<span data-slot=${c.mainRole || null} className="sd-face"><${Portrait} name=${c.champ} size=${30} /></span>` : null}<span><b>${champLabel(c)}</b><${ChampMeta} c=${c} /></span></span></th>
         <td className="num sd-games"><span className="sd-vol"><i style=${{ width: `${(100 * c.games / max).toFixed(1)}%` }}></i></span>${c.games}</td>
         <td><${WinBar} b=${c} name=${champLabel(c)} /></td><td><${RecRate} b=${c} /></td><td><${Kda} k=${c.kda} /></td></tr>`)}</tbody></table>`;

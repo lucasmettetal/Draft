@@ -230,6 +230,7 @@ window.DRAFT_I18N_FR = {
 "stats.range.current": "{from} à {to}, en cours",
 "stats.champions.all": {"one": "Voir le champion", "other": "Voir les {count} champions"},
 "stats.champions.col.champion": "Champion",
+"stats.champions.col.kda": "KDA",
 "stats.champions.count": {"one": "{count} champion", "other": "{count} champions"},
 "stats.champions.deathless": "sans mort",
 "stats.champions.few": "Moins de {min} parties : pas encore de pourcentage.",

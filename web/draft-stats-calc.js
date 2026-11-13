@@ -2,7 +2,6 @@
 // Chaîne prévue : sources -> calcul (ce fichier) -> règles (futur coaching, non branché) -> rendu (draft-stats-view.js).
 // Les corrections (doublons, millisecondes, lignes incomplètes) n'existent que dans le calcul : aucun fichier n'est modifié.
 (function (root) {
-  "use strict";
   const MIN_GAMES = 10;          // aucun pourcentage en dessous (MIN_GAMES de l'application)
   const SLICE = 20;              // tranches de la chronologie (EVOLUTION_STEP)
   const MS_FROM = 20000;         // durée >= 20 000 : millisecondes (avant le patch 11.20)
