@@ -45,7 +45,7 @@
   }
   // Valeur non mesurable : un trait, jamais un zéro qui passerait pour une mesure.
   const DASH = "–";
-  const Kpi = ({ test, label, value, sub, extra }) => html`<div data-test=${test}><span>${label}</span><b className="num">${value === DASH ? html`<span className="sd-dash">${DASH}</span>` : value}</b>${sub ? html`<small>${sub}</small>` : null}${extra || null}</div>`;
+  const Kpi = ({ test, label, value, sub, extra }) => html`<div data-test=${test}><span>${label}</span> <b className="num">${value === DASH ? html`<span className="sd-dash">${DASH}</span>` : value}</b>${sub ? html` <small>${sub}</small>` : null}${extra || null}</div>`;
   function Hero({ s }) {
     const r = s.record;
     return html`<div className="sd-hero" data-test="stats-hero">
@@ -83,8 +83,7 @@
         ${list.map(r => html`<i key=${r.role} data-slot=${r.role === "unknown" ? null : r.role} className=${r.role === "unknown" ? "unknown" : ""} style=${{ flexGrow: r.games }}></i>`)}
       </div>
       <ul className="sd-roles">${list.map(r => html`<li key=${r.role} data-slot=${r.role === "unknown" ? null : r.role}>
-        <span className="sd-role-name">${r.role === "unknown" ? html`<span className="sd-dot"></span>` : html`<span className="sd-role-icon"><${RoleIcon} role=${r.role} /></span>`}${roleName(r.role)}</span>
-        <b className="num">${r.games}</b><${RecRate} b=${r} /></li>`)}</ul>
+        <span className="sd-role-name">${r.role === "unknown" ? html`<span className="sd-dot"></span>` : html`<span className="sd-role-icon"><${RoleIcon} role=${r.role} /></span>`}${roleName(r.role)}</span> <b className="num">${r.games}</b> <${RecRate} b=${r} /></li>`)}</ul>
     </section>`;
   }
 
@@ -304,7 +303,8 @@
       <h2>${t("stats.empty.title")}</h2><p>${t("stats.empty.lead")}</p>
       <ol>
         <li><b>${t("stats.history.title")}</b><p>${t("stats.empty.riot")}</p><p className="small">${t("stats.history.collect")}</p>
-          ${hostState.available ? html`<${ImportButton} />` : html`<p className="small">${t("stats.history.app")}</p>`}</li>
+          ${hostState.available ? html`<${ImportButton} />` : html`<p className="small">${t("stats.history.app")}</p>`}
+          ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${nativeText(hostState.historyStatus)}</p>` : null}</li>
         <li><b>${t("stats.journal.heading")}</b><p>${t("stats.empty.journal")}</p></li>
       </ol>
       <p className="sd-note">${t("stats.sources.separate")}</p>

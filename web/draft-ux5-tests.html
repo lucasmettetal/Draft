@@ -1,61 +1,103 @@
 <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests UX-5</title></head><body><pre id="out"></pre>
-<!-- UX-5 : Mes statistiques (vue d'ensemble, journal, historique Riot), états vides et erreurs, collecte dite. Vraie page, données fictives. -->
+<!-- UX-5 : Mes statistiques, tableau de bord (proposition A) : historique Riot et journal DRAFT séparés, états vides, origine, saisie. Vraie page, données fictives. -->
 <!-- Lancement : tools\run-v215-tests.ps1 -Page draft-ux5-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
 <script>
 const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
 const wait=m=>new Promise(r=>setTimeout(r,m));
-const settle=()=>wait(150);
+const settle=()=>wait(180);
 const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
-async function load(journal){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));const f=document.createElement("iframe");f.width=1366;f.height=900;f.src="index.html?x=1&view=stats";document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(400);const w=f.contentWindow;return {f,w,d:f.contentDocument,ev:c=>w.eval(c)};}
+async function load(journal,hist,lang){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));const f=document.createElement("iframe");f.width=1366;f.height=900;f.src="index.html?x=1&view=stats"+(lang?"&lang="+lang:"");document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(400);const w=f.contentWindow;const x={f,w,d:f.contentDocument,ev:c=>w.eval(c)};if(hist){w.DRAFT_HISTORY=hist;x.ev("rerender()");await settle();}return x;}
 const q=(x,s)=>x.d.querySelector(`[data-test="${s}"]`);
-const JOURNAL=[1,2,3,4,5].map(i=>({id:i,date:"2026-11-0"+i+"T10:00:00Z",suggested:"Fizz",picked:i===5?"TF":"Fizz",close:false,enemies:["Ahri"],mid:"Ahri",result:i===3?"loss":i===4?null:"win",engine:"x"}));
-const HIST={generated:"2026-11-08T10:00:00Z",accounts:["Test#TEST"],rows:[...Array(12)].map((_,i)=>({id:"H"+i,acct:"Test#TEST",time:Date.now()-i*864e5,patch:"16.22",sec:1800,champ:i<8?"Fizz":"Ahri",pos:i<10?"MIDDLE":"TOP",win:i%3!==0,k:5,d:4,a:6,mid:"",enemies:[]}))};
+const qa=(x,s)=>[...x.d.querySelectorAll(`[data-test="${s}"]`)];
+const stored=x=>JSON.parse(x.w.localStorage.getItem("draftJournal")||"[]");
+const E=(i,o)=>Object.assign({id:1000+i,date:"2026-11-0"+i+"T10:00:00Z",suggested:"Fizz",picked:"Fizz",close:false,enemies:["Ahri"],mid:"Ahri",result:null,engine:"x"},o||{});
+// Journal : 5 entrées marquées (#33), 1 ancienne sans marque. Terminées : 4 (3 V). Conseil suivi parmi les terminées : 3.
+const JOURNAL=[E(1,{origin:"draft",result:"win"}),E(2,{origin:"draft",result:"win"}),E(3,{origin:"draft",result:"loss"}),E(4,{origin:"draft"}),E(5,{origin:"draft",result:"win",picked:"TF"}),E(6,{result:"win"})];
+const T0=Date.UTC(2026,8,1,12);
+const HIST={generated:"2026-11-08T10:00:00Z",accounts:["Test#TEST"],rows:[...Array(12)].map((_,i)=>({id:"H"+i,acct:"Test#TEST",time:T0+i*864e5,patch:"16.22",sec:1800,champ:i<8?"Fizz":"Ahri",pos:i<10?"MIDDLE":"TOP",win:i%3!==0,k:5,d:4,a:6,mid:i<5?"Syndra":"Zed",enemies:[]}))};
+const H93={generated:"2026-11-08T10:00:00Z",accounts:["Test#TEST"],rows:[...Array(93)].map((_,i)=>({id:"N"+i,acct:"Test#TEST",time:T0+i*36e5,patch:"16.22",sec:1800,champ:i<22?"Orianna":i<40?"Ahri":i<88?"Viktor":"Syndra",pos:"MIDDLE",win:i%2===0,k:5,d:4,a:6,mid:"Zed",enemies:[]}))};
 
 (async()=>{
-// États vides : rien d'importé, rien de noté.
-let x=await load(null);
-t(!!q(x,"stats-tab-overview")&&!!q(x,"stats-tab-journal")&&!!q(x,"stats-tab-history"),"trois onglets : vue d'ensemble, journal, historique");
-t(/Aucune partie notée pour l'instant/.test(text(q(x,"stats-journal"))),"journal vide : consigne claire");
-t(/Aucun historique importé/.test(text(q(x,"stats-history-summary"))),"historique vide : consigne claire");
-t(/Lu : tes parties classées solo\/duo\. Gardé sur ce PC/.test(text(q(x,"stats-collect"))),"collecte dite : ce qui est lu et gardé");
-t(/une seule fois pour l'historique, les rôles et les matchups\. Elle n'est jamais enregistrée\./.test(text(q(x,"stats-history"))),"clé Riot : une seule saisie, jamais enregistrée");
-t(/L'import se fait dans l'application DRAFT\./.test(text(q(x,"stats-history")))&&!q(x,"stats-import-history"),"hors application : pas de bouton d'import, consigne");
-x.ev("Object.assign(hostState,{available:true,historyStatus:'Clé Riot refusée : vérifie-la sur developer.riotgames.com. 0 partie ajoutée, 0 au total.'});rerender()");await settle();
-t(!!q(x,"stats-import-history")&&text(q(x,"stats-import-history"))==="Importer mon historique Riot","application : bouton d'import dans Mes statistiques");
-t(/Clé Riot refusée/.test(text(q(x,"stats-history-status")))&&q(x,"stats-history-status").getAttribute("role")==="status","erreur d'import affichée, annoncée au lecteur d'écran");
-x.f.remove();
-// Données : journal et historique.
-x=await load(JOURNAL);x.w.DRAFT_HISTORY=HIST;x.ev("rerender()");await settle();
-const k=id=>[...q(x,id).children].map(text).join(" ");
-t(/^Drafts notées 5$/.test(k("kpi-drafts")),"chiffre : 5 drafts notées ("+k("kpi-drafts")+")");
-t(/^Victoires 3 sur 4 parties terminées$/.test(k("kpi-wins")),"chiffre : 3 victoires sur 4 parties terminées ("+k("kpi-wins")+")");
-t(/^Conseil suivi 4 sur 5$/.test(k("kpi-followed")),"chiffre : conseil suivi 4 sur 5 ("+k("kpi-followed")+")");
-t(/^Historique Riot 12 12 parties, 08\/11\/2026$/.test(k("kpi-history")),"chiffre : historique 12 parties et date ("+k("kpi-history")+")");
-t(/12 parties importées, le 08\/11\/2026/.test(text(q(x,"stats-history-summary"))),"historique : nombre et date");
-t(/Le plus joué en Mid/.test(text(q(x,"stats-history")))&&/Fizz/.test(text(q(x,"stats-history"))),"historique : le plus joué au rôle joué");
-const rows=[...x.d.querySelectorAll('[data-test="stats-recent"] tbody tr')];t(rows.length===5&&/Autre choix/.test(text(rows[0]))&&/Suivi/.test(text(rows[1])),"dernières drafts : 5 lignes, conseil suivi ou non");
-t(/En attente/.test(text(q(x,"stats-recent"))),"dernières drafts : partie sans résultat « En attente »");
-q(x,"stats-all-journal").click();await settle();t(!!q(x,"stats-journal-full")&&!!x.d.querySelector('[data-test="import-journal"]'),"Voir tout le journal : journal complet et import d'un ancien fichier");
-q(x,"stats-tab-history").click();await settle();t(/Parties par rôle/.test(text(x.d.body))&&!!q(x,"stats-old"),"onglet historique : parties par rôle et anciens imports");
+// ---------- Rien : état vide en deux étapes ----------
+let x=await load(null,null);
+t(!!q(x,"stats-tab-overview")&&!!q(x,"stats-tab-journal")&&!!q(x,"stats-tab-history"),"trois onglets conservés : vue d'ensemble, journal, historique");
+t(!!q(x,"stats-empty")&&x.d.querySelectorAll('[data-test="stats-empty"] li').length===2,"rien : état vide en deux étapes (historique Riot, journal DRAFT)");
+t(/L'import se fait dans l'application DRAFT\./.test(text(q(x,"stats-empty")))&&!q(x,"stats-import-history"),"hors application : pas de bouton d'import, consigne");
 t(!/RGAPI|puuid|Test#TEST/.test(x.d.body.innerText),"aucune clé ni identifiant de compte affiché");
+x.ev("Object.assign(hostState,{available:true,historyStatus:{key:'native.history.keyRefused',vars:{}}});rerender()");await settle();
+t(!!q(x,"stats-import-history")&&text(q(x,"stats-import-history"))==="Importer mon historique Riot","application : bouton d'import dans l'état vide");
+t(/Clé Riot refusée/.test(text(q(x,"stats-history-status")))&&q(x,"stats-history-status").getAttribute("role")==="status","erreur d'import affichée, annoncée au lecteur d'écran");
+q(x,"stats-tab-history").click();await settle();
+t(/une seule fois pour l'historique, les rôles et les matchups\. Elle n'est jamais enregistrée\./.test(text(q(x,"stats-history"))),"onglet historique : clé Riot, une seule saisie, jamais enregistrée");
+t(/Lu : tes parties classées solo\/duo\. Gardé sur ce PC/.test(text(q(x,"stats-collect"))),"collecte dite : ce qui est lu et gardé");
 x.f.remove();
-// DA B+ : seuil de 10 parties, période, repère des 50 % (données fictives : 12 parties d'un champion, 2 d'un autre).
-const BIG=[...Array(14)].map((_,i)=>({id:100+i,date:"2026-11-"+String(i+1).padStart(2,"0")+"T10:00:00Z",suggested:"Fizz",picked:i<12?"Fizz":"TF",close:false,enemies:["Ahri"],mid:"Ahri",result:i%3===2?"loss":"win",engine:"x"}));
-x=await load(BIG);await wait(600);
-{const bars=[...x.d.querySelectorAll('[data-test="stats-journal"] .winbar')];const big=bars.find(b=>/Fizz/.test(text(b))),few=bars.find(b=>/Twisted Fate/.test(text(b)));
-t(!!big&&!big.classList.contains("few")&&!!big.querySelector(".winbar-track"),"12 parties : barre de victoires");
-t(!!few&&!!few.querySelector(".notches")&&!few.querySelector(".winbar-track"),"2 parties : jauge de crans, jamais de barre ni de pourcentage");
-const tr=big&&big.querySelector(".winbar-track"),mk=big&&big.querySelector(".winbar-mid");
-if(tr&&mk){const a=tr.getBoundingClientRect(),b=mk.getBoundingClientRect(),c=(b.left+b.right)/2,m=(a.left+a.right)/2;res.notes.repere=`piste ${a.left.toFixed(1)}..${a.right.toFixed(1)} (milieu ${m.toFixed(1)}), repère ${b.left.toFixed(1)}..${b.right.toFixed(1)}, hauteur ${b.height.toFixed(1)} pour ${a.height.toFixed(1)}`;
+
+// ---------- Journal et historique : deux sources séparées, dénominateur unique ----------
+x=await load(JOURNAL,HIST);
+const k=s=>text(q(x,s));
+t(!!q(x,"stats-dashboard")&&!!q(x,"stats-history")&&!!q(x,"stats-journal")&&!q(x,"stats-history").contains(q(x,"stats-journal")),"historique Riot et journal DRAFT dans deux colonnes séparées");
+t(/^Drafts notées 5$/.test(k("kpi-drafts")),"journal : 5 drafts notées, l'entrée sans marque écartée ("+k("kpi-drafts")+")");
+t(/^Parties terminées 4 3V 1D/.test(k("kpi-finished")),"journal : 4 parties terminées, 3V 1D ("+k("kpi-finished")+")");
+t(/^Conseil suivi 3 sur 4 parties terminées$/.test(k("kpi-followed")),"[avant : 4 sur 5] conseil suivi compté sur les parties terminées ("+k("kpi-followed")+")");
+t(/1 entrée d'origine inconnue, écartée des statistiques/.test(k("journal-unknown")),"journal : entrée d'origine inconnue écartée, et dite");
+t(/^Parties 12$/.test(k("kpi-games"))&&/67 %/.test(k("kpi-rate"))&&/sur 12 parties/.test(k("kpi-rate")),"historique : 12 parties, 67 % avec son dénominateur ("+k("kpi-rate")+")");
+t(/Période : du 01\/09\/2026 au 12\/09\/2026/.test(k("stats-sample"))&&/12 parties classées/.test(k("stats-sample"))&&/Rôle principal : Mid/.test(k("stats-sample")),"échantillon : période, parties, rôle principal");
+t(/Mid 10 6V 4D, 60 %/.test(k("stats-roles"))&&/Top 2 2V 0D/.test(k("stats-roles"))&&!/Top 2 2V 0D, \d/.test(k("stats-roles")),"par rôle : Mid 10 avec %, Top 2 sans % ("+k("stats-roles")+")");
+t(!!q(x,"stats-timeline")&&!q(x,"stats-timeline").open,"chronologie : frise secondaire, repliée");
+t(/Moins de 10 parties : pas encore de pourcentage/.test(k("stats-champions"))&&!/Fizz.*\d+ %/.test(text(x.d.querySelector('[data-test="stats-champions"] .sd-top'))),"champion à 8 parties : prudence écrite, aucun pourcentage");
+t(/Syndra/.test(k("stats-matchups"))&&/Zed/.test(k("stats-matchups"))&&!/%/.test(text(x.d.querySelector('[data-test="stats-matchups"] tbody'))),"vis-à-vis mid : adversaires, aucun pourcentage sous 10");
+t(!/favorable|défavorable|en progrès|point fort/i.test(k("stats-dashboard")),"aucune conclusion (favorable, défavorable, progrès, point fort)");
+q(x,"matchups-role-jungle").click();await settle();
+t(/n'enregistre pas encore l'adversaire de voie/.test(k("matchups-unavailable")),"vis-à-vis hors mid : l'import ne l'enregistre pas encore, dit clairement");
+t(/^Pas encore/.test(k("stats-notyet"))&&/8 \/ 30/.test(k("notyet-champion"))&&/10 \/ 40/.test(k("notyet-trend")),"« Pas encore » : progression vers 30 et 40 parties");
+const rows=[...x.d.querySelectorAll('[data-test="stats-recent"] li')];
+t(rows.length===5&&/Origine inconnue/.test(text(rows.find(r=>/Origine inconnue/.test(text(r)))))&&rows.some(r=>/Autre choix/.test(text(r)))&&rows.some(r=>/Conseil suivi/.test(text(r))),"dernières drafts : conseil suivi ou non, origine inconnue signalée");
+q(x,"stats-all-journal").click();await settle();
+t(!!q(x,"stats-journal-full")&&!!x.d.querySelector('[data-test="import-journal"]')&&qa(x,"journal-table")[0].children.length===6,"Voir tout le journal : 6 entrées et import d'un ancien fichier");
+// Origine : « Partie réelle » rend l'entrée comptable, puis le résultat se saisit ; « Simulation » l'écarte sans la supprimer.
+q(x,"origin-real").click();await settle();
+t(stored(x).find(e=>e.id===1006).userOrigin==="real"&&/^Drafts notées 6$/.test(k("kpi-drafts")),"origine confirmée réelle : gardée dans l'entrée, comptée");
+t(stored(x).find(e=>e.id===1006).result==="win"&&/^Parties terminées 5/.test(k("kpi-finished")),"résultat déjà noté de l'entrée confirmée : compté");
+const pending=[...x.d.querySelectorAll('[data-test="journal-result"]')];
+t(pending.length===1,"saisie du résultat proposée pour la seule entrée réelle en attente");
+pending[0].querySelector('[data-result="loss"]').click();await settle();
+t(stored(x).find(e=>e.id===1004).result==="loss"&&/^Parties terminées 6/.test(k("kpi-finished")),"résultat saisi depuis Mes statistiques : enregistré, compté");
+x.ev(`saveJournal(loadJournal().concat([{id:1007,date:"2026-11-07T10:00:00Z",suggested:"Fizz",picked:"Fizz",close:false,enemies:[],mid:"Ahri",result:null,engine:"x"}]));rerender()`);await settle();
+q(x,"origin-sim").click();await settle();
+t(stored(x).length===7&&stored(x).find(e=>e.id===1007).userOrigin==="simulation"&&!x.d.querySelector('[data-test="journal-result"]'),"simulation : écartée, jamais supprimée, aucune saisie de résultat");
+q(x,"origin-undo").click();await settle();
+t(stored(x).find(e=>e.id===1007).userOrigin===undefined&&!!q(x,"origin-real"),"classement annulable : l'entrée redevient d'origine inconnue");
+x.f.remove();
+
+// ---------- Égalité (#33) ----------
+x=await load([E(1,{origin:"draft",result:"win",suggested:"Fizz",picked:"TF",tied:true,tiedWith:["Fizz","TF"]}),E(2,{origin:"draft",result:"loss",suggested:"Fizz",picked:"TF",tiedWith:["TF"]})],null);
+t(/^Conseil suivi 1 sur 2 parties terminées$/.test(text(q(x,"kpi-followed")))&&/égalité/.test(text(q(x,"stats-recent"))),"égalité : un ex æquo choisi compte comme conseil suivi ; sans « tied », aucune égalité reconstruite");
+x.f.remove();
+
+// ---------- 93 parties : dernière tranche gardée, repère des 50 % (DA B+) ----------
+x=await load(null,H93);
+q(x,"stats-timeline").open=true;await settle();
+const slices=[...x.d.querySelectorAll('[data-test="stats-timeline"] .sd-slices li')];
+t(slices.length===5&&/81 à 93 · en cours/.test(text(slices[4])),"[avant : 80 parties sur 93] chronologie : 5 tranches, la dernière (81 à 93) gardée");
+{const row=[...x.d.querySelectorAll('[data-test="stats-champions"] .sd-top')].find(r=>/Orianna/.test(text(r)));const tr=row&&row.querySelector(".sd-track"),mk=tr&&tr.querySelector("b");
+if(tr&&mk){const a=tr.getBoundingClientRect(),b=mk.getBoundingClientRect(),c=(b.left+b.right)/2,m=(a.left+a.right)/2;
  const lum=s=>{const v=s.match(/[\d.]+/g).slice(0,3).map(n=>{n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4});return .2126*v[0]+.7152*v[1]+.0722*v[2]};
  const cs=x.w.getComputedStyle,ratio=(p,q2)=>{const A=lum(p),B=lum(q2);return (Math.max(A,B)+.05)/(Math.min(A,B)+.05)};
- const rc=ratio(cs(mk).backgroundColor,cs(tr).backgroundColor);
- t(Math.abs(c-m)<=0.5,`[avant : échec] repère des 50 % au milieu exact de la piste (écart ${(c-m).toFixed(2)} px)`);
- t(b.top<=a.top+0.5&&b.bottom>=a.bottom-0.5&&b.width>=1.5,`[avant : échec] repère sur toute la hauteur de la piste (${res.notes.repere})`);
- t(rc>=3,`[avant : échec] repère visible sur la piste vide (contraste ${rc.toFixed(2)}:1, 3:1 attendu)`);}
-else t(false,"barre ou repère absent");}
-t(/Période : du 01\/11\/2026 au 14\/11\/2026/.test(text(q(x,"stats-sample")))&&/14 parties terminées/.test(text(q(x,"stats-sample"))),"période et nombre de parties écrits sous le bandeau");
-t(/\d+ % de victoires/.test(text(q(x,"kpi-wins"))),"14 parties terminées : pourcentage affiché, avec l'échantillon");
+ t(Math.abs(c-m)<=0.5,`repère des 50 % au milieu exact de la piste (écart ${(c-m).toFixed(2)} px)`);
+ t(b.top<=a.top+0.5&&b.bottom>=a.bottom-0.5&&b.width>=1.5,"repère sur toute la hauteur de la piste");
+ t(ratio(cs(mk).backgroundColor,cs(tr).backgroundColor)>=3,"repère visible sur la piste vide (3:1)");}
+else t(false,"barre ou repère absent (Orianna, 22 parties)");}
+const leak=[...x.d.querySelectorAll('[data-test="stats-dashboard"] tbody tr')].filter(r=>{const n=+text(r.querySelector("td.num"));return n<10&&/\d %/.test(text(r))});
+t(leak.length===0,"aucun pourcentage sous 10 parties dans les tableaux ("+leak.length+")");
+q(x,"stats-champions-all").click();await settle();
+t(!!q(x,"stats-champion-table")&&q(x,"stats-champion-table").querySelectorAll("tbody tr").length===4,"Voir les champions : liste complète dans l'onglet Historique Riot");
+x.f.remove();
+
+// ---------- Anglais ----------
+x=await load(JOURNAL,HIST,"en");
+t(x.ev("I18N.lang")==="en"&&x.ev("I18N.missing().length")===0,"EN : aucune clé absente ("+x.ev("I18N.missing().join(' | ')")+")");
+t(/^Advice followed 3 out of 4 finished games$/.test(text(q(x,"kpi-followed")))&&/Win rate/.test(text(q(x,"kpi-rate"))),"EN : conseil suivi et winrate en anglais");
+t(!/Période|parties|Victoires|Rôle|Tes champions|Origine/.test(text(q(x,"stats-dashboard"))),"EN : aucun français visible dans le tableau de bord");
 x.f.remove();
 document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
 })().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
