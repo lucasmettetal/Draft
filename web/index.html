@@ -1326,6 +1326,8 @@ function useActiveRole() {
   ENGINE_PREFS.favorite = PREFS.favorite;
 }
 useActiveRole();
+// Changements d'une 2.x repris au chargement : la copie de secours du programme les reçoit aussi.
+if (PROFILES.legacyTaken) storeProfiles();
 // Copie de secours dans le dossier de données : le stockage du navigateur intégré peut être réinitialisé.
 function storeProfiles() {
   try { persistProfiles(PROFILES, localStorage); } catch (e) {}
