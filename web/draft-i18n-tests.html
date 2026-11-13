@@ -1,7 +1,9 @@
 <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests I18N</title></head><body><pre id="out"></pre>
 <!-- I18N-0 : fonctions de traduction (draft-i18n.js) sur un catalogue de test, puis la vraie page en mode test (&i18ncheck=1).
      I18N-1 : pluriels du vrai catalogue comparés aux anciennes formules (0, 1, 2, 3, 5, 21), repli et mode test sur la vraie page,
-     aucune clé ni variable manquante dans chaque vue. -->
+     aucune clé ni variable manquante dans chaque vue.
+     I18N-2 : anglais ouvert en mode test seulement (&lang=en&i18ncheck=1) ; formats de nombres, dates et listes par langue ;
+     logique indépendante du texte affiché (listes coupées, hypothèses, phrases par rôle) vérifiée en français et en anglais. -->
 <!-- Lancement : tools\run-v215-tests.ps1 -Page draft-i18n-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
 <script>
 const res={ok:0,ko:[],notes:{}};const t0=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
@@ -62,12 +64,47 @@ for(const g of [0,0.5,1,1.5,1.99,2,2.5,-3]){const dec=g.toFixed(1).replace(".","
 res.notes.pluriels=plural;
 // Repli : une clé absente reste visible ([clé]) ; une variable absente reste {nom} ; tout est relevé en mode test.
 t0(R.t("cle.inconnue.test")==="[cle.inconnue.test]"&&R.missing().some(m=>m.includes("cle.inconnue.test")),"vraie page : clé absente visible et relevée en mode test");
-t0(R.t("coach.list.and",{first:"A"})==="A et {last}"&&R.missing().some(m=>m.includes("variable absente : last")),"vraie page : variable absente visible et relevée");
-real.remove();
+t0(R.t("list.and",{first:"A"})==="A et {last}"&&R.missing().some(m=>m.includes("variable absente : last")),"vraie page : variable absente visible et relevée");
+// Revue des pluriels : chaque clé plurielle rendue avec 0, 1 et 2 (français) ou 1 et 2 (anglais) ; aucun « 1 parties », « 1 games »...
+const NOUNS="parties|games|champions|victoires|wins|adversaires|enemies|matchups|rencontres|patchs|patches|secondes|seconds|jours|days|drafts|picks|points|requêtes|requests|carrys|carries|fiches|sheets|autres|ajoutées|importées|notées|terminées|vus|anciennes|disponibles|restent|ouverts|sont";
+const pluralCheck=(cat,I,lang)=>{let n=0;const bad=[];for(const [k,v] of Object.entries(cat)){if(k==="_meta"||!v||typeof v!=="object"||!/\{count\}/.test(v.other))continue;const vars={};(JSON.stringify(v).match(/\{\w+\}/g)||[]).forEach(m=>{const name=m.slice(1,-1);if(name!=="count")vars[name]="X";});for(const c of (lang==="fr"?[0,1,2]:[1,2])){const s=I.tp(k,c,vars);n++;if(c<2&&new RegExp("(^|[^\\d,.])"+c+" ("+NOUNS+")\\b").test(s))bad.push(k+" ("+c+") : "+s);}}return {n,bad};};
+// I18N-2 : nombres, dates, listes et phrases du moteur en français (rendu identique à avant l'extraction).
+const RW=real.contentWindow;
+t0(R.fmtDecimal(1.5)==="1,5"&&R.fmtDecimal(-4,1)==="-4,0"&&R.fmtNumber(1.5)==="1,5","français : virgule décimale");
+t0(R.fmtDate(new Date(2026,10,11,14,5))==="11/11/2026"&&R.fmtTime(new Date(2026,10,11,14,5))==="14:05","français : date et heure inchangées");
+t0(R.listOr(["A","B","C"])==="A ou B ou C"&&R.listAnd(["A","B","C"])==="A, B et C"&&R.listAnd(["A"])==="A","français : listes");
+{const cut=RW.eval('listedText("engine.targets.many",["Lux","Jinx","Ahri","Zed"])');t0(RW.eval("coachReason")(cut)===cut+" et 1 autre","français : liste coupée signalée par le moteur, sans relire le texte");}
+t0(RW.eval('scenarioText("Yasuo",{text:"1er choix contre Yasuo",short:"1er choix"})')==="Si c'est Yasuo : 1er choix","français : hypothèse nommée");
+t0(RW.eval('joinScenarioTexts([{text:"Si c\'est A : 1er choix"},{text:"Si c\'est B : à éviter"}])')==="Si c'est A : 1er choix ; si c'est B : à éviter","français : deux hypothèses");
+t0(RW.eval('oppText("whenBetter",{champion:"Ahri"})')==="si ton adversaire au mid est Ahri","français : phrase complète par rôle");
+{const r=pluralCheck(RW.DRAFT_I18N_FR,R,"fr");res.notes.plurielsFr=r.n;t0(r.n>0&&r.bad.length===0,"français : aucun singulier oublié sur "+r.n+" rendus ("+r.bad.join(" | ")+")");}
+t0(R.tp("coach.draft.why.l3rival",1.5,{criterion:"C",impact:"1,5",gap:"1,5",rival:"Zed"}).includes("1,5 point d'écart")&&R.tp("coach.draft.why.l3rival",2,{criterion:"C",impact:"2,0",gap:"2,0",rival:"Zed"}).includes("2,0 points d'écart"),"français : décimal sous 2 au singulier (1,5 point), 2 au pluriel");
+t0(R.tp("journal.dots.aria",1,{wins:R.tp("journal.dots.wins",1)})==="1 victoire sur 1 partie notée"&&R.tp("journal.dots.aria",5,{wins:R.tp("journal.dots.wins",3)})==="3 victoires sur 5 parties notées","français : victoires et parties accordées chacune");real.remove();
+// I18N-2 : l'anglais complet, ouvert en mode test seulement.
+const en=await new Promise(r=>{const f=document.createElement("iframe");f.width=1280;f.height=720;f.src="index.html?x=1&i18ncheck=1&lang=en";f.onload=()=>r(f);document.body.appendChild(f);});
+await wait(500);const E=en.contentWindow.I18N,EW=en.contentWindow;
+t0(E.lang==="en"&&en.contentDocument.documentElement.lang==="en","anglais en mode test : langue de la page et attribut lang");
+t0(!!EW.DRAFT_I18N_EN&&Object.keys(EW.DRAFT_I18N_EN).length===Object.keys(EW.DRAFT_I18N_FR).length,"catalogue anglais : autant de clés que le français");
+t0(E.tp("draft.seen",0)==="0 champions seen"&&E.tp("draft.seen",1)==="1 champion seen"&&E.tp("draft.seen",2)==="2 champions seen","anglais : pluriel (0 au pluriel, 1 au singulier)");
+t0(E.tp("journal.import.added",1)==="1 game added to your journal."&&E.tp("data.line.observations",1)==="Observations: 1 game.","anglais : nombre devant un nom au singulier");
+t0(E.fmtDecimal(1.5)==="1.5"&&E.fmtNumber(1.5)==="1.5"&&E.t("coach.draft.tie.l3",{score:E.fmtDecimal(4),cause:""}).startsWith("Identical score (4.0)."),"anglais : point décimal");
+t0(E.fmtDate(new Date(2026,10,11,14,5))==="Nov 11, 2026"&&E.fmtTime(new Date(2026,10,11,14,5))==="2:05 PM","anglais : date sans ambiguïté jour/mois, heure");
+t0(E.listOr(["A","B","C"])==="A or B or C"&&E.listAnd(["A","B","C"])==="A, B and C","anglais : listes");
+{const cut=EW.eval('listedText("engine.targets.many",["Lux","Jinx","Ahri","Zed"])');t0(cut==="4 squishy carries to punish: Lux, Jinx, Ahri"&&EW.eval("coachReason")(cut)===cut+" and 1 more","anglais : liste coupée signalée (coachReason ne relit plus le texte)");}
+t0(EW.eval('coachReason("Blind-safe, bad in only 1 of 24 matchups in the table")')==="blind-safe, bad in only 1 of 24 matchups in the table","anglais : raison placée en milieu de phrase");
+t0(EW.eval('scenarioText("Yasuo",{text:"Top pick against Yasuo",short:"Top pick"})')==="If it's Yasuo: top pick","anglais : hypothèse nommée (scenarioText ne retire plus de texte)");
+t0(EW.eval('joinScenarioTexts([{text:"If it\'s A: top pick"},{text:"If it\'s B: avoid"}])')==="If it's A: top pick; if it's B: avoid","anglais : deux hypothèses");
+t0(EW.eval('oppText("whenBetter",{champion:"Ahri"})')==="if the enemy mid laner is Ahri"&&EW.eval('oppText("notice",{champion:"Ahri"})')==="Ahri mid","anglais : phrase complète par rôle");
+t0(!/[àâçéèêîôûù«»]/.test(en.contentDocument.body.innerText),"anglais : aucune lettre accentuée française dans la page d'accueil");
+t0(E.missing().length===0,"anglais : aucune clé ni variable manquante ("+E.missing().join(" | ")+")");
+{const r=pluralCheck(EW.DRAFT_I18N_EN,E,"en");res.notes.plurielsEn=r.n;t0(r.n>0&&r.bad.length===0,"anglais : aucun singulier oublié sur "+r.n+" rendus ("+r.bad.join(" | ")+")");}
+t0(E.tp("coach.matchup.measured.l2",1,{sign:"+",gap:1,champion:"Ahri",games:40}).includes("+1 win-rate point compared")&&E.tp("journal.dots.aria",1,{wins:E.tp("journal.dots.wins",1)})==="1 win out of 1 logged game","anglais : singulier pour 1");
+t0(E.t("advice.cta.play",{champion:"Ahri"})==="I'm playing Ahri"&&E.t("advice.badge.clear")==="Clear lead","anglais : bouton « I'm playing » et badge « Clear lead »");en.remove();
 // La vraie page : catalogue chargé, aucune clé manquante, anglais et pseudo-langue non sélectionnables.
 for(const q of ["?x=1&i18ncheck=1","?x=1&i18ncheck=1&lang=en","?x=1&lang=qps","?x=1&i18ncheck=1&lang=qps","?panel=right&i18ncheck=1","?panel=left&i18ncheck=1","?panel=compact&i18ncheck=1","?panel=full&view=pool&i18ncheck=1","?panel=full&view=stats&i18ncheck=1","?panel=full&view=sim&tab=coach&i18ncheck=1","?panel=full&view=settings&section=data&i18ncheck=1","?panel=full&view=settings&section=diag&i18ncheck=1"]){
   const f=document.createElement("iframe");f.width=1280;f.height=720;f.src="index.html"+q;document.body.appendChild(f);await new Promise(r=>f.onload=r);await wait(500);const w=f.contentWindow;
-  t0(!!w.I18N&&w.I18N.lang==="fr","page "+q+" : traduction chargée, français");
+  const want=/lang=en/.test(q)&&/i18ncheck=1/.test(q)?"en":"fr";
+  t0(!!w.I18N&&w.I18N.lang===want,"page "+q+" : traduction chargée, "+want+" (l'anglais ne s'ouvre qu'en mode test)");
   t0(!!w.DRAFT_I18N_FR&&w.DRAFT_I18N_FR._meta&&w.DRAFT_I18N_FR._meta.lang==="fr","page "+q+" : catalogue français chargé");
   t0(w.I18N&&w.I18N.missing().length===0,"page "+q+" : aucune clé manquante ("+(w.I18N?w.I18N.missing().join(" | "):"")+")");
   t0(!!f.contentDocument.querySelector('[data-test="app"],[data-test="panel"]'),"page "+q+" : la page démarre");

@@ -25,6 +25,8 @@ namespace DraftMid
             // Traduction : catalogue et fonctions chargés par des balises statiques, avant le script principal (I18N-0).
             int cat = index.IndexOf("<script src=\"i18n/fr.js\"></script>"), run = index.IndexOf("<script src=\"draft-i18n.js\"></script>"), main = index.IndexOf("<script>");
             t(cat > 0 && run > cat && main > run && asm.GetManifestResourceNames().Contains("web/i18n/fr.js") && asm.GetManifestResourceNames().Contains("web/draft-i18n.js"), "Interface livrée : catalogue français et traduction chargés par balise, avant le script principal");
+            int catEn = index.IndexOf("<script src=\"i18n/en.js\"></script>");
+            t(catEn > cat && run > catEn && asm.GetManifestResourceNames().Contains("web/i18n/en.js"), "Interface livrée : catalogue anglais chargé par balise, après le français et avant la traduction (I18N-2)");
 
             // Une redirection ne doit jamais emporter la clé Riot vers un autre serveur.
             TcpListener first = new TcpListener(IPAddress.Loopback, 0), other = new TcpListener(IPAddress.Loopback, 0);

@@ -26,9 +26,10 @@ jobs:
           exit $p.ExitCode
       # Catalogues de langue : forme JSON stricte, clés, variables, pluriels, longueurs (docs/i18n/FORMAT-CATALOGUE.md).
       # I18N-1 : chaque clé citée par la page existe, chaque {variable} est fournie, aucune clé orpheline ; messages de sécurité présents.
+      # I18N-2 : l'anglais a exactement les clés du français, les mêmes {variables}, ses pluriels, aucune valeur vide.
       - name: Catalogues de langue
         shell: pwsh
-        run: .\tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js -Code . -Security tools\i18n\securite.json
+        run: .\tools\i18n\check-catalogs.ps1 -Reference web\i18n\fr.js -Target web\i18n\en.js -Code . -Security tools\i18n\securite.json
       # Aucun texte visible écrit en dur dans la page (web/), hors exclusions justifiées (tools/i18n/exclusions.json). Lecture seule.
       - name: Textes en dur de la page
         shell: pwsh

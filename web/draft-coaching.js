@@ -55,25 +55,26 @@ function coachIsSolid(name) {
   const o = coachOfficial(name);
   return /t/.test(ROSTER[name] || "") || (!/a/.test(ROSTER[name] || "") && !!o && o.defense >= 6);
 }
-const coachNum = v => v.toFixed(1).replace(".", ",");
+// Une décimale, virgule en français et point en anglais (I18N.fmtDecimal).
+const coachNum = v => I18N.fmtDecimal(v, 1);
 // Phrases complètes du catalogue, mises bout à bout avec une espace (même rendu qu'avant l'extraction).
 const coachSentences = (...list) => list.filter(Boolean).join(" ");
 // Classes Riot traduites pour l'affichage. La donnée (o.tags) reste celle de Riot.
 const COACH_RIOT_CLASSES = { Fighter:I18N.t("coach.riotClass.fighter"), Marksman:I18N.t("coach.riotClass.marksman"), Mage:I18N.t("coach.riotClass.mage"), Assassin:I18N.t("coach.riotClass.assassin"), Tank:I18N.t("coach.riotClass.tank"), Support:I18N.t("coach.riotClass.support") };
 const coachRiotClass = tag => COACH_RIOT_CLASSES[tag] || tag;
-const coachList = names => names.length < 2 ? names.join("") : I18N.t("coach.list.and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1] });
+const coachList = names => I18N.listAnd(names);
 const coachRangeWord = range => range === null ? null : I18N.t(range >= 500 ? "coach.range.long" : range >= 300 ? "coach.range.medium" : "coach.range.melee");
 
 // Trois noms au plus, sans cacher qu'il y en a d'autres.
-const coachNames = names => names.length <= 3 ? coachList(names) : I18N.tp("coach.names.more", names.length - 3, { names: names.slice(0, 3).join(", ") });
+const coachNames = names => names.length <= 3 ? coachList(names) : I18N.tp("coach.names.more", names.length - 3, { names: names.slice(0, 3).join(I18N.t("list.comma")) });
 // Raison écrite par le moteur, à placer au milieu d'une phrase : sans majuscule isolée, et sans laisser croire qu'une liste coupée est complète.
 function coachReason(text, fallback) {
   if (!text) return fallback;
-  const m = text.match(/^(\d+) ([^:]+) : ([^:]+)$/);
-  let out = text;
-  if (m && m[3].split(", ").every(n => ROSTER[n] !== undefined)) { const shown = m[3].split(", ").length, total = +m[1]; if (shown < total) out = I18N.tp("coach.reason.more", total - shown, { text }); }
+  // Liste coupée à trois noms par le moteur (listedText, draft-engine.js) : le nombre de noms cachés vient du moteur, pas du texte.
+  const hidden = hiddenNames(text);
+  const out = hidden ? I18N.tp("coach.reason.more", hidden, { text }) : text;
   // Un nom de champion ou un sigle (CC, ADC, AP) garde sa majuscule.
-  return NAMES.some(n => out.startsWith(n)) || /^[A-Z]{2,}\b/.test(out) ? out : out.charAt(0).toLowerCase() + out.slice(1);
+  return NAMES.some(n => out.startsWith(n)) || /^[A-Z]{2,}\b/.test(out) ? out : I18N.lowerFirst(out);
 }
 // Pourquoi un pick est affiché en premier à score égal (tieCause, draft-engine.js). shown : le nom affiché en premier.
 function tieCauseText(cause, shown) {
@@ -87,7 +88,7 @@ function tieCauseText(cause, shown) {
   if (cause.kind === "mixed") return I18N.t("coach.tie.mixed");
   return I18N.t("coach.tie.alpha");
 }
-const coachRangeWords = names => { const w = names.map(n => coachRangeWord(coachRange(n)) || I18N.t("coach.range.unknown")); return names.length === 2 && w[0] === w[1] ? I18N.t("coach.range.both", { range: w[0] }) : names.map((n, i) => I18N.t("coach.range.each", { champion: n, range: w[i] })).join(", "); };
+const coachRangeWords = names => { const w = names.map(n => coachRangeWord(coachRange(n)) || I18N.t("coach.range.unknown")); return names.length === 2 && w[0] === w[1] ? I18N.t("coach.range.both", { range: w[0] }) : names.map((n, i) => I18N.t("coach.range.each", { champion: n, range: w[i] })).join(I18N.t("list.comma")); };
 // Champions qui changent de forme : une seule portée de base ne les décrit pas.
 const COACH_RANGE_CHANGES = ["Jayce", "Nidalee", "Elise", "Gnar", "Kayle"];
 // La portée d'attaque n'aide à préparer la voie que dans un vrai duel, entre champions dont elle décrit le jeu.
@@ -160,7 +161,8 @@ const COACH_RULES = [
     build: (c, d) => ({ title:I18N.t("coach.draft.why.title", { champion: c.pick }),
       text:[I18N.t("coach.draft.why.l1", { reason: coachReason(d.reason) }),
         I18N.t("coach.draft.why.l2", { criterion: d.best.label, reason: coachReason(d.reason) }),
-        I18N.t(c.rival ? "coach.draft.why.l3rival" : "coach.draft.why.l3", { criterion: d.best.label, impact: coachNum(d.best.impact), gap: c.rival ? coachNum(c.entry.score - c.rival.score) : "", rival: c.rival ? label(c.rival.pick) : "" })],
+        // Pluriel sur l'écart tel qu'il est affiché (une décimale) : « 1,5 point », « 2,0 points ».
+        c.rival ? I18N.tp("coach.draft.why.l3rival", Math.abs(+(c.entry.score - c.rival.score).toFixed(1)), { criterion: d.best.label, impact: coachNum(d.best.impact), gap: coachNum(c.entry.score - c.rival.score), rival: label(c.rival.pick) }) : I18N.t("coach.draft.why.l3", { criterion: d.best.label, impact: coachNum(d.best.impact) })],
       evidence:[{ kind:"criterion", key:d.best.key, value:+d.best.impact.toFixed(2) }], stance:{ key:d.best.key, sign:1 } }) },
   // Choix serré. Le pick affiché peut être 2e : pendant la draft, le nom ne change que si un autre mène d'au moins HOLD_GAP points.
   // « passe devant » n'est alors dit que du vrai 1er.
@@ -220,8 +222,8 @@ const COACH_RULES = [
       const small = d.live.effective < 100, good = d.live.gap >= 0;
       return { basis:small ? "smallSample" : "measured", title:I18N.t("coach.matchup.measured.title", { champion: c.pick, opponent: c.opponent }),
         text:[I18N.t(good ? "coach.matchup.measured.l1good" : "coach.matchup.measured.l1bad", { games: d.live.games, champion: c.pick }),
-          I18N.t("coach.matchup.measured.l2", { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), champion: c.pick, games: d.live.games }),
-          I18N.t(d.live.recent ? "coach.matchup.measured.l3" : "coach.matchup.measured.l3old", { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), games: d.live.games })],
+          I18N.tp("coach.matchup.measured.l2", Math.abs(Math.round(d.live.gap * 100)), { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), champion: c.pick, games: d.live.games }),
+          I18N.tp(d.live.recent ? "coach.matchup.measured.l3" : "coach.matchup.measured.l3old", Math.abs(Math.round(d.live.gap * 100)), { sign: d.live.gap >= 0 ? "+" : "", gap: Math.round(d.live.gap * 100), games: d.live.games })],
         limits:small ? I18N.t("coach.matchup.measured.limitSmall") : I18N.t("coach.matchup.measured.limit"),
         evidence:[{ kind:"games", value:d.live.games }], stance:{ key:"matchup", sign:Math.sign(d.live.gap) } };
     } },
@@ -234,7 +236,7 @@ const COACH_RULES = [
     build: (c, d) => { const good = d.cr.impact > 0, level = coachOpponentLevel(c); return { title:I18N.t(level && level !== "sure" ? (good ? "coach.matchup.written.titleGoodLevel" : "coach.matchup.written.titleBadLevel") : (good ? "coach.matchup.written.titleGood" : "coach.matchup.written.titleBad"), { champion: c.pick, opponent: c.opponent, level: level ? COACH_OPPONENT_WORD[level] : "" }),
       text:[good ? I18N.t("coach.matchup.written.l1good", { champion: c.pick, opponent: c.opponent }) : I18N.t("coach.matchup.written.l1bad", { champion: c.pick, opponent: c.opponent }),
         I18N.t("coach.matchup.written.l2", { text: d.cr.text }),
-        I18N.t("coach.matchup.written.l3", { text: d.cr.text, impact: coachNum(d.cr.impact), min: MATCHUP_MIN_GAMES })],
+        I18N.tp("coach.matchup.written.l3", Math.abs(+d.cr.impact.toFixed(1)), { text: d.cr.text, impact: coachNum(d.cr.impact), min: MATCHUP_MIN_GAMES })],
       limits:I18N.t("coach.limit.writtenOpinion"), evidence:[{ kind:"criterion", key:"matchup", value:+d.cr.impact.toFixed(2) }], stance:{ key:"matchup", sign:Math.sign(d.cr.impact) } }; } },
   { id:"matchup.range", category:"matchup", priority:78, basis:"official",
     when: coachRangeDuel,
@@ -281,8 +283,8 @@ const COACH_RULES = [
     build: (c, d) => ({ title:d.names.length === 2 ? I18N.t("coach.matchup.unknown.titleTwo", { role: c.opp, champions: I18N.t("coach.or", { a: d.names[0], b: d.names[1] }) }) : d.names.length ? I18N.t("coach.matchup.unknown.titleOne", { role: c.opp, champion: d.names[0] }) : I18N.t(d.hidden ? "coach.matchup.unknown.titleNotYet" : "coach.matchup.unknown.titleNone", { role: c.opp }), terms:["portée"],
       text: d.names.length ? [
         I18N.t("coach.matchup.unknown.l1", { champions: d.names.length === 2 ? I18N.t("coach.or", { a: d.names[0], b: d.names[1] }) : d.names.join(""), ranges: coachRangeWords(d.names) }),
-        I18N.t("coach.matchup.unknown.l2", { champions: d.names.join(", "), why: I18N.t(d.weighted && d.matchup ? "coach.matchup.unknown.weighted" : d.blind ? "coach.matchup.unknown.blind" : "coach.matchup.unknown.comp"), ranges: coachRangeWords(d.names) }),
-        I18N.t(!d.weighted ? "coach.matchup.unknown.l3notWeighted" : d.hidden ? (d.matchup ? "coach.matchup.unknown.l3weightedHidden" : "coach.matchup.unknown.l3weightedHiddenNoMatchup") : (d.matchup ? "coach.matchup.unknown.l3weighted" : "coach.matchup.unknown.l3weightedNoMatchup"), { champions: d.names.join(", ") })
+        I18N.t("coach.matchup.unknown.l2", { champions: d.names.join(I18N.t("list.comma")), why: I18N.t(d.weighted && d.matchup ? "coach.matchup.unknown.weighted" : d.blind ? "coach.matchup.unknown.blind" : "coach.matchup.unknown.comp"), ranges: coachRangeWords(d.names) }),
+        I18N.t(!d.weighted ? "coach.matchup.unknown.l3notWeighted" : d.hidden ? (d.matchup ? "coach.matchup.unknown.l3weightedHidden" : "coach.matchup.unknown.l3weightedHiddenNoMatchup") : (d.matchup ? "coach.matchup.unknown.l3weighted" : "coach.matchup.unknown.l3weightedNoMatchup"), { champions: d.names.join(I18N.t("list.comma")) })
       ] : [
         I18N.t("coach.matchup.unknown.none.l1"),
         I18N.t(d.blind ? "coach.matchup.unknown.blind" : "coach.matchup.unknown.comp"),
@@ -398,8 +400,8 @@ const COACH_RULES = [
       const points = main ? I18N.t("coach.champ.points", { assets: main }) : I18N.t("coach.champ.noPoints"), rangeText = changes ? I18N.t("coach.champ.rangeVariable") : I18N.t("coach.champ.rangeValue", { value: o.range });
       return { title:I18N.t("coach.champ.title", { champion: c.pick }), terms:["portée"],
         text:[coachSentences(how, main ? points : "", risk),
-          coachSentences(I18N.t("coach.champ.classes", { classes: o.tags.map(coachRiotClass).join(", ") }), I18N.t("coach.sentence", { text: rangeText.charAt(0).toUpperCase() + rangeText.slice(1) }), points, risk),
-          coachSentences(I18N.t("coach.champ.l3", { classes: o.tags.map(coachRiotClass).join(", "), range: rangeText, difficulty: o.difficulty }), points, risk)],
+          coachSentences(I18N.t("coach.champ.classes", { classes: o.tags.map(coachRiotClass).join(I18N.t("list.comma")) }), I18N.t("coach.sentence", { text: I18N.upperFirst(rangeText) }), points, risk),
+          coachSentences(I18N.t("coach.champ.l3", { classes: o.tags.map(coachRiotClass).join(I18N.t("list.comma")), range: rangeText, difficulty: o.difficulty }), points, risk)],
         limits:I18N.t("coach.champ.limits"), evidence:[{ kind:"official", tags:o.tags, range:o.range, difficulty:o.difficulty }] };
     } },
   { id:"champ.difficulty", category:"champion", priority:44, basis:"official", maxLevel:1,
@@ -448,7 +450,7 @@ const COACH_RULES = [
       return { na, nb };
     },
     build: (c, d) => { const more = d.na > d.nb ? c.pick : label(c.rival.pick), less = d.na > d.nb ? label(c.rival.pick) : c.pick; return { title:I18N.t("coach.personal.experience.title", { champion: more }),
-      text:[I18N.t("coach.personal.experience.l1", { games: d.na, champion: c.pick, rivalGames: d.nb, rival: label(c.rival.pick) }),
+      text:[I18N.tp("coach.personal.experience.l1", d.na, { champion: c.pick, rivalGames: d.nb, rival: label(c.rival.pick) }),
         I18N.t("coach.personal.experience.l2", { champion: more, other: less }),
         I18N.t("coach.personal.experience.l3", { games: d.na, rivalGames: d.nb })],
       limits:I18N.t("coach.limit.gamesNotSkill"), evidence:[{ kind:"games", pick:d.na, rival:d.nb }] }; } },
@@ -459,7 +461,7 @@ const COACH_RULES = [
     },
     build: (c, d) => ({ title:I18N.t("coach.personal.results.title", { champion: c.pick }),
       text:[I18N.t(d.s.clearGap > 0 ? "coach.personal.results.l1more" : "coach.personal.results.l1less", { games: d.s.games, champion: c.pick }),
-        I18N.t(d.s.clearGap > 0 ? "coach.personal.results.l2good" : "coach.personal.results.l2bad", { wins: d.s.wins, games: d.s.games }),
+        I18N.tp(d.s.clearGap > 0 ? "coach.personal.results.l2good" : "coach.personal.results.l2bad", d.s.wins, { games: d.s.games }),
         I18N.t("coach.personal.results.l3", { low: Math.round(d.s.low * 100), high: Math.round(d.s.high * 100), games: d.s.games, overall: Math.round(c.personal.overall * 100) })],
       limits:I18N.t("coach.personal.results.limits"), evidence:[{ kind:"games", value:d.s.games, wins:d.s.wins }] }) },
   { id:"personal.too-few", category:"personal", priority:30, basis:"general", minLevel:2,

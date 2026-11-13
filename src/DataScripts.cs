@@ -26,7 +26,8 @@ namespace DraftMid
         // un catalogue qui ne serait pas un objet JSON strict est remplacé par un catalogue vide (la page retombe sur « [clé] »).
         public static readonly Dictionary<string, string> Catalogs = new Dictionary<string, string>
         {
-            { "i18n/fr.js", "DRAFT_I18N_FR" }
+            { "i18n/fr.js", "DRAFT_I18N_FR" },
+            { "i18n/en.js", "DRAFT_I18N_EN" }
         };
         public static string EmptyCatalog(string name) { return "window." + name + " = {};\n"; }
 
@@ -129,6 +130,15 @@ namespace DraftMid
             using (StreamReader r = new StreamReader(s, System.Text.Encoding.UTF8)) shipped = r.ReadToEnd();
             string canon = fr(shipped);
             t(canon != null && canon.Contains("\"_meta\""), "Catalogue français livré : objet JSON strict, relu sans perte");
+            // I18N-2 : catalogue anglais livré, relu par le même parseur, avec exactement les clés du français.
+            string shippedEn;
+            using (Stream s = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("web/i18n/en.js"))
+            using (StreamReader r = new StreamReader(s, System.Text.Encoding.UTF8)) shippedEn = r.ReadToEnd();
+            string canonEn = DataScripts.Canonical("DRAFT_I18N_EN", shippedEn);
+            Func<string, string, Dictionary<string, object>> keys = (name, text) => new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.DeserializeObject(text.Substring(text.IndexOf('=') + 1).Trim().TrimEnd(';')) as Dictionary<string, object>;
+            Dictionary<string, object> frKeys = canon == null ? null : keys("DRAFT_I18N_FR", canon), enKeys = canonEn == null ? null : keys("DRAFT_I18N_EN", canonEn);
+            t(canonEn != null && enKeys != null && frKeys != null && enKeys.Count == frKeys.Count && frKeys.Keys.All(enKeys.ContainsKey), "Catalogue anglais livré : objet JSON strict, mêmes clés que le français");
+            t(DataScripts.Canonical("DRAFT_I18N_FR", shippedEn) == null && DataScripts.Canonical("DRAFT_I18N_EN", shipped) == null, "Catalogues de langue : chaque fichier ne définit que sa propre langue");
             t(fr("window.DRAFT_I18N_FR = {\"a.b\":\"x\"}; alert(1);") == null && fr("window.DRAFT_I18N_FR = {\"a.b\":\"x\"}, fetch(\"https://exemple.test\");") == null, "Catalogue de langue : code ajouté refusé");
             t(fr("window.DRAFT_I18N_EN = {}") == null, "Catalogue de langue : variable d'une autre langue refusée");
             t(fr("window.DRAFT_I18N_FR = {\"a.b\":\"</script><script>alert(1)</script>\"};").Contains("\\u003c/script\\u003e"), "Catalogue de langue : chevrons neutralisés");

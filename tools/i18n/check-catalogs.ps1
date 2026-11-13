@@ -80,6 +80,8 @@ function Check-Values($cat) {
       $req = $pluralRequired[$cat.Lang]; if (-not $req) { $req = @('other') }
       foreach ($r in $req) { if ($names -notcontains $r) { Err "$($cat.Path) : « $key » : forme de pluriel « $r » absente" } }
       if ((Vars ([string]$v.other)) -notcontains 'count') { Warn "$($cat.Path) : « $key » : pluriel sans {count} dans la forme other" }
+      # Singulier oublié : forme « one » identique à « other » alors qu'un nom au pluriel suit {count} (« 1 parties », « 1 games »).
+      if ($names -contains 'one' -and [string]$v.one -eq [string]$v.other -and [string]$v.other -match '\{count\}\s+(\p{L}+[sx])\b') { $noun = $Matches[1]; Err "$($cat.Path) : « $key » : la forme one est identique à other alors que « {count} $noun » est au pluriel" }
     }
     foreach ($e in (Forms $v).GetEnumerator()) {
       $s = [string]$e.Value
@@ -317,7 +319,8 @@ namespace DraftI18nKeys
 '@
   }
   $web = Join-Path (Resolve-Path $Code) 'web'
-  $skipFiles = @('draft-i18n.js', 'draft-champions.js', 'draft-champion-ids.js', 'draft-champion-official.js', 'draft-role-sheet.js', 'draft-vendor', 'draft-stats.js', 'draft-history.js', 'draft-role-rates.js', 'draft-role-rates-live.js', 'draft-matchups-live.js')
+  # draft-i18n.js est relu : ses fonctions de liste (listOr, listAnd) citent list.or, list.and et list.comma.
+  $skipFiles = @('draft-champions.js', 'draft-champion-ids.js', 'draft-champion-official.js', 'draft-role-sheet.js', 'draft-vendor', 'draft-stats.js', 'draft-history.js', 'draft-role-rates.js', 'draft-role-rates-live.js', 'draft-matchups-live.js')
   $sources = @(Get-ChildItem $web -File -Filter '*.js' | Where-Object { $skipFiles -notcontains $_.Name }) + @(Get-Item (Join-Path $web 'index.html'))
   $used = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
   $nCalls = 0; $nDynamic = 0

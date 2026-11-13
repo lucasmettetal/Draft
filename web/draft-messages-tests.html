@@ -668,6 +668,10 @@ const clean = s => (s || "").replace(/\s+/g, " ").trim();
 const PARAMS = new URLSearchParams(location.search);
 const LIMIT = +PARAMS.get("limit") || 0;
 const QUICK = PARAMS.get("quick") === "1";
+// I18N-2 : &lang=en ouvre la page en anglais (mode test : &i18ncheck=1). Les clés absentes sont relevées (i18nMissing).
+// Le rattachement à l'inventaire et les constats restent écrits pour le français : en anglais, seuls les textes et les clés comptent.
+const LANG = PARAMS.get("lang") === "en" ? "en" : "";
+res.i18nMissing = {};
 
 // ---------- Inventaire ----------
 const CATALOG = document.getElementById("catalog").textContent.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#")).map(line => {
@@ -727,7 +731,7 @@ async function open(profile, panel, W, H, extra, folder) {
   localStorage.setItem("draftPatch", "16.22");
   const f = document.createElement("iframe");
   f.width = W; f.height = H;
-  f.src = (folder || "") + "index.html" + (panel ? "?panel=" + panel : "?x=1") + (extra || "") + (/[?&](view|tab)=/.test(extra || "") ? "" : "&view=sim"); // UX-8 : sans vue, la page s'ouvre sur l'Accueil
+  f.src = (folder || "") + "index.html" + (panel ? "?panel=" + panel : "?x=1") + (LANG ? "&lang=" + LANG + "&i18ncheck=1" : "") + (extra || "") + (/[?&](view|tab)=/.test(extra || "") ? "" : "&view=sim"); // UX-8 : sans vue, la page s'ouvre sur l'Accueil
   document.body.appendChild(f);
   await new Promise(r => f.onload = r);
   await wait(300);
@@ -742,7 +746,7 @@ async function open(profile, panel, W, H, extra, folder) {
   if (!NAMES.length) NAMES = w.eval("NAMES.slice()");
   return { f, w, d:f.contentDocument, $:w.$ };
 }
-const close = x => x.f.remove();
+const close = x => { if (x.w.I18N) x.w.I18N.missing().forEach(m => { res.i18nMissing[m] = (res.i18nMissing[m] || 0) + 1; }); x.f.remove(); };
 const text = e => e ? clean(e.textContent) : "";
 
 async function useProfile(x, role, pool) {
@@ -870,7 +874,7 @@ function checks(x, where) {
     const now = ranking.find(p => p.pick === V.shown), old = ranking.find(p => $.label(p.pick) === V.change.from);
     if (now && old) {
       const row = $.comparePicks(now, old).decisive.find(r => r.diff > 0);
-      if (row && row.textA !== V.change.reason && row.textB !== V.change.reason && !V.change.reason.includes(`« ${row.label} »`) && !(now.criteria.find(c => c.key === row.key) && w.signedText(now.criteria.find(c => c.key === row.key), 1) === V.change.reason)) constat("B-16 raison du changement de conseil différente du critère décisif", `${tag} ${V.change.from} → ${V.change.to} : « ${V.change.reason} », décisif « ${row.label} »`);
+      if (row && row.textA !== V.change.reason && row.textB !== V.change.reason && !V.change.reason.includes(`« ${row.label} »`) && !(now.criteria.find(c => c.key === row.key) && w.eval("signedText")(now.criteria.find(c => c.key === row.key), 1) === V.change.reason)) constat("B-16 raison du changement de conseil différente du critère décisif", `${tag} ${V.change.from} → ${V.change.to} : « ${V.change.reason} », décisif « ${row.label} »`);
     }
   }
   if (V.n < 5 && d.getElementById("root").textContent.includes("basé sur les 5 champions adverses")) constat("B-11 « basé sur les 5 champions adverses » avec une draft incomplète", tag);
@@ -1191,7 +1195,9 @@ async function special() {
     nonDeclenches:visible.filter(c => !res.hits[c.id]).map(c => c.id),
     nonInventories:Object.keys(res.unmatched).length
   };
-  const out = { summary:res.summary, runs:res.runs, steps:res.steps, checked:res.checked, constats:res.constats, hits:res.hits, unmatched:res.unmatched, coachRules:res.coachRules, errors:res.errors.slice(0, 50) };
+  const out = { summary:res.summary, runs:res.runs, steps:res.steps, checked:res.checked, constats:res.constats, hits:res.hits, unmatched:res.unmatched, coachRules:res.coachRules, errors:res.errors.slice(0, 50), lang:LANG || "fr", i18nMissing:res.i18nMissing };
+  // En anglais, le rattachement à l'inventaire (gabarits français) n'a pas de sens : seuls les textes relevés comptent.
+  if (LANG) { out.hits = {}; out.unmatched = {}; }
   if (PARAMS.get("all") === "1") out.observed = Object.keys(res.observed).map(t => [t, res.observed[t].n, res.observed[t].where]);
   document.getElementById("out").textContent = JSON.stringify(out);
 })();
