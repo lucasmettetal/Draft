@@ -2,6 +2,8 @@
 
 Statut au 13/11/2026 : **non prouvé sur le PC de développement**. Cette procédure n'a pas été exécutée.
 
+**Préversion 3.0.0-beta.1** : elle laisse Ctrl+Alt+D à toute autre DRAFT ouverte (ou à une 2.x qui démarre avec Windows) au lieu de le tenter. Le protocole à jour, avec une seconde session Windows, est [TEST-CTRL-ALT-D-REEL.md](../release/TEST-CTRL-ALT-D-REEL.md).
+
 ## Pourquoi un essai manuel
 
 - Sur le PC de développement, `RegisterHotKey(Ctrl+Alt+D)` échoue avec l'erreur Windows **1409** (`ERROR_HOTKEY_ALREADY_REGISTERED`).
