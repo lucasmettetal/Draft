@@ -1,6 +1,6 @@
 # Journal des drafts
 
-Le journal garde les drafts réelles où tu as dit quel champion tu jouais, et leur résultat. Il sert à Mes statistiques (« Conseil suivi », victoires par champion).
+Le journal garde les drafts réelles où le joueur a dit quel champion il jouait, et leur résultat. Il sert à Mes statistiques (« Conseil suivi », victoires par champion).
 
 ## Où et quand
 
