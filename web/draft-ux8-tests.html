@@ -126,6 +126,16 @@ const blind=x.ev("label(analyze([],null,PREFS.assumeFront).ranking[0].pick)");
 t(text(q(x,"home-blind")).includes(blind)&&blind===x.ev("state.enemies.length?null:label(V.shown)"),"conseil en blind : le 1er du calcul, comme les panneaux sans adversaire ("+blind+")");
 const rankBefore=x.ev("JSON.stringify(V.res.ranking.map(p=>[p.pick,p.score]))");x.ev("goView('home')");await settle();
 t(x.ev("JSON.stringify(V.res.ranking.map(p=>[p.pick,p.score]))")===rankBefore,"l'Accueil ne change pas le classement");
+// Préversion (APP_VERSION avec « - ») : pas de recherche de mise à jour ; la carte dit d'où viennent les données.
+if(x.ev("PRERELEASE")){
+const v=x.ev("APP_VERSION");
+t(text(q(x,"home-update")).includes("Préversion "+v)&&/Préversion de test : télécharge les nouvelles versions à la main/.test(text(q(x,"home-update-prerelease")))&&!q(x,"home-check-update")&&!q(x,"home-update-checked"),"préversion : version, mise à jour à la main, ni bouton ni heure de vérification");
+const d=new Date();const iso=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+"T10:42:00";
+await host(x,{prerelease:true,betaCopy:{copiedAt:iso,sourceFound:true,files:12,skipped:0},updateChecked:iso,updateStatus:"Préversion de test : télécharge les nouvelles versions à la main."});
+t(/DRAFT travaille sur une copie de tes données 2\.x, faite le/.test(text(q(x,"home-beta-copy")))&&/n'est pas modifiée/.test(text(q(x,"home-beta-copy")))&&!/non copiés/.test(text(q(x,"home-beta-copy")))&&!q(x,"home-check-update"),"préversion : copie des données 2.x annoncée avec sa date, toujours sans bouton");
+await host(x,{betaCopy:{copiedAt:iso,sourceFound:true,files:10,skipped:2}});t(/Fichiers non copiés car ouverts ailleurs : 2\./.test(text(q(x,"home-beta-copy"))),"préversion : fichiers sautés comptés");
+await host(x,{betaCopy:{copiedAt:iso,sourceFound:false,files:0,skipped:0}});t(/Dossier de données séparé/.test(text(q(x,"home-beta-copy"))),"préversion : sans 2.x, dossier séparé annoncé");
+} else {
 // Mise à jour : GitHub seulement sur clic, dernière vérification si connue.
 t(/Version \d+\.\d+\.\d+ bêta/.test(text(q(x,"home-update")))&&/Pas encore vérifiée depuis le démarrage de DRAFT/.test(text(q(x,"home-update-checked")))&&/ne contacte GitHub que lorsque tu cliques/.test(text(q(x,"home-update"))),"mise à jour : version, pas encore vérifiée, GitHub seulement sur clic");
 const d=new Date();const iso=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+"T10:42:00";
@@ -133,6 +143,7 @@ await host(x,{updateChecked:iso,updateStatus:"DRAFT est à jour (version 2.16.2)
 t(/Dernière vérification : aujourd'hui à 10:42/.test(text(q(x,"home-update-checked")))&&/DRAFT est à jour/.test(text(q(x,"home-update-status"))),"mise à jour : résultat et heure de la dernière vérification");
 await host(x,{updateRunning:true});t(q(x,"home-check-update").disabled&&/Mise à jour en cours/.test(text(q(x,"home-check-update"))),"mise à jour en cours : bouton désactivé");
 await host(x,{updateRunning:false,updateStatus:"GitHub ne répond pas. Vérifie ta connexion, puis réessaie."});t(/GitHub ne répond pas/.test(text(q(x,"home-update-status"))),"mise à jour : erreur en clair");
+}
 // Données : journal, historique, rôles, matchups ; renvoi vers Mes statistiques et Réglages > Données.
 t(/Aucune draft notée/.test(text(q(x,"home-data-journal")))&&/Pas importé/.test(text(q(x,"home-data-history")))&&/Pas encore calculés/.test(text(q(x,"home-data-matchups"))),"données vides : dites clairement");
 x.w.DRAFT_HISTORY={generated:"2026-11-08T10:00:00Z",rows:[{id:"H1",champ:"Fizz",pos:"MIDDLE",win:true},{id:"H2",champ:"Fizz",pos:"MIDDLE",win:false}]};
