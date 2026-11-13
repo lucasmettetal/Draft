@@ -29,7 +29,8 @@ Version française : [NOTES-3.0.0-beta.1.md](https://github.com/lucasmettetal/Dr
 
 - **Real Ctrl+Alt+D not proven** on a session without another DRAFT (M2). Mechanism checked by an isolated test. A 2.x started by hand **after** the pre-release, without start with Windows, won't get Ctrl+Alt+D if the pre-release took it.
 - **Multiple screens not tested** (m1): a single screen on the test PC.
-- **m2: language and going back to 2.x.** The pre-release no longer shares its folder with 2.x: 2.x no longer rewrites the pre-release settings. But changes made in the pre-release don't go back to 2.x. To keep your pools: My pool > Export my profiles, then Import in 2.x (same file format).
+- **m2: language and going back to 2.x.** The pre-release no longer shares its folder with 2.x: 2.x no longer rewrites the pre-release settings. But changes made in the pre-release don't go back to 2.x. To keep your pools: My pool > Export my profiles, then Import in 2.x (same file format). For the journal: My stats > Download the journal, then "Importer un journal" in 2.x.
+- **No automatic move to the final 3.0**: it is downloaded manually too.
 - **m3: slow first display of the panels**: 4.5 to 5.1 s after detection the first time (WebView2 start-up), then a few milliseconds.
 - **If 2.x is open on first launch**, a file it holds exclusively is not copied. Home says so and counts these files.
 - If the 2.x panels also run during a draft, you will see two sets of panels: quit 2.x (tray icon menu > Quit) while testing.

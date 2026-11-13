@@ -29,7 +29,8 @@ English version: [NOTES-3.0.0-beta.1.en.md](https://github.com/lucasmettetal/Dra
 
 - **Ctrl+Alt+D réel non prouvé** sur une session sans autre DRAFT (M2). Mécanisme vérifié par un test isolé. Une 2.x lancée à la main **après** la préversion, sans démarrage automatique, n'aura pas Ctrl+Alt+D si la préversion l'a pris.
 - **Plusieurs écrans non testés** (m1) : un seul écran sur le PC de test.
-- **m2 : langue et retour en 2.x.** La préversion ne partage plus son dossier avec la 2.x : la 2.x ne réécrit plus les réglages de la préversion. Mais tes changements faits dans la préversion ne reviennent pas dans la 2.x. Pour garder tes pools : Mon pool > Exporter mes profils, puis Importer dans la 2.x (même format de fichier).
+- **m2 : langue et retour en 2.x.** La préversion ne partage plus son dossier avec la 2.x : la 2.x ne réécrit plus les réglages de la préversion. Mais tes changements faits dans la préversion ne reviennent pas dans la 2.x. Pour garder tes pools : Mon pool > Exporter mes profils, puis Importer dans la 2.x (même format de fichier). Pour le journal : Mes statistiques > Télécharger le journal, puis Importer un journal dans la 2.x.
+- **Pas de passage automatique à la 3.0 finale** : elle aussi se télécharge à la main.
 - **m3 : premier affichage des panneaux lent** : 4,5 à 5,1 s après la détection au premier affichage (création de WebView2), puis quelques millisecondes.
 - **Si la 2.x est ouverte au premier lancement**, un fichier qu'elle tient en exclusivité n'est pas copié. L'Accueil le dit et compte ces fichiers.
 - Si les panneaux de la 2.x tournent aussi pendant une draft, tu verras deux jeux de panneaux : quitte la 2.x (menu de l'icône > Quitter) pendant le test.
