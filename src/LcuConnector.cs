@@ -459,9 +459,10 @@ namespace DraftMid
 
             // Diagnostic utilisateur : verrou respecté, aucun secret, réponse lente repérée.
             string off = LcuDiagnostic.RunAsync(false, 1234, "test").GetAwaiter().GetResult();
-            t(off.Contains("désactivée") && !off.Contains("Lockfile"), "LCU : diagnostic, option décochée : le lockfile n'est pas lu");
+            // QA 3.0 : textes attendus pris dans le catalogue de la langue du programme (le test passe en français et en anglais).
+            t(off.Contains(Strings.T("native.diag.off")) && off.Contains(Strings.T("native.diag.offConclusion")) && !off.Contains("Lockfile"), "LCU : diagnostic, option décochée : le lockfile n'est pas lu");
             string noClient = LcuDiagnostic.RunAsync(true, 0, "test").GetAwaiter().GetResult();
-            t(noClient.Contains("introuvable") && noClient.Contains("Conclusion"), "LCU : diagnostic, client fermé : consigne simple");
+            t(noClient.Contains(Strings.T("native.diag.noWindow")) && noClient.Contains(Strings.T("native.diag.noWindowConclusion")), "LCU : diagnostic, client fermé : consigne simple");
             TcpListener mute = new TcpListener(IPAddress.Loopback, 0);
             mute.Start();
             string diagDir = Path.Combine(Path.GetTempPath(), "draft-lcu-diag-" + Process.GetCurrentProcess().Id);
@@ -471,7 +472,8 @@ namespace DraftMid
                 int port = ((IPEndPoint)mute.LocalEndpoint).Port;
                 File.WriteAllText(Path.Combine(diagDir, "lockfile"), "LeagueClient:1:" + port + ":secretlcu:https");
                 string text = Task.Run(() => LcuDiagnostic.RunAsync(true, 0, "test", diagDir)).GetAwaiter().GetResult();
-                t(text.Contains("format valide") && text.Contains("ouverte") && text.Contains("échec") && text.Contains("Conclusion"), "LCU : diagnostic, client qui ne répond pas : étapes et conclusion");
+                string tcpOpen = Strings.T("native.diag.tcp", "result", "") + Strings.T("native.diag.tcpOpen", "ms", 0).Split('(')[0];
+                t(text.Contains(Strings.T("native.diag.lockfileOk")) && text.Contains(tcpOpen) && (text.Contains(Strings.T("native.diag.refusedConclusion")) || text.Contains(Strings.T("native.diag.proxyConclusion"))),"LCU : diagnostic, client qui ne répond pas : étapes et conclusion");
                 t(!text.Contains("secretlcu") && !text.Contains(port.ToString()) && !text.Contains(diagDir), "LCU : diagnostic sans mot de passe, port ni chemin");
             }
             finally { mute.Stop(); Directory.Delete(diagDir, true); }

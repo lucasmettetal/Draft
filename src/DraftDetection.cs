@@ -151,7 +151,8 @@ namespace DraftMid
         [DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr obj);
         [DllImport("gdi32.dll")] public static extern int SetStretchBltMode(IntPtr dc, int mode);
         [DllImport("gdi32.dll")] public static extern bool StretchBlt(IntPtr d, int x, int y, int w, int h, IntPtr s, int sx, int sy, int sw, int sh, uint rop);
-        [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
+        // SetLastError : l'échec est expliqué par son code (1409 : combinaison déjà prise par un autre programme).
+        [DllImport("user32.dll", SetLastError = true)] public static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
         [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr h, int id);
         [DllImport("user32.dll")] public static extern IntPtr BeginDeferWindowPos(int n);
         [DllImport("user32.dll")] public static extern IntPtr DeferWindowPos(IntPtr info, IntPtr h, IntPtr after, int x, int y, int w, int ht, uint flags);

@@ -331,9 +331,10 @@
   .p-title { flex:none; display:flex; align-items:center; gap:8px; height:40px; padding:0 6px 0 12px; border-bottom:1px solid var(--line); app-region:drag; -webkit-app-region:drag; user-select:none; }
   .p-title .grow { flex:1; }
   .p-logo { width:20px; height:20px; color:var(--prio); }
-  .p-tools { display:flex; gap:2px; app-region:no-drag; -webkit-app-region:no-drag; }
-  .p-btn { width:28px; height:28px; background:none; border:0; border-radius:4px; color:var(--muted); font-size:15px; line-height:1; }
-  .p-btn:hover { background:var(--raised); color:var(--text); }
+  /* QA-3 : outils de l'overlay en cibles de 32 px (40 px physiques à 125 %), séparés de 4 px ; survol avec fond et contour. */
+  .p-tools { display:flex; gap:4px; app-region:no-drag; -webkit-app-region:no-drag; }
+  .p-btn { width:32px; height:32px; background:none; border:0; border-radius:4px; color:var(--muted); font-size:15px; line-height:1; }
+  .p-btn:hover { background:var(--raised); color:var(--text); box-shadow:inset 0 0 0 1px var(--line); }
   .panel .col-left { flex:1; min-height:0; border:0; }
   .panel .role { background:var(--bg); border-color:var(--line); }
   .panel .role.is-mid { background:var(--raised); }
@@ -1046,6 +1047,7 @@
   .winbar .winbar-track { overflow:visible; }
   .winbar-mid { position:absolute; left:calc(50% - 1px); top:-3px; bottom:-3px; width:2px; background:var(--text); border-radius:1px; }
   .winbar.few .notches { justify-self:start; }
+  .winbar.under .winbar-track i { background:var(--muted); }
   /* Réglages : sobres. Cases et options en ivoire, pas de couleur de sens. */
   input[type=checkbox], input[type=radio] { accent-color:var(--text); }
   .set-card { background:transparent; }
@@ -2371,8 +2373,10 @@ function WinBars({ title, groups }) {
       ${groups.map(g => {
         const rec = record(g.rows);
         const few = rec.games < MIN_GAMES;
+        // QA-1 : sous 50 % de victoires, la barre quitte le vert des réussites (teinte neutre) ; le repère et le pourcentage restent.
+        const under = !few && rec.wins / rec.games < 0.5;
         // Sous le seuil : pas de barre de victoires (elle suggérerait un taux), une jauge de crans montre l'échantillon.
-        return html`<div key=${g.name} className=${`winbar${few ? " few" : ""}`}>
+        return html`<div key=${g.name} className=${`winbar${few ? " few" : ""}${under ? " under" : ""}`}>
           <span className="winbar-name">${g.name}</span>
           ${few ? html`<${SampleGauge} count=${rec.games} />` : html`<span className="winbar-track" role="img" aria-label=${t("stats.winbar.aria", { name: g.name, record: fmtRecord(rec) })}>
             <${motion.i} initial=${{ scaleX:0 }} animate=${{ scaleX: rec.games ? rec.wins / rec.games : 0 }} transition=${ARRIVE} /><b className="winbar-mid" aria-hidden="true"></b>
@@ -2395,13 +2399,23 @@ function evolutionGroups(rows) {
 const StatsTable = ({ title, groups }) => html`<div>
   <h3>${title}</h3>
   <table><thead><tr><th></th><th>${t("stats.table.games")}</th><th>${t("stats.table.record")}</th><th>${t("stats.table.winrate")}</th></tr></thead>
-  <tbody>${groups.map(g => { const rec = record(g.rows); return html`<tr key=${g.name}><td>${g.name}</td><td>${rec.games}</td><td>${fmtRecord(rec)}</td><td>${pct(rec)}</td></tr>`; })}</tbody></table>
+  <tbody>${groups.map(g => { const rec = record(g.rows); return html`<tr key=${g.name}><td>${g.name}</td><td>${rec.games}</td><td>${fmtRecord(rec)}</td><td>${rec.games >= MIN_GAMES ? pct(rec) : html`<span className="stats-few">${t("stats.table.few", { min: MIN_GAMES })}</span>`}</td></tr>`; })}</tbody></table>
 </div>`;
+
+// QA-5 : mêmes règles que Mes statistiques pour l'historique Riot et les anciens imports : période, nombre de parties, seuil.
+function RowsSample({ rows, test }) {
+  if (!rows.length) return null;
+  const times = rows.map(r => r.time).filter(x => typeof x === "number" && x > 0).sort((a, b) => a - b);
+  const from = times.length ? fmtDate(times[0]) : "", to = times.length ? fmtDate(times[times.length - 1]) : "";
+  const enough = rows.length >= MIN_GAMES;
+  return html`<p className="stats-sample" data-test=${test}>${from ? html`<b className="num">${from === to ? t("stats.sample.periodOne", { date: from }) : t("stats.sample.period", { from, to })}</b>` : null}<span className="num">${tp("stats.sample.played", rows.length)}</span><span className=${enough ? "" : "stats-few"}>${t(enough ? "stats.sample.enough" : "stats.sample.few", { min: MIN_GAMES })}</span></p>`;
+}
 
 function StatsTab() {
   if (!STAT_ROWS.length) return html`<p className="small" data-test="stats-empty">${t("stats.old.empty")}</p>`;
   return html`<div>
     <p className="small">${tp("stats.old.imported", STAT_ROWS.length, { date: fmtDate(STATS.generated) })}</p>
+    <${RowsSample} rows=${STAT_ROWS} test="stats-old-sample" />
     ${groupRows(STAT_ROWS, r => r.acct).map(account => {
       const offPool = account.rows.filter(r => !inPool(r.champ));
       return html`<div key=${account.name}>
@@ -2604,6 +2618,12 @@ function VerdictPanel() {
   const picked = entry && entry.picked === V.shown;
   const reasons = V.tied ? V.commonReasons : V.reasons;
   const playing = entry ? entry.picked : V.tied ? null : V.shown;
+  // QA-2 : dans le panneau compact, la menace passe juste après le conseil (avant le changement, l'alternative et les raisons),
+  // pour rester visible sans défiler à 125 % au-dessus de « Je joue » et « Détails ».
+  const threatBox = threat ? html`<section className="p-threat" data-test="panel-threat" aria-label=${t("panel.threat.label")}>
+      <${Portrait} name=${threat} size=${36} />
+      <div><b>${t("panel.threat.title", { champion: threat })}</b><p>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
+    </section>` : null;
   return html`<div className="p-body">
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <div className="p-status">
@@ -2619,6 +2639,7 @@ function VerdictPanel() {
         <div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div>
       <//>
     </section>`}
+    ${threat && PANEL === "compact" ? threatBox : null}
     ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>` : null}
     ${V.rival ? html`<button type="button" className="p-alt" data-test="open-compare" title=${t("panel.compareTitle")} onClick=${() => openDetail("compare")}>
       <${Portrait} name=${label(V.rival.pick)} size=${40} />
@@ -2630,10 +2651,7 @@ function VerdictPanel() {
     <ul className="p-reasons">
       ${(reasons.length ? reasons : [V.tied ? t("panel.reasons.tieDiffer") : t("panel.reasons.none")]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
     </ul>
-    ${threat ? html`<section className="p-threat" aria-label=${t("panel.threat.label")}>
-      <${Portrait} name=${threat} size=${36} />
-      <div><b>${t("panel.threat.title", { champion: threat })}</b><p>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
-    </section>` : null}
+    ${threat && PANEL !== "compact" ? threatBox : null}
     <${CoachLine} />
     <${OpponentLine} />
     <details key=${V.n ? "draft" : "bans"} className="p-more" open=${!V.n}>
@@ -3206,6 +3224,7 @@ function HistoryImportBox({ detailed }) {
     <p className="small" data-test="stats-collect">${t("stats.history.collect")}</p>
     ${rows && role ? html`<h3>${t("stats.mostPlayed", { role:ROLE_NAMES[role] })}</h3>
       ${champs.length ? html`<${WinBars} title="" groups=${champs} />` : html`<p className="small">${t("stats.mostPlayed.empty", { role:ROLE_NAMES[role] })}</p>`}` : null}
+    ${detailed && rows ? html`<${RowsSample} rows=${rows} test="stats-history-sample" />` : null}
     ${detailed && rows ? html`<h3>${t("stats.history.byRole")}</h3>
       <table className="stats-table"><tbody>${ROLE_ORDER.map(r => { const list = rows.filter(x => x.pos === ROLE_POSITION[r]); return html`<tr key=${r}><th scope="row">${ROLE_NAMES[r]}</th><td className="num">${tp("stats.kpi.historyUnit", list.length)}</td><td className="num">${list.length ? wl(list) : "-"}</td></tr>`; })}</tbody></table>` : null}
   </section>`;
@@ -3288,6 +3307,7 @@ function SettingsSection({ id }) {
   if (id === "display") return host ? html`<div>
     <label className="set-check"><input type="checkbox" checked=${hostState.autoDraft} onChange=${e => hostSend({ cmd:"setAutoDraft", value:e.target.checked })} /> ${t("settings.display.auto")}</label>
     <p className="set-hint">${t(hostState.hotkey ? "settings.display.toggleHotkey" : "settings.display.toggleMenu")}</p>
+    ${!hostState.hotkey && hostState.hotkeyError === 1409 ? html`<p className="set-hint" role="status" data-test="hotkey-taken">${t("settings.display.hotkeyTaken")}</p>` : null}
     <h3>${t("settings.display.windows")}</h3>
     <label className="set-check"><input type="checkbox" checked=${hostState.follow} onChange=${e => hostSend({ cmd:"setFollow", value:e.target.checked })} /> ${t("settings.display.follow")}</label>
     <label className="set-check"><input type="checkbox" checked=${hostState.compact} onChange=${() => hostSend({ cmd:"toggleCompact" })} /> ${t("settings.display.compact")}</label>

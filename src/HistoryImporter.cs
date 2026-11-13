@@ -350,7 +350,7 @@ namespace DraftMid
             HistoryImportResult second = step(2, new[] { "P1", "P2", "P3" }).Run(CancellationToken.None).Result;
             t(second.Added == 1 && second.Total == 3 && !second.HasMore, "historique : enrichissement progressif, puis plus rien à lire");
             HistoryImportResult refused = make(new Sim { Answer = u => new RiotReply { Status = 403, Body = "RGAPI-fausse-cle" } }).Run(CancellationToken.None).Result;
-            t(refused.ErrorText.Contains("refusée") && !refused.ErrorText.Contains("RGAPI") && File.ReadAllText(path).Contains("\"NEW\"") && refused.Total == 3, "historique : clé refusée, rien de perdu, rien de divulgué");
+            t(refused.Error != null && refused.Error.Key == "native.history.keyRefused" && refused.ErrorText == Strings.T("native.history.keyRefused") && !refused.ErrorText.Contains("RGAPI") && File.ReadAllText(path).Contains("\"NEW\"") && refused.Total == 3, "historique : clé refusée, rien de perdu, rien de divulgué");
             int waits = 0;
             bool limited = false;
             Sim wait = new Sim();
@@ -360,7 +360,7 @@ namespace DraftMid
             string quota = "";
             patient.Status = text0 => quota = text0.ToString();
             t(patient.Run(CancellationToken.None).Result.Added == 1 && waits == 1, "historique : limite de Riot respectée");
-            t(quota.Contains("7 secondes"), "historique : attente due au quota expliquée");
+            t(quota == Strings.T("native.history.rateLimit", "count", 7) && quota.Contains("7"), "historique : attente due au quota expliquée");
             Sim gone = new Sim { Answer = u => u.Contains("/by-riot-id/") ? new RiotReply { Status = 404 } : new RiotReply { Status = 200, Body = "[]" } };
             HistoryImportResult missing = make(gone).Run(CancellationToken.None).Result;
             t(missing.NotFound.Count == 1 && missing.Total == 4, "historique : compte introuvable signalé");
@@ -368,7 +368,7 @@ namespace DraftMid
             t(make(down).Run(CancellationToken.None).Result.Error != null && down.Urls.Count == 5, "historique : Riot indisponible, arrêt après 5 essais");
             Sim garbage = new Sim { Answer = u => new RiotReply { Status = 200, Body = "{abimé" } };
             HistoryImportResult unreadable = make(garbage).Run(CancellationToken.None).Result;
-            t(unreadable.ErrorText.Contains("illisible") && unreadable.Total == 4, "historique : réponse illisible, rien de perdu");
+            t(unreadable.Error != null && unreadable.Error.Key == "native.history.unreadable" && unreadable.ErrorText == Strings.T("native.history.unreadable") && unreadable.Total == 4, "historique : réponse illisible, rien de perdu");
             using (CancellationTokenSource cts = new CancellationTokenSource())
             {
                 cts.Cancel();

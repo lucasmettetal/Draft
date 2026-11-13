@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests QA 3.0</title></head><body><pre id="out"></pre>
+<!-- QA 3.0 : QA-1 (barres sous 50 %) et QA-5 (tableaux de l'onglet Historique Riot), en français et en anglais. Vraie page, données FICTIVES. -->
+<!-- Lancement : tools\run-v215-tests.ps1 -Page draft-qa300-tests.html -Work <dossier>. Page de test : exclue de la compilation. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);document.getElementById("out").textContent=JSON.stringify(Object.assign({partiel:true},res));};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+// Page réelle, avec un ancien import (draft-stats.js) et un historique Riot fictifs injectés avant les scripts de la page.
+function source(){const x=new XMLHttpRequest();x.open("GET","index.html",false);x.send();return x.responseText;}
+let INDEX="";try{INDEX=source();}catch(e){document.getElementById("out").textContent=JSON.stringify({ok:0,ko:["lecture de index.html impossible : "+e.message]});}
+// Panneau de l'overlay (outils affichés comme dans l'application : hôte WebView2 simulé, aucun message envoyé ailleurs).
+async function panel(lang,kind,W,H){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");
+  const host='<script>window.chrome=window.chrome||{};window.chrome.webview={postMessage(){},addEventListener(){},removeEventListener(){}};<\/script>';
+  const html=INDEX.replace('<script src="draft-stats.js"><\/script>',host);
+  window.history.replaceState(null,"",location.pathname+"?panel="+kind+"&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=W;f.height=H;document.body.appendChild(f);
+  const d0=f.contentDocument;d0.open();d0.write(html);d0.close();
+  for(let i=0;i<100&&!(f.contentWindow.I18N&&f.contentDocument.querySelector(".p-title"));i++)await wait(100);
+  await wait(500);const w=f.contentWindow;return {f,w,d:f.contentDocument,ev:c=>w.eval(c)};}
+async function load(lang,journal,stats,hist){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Fizz","Kog'Maw","Xerath"]}));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));
+  const inject='<script>window.DRAFT_STATS='+JSON.stringify(stats||null)+';window.DRAFT_HISTORY='+JSON.stringify(hist||null)+';<\/script>';
+  const html=INDEX.replace('<script src="draft-stats.js"><\/script>',inject).replace('<script src="draft-history.js"><\/script>',"");
+  // Cadre vide écrit par document.write : il prend l'adresse de cette page, dont la requête porte la langue (&lang=), comme dans l'application.
+  window.history.replaceState(null,"",location.pathname+"?view=stats&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=1366;f.height=900;document.body.appendChild(f);
+  const d0=f.contentDocument;d0.open();d0.write(html);d0.close();
+  for(let i=0;i<100&&!(f.contentWindow.I18N&&f.contentDocument.querySelector('[data-test="stats-tab-history"]'));i++)await wait(100);
+  await wait(500);const w=f.contentWindow;return {f,w,d:f.contentDocument,ev:c=>w.eval(c)};}
+const q=(x,s)=>x.d.querySelector(`[data-test="${s}"]`);
+const rgb=(w,e)=>w.getComputedStyle(e).backgroundColor;
+// Journal fictif : Fizz 12 parties dont 4 victoires (33 %), Xerath 12 parties dont 9 victoires (75 %), TF 3 parties.
+const J=[];let id=1;const add=(picked,n,wins)=>{for(let i=0;i<n;i++)J.push({id:id++,date:"2026-10-"+String(1+(id%28)).padStart(2,"0")+"T10:00:00Z",suggested:picked,picked,close:false,enemies:["Ahri"],mid:"Ahri",result:i<wins?"win":"loss",engine:"x"});};
+add("Fizz",12,4);add("Xerath",12,9);add("TF",3,1);
+// Ancien import fictif : 12 parties du compte de test, dont 3 hors pool (sous le seuil), du 01/09 au 12/09/2026.
+const T0=Date.UTC(2026,8,1,12);
+const STATS={generated:"2026-09-15T10:00:00Z",accounts:["Test#TEST"],rows:[...Array(12)].map((_,i)=>({acct:"Test#TEST",time:T0+i*864e5,champ:i<9?"Fizz":"Ahri",pos:i<9?"MIDDLE":"TOP",win:i%2===0,mid:""}))};
+const HIST={generated:"2026-11-08T10:00:00Z",accounts:["Test#TEST"],rows:[...Array(14)].map((_,i)=>({id:"H"+i,acct:"Test#TEST",time:T0+i*864e5,patch:"16.22",sec:1800,champ:i<8?"Fizz":"Ahri",pos:i<12?"MIDDLE":"TOP",win:i%3!==0,k:5,d:4,a:6,mid:"",enemies:[]}))};
+
+(async()=>{
+for(const lang of ["fr","en"]){
+  const L=lang.toUpperCase()+" : ";
+  let x=await load(lang,J,STATS,HIST);
+  t(x.ev("I18N.lang")===lang,L+"page dans la bonne langue ("+x.ev("I18N.lang")+")");
+  x.ev("goView('stats')");await wait(400);
+  const good=getComputedStyle(document.documentElement).getPropertyValue("--good")||"";
+  const goodRgb=x.w.getComputedStyle(x.d.documentElement).getPropertyValue("--good").trim();
+  // QA-1 : barres
+  const bars=[...x.d.querySelectorAll('[data-test="stats-journal"] .winbar')];
+  const bar=n=>bars.find(b=>text(b.querySelector(".winbar-name"))===n);
+  const fizz=bar("Fizz"),xer=bar("Xerath"),tf=bar("Twisted Fate");
+  const probe=x.d.createElement("i");probe.style.background="var(--good)";x.d.body.appendChild(probe);const green=x.w.getComputedStyle(probe).backgroundColor;probe.remove();
+  const fill=b=>b&&b.querySelector(".winbar-track i")?rgb(x.w,b.querySelector(".winbar-track i")):"absent";
+  res.notes[lang+"_barres"]=`vert ${green} ; Fizz 33 % ${fill(fizz)} ; Xerath 75 % ${fill(xer)}`;
+  t(!!fizz&&!!fizz.querySelector(".winbar-track")&&fill(fizz)!==green,L+"[avant : échec] QA-1 : 4 victoires sur 12 (33 %) : la barre n'est pas verte ("+fill(fizz)+")");
+  t(!!xer&&fill(xer)===green,L+"QA-1 : 9 victoires sur 12 (75 %) : barre verte des réussites");
+  t(!!fizz&&/33/.test(text(fizz.querySelector(".winbar-val")))&&!!fizz.querySelector(".winbar-mid"),L+"QA-1 : sous 50 %, pourcentage écrit et repère des 50 % conservés");
+  t(!!tf&&!!tf.querySelector(".notches")&&!tf.querySelector(".winbar-track")&&!/%/.test(text(tf)),L+"QA-1 : 3 parties : jauge, aucun pourcentage ni barre (seuil de 10)");
+  // QA-5 : onglet Historique Riot
+  q(x,"stats-tab-history").click();await wait(500);
+  const old=q(x,"stats-old");
+  const rowsOf=title=>{const h=[...old.querySelectorAll("h3")].find(e=>text(e)===title);const tb=h&&h.nextElementSibling;return tb?[...tb.querySelectorAll("tbody tr")].map(r=>[...r.children].map(text)):[]};
+  const main=rowsOf("Test#TEST");
+  res.notes[lang+"_tableau"]=JSON.stringify(main);
+  const total=main.find(r=>r[1]==="12"),off=main.find(r=>r[1]==="3");
+  t(!!total&&/%/.test(total[3]),L+"QA-5 : 12 parties : pourcentage affiché ("+(total&&total[3])+")");
+  t(!!off&&!/%/.test(off[3])&&/10/.test(off[3]),L+"[avant : échec] QA-5 : 3 parties : aucun pourcentage, seuil écrit ("+(off&&off[3])+")");
+  const allRows=[...old.querySelectorAll("table tbody tr")].map(r=>[...r.children].map(text));
+  const leak=allRows.filter(r=>+r[1]<10&&/%/.test(r[3]));
+  t(leak.length===0,L+"[avant : échec] QA-5 : aucun pourcentage sous 10 parties dans les tableaux ("+leak.length+" ligne(s) : "+JSON.stringify(leak.slice(0,3))+")");
+  const ps=q(x,"stats-old-sample"),hs=q(x,"stats-history-sample");
+  const p1=lang==="fr"?/Période : du 01\/09\/2026 au 12\/09\/2026/:/Sep 1, 2026/;
+  t(!!ps&&p1.test(text(ps))&&/12/.test(text(ps)),L+"[avant : échec] QA-5 : anciens imports : période et nombre de parties ("+text(ps)+")");
+  t(!!hs&&/14/.test(text(hs))&&(lang==="fr"?/Période : du 01\/09\/2026 au 14\/09\/2026/:/Sep 14, 2026/).test(text(hs)),L+"[avant : échec] QA-5 : historique Riot : période et nombre de parties ("+text(hs)+")");
+  t(!/RGAPI|puuid/.test(x.d.body.innerText),L+"aucune clé ni identifiant affiché");
+  t(x.ev("I18N.missing().length")===0,L+"aucune clé absente ("+x.ev("I18N.missing().join(' | ')")+")");
+  if(lang==="en")t(!/Période|parties|Sous \d/.test(text(old)+text(hs)),"EN : aucun français visible dans l'onglet Historique Riot");
+  x.f.remove();
+}
+// QA-2 : panneau compact à 125 % (252 et 282 px d'interface, 576 de haut) : la menace entière au-dessus de « Je joue » / « Détails ».
+// QA-3 : outils de l'overlay : cibles >= 32 px, espacement >= 4 px, survol et focus visibles ; tailles physiques à 100, 125 et 150 %.
+const COMPS=[["Aurelion Sol","Miss Fortune","Renata Glasc","Tahm Kench","Master Yi"],["Syndra","Ornn","Lee Sin","Jinx","Thresh"],["Ahri","Ornn","Vi","Jinx","Lulu"],["Zed","Malphite","Vi","Caitlyn","Leona"]];
+for(const lang of ["fr","en"]){
+  const L=lang.toUpperCase()+" : ";
+  for(const [W,H] of [[252,576],[282,576],[320,720]]){
+    let seen=0,hidden=[];
+    for(const comp of COMPS){
+      const x=await panel(lang,"compact",W,H);
+      comp.forEach(n=>x.ev("addEnemy("+JSON.stringify(n)+")"));await wait(900);
+      const th=x.d.querySelector(".p-threat"),act=x.d.querySelector(".p-actions"),play=x.d.querySelector('.p-actions [data-test="choose-pick"]'),det=x.d.querySelector('[data-test="open-analysis"]');
+      if(th){seen++;const a=th.getBoundingClientRect(),b=act.getBoundingClientRect();if(!(a.top>=0&&a.bottom<=b.top+0.5&&a.bottom<=H))hidden.push(comp[0]+" "+Math.round(a.top)+".."+Math.round(a.bottom)+" / actions "+Math.round(b.top));}
+      for(const [n,e] of [["Je joue",play],["Détails",det]])if(e){const r=e.getBoundingClientRect();if(r.bottom>H+0.5||r.top<0||r.height<32)hidden.push(n+" "+Math.round(r.top)+".."+Math.round(r.bottom));}
+      x.f.remove();
+    }
+    res.notes[lang+"_compact_"+W+"x"+H]=seen+" menace(s), "+(hidden.join(" ; ")||"tout visible");
+    t(seen>0&&hidden.length===0,L+(W<300?"[avant : échec] ":"")+"QA-2 : compact "+W+"x"+H+" : menace, Je joue et Détails visibles sans défilement ("+(hidden.join(" ; ")||seen+" compositions avec menace")+")");
+  }
+  for(const kind of ["left","right","compact"]){
+    const x=await panel(lang,kind,kind==="compact"?282:256,576);
+    const btns=[...x.d.querySelectorAll(".p-tools .p-btn")];
+    const r=btns.map(b=>b.getBoundingClientRect());
+    const minSide=Math.min(...r.map(b=>Math.min(b.width,b.height)));
+    const gaps=r.slice(1).map((b,i)=>b.left-r[i].right);
+    const minGap=Math.min(...gaps);
+    const phys=[1,1.25,1.5].map(s=>Math.round(minSide*s)).join("/");
+    res.notes[lang+"_outils_"+kind]=`${btns.length} boutons, côté ${minSide} px CSS (${phys} px physiques à 100/125/150 %), espacement ${minGap} px`;
+    t(btns.length===3&&minSide>=32,L+"[avant : échec] QA-3 : "+kind+" : 3 outils de 32 px au moins ("+minSide+" px CSS, "+phys+" px physiques)");
+    t(minGap>=4,L+"[avant : échec] QA-3 : "+kind+" : espacement d'au moins 4 px entre les outils ("+minGap+" px)");
+    // Survol : règle CSS :hover réelle relevée dans la feuille de style (le banc ne déplace pas de souris).
+    const rules=[...x.d.styleSheets].flatMap(s=>{try{return [...s.cssRules]}catch(e){return []}});
+    const hover=rules.filter(k=>k.selectorText&&/\.p-btn:hover/.test(k.selectorText));
+    const hoverOk=hover.some(k=>k.style.color||k.style.background||k.style.backgroundColor)&&hover.some(k=>k.style.boxShadow||k.style.borderColor||k.style.outline);
+    t(hoverOk,L+"[avant : échec] QA-3 : "+kind+" : survol visible (couleur, fond et contour) ("+hover.map(k=>k.cssText).join(" ")+")");
+    btns[0].focus({focusVisible:true});await wait(50);
+    const cs=x.w.getComputedStyle(btns[0]);
+    t(x.d.activeElement===btns[0]&&parseFloat(cs.outlineWidth)>=2&&cs.outlineStyle!=="none",L+"QA-3 : "+kind+" : focus clavier visible ("+cs.outlineStyle+" "+cs.outlineWidth+")");
+    const head=x.d.querySelector(".p-title").getBoundingClientRect();
+    t(r.every(b=>b.top>=head.top-0.5&&b.bottom<=head.bottom+0.5),L+"QA-3 : "+kind+" : outils entiers dans la barre de titre ("+Math.round(head.height)+" px)");
+    x.f.remove();
+  }
+}
+document.getElementById("out").textContent=JSON.stringify(res);document.title="done";
+})().catch(e=>{document.getElementById("out").textContent=JSON.stringify({ok:res.ok,ko:res.ko.concat("ERREUR "+e.message+" "+(e.stack||"").slice(0,300)),notes:res.notes});});
+</script></body></html>

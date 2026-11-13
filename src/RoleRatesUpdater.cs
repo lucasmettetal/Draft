@@ -765,7 +765,7 @@ namespace DraftMid
             string kept = File.ReadAllText(path);
             MatchupStatsUpdater refused = make(new Sim { Answer = url => new RiotReply { Status = 403 } });
             RoleUpdateResult bad = Task.Run(() => refused.Run(CancellationToken.None)).GetAwaiter().GetResult();
-            t(bad.ErrorText.Contains("Clé Riot refusée") && File.ReadAllText(path) == kept, "Matchups : une clé refusée n'abîme pas les données existantes");
+            t(bad.Error != null && bad.Error.Key == "native.riot.keyRefused" && bad.ErrorText == Strings.T("native.riot.keyRefused", "code", 403) && File.ReadAllText(path) == kept, "Matchups : une clé refusée n'abîme pas les données existantes");
             File.Delete(path);
         }
     }
@@ -857,12 +857,13 @@ namespace DraftMid
             remake.AddMatch("{\"info\":{\"gameDuration\":120,\"participants\":[{\"championName\":\"Sett\",\"teamPosition\":\"TOP\"}]}}");
             remake.AddMatch("pas du json");
             t(remake.Counted == 0, "Rôles : les remakes et les réponses abîmées sont ignorés");
-            t(run(make(new SimFetcher { Answer = u => new RiotReply { Status = 403 } }, 1, 1)).ErrorText.Contains("Clé Riot refusée"), "Rôles : une clé refusée arrête tout de suite le calcul");
+            RoleUpdateResult keyRefused = run(make(new SimFetcher { Answer = u => new RiotReply { Status = 403 } }, 1, 1));
+            t(keyRefused.Error != null && keyRefused.Error.Key == "native.riot.keyRefused" && keyRefused.ErrorText == Strings.T("native.riot.keyRefused", "code", 403), "Rôles : une clé refusée arrête tout de suite le calcul");
 
             string before = File.ReadAllText(path);
             int calls = 0;
             RoleUpdateResult refused = run(make(new SimFetcher { Answer = u => { calls++; return u.Contains("league-exp") ? Ok("[{\"puuid\":\"a\"},{\"puuid\":\"b\"},{\"puuid\":\"c\"},{\"puuid\":\"d\"},{\"puuid\":\"e\"},{\"puuid\":\"f\"}]") : new RiotReply { Status = 400 }; } }, 5, 1));
-            t(refused.ErrorText.Contains("5 requêtes") && File.ReadAllText(path) == before, "Rôles : plusieurs refus de suite arrêtent le calcul sans abîmer les données existantes");
+            t(refused.Error != null && refused.Error.Key == "native.riot.failures" && Convert.ToInt32(refused.Error.Vars["count"]) == 5 && refused.ErrorText.Contains("5") && File.ReadAllText(path) == before, "Rôles : plusieurs refus de suite arrêtent le calcul sans abîmer les données existantes");
 
             RoleUpdateResult tooFew = run(make(new SimFetcher { Answer = normal }, 3, 50));
             t(!tooFew.Saved && File.ReadAllText(path) == before, "Rôles : un calcul trop court ne remplace pas de meilleures données");
