@@ -154,3 +154,15 @@ La colonne « Pas encore » montre la progression vers les seuils de l'étude (`
 ## 14. Lignes incomplètes : ce qui est affiché
 
 Sous l'échantillon, une ligne n'apparaît que si un compte est non nul : doublons ignorés, lignes illisibles, sans résultat, remakes écartés, durées converties, sans durée, sans date, sans patch, sans KDA, rôle inconnu, sans identifiant.
+
+## 15. Limites connues
+
+- **Vis-à-vis hors mid** : l'import n'enregistre pas l'adversaire de même poste. L'enrichissement de `src/HistoryImporter.cs` (poste de chaque adversaire) fera l'objet d'une PR séparée, avec une relecture des parties déjà importées.
+- **Durées** : l'unité est déduite d'un seuil (20 000), faute de `gameEndTimestamp` dans les lignes.
+- **Comptes et dates** : tous les comptes sont additionnés ; ni filtre par compte, ni filtre par période.
+- **Journal** :
+  - les entrées antérieures à la #33 restent « origine inconnue » tant que le joueur ne les classe pas ;
+  - aucune égalité n'est reconstruite pour elles ;
+  - le journal ne garde pas le rôle joué.
+- **Conclusions** : aucune. La colonne « Pas encore » montre seulement la distance aux seuils de l'étude.
+- **125 %** : le banc de mise en page vérifie 1536 × 864 pour Mes statistiques seulement.
