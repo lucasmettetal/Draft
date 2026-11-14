@@ -14,6 +14,9 @@ midunknown:w=>{['Sett','Vi'].forEach(w.addEnemy)},uncertain:w=>{['Yasuo','Yone',
 excluded:w=>{w.savePrefs({excluded:['Fizz']});['Ahri','Ornn'].forEach(w.addEnemy)},
 none:w=>{w.savePrefs({excluded:['TF','Fizz',"Kog'Maw",'Xerath']})},
 picked:w=>{['Ahri','Ornn','Jinx'].forEach(w.addEnemy);w.choosePick(w.V.shown)},
+/* Correctif du choix : un autre champion que le conseil (bouton « X noté », conseil rappelé dessous), puis un choix hors égalité. */
+pickedother:w=>{['Ahri','Ornn','Jinx'].forEach(w.addEnemy);const V=w.V,o=V.order.find(p=>p.pick!==V.shown&&!(V.tied||[]).includes(p.pick));w.choosePick(o?o.pick:V.shown)},
+tieother:w=>{['Ornn','Sion','Maokai','Jinx','Thresh'].forEach(w.addEnemy);const V=w.V,o=V.order.find(p=>!(V.tied||[]).includes(p.pick));if(o)w.choosePick(o.pick)},
 history:w=>{const a=[];for(let i=0;i<300;i++)a.push({id:1e12+i,date:new Date(1.7e12+i*864e5).toISOString(),suggested:'Fizz',close:false,picked:['Fizz','TF',"Kog'Maw",'Xerath'][i%4],enemies:['Ahri','Ornn','Vi','Jinx','Lulu'],mid:'Ahri',result:i%3?'win':'loss'});w.saveJournal(a);['Ahri','Ornn'].forEach(w.addEnemy);},
 extreme:w=>{['Aurelion Sol','Miss Fortune','Renata Glasc','Tahm Kench',LONG].forEach(w.addEnemy);},
 };

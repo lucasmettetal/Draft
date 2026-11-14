@@ -129,6 +129,10 @@
   .cta { align-self:flex-start; min-height:40px; margin-top:4px; padding:7px 18px; background:var(--prio); border:0; border-radius:6px; color:var(--prio-ink); font:600 18px var(--condensed); }
   .cta:hover { filter:brightness(1.07); }
   .cta.done { background:transparent; color:var(--prio); box-shadow:inset 0 0 0 1px var(--prio); }
+  /* Choix du joueur différent du conseil : le conseil reste lisible à part, avec un retour explicite. */
+  .pick-advice { display:flex; flex-wrap:wrap; align-items:center; gap:0 10px; margin:6px 0 0; color:var(--muted); font-size:var(--fs-xs); }
+  .pick-advice > span { color:var(--text); }
+  .p-actions .pick-advice, .mobile-bar .pick-advice { flex:1 1 100%; margin:0; }
 
   /* Classement du pool */
   .rank-list { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
@@ -653,8 +657,8 @@
     .app { padding-bottom:64px; }
     .col-right { display:flex; }
     .plan-block { border-right:0; border-bottom:1px solid var(--line); height:auto; }
-    .stage .cta { display:none; }
-    .mobile-bar { position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; background:var(--surface); border-top:1px solid var(--line); }
+    .stage .cta, .stage .pick-advice { display:none; }
+    .mobile-bar { position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 10px; padding:8px 12px; background:var(--surface); border-top:1px solid var(--line); }
     .mobile-name { display:flex; align-items:center; gap:8px; min-width:0; font:18px var(--condensed); }
     .mobile-bar .cta { flex:none; margin:0; }
     .role-empty .em { display:none; }
@@ -1058,7 +1062,7 @@
   /* Panneaux, lisibles à 125 % : 13 px au minimum (16 px physiques) ; libellés de rôle du compact en 12 px semi-gras. */
   .panel .role-traits, .panel .hint, .panel .note, .panel .small, .panel .p-chip, .panel .p-alt small, .panel .p-threat-who, .panel .tie-text small,
   .panel .meter, .panel .meter-delta, .panel .result-note, .panel .role-hint, .panel .link-btn, .panel .role-empty, .panel .badge, .panel .seg-tab,
-  .panel .effects, .panel .opp-line, .panel .alert-line, .panel .p-reasons li, .panel .p-threat p, .panel .p-win p, .panel .tie-title, .panel .coach-line { font-size:13px; }
+  .panel .effects, .panel .opp-line, .panel .alert-line, .panel .p-reasons li, .panel .p-threat p, .panel .p-win p, .panel .tie-title, .panel .coach-line, .panel .pick-advice { font-size:13px; }
   .panel .role-traits, .panel .note, .panel .small, .panel .p-alt small, .panel .hint, .panel .p-threat-who { font-weight:500; }
   .compact-roles .role-icon { font-size:12px; font-weight:600; }
   /* Simulateur en mode simulation : le bandeau prend sa hauteur, la table de draft garde la place restante (grand vide corrigé). */
@@ -1099,7 +1103,9 @@ if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof
 }
 // Tous les textes de la page : t(), tp() et tx() lisent web/i18n/fr.js (draft-i18n.js, chargé avant le moteur). Dates : fmtDate.
 const { t, tp, tx, fmtDate } = window.I18N;
-const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, boardKey: null };
+// shown : conseil du moteur. picked : champion choisi par le joueur pour cette draft (« Je joue », Ton pool, égalité), ou null ;
+// pickContext : conseil au moment de ce choix (pickContextFor). current : leur entrée de journal (vraies drafts seulement, jamais en simulation).
+const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, picked: null, pickContext: null, boardKey: null };
 
 function matchByKeys(names, keysOf, query) {
   const q = norm(query);
@@ -1178,8 +1184,9 @@ function updateEntry(id, change) {
   if (entry) { Object.assign(entry, change); saveJournal(list); }
 }
 
+// L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
 function syncCurrentEntry() {
-  if (state.current) updateEntry(state.current, { enemies: state.enemies.slice(), mid: currentMid() });
+  if (state.current) updateEntry(state.current, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
 }
 
 
@@ -1291,7 +1298,9 @@ const PREFS = Object.assign({ excluded:[], favorite:null, assumeFront:true, coac
 ENGINE_PREFS.excluded = PREFS.excluded;
 ENGINE_PREFS.favorite = PREFS.favorite;
 const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
-const SHARED = ["enemies", "manualMid", "held", "current", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled"];
+// Le choix du joueur (picked, pickContext) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
+// en retard dans une autre fenêtre (autre processus WebView2), et le bouton d'un panneau montrait alors un ancien choix.
+const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
 // Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
@@ -1460,7 +1469,7 @@ function resumeLiveInSimulation() {
   if (!simulating || !liveCopy) return;
   withUndo(t("draft.undo.resumed"), () => {
     ["enemies", "manualMid", "roleOf"].forEach(k => { state[k] = liveCopy[k] === undefined ? undefined : JSON.parse(JSON.stringify(liveCopy[k])); });
-    state.held = null; state.current = null; state.targetRole = null; state.selected = null; state.notice = null;
+    state.held = null; state.current = null; state.picked = null; state.pickContext = null; state.targetRole = null; state.selected = null; state.notice = null;
     state.lastAction = null;
     commit();
   });
@@ -1517,6 +1526,8 @@ function resetDraft() {
   state.manualMid = null;
   state.held = null;
   state.current = null;
+  state.picked = null;
+  state.pickContext = null;
   state.roleOf = {};
   state.targetRole = null;
   state.selected = null;
@@ -1528,7 +1539,7 @@ function resetDraft() {
 // Annuler (5 secondes) après une action qui retire des adversaires : Nouvelle draft, Retour arrière.
 // La draft exacte est rétablie. L'annonce reste locale à la fenêtre qui a agi.
 const UNDO_MS = 5000;
-const UNDO_KEYS = ["enemies", "manualMid", "held", "current", "roleOf", "targetRole", "selected", "notice"];
+const UNDO_KEYS = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "roleOf", "targetRole", "selected", "notice"];
 let undoOffer = null;
 const copyOf = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
 function withUndo(text, action) {
@@ -1593,15 +1604,44 @@ function clickRole(role) {
 
 const LEFT_ORDER = ["top", "jungle", "mid", "adc", "support"];
 
+// Choix du joueur pour la draft affichée, ou null. Il voyage avec l'état (state.picked) ; le journal ne sert que de repli.
+function currentPick() {
+  if (state.picked) return state.picked;
+  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  return entry ? entry.picked : null;
+}
+// Contexte du conseil au moment du choix (format : docs/technique/JOURNAL.md). suggested : le conseil ; à égalité, chaque ex æquo
+// est conseillé, donc en choisir un, c'est suivre le conseil (règle validée). tied, tiedWith : égalité et groupe complet des ex æquo,
+// pour distinguer plus tard une égalité d'un conseil unique. recommended : premier du classement (il peut différer du nom affiché,
+// maintenu pendant la draft). close : conseil serré.
+function pickContextFor(pick) {
+  const tiedWith = V && V.tied ? V.tied.slice() : [];
+  const first = V && V.res && V.res.ranking[0];
+  return { suggested: tiedWith.includes(pick) ? pick : state.shown, close: !state.clear, tied: tiedWith.length > 0, tiedWith, recommended: first ? first.pick : null };
+}
+// Origine des entrées créées par cette version : une vraie draft (rien n'est écrit en simulation), et la version de DRAFT.
+// Une entrée sans ces champs vient d'une version plus ancienne : origine inconnue. Rien n'est reconstruit ni migré.
+const JOURNAL_ORIGIN = "draft";
+
+// Choix du joueur : toujours un champion précis (Ton pool, égalité, « Je joue », « Revenir au conseil »). Il ne touche ni au classement,
+// ni au conseil, ni aux scores. Journal : picked = champion choisi, suggested = conseil au moment du choix ; « conseil suivi » si égaux.
+// Simulation : le choix reste dans la simulation. Rien n'est écrit dans le journal, qui ne compte que les vraies drafts.
 function choosePick(pick) {
-  if (state.current) {
-    updateEntry(state.current, { picked: pick });
-  } else {
-    const entry = { id: Date.now(), date: new Date().toISOString(), suggested: state.shown, close: !state.clear, picked: pick, enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION };
+  if (!pick) return;
+  if (pick === currentPick() && (state.current || simulating)) { publish(null); return; }
+  state.picked = pick;
+  state.pickContext = pickContextFor(pick);
+  if (!simulating) {
     const list = loadJournal();
-    list.push(entry);
+    const noted = Object.assign({}, state.pickContext, { picked: pick });
+    const entry = state.current && list.find(x => x.id === state.current);
+    if (entry) Object.assign(entry, noted);
+    else {
+      const id = Date.now();
+      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }));
+      state.current = id;
+    }
     saveJournal(list);
-    state.current = entry.id;
   }
   publish(null);
 }
@@ -1735,15 +1775,16 @@ function SearchBox() {
 
 // Relevé de validation : ce qui était affiché à la fin de la sélection. Local, sans joueur, seulement si le diagnostic est activé.
 function sendValidationRow() {
-  if (!hostState.diagnostics || !state.enemies.length || !V || V.none) return;
+  // Une simulation n'est pas une sélection : elle n'entre pas dans le relevé (la fenêtre qui simule répondait parfois la première).
+  if (simulating || !hostState.diagnostics || !state.enemies.length || !V || V.none) return;
   const manual = state.manualMid && state.enemies.includes(state.manualMid);
   const corrections = (manual ? [`${state.manualMid}=${myRole()}`] : []).concat(Object.keys(state.roleOf || {}).filter(n => state.enemies.includes(n)).map(n => `${n}=${state.roleOf[n]}`));
-  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  const picked = currentPick();
   hostSend({ cmd:"logDraft", row:[
     myRole(), PICKS.map(label).join(","), state.enemies.join(","), V.mid || "", manual ? "manuel" : confidenceWord(V.confidence) || "",
     // Colonnes inchangées pour tools/validation-report.ps1 : mot français de la confiance, « pas encore choisi » en fin de liste.
     V.hypothesis ? V.hypothesis.others.concat(V.hypothesis.notYet ? ["pas encore choisi"] : []).join(",") : "", V.tied ? V.tied.map(label).join("=") : label(V.shown), V.rival ? label(V.rival.pick) : "", V.provisional ? "oui" : "non",
-    corrections.join(","), entry && entry.picked ? label(entry.picked) : ""
+    corrections.join(","), picked ? label(picked) : ""
   ],
   // Colonne roles_predits, écrite en fin de ligne : prédiction du modèle seul, sans les corrections (elles sont dans « corrections »).
   predicted: predictedRolesText(state.enemies, {}) });
@@ -1930,15 +1971,45 @@ function SplashStack({ name }) {
 const TIE_SHOWN = 3;
 const speakVerdict = name => V.tied ? t("advice.speak.tie", { champions: V.tied.map(label).join(", ") }) : t(!V.rival ? "advice.speak.one" : V.clear ? "advice.speak.clear" : "advice.speak.close", { champion: name, rival: V.rival ? label(V.rival.pick) : "" });
 
+// Bouton « Je joue » (fenêtre, barre du bas, panneaux) : il dit toujours le choix du joueur. Sans choix, il propose le conseil ;
+// avec un choix, il le montre noté (« choisi » en simulation, qui n'écrit rien dans le journal). Un clic ne remplace jamais
+// un choix différent du conseil : le conseil reste affiché à part (PickAdvice), avec « Revenir au conseil ».
+function pickCta() {
+  const picked = currentPick(), target = picked || V.shown, name = label(target);
+  return {
+    picked, name,
+    text: picked ? t(simulating ? "advice.cta.chosen" : "advice.cta.noted", { champion: name }) : t("advice.cta.play", { champion: name }),
+    short: picked ? t(simulating ? "advice.mobile.chosen" : "advice.mobile.saved") : t("advice.mobile.play"),
+    help: simulating ? t("advice.cta.simHelp") : CTA_HELP,
+    click: () => choosePick(target)
+  };
+}
+// Conseil rappelé à part quand le joueur a choisi un autre champion. Le retour au conseil est un clic explicite.
+function PickAdvice() {
+  const picked = currentPick();
+  if (!picked || V.none || V.tied || picked === V.shown) return null;
+  const advice = label(V.shown);
+  return html`<p className="pick-advice" data-test="pick-advice">
+    <span>${t("advice.pick.advice", { champion: advice })}</span>
+    <button type="button" className="link-btn" data-test="back-to-advice" title=${t("advice.pick.backHelp", { picked: label(picked), champion: advice })} onClick=${() => choosePick(V.shown)}>${t("advice.pick.back")}</button>
+  </p>`;
+}
+// À égalité, un choix pris hors des ex æquo (dans Ton pool) est rappelé : aucune case de l'égalité ne le montre.
+function PickCurrent() {
+  const picked = currentPick();
+  if (!picked || V.none || !V.tied || V.tied.includes(picked)) return null;
+  return html`<p className="pick-advice" data-test="pick-current"><span>${t("advice.pick.current", { champion: label(picked) })}</span></p>`;
+}
+
 function TieGroup({ detailed }) {
-  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  const picked = currentPick();
   const list = V.tied.slice(0, TIE_SHOWN), more = V.tied.length - list.length;
   return html`<section className="tie-group" aria-label=${t("advice.tie.label")}>
     <p className="tie-title">${tx("advice.tie.heading", { picks: html`<b>${t("advice.tie.count", { count: V.tied.length })}</b>` })}</p>
     <div className="tie-list">
       ${list.map(p => {
-        const chosen = entry && entry.picked === p, why = detailed ? positiveReasons(V.res.ranking.find(x => x.pick === p))[0] : null;
-        return html`<button key=${p} type="button" className=${`tie-item${chosen ? " picked" : ""}`} aria-pressed=${!!chosen} title=${CTA_HELP} onClick=${() => choosePick(p)}>
+        const chosen = picked === p, why = detailed ? positiveReasons(V.res.ranking.find(x => x.pick === p))[0] : null;
+        return html`<button key=${p} type="button" className=${`tie-item${chosen ? " picked" : ""}`} aria-pressed=${!!chosen} title=${simulating ? t("advice.cta.simHelp") : CTA_HELP} onClick=${() => choosePick(p)}>
           <${Portrait} name=${label(p)} size=${36} />
           <span className="tie-text"><span className="tie-name">${label(p)}</span>${p === PREFS.favorite ? html`<small>${t("advice.tie.favorite")}</small>` : null}${why ? html`<small>${why}</small>` : null}</span>
           ${chosen ? html`<span className="tie-check" aria-hidden="true">✓</span>` : null}
@@ -2063,7 +2134,6 @@ function CoachTab() {
 }
 
 function Stage() {
-  const entry = state.current && loadJournal().find(x => x.id === state.current);
   if (V.none) {
     return html`<section className="stage" data-test="stage" aria-label=${t("advice.stage.label")}><div className="stage-body">
       <div className="champ-name">${t("advice.none")}</div>
@@ -2071,7 +2141,7 @@ function Stage() {
     </div></section>`;
   }
   const name = label(V.shown);
-  const picked = entry && entry.picked === V.shown;
+  const cta = pickCta();
   const stagger = { hidden:{}, show:{ transition:{ staggerChildren:.045, delayChildren:.03 } } };
   if (V.tied) {
     return html`<section className="stage stage-tie" data-test="stage" aria-label=${t("advice.stage.label")}>
@@ -2079,6 +2149,7 @@ function Stage() {
       <div className="stage-body">
         <div className="badges"><span data-test="badge" className="badge close">${t("advice.badge.tie")}</span>${V.n < 5 ? html`<span data-test="badge" className="badge">${t("advice.badge.enemies", { count: V.n })}</span>` : null}</div>
         <${TieGroup} detailed=${true} />
+        <${PickCurrent} />
         ${V.rival ? html`<div className="alt-line"><em>${t("advice.alt.else")}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
         <div className="stage-notes"><${CoachLine} /><${FamiliarLine} /><${OpponentLine} /></div>
       </div>
@@ -2116,9 +2187,10 @@ function Stage() {
           ${V.without ? html`<p className="note">${t("advice.more.noFront")} <b>${label(V.without)}</b></p>` : null}
         </details>` : null}
       <//>
-      <${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>
-        <${motion.span} key=${picked ? "done" : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${picked ? t("advice.cta.noted", { champion: name }) : t("advice.cta.play", { champion: name })}<//>
+      <${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
+        <${motion.span} key=${cta.picked ? "done-" + cta.picked : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${cta.text}<//>
       <//>
+      <${PickAdvice} />
     <//>
   </section>`;
 }
@@ -2135,8 +2207,9 @@ function rankWord(p, i) {
 // Au-delà, la liste écraserait le verdict : le reste du pool se lit dans Analyse et Comparer.
 const RANK_SHOWN = 4;
 
+// Coche : le champion choisi par le joueur (currentPick), qu'il soit ou non le conseil. Le classement, lui, reste celui du moteur.
 function Ranking() {
-  const entry = state.current && loadJournal().find(x => x.id === state.current);
+  const picked = currentPick();
   const scores = V.order.map(p => p.score);
   const lo = Math.min(...scores, 0);
   const hi = Math.max(...scores, 1);
@@ -2147,7 +2220,7 @@ function Ranking() {
         ${V.order.slice(0, RANK_SHOWN).map((p, i) => {
           const [word, tone] = rankWord(p, i);
           const name = label(p.pick);
-          const isPicked = entry && entry.picked === p.pick;
+          const isPicked = picked === p.pick;
           const rows = STAT_ROWS.length ? record(STAT_ROWS.filter(r => r.acct === MAIN_ACCOUNT && r.champ === name)) : null;
           return html`<${motion.button} key=${p.pick} layout="position" transition=${SNAP} type="button" whileHover=${{ y:-2 }} whileTap=${{ scale:.98 }}
             data-pick=${p.pick} aria-pressed=${!!isPicked}
@@ -2188,7 +2261,7 @@ function PlanBlock() {
   const entry = state.current && list.find(x => x.id === state.current);
   const pending = !entry && !state.enemies.length && [...list].reverse().find(x => x.result === null);
   const c = V.res.counts;
-  const playing = entry ? entry.picked : V.tied ? null : V.shown;
+  const playing = currentPick() || (V.tied ? null : V.shown);
   const threats = playing ? threatsFor(playing, c) : [];
   const targets = playing ? targetsFor(playing, c) : [];
   return html`<section className="plan-block" aria-label=${t("plan.title")}>
@@ -2208,8 +2281,7 @@ const PHASES = [["lane", t("plan.phase.lane")], ["mid", t("plan.phase.mid")], ["
 
 function PlanTab() {
   const [phase, setPhase] = useState("lane");
-  const entry = state.current && loadJournal().find(x => x.id === state.current);
-  const playing = entry ? entry.picked : V.tied ? null : V.shown;
+  const playing = currentPick() || (V.tied ? null : V.shown);
   if (!playing) return html`<p className="small">${V.tied ? t("plan.chooseTied") : t("plan.noPick")}</p>`;
   const slots = deriveSlots();
   const plan = buildPlan(playing, V.res.counts, V.mid, slots.jungle);
@@ -2540,12 +2612,12 @@ function SidePanel() {
 }
 function MobileBar() {
   if (V.none) return null;
-  const entry = state.current && loadJournal().find(x => x.id === state.current);
-  const picked = entry && entry.picked === V.shown;
-  if (V.tied) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span></div>`;
+  if (V.tied) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span><${PickCurrent} /></div>`;
+  const cta = pickCta();
   return html`<div className="mobile-bar">
-    <span className="mobile-name"><${Portrait} name=${label(V.shown)} size=${32} />${label(V.shown)}</span>
-    <${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? t("advice.mobile.saved") : t("advice.mobile.play")}<//>
+    <span className="mobile-name"><${Portrait} name=${cta.name} size=${32} />${cta.name}</span>
+    <${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.short}<//>
+    <${PickAdvice} />
   </div>`;
 }
 
@@ -2623,9 +2695,9 @@ function VerdictPanel() {
   const threats = (V.tied || [V.shown]).map(p => threatsFor(p, c)[0]);
   const threat = threats.every(t => t === threats[0]) ? threats[0] : null;
   const unknown = 5 - V.n;
-  const picked = entry && entry.picked === V.shown;
+  const cta = pickCta();
   const reasons = V.tied ? V.commonReasons : V.reasons;
-  const playing = entry ? entry.picked : V.tied ? null : V.shown;
+  const playing = currentPick() || (V.tied ? null : V.shown);
   // QA-2 : dans le panneau compact, la menace passe juste après le conseil (avant le changement, l'alternative et les raisons),
   // pour rester visible sans défiler à 125 % au-dessus de « Je joue » et « Détails ».
   const threatBox = threat ? html`<section className="p-threat" data-test="panel-threat" aria-label=${t("panel.threat.label")}>
@@ -2671,8 +2743,9 @@ function VerdictPanel() {
       ${playing ? html`<section className="p-win"><b>${t("plan.winIf")}</b><p>${winCondition(playing, c)}</p></section>` : html`<p className="note">${t("panel.choosePlan")}</p>`}
     </details>
     <div className="p-actions">
-      ${V.tied ? null : html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${picked ? " done" : ""}`} title=${CTA_HELP} whileTap=${{ scale:.97 }} onClick=${() => choosePick(V.shown)}>${picked ? t("advice.cta.noted", { champion: name }) : t("advice.cta.play", { champion: name })}<//>`}
+      ${V.tied ? null : html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>`}
       <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" />${t("panel.details")}</button>
+      ${V.tied ? html`<${PickCurrent} />` : html`<${PickAdvice} />`}
     </div>
     ${entry || pending ? html`<div>
       ${pending ? html`<p className="result-note">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
