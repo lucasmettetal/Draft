@@ -166,3 +166,22 @@
 .sd-empty li .ghost-btn { justify-self:start; }
 @media (max-width:900px) { .sd-empty ol { grid-template-columns:minmax(0,1fr); } .sd-hero { grid-template-columns:repeat(2,minmax(0,1fr)); } .sd-podium { grid-template-columns:minmax(0,1fr); } }
 .sd-hero .sd-dash { display:inline-block; width:26px; height:3px; margin:16px 0 15px; overflow:hidden; background:var(--muted); border-radius:2px; color:transparent; font-size:0; vertical-align:middle; }
+
+/* Retouches : rangée à une colonne quand « Pas encore » est vide, observations, performances du journal, navigation */
+.sd-row.single { grid-template-columns:minmax(0,1fr); }
+.sd-observations .sd-obs-sub { margin:0 0 var(--s2); }
+.sd-obs { display:grid; gap:var(--s3); }
+.sd-obs-item { display:grid; gap:2px; padding-left:var(--s3); border-left:2px solid var(--line-strong); }
+.sd-obs-item.good { border-left-color:var(--good); }
+.sd-obs-item.threat { border-left-color:var(--threat); }
+.sd-obs-item b { font-weight:600; font-size:var(--fs-sm); }
+.sd-obs-item p { margin:0; color:var(--muted); font-size:var(--fs-sm); }
+.sd-obs-item p.sd-note { font-size:var(--fs-xs); }
+.sd-notyet.sd-advice { display:grid; margin:0; padding:0; list-style:none; }
+.sd-notyet.sd-advice li { display:grid; grid-template-columns:72px 52px minmax(0,1fr); align-items:center; gap:var(--s2); font-size:var(--fs-sm); }
+.sd-obs.sd-advice { margin:0; padding:0; list-style:none; }
+.sd-perf-title { margin:var(--s1) 0 calc(-1 * var(--s2)); color:var(--muted); font-size:var(--fs-xs); }
+.sd-hero.sm.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.sd-jump { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:calc(-1 * var(--s2)); color:var(--muted); font-size:var(--fs-xs); }
+.sd-jump > span { margin-right:2px; }
+.sd-obs, .sd-notyet ul { margin:0; padding:0; list-style:none; }

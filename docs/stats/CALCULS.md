@@ -122,17 +122,27 @@ Format du journal : [`docs/technique/JOURNAL.md`](../technique/JOURNAL.md) (PR #
 - **Confirmée réelle** : pas de marque, et le joueur a choisi « Partie réelle » (`userOrigin: "real"`).
 - **Simulation** : pas de marque, et le joueur a choisi « Simulation » (`userOrigin: "simulation"`). L'entrée est gardée, jamais supprimée, et peut être reclassée.
 - **Origine inconnue** : aucune marque, aucun choix. Les anciennes versions écrivaient aussi les drafts du Simulateur dans le journal : rien ne permet de les distinguer.
-- **Seules les drafts réelles et confirmées réelles entrent dans les statistiques du journal.** Le nombre d'entrées d'origine inconnue et de simulations écartées est toujours affiché.
 - Le résultat ne se saisit que pour une entrée réelle ou confirmée réelle : une simulation ne devient jamais une partie.
 
-### Mesures (entrées comptées seulement)
+### Trois compteurs distincts
+
+| Compteur | Définition |
+|---|---|
+| **Drafts enregistrées** | toutes les entrées du journal, conservées ; rien n'est supprimé |
+| **Parties confirmées** | `origin === "draft"`, ou `userOrigin === "real"` |
+| **À classer** | origine inconnue, pas encore classée par le joueur |
+
+Les simulations classées par le joueur restent dans « Drafts enregistrées » ; elles ne sont ni confirmées, ni à classer. Le nombre de simulations est écrit sous les compteurs.
+
+### Performances (parties confirmées seulement)
+
+Les entrées à classer restent conservées, mais n'entrent dans **aucune** statistique de performance tant qu'elles ne sont pas classées.
 
 | Mesure | Définition | Dénominateur |
 |---|---|---|
-| Drafts notées | entrées comptées | — |
-| Parties terminées | `result` = `win` ou `loss` | drafts notées |
-| En attente | `result` absent ou `null` | drafts notées |
-| Ignorées | `result` = `skip` | drafts notées |
+| Parties terminées | `result` = `win` ou `loss` | parties confirmées |
+| En attente | `result` absent ou `null` | parties confirmées |
+| Ignorées | `result` = `skip` | parties confirmées |
 | **Conseil suivi** | `picked === suggested`, ou, si `tied === true`, `picked` dans `tiedWith` | **parties terminées**, partout (bandeau, vue d'ensemble, onglet Journal) |
 | Victoires avec / sans le conseil | V parmi les parties terminées de chaque groupe | parties terminées du groupe ; % à partir de 10 |
 
@@ -140,17 +150,20 @@ Format du journal : [`docs/technique/JOURNAL.md`](../technique/JOURNAL.md) (PR #
 - L'ancien bandeau comptait « Conseil suivi » sur toutes les drafts (« 0 sur 5 » sans partie terminée), l'onglet Journal sur les terminées : une seule définition maintenant, et un tiret tant qu'aucune partie n'est terminée.
 - Le journal n'est jamais assimilé à une partie Riot.
 
-### Seuils de « Pas encore »
+### Seuils, « Pas encore » et « Observations »
 
-La colonne « Pas encore » montre la progression vers les seuils de l'étude (`COACHING-ARCHITECTURE.md`), **sans tirer de conclusion**, même seuil atteint :
+Seuils de l'étude (`COACHING-ARCHITECTURE.md`). **Atteindre un seuil n'est pas une preuve** : il autorise seulement à faire le test. Tant qu'un seuil n'est pas atteint, sa jauge est dans « Pas encore ». Une fois atteint, il quitte « Pas encore » et son test donne une observation, avec sa mesure, sa référence et sa règle. Une observation n'est jamais présentée comme une cause.
 
-| Ligne | Mesure | Seuil |
-|---|---|---|
-| Points forts et faibles | parties du champion le plus joué | 30 |
-| Tendance | parties dans le rôle principal | 40 |
-| Vis-à-vis | confrontations avec l'adversaire mid le plus croisé | 10 |
-| Conseil suivi ou autre choix | parties terminées du plus petit des deux groupes | 10 |
+| Sujet | Seuil | Test (`observations()` du module) | Observations possibles |
+|---|---|---|---|
+| Champion (chaque champion d'un rôle) | 30 parties sur le champion **et** 30 sur ses autres champions du même rôle | intervalle de Wilson à 95 % du champion, comparé au taux des autres champions du rôle | nettement au-dessus ; nettement en dessous ; aucun écart net ; seuil atteint mais référence trop petite (aucune comparaison) |
+| Tendance (rôle principal) | 40 parties | deux moitiés dans l'ordre du temps, z = (p2 − p1) / erreur type ; même règle que `performanceTrend` (`draft-mastery.js`) | hausse nette ou baisse nette si \|z\| ≥ 2 ; sinon « Aucune tendance nette détectée » |
+| Vis-à-vis mid (chaque adversaire) | 10 parties contre le même adversaire | Wilson à 99 % dès que plusieurs adversaires sont testés (95 % s'il n'y en a qu'un), comparé au taux de toutes les parties en mid avec adversaire connu | nettement au-dessus ; nettement sous la moyenne ; aucun écart net |
+| Conseil suivi ou autre choix (journal) | 10 parties terminées dans chaque groupe | intervalles de Wilson à 95 % des deux groupes | intervalles disjoints : écart net (jamais une cause : le choix n'est pas tiré au hasard) ; sinon aucun écart net |
 
+- Wilson : `wilson(v, n, z)` du module. Il borne l'intervalle à [0 ; 1].
+- Les observations « aucun écart net » sont affichées après les écarts nets ; la liste montre 4 observations, puis « Afficher les N observations ».
+- La progression et l'observation du conseil suivi sont dans la colonne du journal, jamais dans celle de Riot.
 ## 14. Lignes incomplètes : ce qui est affiché
 
 Sous l'échantillon, une ligne n'apparaît que si un compte est non nul : doublons ignorés, lignes illisibles, sans résultat, remakes écartés, durées converties, sans durée, sans date, sans patch, sans KDA, rôle inconnu, sans identifiant.
@@ -164,5 +177,5 @@ Sous l'échantillon, une ligne n'apparaît que si un compte est non nul : doublo
   - les entrées antérieures à la #33 restent « origine inconnue » tant que le joueur ne les classe pas ;
   - aucune égalité n'est reconstruite pour elles ;
   - le journal ne garde pas le rôle joué.
-- **Conclusions** : aucune. La colonne « Pas encore » montre seulement la distance aux seuils de l'étude.
+- **Conclusions** : aucune cause, aucun conseil tiré des statistiques. Seuil atteint : une observation factuelle, avec son test (§ 13).
 - **125 %** : le banc de mise en page vérifie 1536 × 864 pour Mes statistiques seulement.

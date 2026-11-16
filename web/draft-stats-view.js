@@ -87,12 +87,15 @@
   }
 
   // Chronologie : frise secondaire repliée. Victoires au-dessus du trait, défaites au-dessous ; tranches de 20 avec la dernière.
+  // Listes longues : quelques lignes d'abord, le reste sur demande (1366 × 768).
+  const SLICES_SHOWN = 6, OPPONENTS_SHOWN = 8, JOURNAL_SHOWN = 20, CHAMPIONS_SHOWN = 20, OBS_SHOWN = 4;
   function Timeline({ games }) {
+    const [allSlices, setAllSlices] = React.useState(false);
     const tl = C.timeline(games);
     if (!tl.points.length) return null;
     const a = tl.points[0].time, z = tl.points[tl.points.length - 1].time, span = Math.max(1, z - a), W = 1000;
     const x = tm => 2 + ((tm - a) / span) * (W - 4);
-    return html`<details className="sd-panel sd-timeline" data-test="stats-timeline">
+    return html`<details className="sd-panel sd-timeline" id="sd-timeline" data-test="stats-timeline">
       <summary><span>${t("stats.timeline.title")}</span><small className="num">${tp("stats.timeline.games", tl.points.length)}</small></summary>
       <p className="sd-legend"><span><i className="win"></i>${t("journal.result.win")}</span><span><i className="loss"></i>${t("journal.result.loss")}</span></p>
       <svg viewBox=${`0 0 ${W} 64`} preserveAspectRatio="none" role="img" aria-label=${t("stats.timeline.aria", { games: tl.points.length, from: fmtDate(a), to: fmtDate(z) })}>
@@ -100,9 +103,10 @@
         ${tl.points.map((p, i) => html`<rect key=${i} x=${x(p.time).toFixed(1)} y=${p.win ? 5 : 35} width="2.4" height="24" rx="1" className=${p.win ? "win" : "loss"} />`)}
       </svg>
       <p className="sd-axis num"><span>${fmtDate(a)}</span><span>${fmtDate(z)}</span></p>
-      <ol className="sd-slices">${tl.slices.map(s => html`<li key=${s.from} className=${s.complete ? "" : "current"}>
+      <ol className="sd-slices">${(allSlices ? tl.slices : tl.slices.slice(-SLICES_SHOWN)).map(s => html`<li key=${s.from} className=${s.complete ? "" : "current"}>
         <span className="num">${t("stats.range", { from: s.from, to: s.to })}${s.complete ? "" : ` · ${t("stats.slices.current")}`}</span>
         <${WinBar} b=${s} name=${t("stats.range", { from: s.from, to: s.to })} /><${RecRate} b=${s} /></li>`)}</ol>
+      ${tl.slices.length > SLICES_SHOWN ? html`<p className="sd-more"><button type="button" className="ghost-btn" data-test="slices-all" onClick=${() => setAllSlices(!allSlices)}>${allSlices ? t("stats.more.less") : tp("stats.slices.all", tl.slices.length)}</button></p>` : null}
       <p className="sd-note">${t("stats.slices.note", { min: C.THRESHOLDS.trend })}${tl.undated ? ` ${tp("stats.timeline.undated", tl.undated)}` : ""}</p>
     </details>`;
   }
@@ -142,7 +146,7 @@
     const [champ, setChamp] = React.useState("");
     const [all, setAll] = React.useState(false);
     const m = C.matchups(games, { role, champ: champ || null });
-    const shown = all ? m.opponents : m.opponents.slice(0, 10);
+    const shown = all ? m.opponents : m.opponents.slice(0, OPPONENTS_SHOWN);
     return html`<section className="sd-block" data-test="stats-matchups" aria-labelledby="sd-mu-title">
       <div className="sd-block-head"><h3 id="sd-mu-title">${t("stats.matchups.title")}</h3><small>${t("stats.matchups.sub")}</small></div>
       <div className="sd-filters">
@@ -159,29 +163,81 @@
           <tbody>${shown.map(o => html`<tr key=${o.name}><th scope="row"><span className="sd-champ"><span data-slot="mid" className="sd-face"><${Portrait} name=${o.name} size=${28} /></span><b>${o.name}</b></span></th>
             <td className="num">${o.games}</td><td><${WinBar} b=${o} name=${o.name} /></td><td><${RecRate} b=${o} /></td>
             <td className="sd-played">${o.champs.map(c => html`<span key=${c.name}>${c.name || t("stats.champions.unknown")} <b className="num">${c.games}</b></span>`)}<span className="sd-meta">${roleName("mid")}</span></td></tr>`)}</tbody></table>
-          ${m.opponents.length > 10 ? html`<p className="sd-more"><button type="button" className="ghost-btn" data-test="matchups-all" onClick=${() => setAll(!all)}>${all ? t("stats.matchups.less") : tp("stats.matchups.allOpponents", m.opponents.length)}</button></p>` : null}`}
+          ${m.opponents.length > OPPONENTS_SHOWN ? html`<p className="sd-more"><button type="button" className="ghost-btn" data-test="matchups-all" onClick=${() => setAll(!all)}>${all ? t("stats.more.less") : tp("stats.matchups.allOpponents", m.opponents.length)}</button></p>` : null}`}
       <p className="sd-note">${t("stats.matchups.midOnly")} ${t("stats.matchups.noPercent", { min: MIN })}${m.available && m.withoutOpponent ? ` ${tp("stats.matchups.withoutOpponent", m.withoutOpponent)}` : ""}</p>
     </section>`;
   }
 
-  // « Pas encore » : progression vers les seuils de l'étude, sans conclusion.
+  // « Pas encore » : seuils de l'étude non atteints. Un seuil atteint quitte cette colonne pour « Observations ».
+  const ProgressLine = ({ test, have, need, text }) => html`<li data-test=${test}>
+      <span className="sd-prog" role="img" aria-label=${t("stats.notYet.aria", { have, need })}><i style=${{ width: `${Math.min(100, 100 * have / need).toFixed(0)}%` }}></i></span>
+      <span className="num sd-prog-n">${t("stats.notYet.count", { have, need })}</span><span>${text}</span></li>`;
   function NotYet({ games, j }) {
     const p = C.progress(games, j);
-    const line = (test, have, need, text) => html`<li key=${test} data-test=${test}>
-      <span className="sd-prog" role="img" aria-label=${t("stats.notYet.aria", { have, need })}><i style=${{ width: `${Math.min(100, 100 * have / need).toFixed(0)}%` }}></i></span>
-      <span className="num sd-prog-n">${t("stats.notYet.count", { have: Math.min(have, need), need })}</span><span>${text}</span></li>`;
+    const lines = [];
+    if (!p.champion.reached) lines.push(html`<${ProgressLine} key="c" test="notyet-champion" have=${p.champion.have} need=${p.champion.need} text=${p.champion.subject ? t("stats.notYet.champion", { champion: p.champion.subject, min: p.champion.need }) : t("stats.notYet.championNone", { min: p.champion.need })} />`);
+    if (!p.trend.reached) lines.push(html`<${ProgressLine} key="t" test="notyet-trend" have=${p.trend.have} need=${p.trend.need} text=${t("stats.notYet.trend", { role: roleName(p.trend.subject || "unknown"), min: p.trend.need })} />`);
+    if (!p.opponent.reached) lines.push(html`<${ProgressLine} key="o" test="notyet-opponent" have=${p.opponent.have} need=${p.opponent.need} text=${p.opponent.subject ? t("stats.notYet.opponent", { champion: p.opponent.subject, min: p.opponent.need }) : t("stats.notYet.opponentNone", { min: p.opponent.need })} />`);
+    if (!lines.length) return null;
     return html`<section className="sd-panel sd-notyet" data-test="stats-notyet" aria-labelledby="sd-ny-title">
-      <h3 id="sd-ny-title">${t("stats.notYet.title")}</h3>
-      <ul>
-        ${line("notyet-champion", p.champion.have, p.champion.need, p.champion.subject ? t("stats.notYet.champion", { champion: p.champion.subject, min: p.champion.need }) : t("stats.notYet.championNone", { min: p.champion.need }))}
-        ${line("notyet-trend", p.trend.have, p.trend.need, t("stats.notYet.trend", { role: roleName(p.trend.subject || "unknown"), min: p.trend.need }))}
-        ${line("notyet-opponent", p.opponent.have, p.opponent.need, p.opponent.subject ? t("stats.notYet.opponent", { champion: p.opponent.subject, min: p.opponent.need }) : t("stats.notYet.opponentNone", { min: p.opponent.need }))}
-        ${line("notyet-advice", p.advice.have, p.advice.need, t("stats.notYet.advice", { followed: p.advice.followed, other: p.advice.other, min: p.advice.need }))}
-      </ul>
+      <h3 id="sd-ny-title">${t("stats.notYet.title")}</h3><ul>${lines}</ul>
       <p className="sd-note">${t("stats.notYet.note")}</p>
     </section>`;
   }
 
+  // Observations : seuil atteint, résultat du test de COACHING-ARCHITECTURE.md avec sa preuve. Jamais une cause.
+  const recOf = m => rec({ wins: m.wins, losses: m.games - m.wins });
+  const TONE = { above: "good", up: "good", below: "threat", down: "threat", flat: "", noReference: "" };
+  function describeObs(o) {
+    const role = roleName(o.role), m = o.measure;
+    if (o.kind === "champion" && o.status === "noReference") return { test: "obs-champion", title: t("stats.obs.championNoRef", { champion: o.subject, games: m.games, refGames: o.reference.games, role, min: o.rule.ref }) };
+    if (o.kind === "champion") return { test: "obs-champion",
+      title: t(o.status === "above" ? "stats.obs.championAbove" : o.status === "below" ? "stats.obs.championBelow" : "stats.obs.championFlat", { champion: o.subject, role }),
+      proof: t("stats.obs.championProof", { record: recOf(m), games: m.games, rate: pct(m.rate), low: pct(m.interval[0]), high: pct(m.interval[1]), role, ref: pct(o.reference.rate), refGames: o.reference.games }),
+      rule: t("stats.obs.championRule", { min: o.rule.min }) };
+    if (o.kind === "trend") return { test: "obs-trend",
+      title: t(o.status === "up" ? "stats.obs.trendUp" : o.status === "down" ? "stats.obs.trendDown" : "stats.obs.trendFlat", { role }),
+      proof: t("stats.obs.trendProof", { older: pct(m.older.rate), olderGames: m.older.games, newer: pct(m.newer.rate), newerGames: m.newer.games }),
+      rule: t("stats.obs.trendRule", { min: o.rule.min }) };
+    if (o.kind === "opponent") return { test: "obs-opponent",
+      title: t(o.status === "above" ? "stats.obs.opponentAbove" : o.status === "below" ? "stats.obs.opponentBelow" : "stats.obs.opponentFlat", { champion: o.subject }),
+      proof: t("stats.obs.opponentProof", { record: recOf(m), rate: pct(m.rate), low: pct(m.interval[0]), high: pct(m.interval[1]), ref: pct(o.reference.rate), refGames: o.reference.games }),
+      rule: t("stats.obs.opponentRule", { min: o.rule.min, level: o.rule.level, count: o.rule.tested }) };
+    return { test: "obs-advice",
+      title: t(o.status === "above" ? "stats.obs.adviceAbove" : o.status === "below" ? "stats.obs.adviceBelow" : "stats.obs.adviceFlat"),
+      proof: t("stats.obs.adviceProof", { followed: `${rec(m.followed)}, ${pct(m.followed.wins / m.followed.games)}`, other: `${rec(m.other)}, ${pct(m.other.wins / m.other.games)}` }),
+      rule: t("stats.journal.compare.warning") };
+  }
+  const ObsItem = ({ o }) => { const d = describeObs(o); return html`<li className=${`sd-obs-item ${TONE[o.status] || ""}`} data-test=${d.test}>
+      <b>${d.title}</b>${d.proof ? html`<p>${d.proof}</p>` : null}${d.rule ? html`<p className="sd-note">${d.rule}</p>` : null}</li>`; };
+  function ObsList({ list, test }) {
+    const [all, setAll] = React.useState(false);
+    // Les écarts nets d'abord, puis l'absence d'écart.
+    const sorted = list.slice().sort((a, b) => (TONE[a.status] ? 0 : 1) - (TONE[b.status] ? 0 : 1));
+    const shown = all ? sorted : sorted.slice(0, OBS_SHOWN);
+    return html`<ul className="sd-obs" data-test=${test}>${shown.map((o, i) => html`<${ObsItem} key=${o.kind + (o.subject || "") + i} o=${o} />`)}</ul>
+      ${sorted.length > OBS_SHOWN ? html`<p className="sd-more"><button type="button" className="ghost-btn" data-test="obs-all" onClick=${() => setAll(!all)}>${all ? t("stats.more.less") : tp("stats.obs.all", sorted.length)}</button></p>` : null}`;
+  }
+  function Observations({ games }) {
+    const list = C.observations(games, null).filter(o => o.kind !== "advice");
+    if (!list.length) return null;
+    return html`<section className="sd-panel sd-observations" id="sd-obs" data-test="stats-observations" aria-labelledby="sd-obs-title">
+      <h3 id="sd-obs-title">${t("stats.obs.title")}</h3><p className="sd-note sd-obs-sub">${t("stats.obs.sub")}</p>
+      <${ObsList} list=${list} test="obs-list" />
+    </section>`;
+  }
+  // Conseil suivi ou autre choix (journal) : progression vers 10 parties par groupe, puis observation.
+  function AdviceStatus({ j }) {
+    const p = C.progress([], j).advice;
+    if (!p.reached) return html`<ul className="sd-notyet sd-advice"><${ProgressLine} test="notyet-advice" have=${p.have} need=${p.need} text=${t("stats.notYet.advice", { followed: p.followed, other: p.other, min: p.need })} /></ul>`;
+    const o = C.observations([], j).find(x => x.kind === "advice");
+    return o ? html`<ul className="sd-obs sd-advice"><${ObsItem} o=${o} /></ul>` : null;
+  }
+  // Navigation dans la colonne Riot : la page est longue à 1366 × 768.
+  function JumpNav({ items }) {
+    const go = id => { const e = document.getElementById(id); if (e) { if (e.tagName === "DETAILS") e.open = true; e.scrollIntoView({ block: "start" }); } };
+    return html`<nav className="sd-jump" aria-label=${t("stats.jump.label")} data-test="stats-jump"><span>${t("stats.jump.label")}</span>${items.map(([id, key]) => html`<button key=${id} type="button" className="mini-btn" onClick=${() => go(id)}>${t(key)}</button>`)}</nav>`;
+  }
   function RiotColumn({ data, onAll }) {
     const { read, games } = data;
     if (!games.length) return html`<section className="sd-riot" data-test="stats-history" aria-label=${t("stats.history.title")}>
@@ -195,10 +251,12 @@
       <${RiotHead} read=${read} />
       <${Hero} s=${s} />
       <${Sample} s=${s} read=${read} />
-      <div className="sd-row"><${Roles} games=${games} /><${NotYet} games=${games} j=${data.journal} /></div>
-      <${Timeline} games=${games} />
+      <${JumpNav} items=${[["sd-roles-title", "stats.roles.title"], ...(C.observations(games, null).some(o => o.kind !== "advice") ? [["sd-obs", "stats.obs.title"]] : []), ["sd-champs-title", "stats.champions.title"], ["sd-mu-title", "stats.matchups.title"], ["sd-timeline", "stats.jump.timeline"]]} />
+      <div className=${`sd-row${C.progress(games, null).champion.reached && C.progress(games, null).trend.reached && C.progress(games, null).opponent.reached ? " single" : ""}`}><${Roles} games=${games} /><${NotYet} games=${games} /></div>
+      <${Observations} games=${games} />
       <${Champions} games=${games} onAll=${onAll} />
       <${Matchups} games=${games} />
+      <${Timeline} games=${games} />
     </section>`;
   }
 
@@ -232,22 +290,28 @@
   }
   function JournalNotes({ j }) {
     return html`${j.pending ? html`<p className="sd-info">${tp("stats.journal.pending", j.pending)}</p>` : null}
-      ${j.unknown ? html`<p className="sd-info" data-test="journal-unknown">${tp("stats.journal.unknown", j.unknown)}</p>` : null}
+      ${j.toSort ? html`<p className="sd-info" data-test="journal-unknown">${tp("stats.journal.unknown", j.toSort)}</p>` : null}
       ${j.simulations ? html`<p className="small">${tp("stats.journal.simulations", j.simulations)}</p>` : null}`;
   }
+  // Trois compteurs distincts, puis les performances, calculées sur les parties confirmées seulement.
   function JournalKpis({ j }) {
     const f = j.finished;
-    return html`<div className="sd-hero sm">
-      <${Kpi} test="kpi-drafts" label=${t("stats.kpi.drafts")} value=${j.drafts} />
+    return html`<div className="sd-hero sm" data-test="journal-counts">
+      <${Kpi} test="kpi-recorded" label=${t("stats.journal.kpi.recorded")} value=${j.recorded} sub=${t("stats.journal.kpi.recordedHow")} />
+      <${Kpi} test="kpi-confirmed" label=${t("stats.journal.kpi.confirmed")} value=${j.confirmed} sub=${t("stats.journal.kpi.confirmedHow")} />
+      <${Kpi} test="kpi-tosort" label=${t("stats.journal.kpi.toSort")} value=${j.toSort} sub=${t("stats.journal.kpi.toSortHow")} />
+    </div>
+    <p className="sd-perf-title">${t("stats.journal.perf.title")}</p>
+    <div className="sd-hero sm two" data-test="journal-perf">
       <${Kpi} test="kpi-finished" label=${t("stats.journal.kpi.finished")} value=${f.games} sub=${f.games ? `${rec(f)}${f.rate !== null ? `, ${pct(f.rate)}` : ""}` : t("stats.journal.kpi.finishedHow")} extra=${f.games < MIN ? html`<${SampleGauge} count=${f.games} />` : null} />
       <${Kpi} test="kpi-followed" label=${t("stats.journal.kpi.followed")} value=${f.games ? j.followed.games : DASH} sub=${f.games ? tp("stats.journal.kpi.followedOf", f.games) : t("stats.journal.kpi.followedNone")} />
     </div>`;
-  }
-  function JournalPanel({ j, onAll }) {
+  }  function JournalPanel({ j, onAll }) {
     const head = html`<header className="sd-head"><span className="sd-mark"><${Icon} path=${ICON_DRAFT} box="0 0 24 24" /></span><div className="sd-titles"><h2>${t("stats.journal.heading")}</h2><p>${t("stats.journal.source")}</p></div></header>`;
-    if (!j.total) return html`<section className="sd-journal box" data-test="stats-journal">${head}<p className="empty-note">${t("stats.overview.emptyJournal")}</p></section>`;
+    if (!j.recorded) return html`<section className="sd-journal box" data-test="stats-journal">${head}<p className="empty-note">${t("stats.overview.emptyJournal")}</p></section>`;
     return html`<section className="sd-journal box" data-test="stats-journal">${head}
       <${JournalKpis} j=${j} /><${JournalNotes} j=${j} />
+      <${AdviceStatus} j=${j} />
       <h3>${t("stats.recent.title")}</h3>
       <ul className="sd-jlist" data-test="stats-recent">${j.entries.slice(0, 5).map(r => html`<${JournalRow} key=${r.entry.id} row=${r} />`)}</ul>
       <p className="sd-more"><button type="button" className="ghost-btn" data-test="stats-all-journal" onClick=${onAll}>${t("stats.recent.all")}</button></p>
@@ -262,22 +326,24 @@
   }
   // Onglet Journal : toutes les entrées, origine, saisie, comparaison du conseil, import et export.
   function JournalFull() {
+    const [n, setN] = React.useState(JOURNAL_SHOWN);
     const j = C.journal(loadJournal());
+    const left = j.entries.length - n;
     return html`<section className="box box-pad sd-journal-full" data-test="stats-journal-full">
       <h2 className="box-title">${t("stats.journal.title")}</h2>
-      ${j.total ? html`<${JournalKpis} j=${j} /><${JournalNotes} j=${j} />
-        <h3>${t("stats.journal.compare.title")}</h3><${JournalCompare} j=${j} />
+      ${j.recorded ? html`<${JournalKpis} j=${j} /><${JournalNotes} j=${j} />
+        <h3>${t("stats.journal.compare.title")}</h3><${JournalCompare} j=${j} /><${AdviceStatus} j=${j} />
         <p className="small">${t("stats.journal.followedDef")} ${t("stats.journal.tieNote")}</p>
         <h3>${t("stats.journal.all")}</h3>
-        <ul className="sd-jlist full" data-test="journal-table">${j.entries.map(r => html`<${JournalRow} key=${r.entry.id} row=${r} />`)}</ul>
-        <p className="sd-more"><button type="button" className="ghost-btn" onClick=${exportJournal}>${t("journal.download")}</button></p>`
+        <ul className="sd-jlist full" data-test="journal-table">${j.entries.slice(0, n).map(r => html`<${JournalRow} key=${r.entry.id} row=${r} />`)}</ul>
+        <p className="sd-more">${left > 0 ? html`<button type="button" className="ghost-btn" data-test="journal-more" onClick=${() => setN(n + JOURNAL_SHOWN)}>${tp("stats.journal.more", Math.min(left, JOURNAL_SHOWN), { total: j.entries.length })}</button> ` : null}<button type="button" className="ghost-btn" onClick=${exportJournal}>${t("journal.download")}</button></p>`
         : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
       <${JournalImport} />
     </section>`;
   }
-
   // ---------- Onglet Historique Riot : import, liste complète des champions, anciens imports ----------
   function HistoryTab() {
+    const [allChamps, setAllChamps] = React.useState(false);
     const { read, games } = readAll();
     const all = C.byChampion(games);
     return html`<div className="sd-history">
@@ -291,7 +357,8 @@
         <p className="small" data-test="stats-collect">${t("stats.history.collect")}</p>
       </section>
       ${all.length ? html`<section className="box box-pad" data-test="stats-champion-table"><h2 className="box-title">${t("stats.champions.titleAll")} <small>${tp("stats.champions.count", all.length)}</small></h2>
-        <${ChampionRows} list=${all} max=${all[0].games} /></section>` : null}
+        <${ChampionRows} list=${allChamps ? all : all.slice(0, CHAMPIONS_SHOWN)} max=${all[0].games} />
+        ${all.length > CHAMPIONS_SHOWN ? html`<p className="sd-more"><button type="button" className="ghost-btn" data-test="champions-more" onClick=${() => setAllChamps(!allChamps)}>${allChamps ? t("stats.more.less") : tp("stats.champions.all", all.length)}</button></p>` : null}</section>` : null}
       <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} />
         ${hostState.available ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="import-stats" onClick=${() => hostSend({ cmd: "importStats" })}>${t("stats.oldFile.stats")}</button></p>` : null}</section>
     </div>`;
@@ -312,7 +379,7 @@
   }
   function Dashboard({ onTab }) {
     const data = readAll();
-    if (!data.games.length && !data.journal.total && !data.read.quality.read) return html`<${EmptySteps} />`;
+    if (!data.games.length && !data.journal.recorded && !data.read.quality.read) return html`<${EmptySteps} />`;
     return html`<div className=${`sd-board${data.games.length ? "" : " no-riot"}`} data-test="stats-dashboard">
       <${RiotColumn} data=${data} onAll=${() => onTab("history")} />
       <${JournalPanel} j=${data.journal} onAll=${() => onTab("journal")} />

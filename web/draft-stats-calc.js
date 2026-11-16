@@ -163,22 +163,23 @@
     return e.tied === true && Array.isArray(e.tiedWith) && e.tiedWith.includes(e.picked);
   }
 
-  // Journal DRAFT : statistiques sur les entrées réelles ou confirmées réelles seulement ; « conseil suivi » sur les parties terminées.
+  // Journal DRAFT. Trois compteurs distincts : enregistrées (toutes, rien n'est supprimé), confirmées (origin "draft" ou
+  // userOrigin "real"), à classer (origine inconnue). Les statistiques de performance (V/D, conseil suivi) ne lisent que les confirmées.
   function journal(entries) {
     const all = (Array.isArray(entries) ? entries : []).filter(e => e && typeof e === "object");
     const finished = e => e.result === "win" || e.result === "loss", won = e => e.result === "win";
-    const counted = all.filter(e => { const o = originOf(e); return o === "draft" || o === "real"; });
-    const done = counted.filter(finished);
-    const dates = counted.map(e => Date.parse(e.date)).filter(isFinite).sort((a, b) => a - b);
+    const confirmed = all.filter(e => { const o = originOf(e); return o === "draft" || o === "real"; });
+    const done = confirmed.filter(finished);
+    const dates = all.map(e => Date.parse(e.date)).filter(isFinite).sort((a, b) => a - b);
     const time = e => Date.parse(e.date) || e.id || 0;
     return {
-      total: all.length, drafts: counted.length,
-      unknown: all.filter(e => originOf(e) === UNKNOWN).length, simulations: all.filter(e => originOf(e) === "simulation").length,
+      recorded: all.length, confirmed: confirmed.length,
+      toSort: all.filter(e => originOf(e) === UNKNOWN).length, simulations: all.filter(e => originOf(e) === "simulation").length,
       finished: record(done, won),
-      pending: counted.filter(e => e.result === null || e.result === undefined).length,
-      skipped: counted.filter(e => e.result === "skip").length,
+      pending: confirmed.filter(e => e.result === null || e.result === undefined).length,
+      skipped: confirmed.filter(e => e.result === "skip").length,
       followed: record(done.filter(followedOf), won), other: record(done.filter(e => !followedOf(e)), won),
-      ties: counted.filter(e => e.tied === true).length,
+      ties: confirmed.filter(e => e.tied === true).length,
       period: dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null,
       entries: all.slice().sort((a, b) => time(b) - time(a)).map(e => {
         const origin = originOf(e);
@@ -187,19 +188,82 @@
     };
   }
 
-  // Progression vers les seuils de l'étude (COACHING-ARCHITECTURE.md). Aucune conclusion, même seuil atteint.
-  const THRESHOLDS = Object.freeze({ champion: 30, trend: 40, opponent: 10, advice: MIN_GAMES });
+  // ---------- Seuils de l'étude (COACHING-ARCHITECTURE.md) : progression, puis observations factuelles ----------
+  // Atteindre un seuil n'est pas une preuve : l'observation dépend d'un test (intervalle de Wilson, écart des deux moitiés).
+  const THRESHOLDS = Object.freeze({ champion: 30, reference: 30, trend: 40, trendZ: 2, opponent: 10, advice: MIN_GAMES });
+  function wilson(wins, games, z) {
+    const q = z || 1.96;
+    if (!games) return [0, 1];
+    const p = wins / games, d = 1 + q * q / games, c = p + q * q / (2 * games), m = q * Math.sqrt((p * (1 - p) + q * q / (4 * games)) / games);
+    return [Math.max(0, (c - m) / d), Math.min(1, (c + m) / d)];
+  }
+  // Deux moitiés dans l'ordre du temps ; z = écart des taux / erreur type. Même règle que performanceTrend (draft-mastery.js).
+  function halves(list) {
+    const sorted = list.filter(g => g.time !== null).sort((a, b) => a.time - b.time), half = Math.floor(sorted.length / 2);
+    const older = sorted.slice(0, half), newer = sorted.slice(half);
+    if (!older.length || !newer.length) return null;
+    const p1 = older.filter(g => g.win).length / older.length, p2 = newer.filter(g => g.win).length / newer.length;
+    const p = sorted.filter(g => g.win).length / sorted.length, se = Math.sqrt(p * (1 - p) * (1 / older.length + 1 / newer.length));
+    return { older: { games: older.length, rate: p1 }, newer: { games: newer.length, rate: p2 }, z: se ? (p2 - p1) / se : 0 };
+  }
+
+  // Progression : seulement ce qui n'a pas encore atteint son seuil.
   function progress(games, journalSummary) {
     const champs = byChampion(games), main = mainRole(games), mids = matchups(games, { role: "mid" }).opponents;
     const j = journalSummary || journal([]);
-    return {
+    const all = {
       champion: { have: champs.length ? champs[0].games : 0, need: THRESHOLDS.champion, subject: champs.length ? champs[0].champ : null },
       trend: { have: main ? games.filter(g => g.role === main).length : 0, need: THRESHOLDS.trend, subject: main },
       opponent: { have: mids.length ? mids[0].games : 0, need: THRESHOLDS.opponent, subject: mids.length ? mids[0].name : null },
       advice: { have: Math.min(j.followed.games, j.other.games), need: THRESHOLDS.advice, followed: j.followed.games, other: j.other.games }
     };
+    Object.keys(all).forEach(k => { all[k].reached = all[k].have >= all[k].need; });
+    return all;
   }
 
+  // Observations factuelles, une fois le seuil atteint. Chaque observation porte sa mesure, sa référence et sa règle.
+  // statut : "above" / "below" (intervalle qui exclut la référence), "up" / "down" (|z| >= 2), "flat" (critère non franchi),
+  // "noReference" (seuil atteint, référence trop petite pour comparer).
+  function observations(games, journalSummary) {
+    const out = [];
+    // Champions : 30 parties sur le champion, 30 sur ses autres champions du même rôle ; Wilson 95 %.
+    C_ROLES.forEach(role => {
+      const inRole = games.filter(g => g.role === role);
+      byChampion(inRole).filter(c => c.games >= THRESHOLDS.champion).forEach(c => {
+        const ref = inRole.filter(g => g.champ !== c.champ), iv = wilson(c.wins, c.games);
+        const base = { kind: "champion", subject: c.champ, role, measure: { wins: c.wins, games: c.games, rate: c.wins / c.games, interval: iv }, rule: { min: THRESHOLDS.champion, ref: THRESHOLDS.reference, level: 95 } };
+        if (ref.length < THRESHOLDS.reference) { out.push(Object.assign(base, { status: "noReference", reference: { games: ref.length } })); return; }
+        const refRate = ref.filter(g => g.win).length / ref.length;
+        out.push(Object.assign(base, { reference: { games: ref.length, rate: refRate }, status: iv[0] > refRate ? "above" : iv[1] < refRate ? "below" : "flat" }));
+      });
+    });
+    // Tendance : rôle principal, 40 parties, |z| >= 2 entre les deux moitiés.
+    const main = mainRole(games), inMain = main ? games.filter(g => g.role === main) : [];
+    if (inMain.length >= THRESHOLDS.trend) {
+      const h = halves(inMain);
+      if (h) out.push({ kind: "trend", subject: main, role: main, measure: h, rule: { min: THRESHOLDS.trend, z: THRESHOLDS.trendZ },
+        status: Math.abs(h.z) >= THRESHOLDS.trendZ ? (h.z > 0 ? "up" : "down") : "flat" });
+    }
+    // Vis-à-vis mid : 10 parties contre le même adversaire ; Wilson 99 % dès que plusieurs adversaires sont testés.
+    const m = matchups(games, { role: "mid" }), tested = m.opponents.filter(o => o.games >= THRESHOLDS.opponent);
+    const midAll = games.filter(g => g.role === "mid" && g.mid), refMid = midAll.length ? midAll.filter(g => g.win).length / midAll.length : null;
+    const z = tested.length > 1 ? 2.576 : 1.96;
+    tested.forEach(o => {
+      const iv = wilson(o.wins, o.games, z);
+      out.push({ kind: "opponent", subject: o.name, role: "mid", measure: { wins: o.wins, games: o.games, rate: o.wins / o.games, interval: iv },
+        reference: { games: midAll.length, rate: refMid }, rule: { min: THRESHOLDS.opponent, level: z > 2 ? 99 : 95, tested: tested.length },
+        status: iv[0] > refMid ? "above" : iv[1] < refMid ? "below" : "flat" });
+    });
+    // Conseil suivi ou autre choix : 10 parties terminées dans chaque groupe ; intervalles qui se recouvrent ou non. Jamais une cause.
+    const j = journalSummary || journal([]), f = j.followed, o = j.other;
+    if (f.games >= THRESHOLDS.advice && o.games >= THRESHOLDS.advice) {
+      const a = wilson(f.wins, f.games), b = wilson(o.wins, o.games);
+      out.push({ kind: "advice", subject: null, measure: { followed: Object.assign({ interval: a }, f), other: Object.assign({ interval: b }, o) }, rule: { min: THRESHOLDS.advice, level: 95 },
+        status: a[0] > b[1] ? "above" : a[1] < b[0] ? "below" : "flat" });
+    }
+    return out;
+  }
+  const C_ROLES = ROLES;
   root.STATS_CALC = Object.freeze({ MIN_GAMES, SLICE, MS_FROM, REMAKE_SEC, POSITIONS, ROLE_OF, ROLES, UNKNOWN,
-    THRESHOLDS, pickSource, readHistory, record, kda, summary, byRole, byChampion, timeline, matchups, journal, originOf, followedOf, progress, mainRole });
+    THRESHOLDS, pickSource, readHistory, record, kda, summary, byRole, byChampion, timeline, matchups, journal, originOf, followedOf, progress, observations, wilson, halves, mainRole });
 })(typeof window !== "undefined" ? window : this);

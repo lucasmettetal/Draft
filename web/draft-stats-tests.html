@@ -74,14 +74,47 @@ const f=C.matchups(g,{champ:"Ahri"});t(f.games===1&&f.opponents.length===1&&f.pl
 // ---------- Journal : origine, dénominateur, égalités ----------
 {const E=(i,o)=>Object.assign({id:i,date:"2026-11-0"+(i%9+1)+"T10:00:00Z",suggested:"Orianna",picked:"Orianna",close:false,enemies:[],mid:"Yasuo",result:null,engine:"2.2"},o||{});
 const J=C.journal([E(1),E(2,{picked:"Ahri"}),E(3,{result:"win"}),E(4,{origin:"draft",app:"3.0.0",result:"win"}),E(5,{origin:"draft",result:"loss",picked:"Ahri"}),E(6,{userOrigin:"real",result:"win"}),E(7,{userOrigin:"simulation",result:"win"}),E(8,{origin:"draft",result:"skip"}),E(9,{origin:"draft"})]);
-t(J.total===9&&J.unknown===3&&J.simulations===1&&J.drafts===5,"origine : 5 comptées (marque draft ou confirmée réelle), 3 inconnues et 1 simulation écartées");
+t(J.recorded===9&&J.confirmed===5&&J.toSort===3&&J.simulations===1,"trois compteurs : 9 enregistrées, 5 confirmées (marque draft ou classée réelle), 3 à classer ; 1 simulation gardée");
 t(J.finished.games===3&&J.finished.wins===2&&J.pending===1&&J.skipped===1,"terminées, en attente, ignorées : sur les entrées comptées");
 t(J.followed.games===2&&J.followed.wins===2&&J.other.games===1,"conseil suivi : sur les parties terminées (2 sur 3), jamais sur toutes les drafts");
 const T=C.journal([E(1,{origin:"draft",result:"win",suggested:"Orianna",picked:"Ahri",tied:true,tiedWith:["Orianna","Ahri"]}),E(2,{origin:"draft",result:"win",suggested:"Orianna",picked:"Viktor",tied:true,tiedWith:["Orianna","Ahri"]}),E(3,{origin:"draft",result:"win",suggested:"Orianna",picked:"Ahri",tiedWith:["Ahri"]})]);
 t(T.followed.games===1&&T.ties===2,"égalité : un ex æquo choisi = conseil suivi ; hors du groupe, non ; sans « tied », aucune égalité reconstruite");
-t(C.journal([]).drafts===0&&C.journal(null).total===0&&C.journal([null,"x"]).total===0,"journal vide ou abîmé : zéro, sans erreur");
+t(C.journal([]).confirmed===0&&C.journal(null).recorded===0&&C.journal([null,"x"]).recorded===0,"journal vide ou abîmé : zéro, sans erreur");
 const P=C.progress(read([...Array(22)].map((_,i)=>row(i))).games,J);
-t(P.champion.have===22&&P.champion.need===30&&P.trend.need===40&&P.opponent.have===22&&P.advice.have===1,"« Pas encore » : progression vers 30, 40, 10 et 10, sans conclusion");}
+t(P.champion.have===22&&P.champion.need===30&&!P.champion.reached&&P.trend.need===40&&!P.trend.reached&&P.opponent.have===22&&P.opponent.reached&&P.advice.have===1,"« Pas encore » : progression vers 30, 40, 10 et 10 ; seuil atteint marqué");}
+
+// ---------- Observations (seuil atteint) : test de COACHING-ARCHITECTURE.md, jamais la seule taille d'échantillon ----------
+{const g=(n,o)=>[...Array(n)].map((_,i)=>row(1000+(o.base||0)+i,Object.assign({},o.f?o.f(i):{},o.fixed||{})));
+const ws=(n,w)=>i=>({win:i<w});
+// Orianna 40 parties (30 V) contre 40 parties des autres mids (15 V) : intervalle de Wilson [0,60 ; 0,86] au-dessus de 0,375.
+let rows=g(40,{base:0,f:ws(40,30),fixed:{champ:"Orianna"}}).concat(g(40,{base:100,f:ws(40,15),fixed:{champ:"Ahri"}}));
+let O=C.observations(read(rows).games,null);
+const ori=O.find(o=>o.kind==="champion"&&o.subject==="Orianna"),ahr=O.find(o=>o.kind==="champion"&&o.subject==="Ahri");
+t(!!ori&&ori.status==="above"&&ori.reference.games===40&&!!ahr&&ahr.status==="below","champion : intervalle qui exclut la moyenne des autres champions du rôle (au-dessus, en dessous)");
+t(near(C.wilson(30,40)[0],0.5970306466284549)||Math.abs(C.wilson(30,40)[0]-0.597)<0.005,"Wilson 95 % calculé (30 sur 40 : borne basse 0,60)");
+// Seuil atteint, mais référence trop petite : pas de comparaison.
+O=C.observations(read(g(30,{base:200,f:ws(30,20),fixed:{champ:"Orianna"}}).concat(g(12,{base:300,f:ws(12,6),fixed:{champ:"Ahri"}}))).games,null);
+t(O.find(o=>o.kind==="champion"&&o.subject==="Orianna").status==="noReference","30 parties sur le champion, 12 sur les autres : seuil atteint, aucune comparaison");
+t(!O.some(o=>o.kind==="champion"&&o.subject==="Ahri"),"12 parties : aucune observation de champion");
+// Tendance : 60 parties en mid, première moitié 7 V sur 30, seconde 23 V sur 30 : |z| >= 2, hausse.
+rows=g(60,{base:400,f:i=>({win:i<30?i<7:i<53,champ:["Orianna","Ahri","Viktor"][i%3]})});
+const up=C.observations(read(rows).games,null).find(o=>o.kind==="trend");
+t(!!up&&up.status==="up"&&up.measure.z>=2&&up.measure.older.games===30,"tendance : hausse nette (z = "+(up?up.measure.z.toFixed(2):"?")+")");
+rows=g(60,{base:500,f:i=>({win:i%2===0,champ:["Orianna","Ahri","Viktor"][i%3]})});
+const flat=C.observations(read(rows).games,null).find(o=>o.kind==="trend");
+t(!!flat&&flat.status==="flat"&&Math.abs(flat.measure.z)<2,"tendance : 60 parties alternées, aucune tendance nette détectée (seuil atteint n'est pas une preuve)");
+t(!C.observations(read(g(39,{base:600,f:ws(39,30)})).games,null).some(o=>o.kind==="trend"),"39 parties dans le rôle : aucune observation de tendance");
+// Vis-à-vis : deux adversaires testés (12 parties chacun) : intervalle à 99 % ; LeBlanc 1 V sur 12 sous la moyenne du mid.
+rows=g(12,{base:700,f:ws(12,1),fixed:{mid:"LeBlanc"}}).concat(g(12,{base:800,f:ws(12,6),fixed:{mid:"Zed"}}),g(40,{base:900,f:ws(40,28),fixed:{mid:"Yasuo"}}));
+O=C.observations(read(rows).games,null).filter(o=>o.kind==="opponent");
+const lb=O.find(o=>o.subject==="LeBlanc"),zd=O.find(o=>o.subject==="Zed");
+t(O.length===3&&lb.rule.level===99&&lb.status==="below"&&zd.status==="flat","vis-à-vis : 99 % dès que plusieurs adversaires sont testés ; sous la moyenne, ou aucun écart net");
+// Conseil suivi ou autre choix : 10 parties terminées par groupe ; intervalles disjoints ou non.
+const EJ=(i,f,w)=>({id:5000+i,date:"2026-11-01T10:00:00Z",suggested:"Orianna",picked:f?"Orianna":"Ahri",origin:"draft",result:w?"win":"loss"});
+const JA=C.journal([...Array(20)].map((_,i)=>EJ(i,true,i<15)).concat([...Array(20)].map((_,i)=>EJ(100+i,false,i<5))));
+t(C.observations([],JA).find(o=>o.kind==="advice").status==="above","conseil suivi : intervalles disjoints (15 V sur 20 contre 5 V sur 20)");
+const JB=C.journal([...Array(12)].map((_,i)=>EJ(i,true,i<7)).concat([...Array(12)].map((_,i)=>EJ(100+i,false,i<6))));
+t(C.observations([],JB).find(o=>o.kind==="advice").status==="flat"&&!C.observations([],C.journal([EJ(1,true,true)])).some(o=>o.kind==="advice"),"conseil suivi : intervalles qui se recouvrent, aucun écart net ; sous 10 par groupe, aucune observation");}
 
 // ---------- Lecture de fichiers de formats différents ----------
 {const OLD={generated:"2025-01-01T00:00:00Z",accounts:["Ancien#TEST"],rows:[row(1,{acct:"Ancien#TEST"})]};
