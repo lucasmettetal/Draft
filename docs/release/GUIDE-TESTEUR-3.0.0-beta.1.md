@@ -42,6 +42,8 @@ Note pour chaque point : OK ou problème, et ce que tu as vu.
 - [ ] **Tes données** : Mon pool montre tes champions par rôle ; Mes statistiques montre ton journal et ton historique, comme dans ta 2.x.
 - [ ] **Langue** : Réglages > Général > Langue. Passe en English, puis reviens en français. La fenêtre change tout de suite.
 - [ ] **Vraie draft** : lecture du client (si tu l'as activée) ou détection par l'écran ; ton rôle attribué par League ; le pool du rôle ; le conseil ; « Je joue » ; le journal. Protocole détaillé : [TEST-DRAFT-REELLE.md](TEST-DRAFT-REELLE.md).
+- [ ] **Choix du champion** : coche un autre champion que le conseil. Le bouton dit « {choix} noté », le conseil reste affiché à part avec « Revenir au conseil ». Mes statistiques > journal : ton choix est noté.
+- [ ] **Simulateur** : une draft simulée n'ajoute rien au journal.
 - [ ] **Panneaux** : ils apparaissent pendant la sélection, se collent au client, disparaissent au lancement de la partie et après un dodge.
 - [ ] **Ctrl+Alt+D** : selon ton cas (voir § 2). Si tu as un second compte Windows, protocole : [TEST-CTRL-ALT-D-REEL.md](TEST-CTRL-ALT-D-REEL.md).
 - [ ] **Plusieurs écrans** (si tu en as) : [PROCEDURE-MULTI-ECRANS.md](../qa/PROCEDURE-MULTI-ECRANS.md).
@@ -76,7 +78,7 @@ Ce que tu changes dans la préversion (pools, exclusions, favoris) **ne revient 
 - **Journal** : dans la préversion, Mes statistiques > **Télécharger le journal** (fichier `draft-journal.json`). Dans ta 2.16.x : **Importer un journal**. Les parties sont ajoutées, rien n'est supprimé (même contrôle du fichier dans les deux versions).
 - **Historique Riot importé** : il reste dans la préversion (`%LOCALAPPDATA%\DRAFT-beta`). Ta 2.x garde le sien.
 - **Langue** : la 2.x n'a que le français.
-- **Attention avec la 2.14** : ce que tu changes dans une 2.14 (pool, exclusions, favori) n'est pas repris par une 3.0 ni par la préversion, qui lisent d'abord les profils par rôle. Le journal, lui, est partagé. Détails : [COMPATIBILITE-2X.md](COMPATIBILITE-2X.md).
+- **Avec la 2.14** : ce que tu changes dans une 2.14 (pool, exclusions, favori) est repris par une 3.0 à jour au lancement suivant ; l'ancien pool est gardé et une notice le dit. Exception : sur des données écrites par une 3.0 plus ancienne (sans repère), rien n'est repris la première fois, une copie est gardée et une notice le dit. Le journal est partagé. Détails : [COMPATIBILITE-2X.md](COMPATIBILITE-2X.md).
 
 ## 7. Nouvelle préversion
 

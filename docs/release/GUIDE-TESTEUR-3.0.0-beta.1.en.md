@@ -42,6 +42,8 @@ For each point, note: OK or problem, and what you saw.
 - [ ] **Your data**: My pool shows your champions per role; My stats shows your journal and your history, as in your 2.x.
 - [ ] **Language**: Settings > General > Language. Switch to English, then back to French. The window changes right away.
 - [ ] **Real draft**: client reading (if you turned it on) or screen detection; the role assigned by League; that role's pool; the advice; "I'm playing"; the journal. Detailed protocol: [TEST-DRAFT-REELLE.md](TEST-DRAFT-REELLE.md) (French).
+- [ ] **Champion choice**: tick another champion than the advice. The button says "{choice} logged", the advice stays shown apart with "Back to advice". My stats > journal: your choice is recorded.
+- [ ] **Simulator**: a simulated draft adds nothing to the journal.
 - [ ] **Panels**: they show during champion select, stick to the client, disappear when the game starts and after a dodge.
 - [ ] **Ctrl+Alt+D**: depending on your case (see § 2). If you have a second Windows account, protocol: [TEST-CTRL-ALT-D-REEL.md](TEST-CTRL-ALT-D-REEL.md) (French).
 - [ ] **Several screens** (if you have them): [PROCEDURE-MULTI-ECRANS.md](../qa/PROCEDURE-MULTI-ECRANS.md) (French).
@@ -76,7 +78,7 @@ What you change in the pre-release (pools, exclusions, favourites) **does not go
 - **Journal**: in the pre-release, My stats > **Download the journal** (file `draft-journal.json`). In your 2.16.x: **Importer un journal**. Games are added, nothing is deleted (same file check in both versions).
 - **Imported Riot history**: it stays in the pre-release (`%LOCALAPPDATA%\DRAFT-beta`). Your 2.x keeps its own.
 - **Language**: 2.x is French only.
-- **Careful with 2.14**: what you change in a 2.14 (pool, exclusions, favourite) is not picked up by a 3.0 or by the pre-release, which read the per-role profiles first. The journal is shared. Details (French): [COMPATIBILITE-2X.md](COMPATIBILITE-2X.md).
+- **With 2.14**: what you change in a 2.14 (pool, exclusions, favourite) is picked up by an up-to-date 3.0 on the next launch; the previous pool is kept and a notice says so. Exception: on data written by an older 3.0 (no marker), nothing is taken the first time, a copy is kept and a notice says so. The journal is shared. Details (French): [COMPATIBILITE-2X.md](COMPATIBILITE-2X.md).
 
 ## 7. New pre-release
 

@@ -15,6 +15,9 @@ Version française : [NOTES-3.0.0-beta.1.md](https://github.com/lucasmettetal/Dr
 - **Displayed roles consistent with the calculation.** A single scale for your lane opponent. The role assigned by League (if client reading is on) picks that role's pool; it is never guessed from the champion.
 - **Explanations faithful to the calculation.** The reasons shown come from the calculation itself. No engine score or threshold changed.
 - **League vocabulary harmonised** across the interface.
+- **Champion choice.** The "I'm playing" button follows your choice: without a choice, "I'm playing {advice}"; with a choice, "{choice} logged", even when it differs from the advice. The advice stays shown apart, with "Back to advice". The journal records your choice and the advice at that moment; in a tie, picking one of the tied champions counts as following the advice.
+- **Simulator out of the journal.** A simulation no longer writes anything to the journal or the validation log.
+- **Pools changed in a 2.x picked up.** If you change a pool in a 2.14 after 3.0, 3.0 picks up that change on the next launch, keeps the previous pool and tells you. Without the marker of a corrected 3.0 (data from an older 3.0), nothing is taken and a copy is kept. Rule (French): [REPRISE-POOLS-2X.md](https://github.com/lucasmettetal/Draft/blob/v3.0.0-beta.1/docs/technique/REPRISE-POOLS-2X.md).
 - **Final QA.** Grey win-rate bar under 50%, single panel readable at 125%, larger panel tools (32 px), Riot history with its period and the 10-game threshold, cause shown when Ctrl+Alt+D is already taken, a panel position is reused only if the panel stays visible.
 
 ## What is special about this pre-release
@@ -31,7 +34,7 @@ Version française : [NOTES-3.0.0-beta.1.md](https://github.com/lucasmettetal/Dr
 - **Multiple screens not tested** (m1): a single screen on the test PC.
 - **m2: language and going back to 2.x.** The pre-release no longer shares its folder with 2.x: 2.x no longer rewrites the pre-release settings. But changes made in the pre-release don't go back to 2.x. To keep your pools: My pool > Export my profiles, then Import in 2.x (same file format). For the journal: My stats > Download the journal, then "Importer un journal" in 2.x.
 - **No automatic move to the final 3.0**: it is downloaded manually too.
-- **2.14 and 3.0 on the same data**: 2.14 reads the played role, its pool and the journal, and erases the chosen language. Pool changes made afterwards in 2.14 are not picked up by 3.0. Details (French): [COMPATIBILITE-2X.md](https://github.com/lucasmettetal/Draft/blob/v3.0.0-beta.1/docs/release/COMPATIBILITE-2X.md).
+- **2.14 and 3.0 on the same data**: 2.14 reads the played role, its pool and the journal, and erases the chosen language. Its pool changes are picked up by 3.0 (see above), except the first time on data from an older 3.0. Details (French): [COMPATIBILITE-2X.md](https://github.com/lucasmettetal/Draft/blob/v3.0.0-beta.1/docs/release/COMPATIBILITE-2X.md).
 - **m3: slow first display of the panels**: 4.5 to 5.1 s after detection the first time (WebView2 start-up), then a few milliseconds.
 - **If 2.x is open on first launch**, a file it holds exclusively is not copied. Home says so and counts these files.
 - If another DRAFT runs during a draft, you will see two sets of panels. The pre-release says so (Home, Settings > Display and windows, balloon): hide the panels of one of them, or quit the other one yourself.
