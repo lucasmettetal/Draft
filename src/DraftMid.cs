@@ -604,7 +604,7 @@ public static class Autostart
             if (now != shownLcuStatus) { shownLcuStatus = now; RefreshUi(); }
         }
 
-        // Phase et nombre d'adversaires uniquement : aucun identifiant, aucun nom.
+        // Phase, nombre d'adversaires et poste attribué uniquement : aucun identifiant, aucun nom.
         string LcuDiag()
         {
             if (lcu == null) return "off";
@@ -613,7 +613,7 @@ public static class Autostart
             return "absent(" + (LcuFactory.LastOpenError != "" ? LcuFactory.LastOpenError : LocalHttpsTransport.LastError) + ")";
         }
 
-        public void TestUseLcu(Func<ILcuTransport> open) { lcu = new LcuSession(open) { RetryMs = 0, PollTimeoutMs = 400 }; lastEnemies = ""; }
+        public void TestUseLcu(Func<ILcuTransport> open) { lcu = new LcuSession(open) { RetryMs = 0, PollTimeoutMs = 400 }; lastEnemies = ""; roleCandidate = null; roleReads = 0; }
         public LcuSession Lcu { get { return lcu; } }
 
         // Verrou fermé : la session n'est jamais créée, le lockfile n'est donc jamais ouvert.
@@ -643,8 +643,11 @@ public static class Autostart
         {
             int pid = 0;
             if (ClientOpen) { uint p; Native.GetWindowThreadProcessId(tracker.Handle, out p); pid = (int)p; }
-            return await LcuDiagnostic.RunAsync(settings.LcuEnabled, pid, typeof(CompanionApp).Assembly.GetName().Version.ToString(3));
+            string report = await LcuDiagnostic.RunAsync(settings.LcuEnabled, pid, typeof(CompanionApp).Assembly.GetName().Version.ToString(3));
+            // Dernière lecture de la boucle de suivi : phase, adversaires visibles et poste attribué, comme dans diagnostic.log.
+            return report + Strings.T("native.diag.lastRead", "state", LcuDiag()) + Environment.NewLine;
         }
+        public string LcuDiagLine { get { return LcuDiag(); } }
 
         async void ShowLcuDiagnostic()
         {
@@ -665,22 +668,32 @@ public static class Autostart
             try
             {
                 LcuSnapshot s = await lcu.PollAsync();
-                if (!s.Available) { UpdateAssignedRole(null); return false; }
-                lcuInfo = s.PhaseName + "/" + (s.EnemyChampionIds == null ? "illisible" : s.EnemyChampionIds.Count.ToString());
+                if (!s.Available) { roleCandidate = null; roleReads = 0; UpdateAssignedRole(null); return false; }
+                // Pendant une sélection, le poste lu est noté aussi (rôle de DRAFT, « aucun » ou « illisible ») : aucune autre donnée de joueur.
+                lcuInfo = s.PhaseName + "/" + (s.EnemyChampionIds == null ? "illisible" : s.EnemyChampionIds.Count.ToString())
+                    + (s.Phase == Phase.Draft ? " poste=" + (s.EnemyChampionIds == null ? "illisible" : s.AssignedRole ?? "aucun") : "");
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
                 AfterPhase(before, machine.Current);
                 ApplyVisibility();
                 PostEnemies(s);
                 // Session illisible : on garde la dernière valeur connue. Hors draft : plus de rôle attribué.
-                if (s.Phase != Phase.Draft) UpdateAssignedRole(null);
-                else if (s.EnemyChampionIds != null) UpdateAssignedRole(s.AssignedRole);
+                // Stabilité : un poste n'est transmis qu'après RoleStableReads lectures identiques d'affilée ; une valeur qui oscille ne change rien.
+                if (s.Phase != Phase.Draft) { roleCandidate = null; roleReads = 0; UpdateAssignedRole(null); }
+                else if (s.EnemyChampionIds != null)
+                {
+                    if (roleReads > 0 && s.AssignedRole == roleCandidate) roleReads++; else { roleCandidate = s.AssignedRole; roleReads = 1; }
+                    if (roleReads >= RoleStableReads) UpdateAssignedRole(roleCandidate);
+                }
                 return true;
             }
             finally { lcuBusy = false; }
         }
 
         // Rôle attribué au joueur pendant la sélection, si le client l'indique. Null sinon : rien n'est deviné.
+        public const int RoleStableReads = 2;
+        string roleCandidate;
+        int roleReads;
         string assignedRole;
         void UpdateAssignedRole(string role)
         {
@@ -1489,6 +1502,8 @@ public static class Autostart
             Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
             Func<string, Task<bool>> wait = async code => { for (int i = 0; i < 100; i++) { if (await run("!!(" + code + ")") == "true") return true; await Task.Delay(50); } return false; };
             if (!await wait("typeof PROFILES !== 'undefined' && hostState.available")) return "(page non prête)";
+            // Données neuves : rôle attribué par League en mode « auto » par défaut, sans choix enregistré (correctif beta.1).
+            if (await run("PREFS.autoRole === 'auto' && !PREFS.autoRoleChosen") != "true") return "(préférence par défaut : " + await run("PREFS.autoRole") + ")";
             await run("saveMyProfile('mid', ['Fizz','Xerath']); saveMyProfile('jungle', ['Viego','Lee Sin']); switchRole('mid','manual'); 1");
             if (!await wait("myRole()==='mid' && PICKS.join()==='Fizz,Xerath'")) return "(changement de rôle)";
             await Task.Delay(400);
@@ -1501,7 +1516,7 @@ public static class Autostart
             await run("localStorage.removeItem('draftProfiles'); localStorage.removeItem('draftProfile'); location.reload(); 1");
             await Task.Delay(600);
             if (!await wait("typeof PROFILES !== 'undefined' && hostState.available && PROFILES.roles.jungle.pool.join()==='Viego,Lee Sin'")) return "(copie de secours non relue)";
-            await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
+            await run("savePrefs({autoRole:'suggest', autoRoleChosen:true}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
             TestSetAssignedRole("jungle");
             if (!await wait("state.assignedRole==='jungle' && myRole()==='mid' && document.querySelector('[data-test=\"role-hint\"]')")) return "(proposition absente)";
             await run("savePrefs({autoRole:'auto'}); 1");
@@ -1516,7 +1531,8 @@ public static class Autostart
             TestSetAssignedRole("support"); TestSetAssignedRole("jungle");
             if (!await wait("myRole()==='mid'")) return "(la correction manuelle n'est pas respectée)";
             TestSetAssignedRole(null);
-            await run("savePrefs({autoRole:'suggest'}); resetRoleSession(); 1");
+            // Retour au défaut (« auto », sans choix enregistré) pour la suite des tests.
+            await run("savePrefs({autoRole:'auto', autoRoleChosen:false}); resetRoleSession(); 1");
             // Après un rechargement, les réglages doivent toujours s'ouvrir par le bouton du panneau.
             OpenFull("settings");
             if (!await wait("document.querySelector('[data-test=\"settings\"]')")) return "(réglages impossibles à ouvrir après rechargement : " + await run("location.search + ' ' + document.readyState") + ")";
@@ -1642,7 +1658,7 @@ public static class Autostart
         // montre le choix fait dans la fenêtre principale, même différent du conseil ; un clic sur ce bouton ne le remplace pas ;
         // « Revenir au conseil » note le conseil partout ; une simulation n'écrit rien dans le journal ; une nouvelle sélection repart
         // sans choix. Pool du test (fictif), aucun appel au client.
-        public string PickReport = "non mesuré";
+        public string PickReport = "non mesuré", PickVisibility = "";
         public async Task<string> TestPickChoice()
         {
             string problem = "";
@@ -1692,8 +1708,13 @@ public static class Autostart
                     if (other == "") { problem += mode + " : aucune draft sans égalité avec un second champion ; "; continue; }
                     string R = json.Serialize(rec), O = json.Serialize(other);
                     int before = int.Parse(await run(full, "loadJournal().length"));
-                    // 1. Choix dans « Ton pool » de la fenêtre principale, différent du conseil.
+                    // 1. CONSULTATION dans « Ton pool » de la fenêtre : vue dans le panneau (« Je joue X »), rien dans le journal.
                     await run(full, "[...document.querySelectorAll('.rank')].find(b => b.dataset.pick === " + O + ").click(); 1");
+                    if (!await waitIn(side, "state.viewed === " + O + " && " + Cta + " && " + Cta + ".textContent.trim() === I18N.t('advice.cta.play', { champion: label(" + O + ") })", 4000))
+                        problem += mode + " : la consultation faite dans la fenêtre n'arrive pas dans le panneau (« " + await text(side, Cta + " ? " + Cta + ".textContent.trim() : 'absent'") + " ») ; ";
+                    if (int.Parse(await run(full, "loadJournal().length")) != before) problem += mode + " : consulter a écrit dans le journal ; ";
+                    // CONFIRMATION par « Je joue X » dans la fenêtre : notée, vue dans le panneau.
+                    await run(full, FullCta + ".click(); 1");
                     bool shown = await waitIn(side, Cta + " && " + Cta + ".textContent.trim() === " + noted(O) + " && !!document.querySelector('.p-actions [data-test=\"pick-advice\"]')", 4000);
                     string label1 = await text(side, Cta + " ? " + Cta + ".textContent.trim() : 'absent'");
                     if (!shown) problem += mode + " : le panneau ne montre pas le choix " + other + " (bouton « " + label1 + " ») ; ";
@@ -1726,10 +1747,30 @@ public static class Autostart
                     if (await run(side, Cta + " && " + Cta + ".textContent.trim() === " + noted(R)) != "true") problem += mode + " : la simulation a changé le choix du panneau ; ";
                     await run(full, "document.querySelector('[data-test=\"leave-simulation\"]').click(); 1");
                     await waitIn(full, "!simulating", 2000);
-                    // 5. Nouvelle sélection (signal du programme) : plus aucun choix, dans aucune fenêtre.
+                    // 5. Panneau (défaut réel de la beta.1) : « Comparer » ne choisit jamais ; l'alternative se consulte dans le panneau,
+                    // la fenêtre le voit, et « Je joue » la confirme. Commandes visibles sans défiler dans la vraie fenêtre du panneau.
+                    string alt = await text(side, "V.rival ? V.rival.pick : ''");
+                    if (alt != "")
+                    {
+                        string A = json.Serialize(alt), pickedBefore = await text(full, "String(state.picked)");
+                        int c0 = int.Parse(await run(full, "loadJournal().length"));
+                        await run(side, "(document.querySelector('[data-test=\"open-compare\"]') || { click() {} }).click(); 1");
+                        await Task.Delay(800);
+                        if (await text(full, "String(state.picked)") != pickedBefore || int.Parse(await run(full, "loadJournal().length")) != c0 || await run(side, "!state.viewed") != "true") problem += mode + " : « Comparer » a choisi ou consulté ; ";
+                        await run(side, "(document.querySelector('[data-test=\"view-alt\"]') || { click() {} }).click(); 1");
+                        bool altViewed = await waitIn(full, "state.viewed === " + A + " && !!document.querySelector('[data-test=\"stage\"] [data-test=\"viewed\"]')", 4000)
+                            && await waitIn(side, Cta + " && " + Cta + ".textContent.trim() === I18N.t('advice.cta.play', { champion: label(" + A + ") })", 2000);
+                        if (!altViewed) problem += mode + " : l'alternative " + alt + " ne se consulte pas depuis le panneau ; ";
+                        string hidden = await text(side, "(() => { const H = innerHeight, W = innerWidth; const need = [['Je joue', " + Cta + "], ['Détails', document.querySelector('[data-test=\"open-analysis\"]')], ['Revenir au conseil', document.querySelector('[data-test=\"back-to-advice\"]')], ['rôle', document.querySelector('[data-test^=\"role-switch-\"]')]].concat(document.querySelector('.p-threat') ? [['menace', document.querySelector('.p-threat')]] : []); return need.filter(([n, e]) => { if (!e) return true; const r = e.getBoundingClientRect(); return !(r.width > 0 && r.top >= -0.5 && r.bottom <= H + 0.5 && r.left >= -0.5 && r.right <= W + 0.5); }).map(([n]) => n).join(', ') + ' / ' + W + 'x' + H + ' à ' + devicePixelRatio; })()");
+                        if (!hidden.StartsWith(" / ")) problem += mode + " : commandes hors écran pendant la consultation (" + hidden + ") ; ";
+                        PickVisibility += mode + " " + hidden.Substring(hidden.IndexOf('/') + 1).Trim() + " ; ";
+                        await run(side, Cta + ".click(); 1");
+                        if (!await waitIn(full, "state.current && loadJournal().find(x => x.id === state.current).picked === " + A + " && !state.viewed", 4000)) problem += mode + " : « Je joue " + alt + " » dans le panneau n'est pas noté ; ";
+                    }
+                    // 6. Nouvelle sélection (signal du programme) : ni consultation, ni choix, ni rôle manuel, dans aucune fenêtre.
                     SendAll("{\"kind\":\"draftStart\"}");
-                    bool fresh = await waitIn(side, "!state.current && !document.querySelector('[data-test=\"pick-advice\"]') && state.enemies.length === 0", 4000)
-                        && await waitIn(full, "!state.current && !document.querySelector('.rank.picked')", 4000);
+                    bool fresh = await waitIn(side, "!state.current && !state.viewed && !state.roleManual && !document.querySelector('[data-test=\"pick-advice\"]') && state.enemies.length === 0", 4000)
+                        && await waitIn(full, "!state.current && !state.viewed && !document.querySelector('.rank.picked')", 4000);
                     if (!fresh) problem += mode + " : un choix survit à la nouvelle sélection ; ";
                     report.Add(mode + " : conseil " + rec + ", choix " + other + ", bouton « " + label1 + " », marques " + meta + ", journal " + journal1 + " puis " + journal2 + " après le clic, " + journal3 + " après le retour au conseil, " + (int.Parse(await run(full, "loadJournal().length")) - before) + " entrée(s) ajoutée(s), simulation " + (afterSim - count) + " entrée");
                     await run(side, "draftApi.reset(); state.sessionActive = false; state.notice = null; publish(null); 1");
@@ -2306,7 +2347,7 @@ public static class Autostart
                 case "setFollow": SetFollow(val); break;
                 case "setAutoDraft": SetAutoDraft(val); break;
                 case "setDiagnostics": settings.Diagnostics = val; Persist(); RefreshUi(); break;
-                case "setLcu": settings.LcuEnabled = val; if (!val) { lcu = null; assignedRole = null; } Persist(); RefreshUi(); break;
+                case "setLcu": settings.LcuEnabled = val; if (!val) { lcu = null; assignedRole = null; roleCandidate = null; roleReads = 0; } Persist(); RefreshUi(); break;
                 case "saveProfiles": SaveProfilesCopy(m.ContainsKey("json") ? m["json"] as string : null); break;
                 case "setTopmost": settings.Topmost = val; Persist(); UpdatePlacement(true); RefreshUi(); break;
             }
@@ -3062,7 +3103,7 @@ public static class Autostart
             string detailProblem = await app.TestDraftSurvivesDetail(50);
             t(detailProblem == "", "Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (" + app.DetailOpenReport + " ; " + app.SimulationReport + ") " + detailProblem);
             string pickProblem = await app.TestPickChoice();
-            t(pickProblem == "", "Choix du champion dans les vraies fenêtres : le bouton du panneau montre le choix de la fenêtre, un clic ne le remplace pas, retour au conseil, simulation hors du journal, nouvelle sélection sans choix (" + app.PickReport + ") " + pickProblem);
+            t(pickProblem == "", "Choix du champion dans les vraies fenêtres : consulter (fenêtre ou panneau) ne note rien, « Je joue » confirme, « Comparer » ne choisit pas, l'alternative se consulte dans le panneau, synchronisation dans les deux sens, retour au conseil, simulation hors du journal, nouvelle sélection sans choix (" + app.PickReport + " ; commandes visibles : " + app.PickVisibility + ") " + pickProblem);
             string securityProblem = await app.TestPageSecurity();
             t(securityProblem == "", "Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation " + securityProblem);
             // Mise à jour lancée depuis le menu de l'icône : chaque issue répond par une bulle, réglages fermés (UX-1).
@@ -3094,7 +3135,7 @@ public static class Autostart
         }
 
         // QA A2 : rôle attribué par League, de bout en bout (LCU simulé > programme > pages). Pools fictifs, un par rôle.
-        public static string RoleReport = "non mesuré";
+        public static string RoleReport = "non mesuré", DiagReport = "non mesuré";
         static async Task<string> TestAssignedRoleThroughLcu(CompanionApp app)
         {
             string p = "";
@@ -3108,9 +3149,11 @@ public static class Autostart
             Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
             Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
             Func<string, Task<string>> everywhere = async code => { List<string> r = new List<string> { await run(code) }; foreach (string id in new[] { "left", "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null) r.Add(id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code)); } return string.Join(" ", r); };
+            // Panneau qui porte le rôle et le conseil (droit, sinon compact), affiché ou non.
+            Func<string, Task<string>> inSide = async code => { foreach (string id in new[] { "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null) return id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code); } return "aucun panneau"; };
             // La fenêtre vient de s'ouvrir : tant qu'elle n'est pas synchronisée (1,5 s au plus), elle ne diffuse rien aux panneaux.
             await wait("synced");
-            await run("saveMyProfile('top',['Sett','Ornn']); saveMyProfile('jungle',['Viego','Lee Sin']); saveMyProfile('mid',['Fizz','Xerath']); saveMyProfile('adc',['Jinx','Caitlyn']); saveMyProfile('support',['Janna','Lulu']); savePrefs({autoRole:'auto'}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
+            await run("saveMyProfile('top',['Sett','Ornn']); saveMyProfile('jungle',['Viego','Lee Sin']); saveMyProfile('mid',['Fizz','Xerath']); saveMyProfile('adc',['Jinx','Caitlyn']); saveMyProfile('support',['Janna','Lulu']); savePrefs({autoRole:'auto', autoRoleChosen:false}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
             if (!await wait("PREFS.autoRole==='auto' && myRole()==='mid'")) return "(préparation)";
             if (!await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && ['top','jungle','mid','adc','support'].every(r => PROFILES.roles[r].pool.length===2)")).Contains("false"), 8000)) return "(profils non partagés par toutes les pages : " + await everywhere("PROFILE_ROLES.map(r => PROFILES.roles[r].pool.length).join()") + ")";
             string[][] cases = { new[] { "TOP", "top", "Sett,Ornn" }, new[] { "JUNGLE", "jungle", "Viego,Lee Sin" }, new[] { "MIDDLE", "mid", "Fizz,Xerath" }, new[] { "BOTTOM", "adc", "Jinx,Caitlyn" }, new[] { "UTILITY", "support", "Janna,Lulu" } };
@@ -3119,7 +3162,8 @@ public static class Autostart
             foreach (string[] c in cases)
             {
                 sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
-                sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition(c[0], 40, 875);
+                // Format réel du client (case 7, côté rouge, summonerId long), poste en minuscules comme le client l'envoie.
+                sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = LcuSamples.RealSession(c[0].ToLowerInvariant(), 7, 7, 875);
                 await app.PollLcuOnce(); await app.PollLcuOnce();
                 bool good = app.AssignedRole == c[1] && await wait("state.assignedRole==='" + c[1] + "' && myRole()==='" + c[1] + "' && PICKS.join()==='" + c[2] + "'");
                 if (good) ok++; else p += c[0] + " : rôle " + app.AssignedRole + " / page " + await run("myRole() + ' ' + PICKS.join()") + " ; ";
@@ -3141,11 +3185,62 @@ public static class Autostart
             bool cleared = app.AssignedRole == null && await wait("!state.assignedRole");
             sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition("TOP", 40, 3); await app.PollLcuOnce(); await app.PollLcuOnce();
             if (!firstMid || !cleared || !await wait("myRole()==='top' && PICKS.join()==='Sett,Ornn'")) p += "changement de rôle entre deux drafts (" + firstMid + ", " + cleared + ", " + await run("myRole()") + ") ; ";
+
+            // ---------- Correctif beta.1 (test réel : Jungle attribué, DRAFT resté en Mid) ----------
+            // 1. Bascule automatique (défaut) : notice visible dans le panneau, état « détecté », retour au rôle précédent depuis le panneau.
+            // Rôle de départ posé hors sélection, et attendu partout : un changement fait dans la même milliseconde que la fin de draft
+            // peut être recouvert par l'état d'un autre panneau (synchronisation existante, dernier message reçu).
+            Func<string, Task<bool>> roleEverywhere = r => Until(async () => (await everywhere("myRole()")).Split(' ').All(x => x.EndsWith("\"" + r + "\"")), 4000);
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+            await run("switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
+            bool midEverywhere = await roleEverywhere("mid");
+            sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = LcuSamples.RealSession("jungle", 7, 7, 875); await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
+            bool switched = await wait("myRole()==='jungle' && state.roleFrom==='mid'");
+            string notice = await inSide("(() => { const n = document.querySelector('[data-test=\"role-auto\"]'), s = document.querySelector('[data-test=\"role-state\"]'); return (n && n.getBoundingClientRect().bottom <= innerHeight ? 'notice' : 'notice absente ou cachée') + ' | ' + (s ? s.dataset.state : 'sans état'); })()");
+            if (!midEverywhere || !switched || !notice.Contains("notice |") || !notice.Contains("detected")) p += "bascule automatique : départ Mid partout " + midEverywhere + ", rôle " + await run("myRole()") + ", panneau " + notice + " ; ";
+            string undoInfo = await inSide("(() => { const b = document.querySelector('[data-test=\"role-auto-undo\"]'); if (!b) return 'bouton absent'; b.click(); return 'clic'; })()");
+            bool undone = await wait("myRole()==='mid' && state.roleManual && PICKS.join()==='Fizz,Xerath'");
+            string afterUndo = await everywhere("myRole() + '/' + state.roleManual + '/' + state.roleHandled + '/' + state.assignedRole");
+            // 2. Même draft, poste plus tardif et stable (TOP) : la correction manuelle n'est jamais écrasée, DRAFT propose.
+            sim.SessionJson = LcuSamples.RealSession("top", 7, 7, 875); await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
+            bool kept = app.AssignedRole == "top" && await wait("myRole()==='mid' && roleSuggestion()==='top'");
+            if (!undone || !kept) p += "retour depuis le panneau puis poste tardif : " + undone + ", " + kept + " (" + undoInfo + " ; après le retour " + afterUndo + " ; rôle " + await run("myRole()") + ") ; ";
+            // 3. Poste instable (jungle, top, jungle, top) : rien n'est transmis, rien ne bascule. Puis deux lectures identiques : bascule.
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
+            await run("switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
+            await roleEverywhere("mid");
+            sim.PhaseJson = "\"ChampSelect\"";
+            foreach (string pos in new[] { "jungle", "top", "jungle", "top" }) { sim.SessionJson = LcuSamples.RealSession(pos, 7, 7, 875); await app.PollLcuOnce(); }
+            await Task.Delay(300);
+            bool steady = app.AssignedRole == null && await wait("myRole()==='mid' && !state.assignedRole");
+            await app.PollLcuOnce(); await Task.Delay(300);
+            bool stable = app.AssignedRole == "top" && await wait("myRole()==='top'");
+            if (!steady || !stable) p += "stabilité du poste : oscillation sans effet " + steady + ", deux lectures identiques " + stable + " ; ";
+            // 4. Perte de connexion en pleine draft : le rôle reste ; à la reconnexion, rien ne rebascule.
+            sim.Offline = true; await app.PollLcuOnce(); await Task.Delay(300);
+            bool lost = app.AssignedRole == null && await wait("myRole()==='top'");
+            sim.Offline = false; await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
+            bool again = app.AssignedRole == "top" && await wait("myRole()==='top' && !state.roleManual");
+            if (!lost || !again) p += "perte de connexion en pleine draft : " + lost + ", " + again + " ; ";
+            // 5. Diagnostic : le poste lu est noté (aucune autre donnée de joueur), dans diagnostic.log et dans le rapport du menu.
+            sim.SessionJson = LcuSamples.RealSession("jungle", 7, 7, 875); await app.PollLcuOnce();
+            string diagJungle = app.LcuDiagLine;
+            sim.SessionJson = LcuSamples.RealSession("", 7, 7, 875); await app.PollLcuOnce();
+            string diagNone = app.LcuDiagLine;
+            sim.SessionJson = "{\"theirTeam\":[{\"champ"; await app.PollLcuOnce();
+            string diagBad = app.LcuDiagLine;
+            string menuReport = await app.LcuDiagnosticText();
+            if (diagJungle != "ChampSelect/1 poste=jungle" || diagNone != "ChampSelect/1 poste=aucun" || diagBad != "ChampSelect/illisible poste=illisible" || !menuReport.Contains("poste=illisible")) p += "diagnostic du poste : « " + diagJungle + " », « " + diagNone + " », « " + diagBad + " », menu " + menuReport.Contains("poste=") + " ; ";
+            DiagReport = diagJungle + " ; " + diagNone + " ; " + diagBad;
             // Réglage autoRole : « suggest » propose sans changer, « off » ne fait rien.
             sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
-            await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); 1");
+            await run("savePrefs({autoRole:'suggest', autoRoleChosen:true}); switchRole('mid','manual'); resetRoleSession(); 1");
             sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition("JUNGLE", 40, 875); await app.PollLcuOnce(); await app.PollLcuOnce();
             if (!await wait("state.assignedRole==='jungle' && myRole()==='mid' && roleSuggestion()==='jungle'")) p += "autoRole suggest : " + await run("myRole() + ' ' + roleSuggestion()") + " ; ";
+            // « Proposer » choisi : la proposition est encadrée et visible dans le panneau.
+            string hintInfo = "";
+            bool hintOk = await Until(async () => { hintInfo = await inSide("(() => { const h = document.querySelector('[data-test=\"role-hint\"]'); if (!h) return 'absente, rôle ' + myRole() + ', attribué ' + state.assignedRole + ', mode ' + PREFS.autoRole; const r = h.getBoundingClientRect(); return (getComputedStyle(h).borderTopStyle !== 'none' && r.bottom <= innerHeight + 0.5 ? 'visible' : 'cachée') + ' ' + Math.round(r.top) + '..' + Math.round(r.bottom) + ' / ' + innerHeight; })()"); return hintInfo.Contains("visible"); }, 4000);
+            if (!hintOk) p += "autoRole suggest : proposition absente ou cachée dans le panneau (" + hintInfo + ") ; ";
             sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
             await run("savePrefs({autoRole:'off'}); switchRole('mid','manual'); resetRoleSession(); 1");
             sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = SessionWithPosition("JUNGLE", 40, 875); await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
@@ -3159,10 +3254,13 @@ public static class Autostart
             await Until(async () => !(await everywhere("typeof PROFILES!=='undefined' && myRole()==='support'")).Contains("false"), 5000);
             await Task.Delay(300);
             if (app.AssignedRole != null || !await wait("!state.assignedRole && myRole()==='support' && PICKS.join()==='Janna,Lulu'")) p += "sans LCU : rôle manuel non respecté (programme " + app.AssignedRole + ", page " + await run("myRole() + ' ' + PICKS.join() + ' attribué ' + state.assignedRole + ' auto ' + PREFS.autoRole") + " ; toutes les pages : " + await everywhere("myRole()") + ") ; ";
-            await run("savePrefs({autoRole:'suggest'}); switchRole('mid','manual'); resetRoleSession(); 1");
+            // Lecture du client désactivée (réglage de l'e2e) : rôle choisi à la main, raison dite près du sélecteur des panneaux.
+            string manualLine = await inSide("(() => { const s = document.querySelector('[data-test=\"role-state\"]'); return s ? s.dataset.state + ' : ' + s.textContent.trim() + ' / ' + s.title : 'absent'; })()");
+            if (!manualLine.Contains("manual :")) p += "sans LCU : état « à la main » absent du panneau (" + manualLine + ") ; ";
+            await run("savePrefs({autoRole:'auto', autoRoleChosen:false}); switchRole('mid','manual'); resetRoleSession(); 1");
             bool getOnly = sim.Requests.All(LcuEndpoints.IsAllowed);
             if (!getOnly) p += "endpoint non autorisé appelé ; ";
-            RoleReport = ok + "/5 postes, vide et inconnu sans déduction, changement entre drafts, suggest/off, sans LCU ; " + sim.Requests.Count + " requêtes, toutes autorisées : " + getOnly;
+            RoleReport = ok + "/5 postes (format réel), vide et inconnu sans déduction, changement entre drafts, bascule visible et réversible dans le panneau, correction manuelle jamais écrasée, poste instable sans effet, perte de connexion, suggest/off, sans LCU ; diagnostic " + DiagReport + " ; " + sim.Requests.Count + " requêtes, toutes autorisées : " + getOnly;
             f.Hide();
             return p;
         }
