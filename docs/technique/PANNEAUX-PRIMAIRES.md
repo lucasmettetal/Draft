@@ -84,6 +84,7 @@ Dans les panneaux, le matchup, les raisons et le risque du champion consulté so
   - la recherche, désactivée quand les 5 adversaires sont saisis, est masquée (42 px) ;
   - sous 240 px de large : « Détails » passe en icône, « Je joue X » passe sur deux lignes dans le bouton, les cases vides n'affichent plus « Ajouter » (qui débordait sur la voisine), et la source des adversaires (« Lecture du client ») est masquée : avec « Choix net », elle passait sur une seconde ligne (+30 px dans la vraie WebView2).
 - Champion consulté : la carte entière est visible dans le panneau droit et dans le compact à 100 %. Dans le compact à 125 %, seule sa tête (portrait, nom) dépasse au-dessus de la barre ; le nom reste dans « Je joue Vex », et la carte suit en défilant.
+- Limite : à 222 × 511, une égalité à deux (Master Yi = Viego, capture de la bascule) occupe 289..479 px ; la menace (484..548) passe sous la barre (460) et se lit en défilant. Piste : un groupe d'égalité resserré sous 540 px de haut (une ligne par ex æquo, explication repliée).
 - La liste du pool ouverte ajoute environ 180 à 190 px pour 4 champions (45 à 47 px par ligne).
 - Fenêtre : la notice, la proposition et l'état du rôle sont sur une bande sous l'en-tête, qui garde ses 52 px.
 
