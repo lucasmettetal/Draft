@@ -261,7 +261,10 @@
   .rank.tier-bad .force i { background:var(--threat); }
   .force i { transition:background-color .15s; }
   .chosen { position:absolute; top:6px; right:6px; z-index:1; display:flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--prio); border-radius:50%; color:var(--prio-ink); font-size:12px; font-weight:700; }
-  .rank.picked .rank-name { padding-right:18px; }
+  /* Place de la coche (18 px, à 6 px du bord, soit 16 px dans la carte) : une marge, pas une marge intérieure. La boîte du nom s'arrête
+     ainsi 6 px avant la coche, et ses points de suspension aussi (2 px avant, avec padding-right:18px, à 1536 px à 125 %). La ligne du
+     dessous (« Recommandé », « À égalité ») garde toute sa largeur. */
+  .rank.picked .rank-name { margin-right:22px; }
 
   .wincon { margin:0 0 8px; padding:9px 11px; background:transparent; border-left:2px solid var(--prio); border-radius:0; padding:4px 0 4px 12px; font-size:16px; line-height:1.3; }
   .wincon span { display:block; margin-bottom:2px; color:var(--prio); font:600 13px var(--body); }
@@ -712,7 +715,9 @@
   .nav-link[aria-current="page"] .nav-icon { color:var(--text); }
   .nav-icon { flex:none; width:18px; height:18px; }
   .nav-state { display:grid; gap:var(--s2); margin-top:var(--s3); padding:var(--s3); border:0; background:var(--surface); border-radius:var(--r-box); font-size:var(--fs-sm); }
-  .nav-line { display:flex; align-items:center; gap:var(--s2); min-width:0; }
+  /* Une valeur trop longue pour la ligne (textes plus longs que le français, pseudo-langue +30 à 40 %) passe à la ligne au lieu de faire
+     défiler la navigation (2 px mesurés en pseudo-langue). En français et en anglais, rien ne change : tout tient sur une ligne. */
+  .nav-line { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2); min-width:0; }
   .nav-line .lbl { font-weight:600; }
   .nav-line .val { margin-left:auto; color:var(--muted); white-space:nowrap; }
   .nav-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--muted); }

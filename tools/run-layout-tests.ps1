@@ -39,7 +39,7 @@ if (-not $Chrome) { throw 'Chrome introuvable.' }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Base = 'file:///' + ($Web -replace '\\', '/') + '/draft-layout-tests.html'
 $Common = @('--headless=new', '--disable-gpu', '--force-prefers-reduced-motion', '--no-first-run', '--allow-file-access-from-files', "--user-data-dir=$Out\profil-$PID", '--window-size=1960,1120')
-$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-)'
+$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-)'
 $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
@@ -75,6 +75,8 @@ $Runs += , @('accueil configure lecture desactivee', 'state=empty&set=full&page=
 $Runs += , @('accueil erreur de connexion', 'state=empty&set=full&page=home&host=failed', $false)
 $Runs += , @('accueil draft en cours', 'state=live&set=full&page=home&host=on', $false)
 $Runs += , @('sans reseau', 'state=full', $true)
+# Coche et nom : Simulateur 1366, 1536 et 1920 a 125 % (et panneaux), noms longs, chaque champion coche tour a tour. Echoue dans toutes les langues.
+$Runs += , @('coche et nom, noms longs, 125 %', 'coches=1', $false, '--force-device-scale-factor=1.25')
 
 $failures = 0
 $qpsHard = @{}; $qpsMissing = @{}; $qpsOverflow = 0
@@ -84,6 +86,7 @@ $enFixtures = @()
 foreach ($run in $Runs) {
     $args_ = $Common + @('--virtual-time-budget=120000', '--dump-dom')
     if ($run[2]) { $args_ += $OfflineArg }
+    if ($run.Count -gt 3 -and $run[3]) { $args_ += $run[3] }
     $dom = & $Chrome @args_ "$Base`?$($run[1])" 2>$null | Out-String
     $json = [Net.WebUtility]::HtmlDecode([regex]::Match($dom, '<pre id="out"[^>]*>([\s\S]*?)</pre>').Groups[1].Value)
     if (-not $json) { Write-Host "ECHEC : $($run[0]) : aucune mesure"; $failures++; continue }
@@ -104,6 +107,14 @@ foreach ($run in $Runs) {
             if ($v -and $v -ne 'ok') { $key = "SOUS-LE-PLI $k $v"; if (-not $found[$key]) { $found[$key] = @() }; $found[$key] += $frame.Name }
         }
     }
+    # La coche sur le nom n'est pas une affaire de longueur de texte : elle fait echouer le banc dans toutes les langues.
+    $coche = @($found.Keys | Where-Object { $_ -like 'COCHE-*' })
+    if ($coche.Count) {
+        $failures += $coche.Count
+        Write-Host "ECHEC : $($run[0]) : $($coche.Count) coche(s) sur le nom"
+        foreach ($k in ($coche | Sort-Object)) { Write-Host "  $($k.Substring(0, [Math]::Min(140, $k.Length))) <= $(($found[$k] | Select-Object -First 4) -join ', ')"; $found.Remove($k) }
+    }
+    foreach ($frame in $frames.PSObject.Properties) { if ($frame.Value.coches) { Write-Host "  releve $($frame.Name) : $($frame.Value.coches)" } }
     if ($found.Count -and $Lang -eq 'qps') { $qpsOverflow += $found.Count; Write-Host "PSEUDO : $($run[0]) : $($found.Count) debordement(s)"; foreach ($k in ($found.Keys | Sort-Object)) { Write-Host "  $($k.Substring(0, [Math]::Min(110, $k.Length))) <= $(($found[$k] | Select-Object -First 4) -join ', ')" } }
     elseif ($found.Count) {
         $failures += $found.Count
@@ -119,7 +130,8 @@ if ($Lang -eq 'qps') {
     Write-Host "Pseudo-langue : $qpsOverflow debordement(s) liste(s) ci-dessus ; textes hors crochets : $($qpsHard.Count) ; cles ou variables absentes : $($qpsMissing.Count)"
     if ($qpsHard.Count) { $qpsHard.Keys | Sort-Object | ForEach-Object { Write-Host "  Hors crochets : $_" } }
     if ($qpsMissing.Count) { Write-Host ("  Absentes : " + (($qpsMissing.Keys | Sort-Object) -join ' | ')) }
-    if ($qpsMissing.Count) { exit 1 }; exit 0
+    if ($failures) { Write-Host "$failures DEFAUT(S) (coche sur le nom ou mesure absente)" }
+    if ($qpsMissing.Count -or $failures) { exit 1 }; exit 0
 }
 if ($Lang -eq 'en') {
     Write-Host "Anglais : francais visible : $($qpsHard.Count) ; cles ou variables absentes : $($qpsMissing.Count)"
