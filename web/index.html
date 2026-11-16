@@ -508,7 +508,16 @@
   .role-btn.assigned:not(.on) { border-style:dashed; border-color:var(--conn); }
   .role-hint { margin:0; padding:2px 8px 6px; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
   .role-hint .link-btn { margin-left:6px; }
+  /* Proposition et bascule automatique du rôle : un encadré net, dans les panneaux comme dans la fenêtre ; l'action en couleur. */
+  .role-hint { margin:0 8px 6px; padding:5px 8px; border:1px solid var(--prio); border-radius:6px; background:rgba(229,181,90,.08); color:var(--text); }
+  .role-hint [data-test="role-hint-switch"], .role-hint [data-test="role-auto-undo"] { color:var(--prio); font-weight:600; }
+  .role-source { margin:0; padding:0 8px 4px; color:var(--muted); font-size:12px; }
+  /* Panneaux : la notice de bascule dit déjà que League a indiqué le poste ; la ligne « détecté » n'est montrée qu'après (place à 125 %). */
+  .panel .role-auto ~ .role-source.detected { display:none; }
   .top .role-switch { padding:0 4px; }
+  .role-band { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:4px 18px; background:var(--surface); border-bottom:1px solid var(--line); }
+  .role-band .role-hint { margin:0; }
+  .role-band .role-source { padding:0; }
   .profile-backup { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; }
   .file-btn { position:relative; display:inline-flex; align-items:center; cursor:pointer; }
   .file-btn input { position:absolute; inset:0; opacity:0; cursor:pointer; }
@@ -938,8 +947,38 @@
   .p-btn { display:inline-flex; align-items:center; justify-content:center; }
   .details-btn { display:inline-flex; align-items:center; gap:6px; }
   .details-btn .tool-icon { width:14px; height:14px; margin:0; }
-  .p-alt-go { flex:none; color:var(--muted); font:13px var(--body); }
-  .p-alt:hover .p-alt-go { color:var(--text); }
+  .p-alt-go { flex:none; min-height:28px; padding:2px 4px; background:none; border:0; color:var(--muted); font:13px var(--body); text-decoration:underline; }
+  .p-alt-go:hover { color:var(--text); }
+  /* Ligne de l'alternative : un clic sur le champion le consulte ; « Comparer » ouvre la comparaison et ne choisit jamais. */
+  .p-alt-view { flex:1; min-width:0; display:flex; align-items:center; gap:inherit; min-height:40px; padding:0; background:none; border:0; color:inherit; font:inherit; text-align:left; }
+  /* Champion consulté (rien n'est noté) : contour pointillé ; la coche reste au champion confirmé. */
+  .rank.viewed, .tie-item.viewed, .p-pool-row.viewed, .p-alt.viewed { border-color:var(--text); border-style:dashed; }
+  .viewed { display:grid; gap:4px; margin:8px 0 0; padding:8px 10px; background:var(--surface); border:1px dashed var(--text); border-radius:6px; }
+  .viewed-head { display:flex; align-items:center; gap:8px; min-width:0; }
+  .viewed-head > span:nth-child(2) { display:flex; flex-direction:column; min-width:0; margin-right:auto; font:17px var(--condensed); overflow-wrap:anywhere; }
+  .viewed-head small, .viewed-cmp, .viewed-line, .viewed-reasons { color:var(--muted); font-size:var(--fs-xs); }
+  .viewed-cmp { margin:0; color:var(--text); }
+  .viewed-line { margin:0; }
+  .viewed-reasons { margin:0; padding-left:16px; }
+  .viewed-more summary { min-height:24px; color:var(--muted); font-size:13px; cursor:pointer; }
+  .panel .viewed-head small, .panel .viewed-cmp, .panel .viewed-line, .panel .viewed-reasons, .panel .viewed-head .rank-word { font-size:13px; }
+  .role-source.detected { color:var(--good); }
+  .role-source.unknown { color:var(--prio); }
+  /* Tout le pool dans le panneau, replié : une ligne par champion, classée comme « Ton pool ». */
+  .p-pool { margin:0; }
+  .p-pool summary { min-height:28px; padding:4px 0; color:var(--text); font-size:13px; font-weight:600; cursor:pointer; }
+  .p-pool-list { display:grid; gap:4px; margin:4px 0 0; padding:0; list-style:none; }
+  /* Liste repliée : rien n'est mis en page (le contenu d'un details fermé garde sinon des positions, sous le texte suivant). */
+  .p-pool:not([open]) .p-pool-list { display:none; }
+  .p-pool-row { display:flex; align-items:center; gap:8px; width:100%; min-height:36px; padding:3px 8px 3px 3px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); text-align:left; }
+  .p-pool-row:hover { border-color:var(--muted); }
+  .p-pool-row.picked { border-color:var(--prio); box-shadow:inset 0 0 0 1px var(--prio); }
+  .p-pool-name { flex:1; min-width:0; display:flex; flex-direction:column; font:15px var(--condensed); overflow-wrap:anywhere; }
+  .p-pool-name small { font-family:var(--body); }
+  .p-pool-go { flex:none; color:var(--prio); font:600 13px var(--body); }
+  .panel .p-pool-name small { font-size:13px; }
+  .cmp-play { margin:4px 0 6px; }
+  .cmp-play.on { border-color:var(--prio); color:var(--prio); }
   .badge.source { color:var(--muted); }
   /* Libellés de rôle à 12 px (plus de 10,5) : le bouton de retrait du panneau unique descend sous le libellé. */
   .compact-roles .role-tools { position:relative; top:auto; right:auto; transform:none; z-index:1; justify-content:center; }  /* ---------- Harmonisation (UX-7) ---------- */
@@ -1067,11 +1106,13 @@
   /* Panneaux, lisibles à 125 % : 13 px au minimum (16 px physiques) ; libellés de rôle du compact en 12 px semi-gras. */
   .panel .role-traits, .panel .hint, .panel .note, .panel .small, .panel .p-chip, .panel .p-alt small, .panel .p-threat-who, .panel .tie-text small,
   .panel .meter, .panel .meter-delta, .panel .result-note, .panel .role-hint, .panel .link-btn, .panel .role-empty, .panel .badge, .panel .seg-tab,
-  .panel .effects, .panel .opp-line, .panel .alert-line, .panel .p-reasons li, .panel .p-threat p, .panel .p-win p, .panel .tie-title, .panel .coach-line, .panel .pick-advice { font-size:13px; }
+  .panel .effects, .panel .opp-line, .panel .alert-line, .panel .p-reasons li, .panel .p-threat p, .panel .p-win p, .panel .tie-title, .panel .coach-line, .panel .pick-advice, .panel .role-source { font-size:13px; }
   .panel .role-traits, .panel .note, .panel .small, .panel .p-alt small, .panel .hint, .panel .p-threat-who { font-weight:500; }
   .compact-roles .role-icon { font-size:12px; font-weight:600; }
   /* Simulateur en mode simulation : le bandeau prend sa hauteur, la table de draft garde la place restante (grand vide corrigé). */
   .app:has(> .sim-band) { grid-template-rows:52px auto minmax(0,1fr); }
+  .app:has(> .role-band) { grid-template-rows:52px auto minmax(0,1fr); }
+  .app:has(> .sim-band):has(> .role-band) { grid-template-rows:52px auto auto minmax(0,1fr); }
   .sim-band { padding-top:var(--s2); padding-bottom:var(--s2); }
   /* Grand écran : les lignes adverses gardent une hauteur utile au lieu de s'étirer (130 px pour 50 px de contenu). */
   @media (min-height:900px) and (min-width:1101px) { .view .roles { flex:0 0 auto; gap:6px; } .view .roles > .role { flex:0 0 auto; min-height:88px; } .view .roles > .role.is-mid { min-height:96px; } }
@@ -1110,7 +1151,9 @@ if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof
 const { t, tp, tx, fmtDate } = window.I18N;
 // shown : conseil du moteur. picked : champion choisi par le joueur pour cette draft (« Je joue », Ton pool, égalité), ou null ;
 // pickContext : conseil au moment de ce choix (pickContextFor). current : leur entrée de journal (vraies drafts seulement, jamais en simulation).
-const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, picked: null, pickContext: null, boardKey: null };
+// viewed : champion CONSULTÉ (clic dans Ton pool, l'alternative, la liste du pool, une égalité) : ses conseils et sa comparaison
+// s'affichent, rien n'est noté. Seul « Je joue X » CONFIRME (picked). Ni l'un ni l'autre ne survit à la draft.
+const state = { enemies: [], manualMid: null, held: null, shown: null, clear: true, current: null, picked: null, pickContext: null, viewed: null, boardKey: null };
 
 function matchByKeys(names, keysOf, query) {
   const q = norm(query);
@@ -1299,13 +1342,17 @@ const hostSend = msg => { if (IS_HOST) window.chrome.webview.postMessage(msg); }
 // affichés dans la langue de la page. Une variable peut être un autre message. Un ancien texte brut est affiché tel quel.
 const nativeText = m => !m ? "" : typeof m === "string" ? m : t(m.key, Object.fromEntries(Object.entries(m.vars || {}).map(([k, v]) => [k, v && typeof v === "object" && v.key ? nativeText(v) : v])));
 const PREFS_KEY = "draftPrefs";
-const PREFS = Object.assign({ excluded:[], favorite:null, assumeFront:true, coachLevel:"beginner", autoRole:"suggest" }, (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; } })());
+const PREFS = Object.assign({ excluded:[], favorite:null, assumeFront:true, coachLevel:"beginner", autoRole:"auto" }, (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; } })());
+// Rôle attribué par League (docs/technique/PROFILS.md) : « auto » par défaut, le pool du poste est chargé. Un choix fait dans les
+// réglages porte autoRoleChosen. Un « suggest » sans ce marqueur vient de l'ancien défaut, enregistré avec le reste des préférences :
+// il redevient le défaut. « off », qui ne pouvait venir que d'un choix, est respecté même sans marqueur.
+if (PREFS.autoRole === "suggest" && !PREFS.autoRoleChosen) PREFS.autoRole = "auto";
 ENGINE_PREFS.excluded = PREFS.excluded;
 ENGINE_PREFS.favorite = PREFS.favorite;
 const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
 // Le choix du joueur (picked, pickContext) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
 // en retard dans une autre fenêtre (autre processus WebView2), et le bouton d'un panneau montrait alors un ancien choix.
-const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled"];
+const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
 // Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
@@ -1350,6 +1397,7 @@ function storeProfiles() {
 // source : "manual" (clic du joueur) ou "auto" (rôle attribué par le client, si le joueur l'a choisi).
 function switchRole(role, source) {
   if (!PROFILE_ROLES.includes(role)) return;
+  const from = PROFILES.active;
   if (PROFILES.active !== role) {
     PROFILES.active = role;
     storeProfiles();
@@ -1360,8 +1408,9 @@ function switchRole(role, source) {
     PICKS.forEach(p => preloadSplash(label(p)));
     sendProfile();
   }
-  if (source === "manual") state.roleManual = true;
-  if (source === "auto") state.roleHandled = role;
+  // roleFrom : rôle d'avant une bascule automatique, pour la notice « League t'a attribué… · Revenir en … ». Un choix à la main l'efface.
+  if (source === "manual") { state.roleManual = true; state.roleFrom = null; }
+  if (source === "auto") { state.roleHandled = role; state.roleFrom = from && from !== role ? from : null; }
   state.lastAction = null;
   commit();
 }
@@ -1369,12 +1418,25 @@ function handleAssignedRole(role) {
   const value = PROFILE_ROLES.includes(role) ? role : null;
   if (value === state.assignedRole) return;
   state.assignedRole = value;
-  const session = { manual:!!state.roleManual, dismissed:state.roleDismissed, handled:state.roleHandled };
-  if (decideRoleAction(PREFS.autoRole, session, PROFILES.active, value) === "switch") { switchRole(value, "auto"); return; }
+  if (roleDecision() === "switch") { switchRole(value, "auto"); return; }
   publish(null);
 }
-function resetRoleSession() { state.roleManual = false; state.roleDismissed = null; state.roleHandled = null; }
-const roleSuggestion = () => decideRoleAction(PREFS.autoRole, { manual:!!state.roleManual, dismissed:state.roleDismissed, handled:state.roleHandled }, PROFILES.active, state.assignedRole) === "suggest" ? state.assignedRole : null;
+// Décision sur le rôle attribué (decideRoleAction). En « auto », un pool vide n'est pas chargé : il n'y aurait plus aucun conseil.
+// DRAFT propose alors la bascule, comme en mode « proposer ». Rien n'est jamais déduit du champion.
+function roleDecision() {
+  const a = decideRoleAction(PREFS.autoRole, { manual:!!state.roleManual, dismissed:state.roleDismissed, handled:state.roleHandled }, PROFILES.active, state.assignedRole);
+  const pool = state.assignedRole && PROFILES.roles[state.assignedRole] ? PROFILES.roles[state.assignedRole].pool.length : 0;
+  return a === "switch" && !pool ? (state.roleDismissed === state.assignedRole ? "none" : "suggest") : a;
+}
+function resetRoleSession() { state.roleManual = false; state.roleDismissed = null; state.roleHandled = null; state.roleFrom = null; }
+// Nouvelle sélection (message draftStart du programme, reçu par chaque page) : ni consultation, ni confirmation, ni rôle manuel ne
+// survivent à la draft précédente (resetDraft efface aussi viewed, picked et current).
+// Le programme efface le rôle attribué hors sélection : un rôle déjà connu ici vient de cette draft (message draftStart arrivé après
+// la lecture du poste, panneaux créés à ce moment). La bascule, la correction manuelle ou la proposition ignorée sont alors gardées.
+function onDraftStart() { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
+// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : le rôle attribué en attente est traité.
+function afterSync() { if (hostState.available) handleAssignedRole(hostState.assignedRole || null); }
+const roleSuggestion = () => roleDecision() === "suggest" ? state.assignedRole : null;
 
 function savePrefs(change) {
   Object.assign(PREFS, change);
@@ -1403,9 +1465,11 @@ if (channel) channel.onmessage = e => {
   // Seule une page qui connaît la vraie draft répond : deux pages qui s'ouvrent en même temps ne s'écrasent pas.
   if (m.kind === "hello") { if (synced && !simulating) publish(null); return; }
   if (m.kind !== "state") return;
+  const first = !synced;
   synced = true;
   if (simulating) { liveCopy = m; rerender(); return; }
   applyRemote(m);
+  if (first) afterSync();
 };
 function applyRemote(m) {
   SHARED.forEach(k => { state[k] = m[k]; });
@@ -1474,7 +1538,7 @@ function resumeLiveInSimulation() {
   if (!simulating || !liveCopy) return;
   withUndo(t("draft.undo.resumed"), () => {
     ["enemies", "manualMid", "roleOf"].forEach(k => { state[k] = liveCopy[k] === undefined ? undefined : JSON.parse(JSON.stringify(liveCopy[k])); });
-    state.held = null; state.current = null; state.picked = null; state.pickContext = null; state.targetRole = null; state.selected = null; state.notice = null;
+    state.held = null; state.current = null; state.picked = null; state.pickContext = null; state.viewed = null; state.targetRole = null; state.selected = null; state.notice = null;
     state.lastAction = null;
     commit();
   });
@@ -1533,6 +1597,7 @@ function resetDraft() {
   state.current = null;
   state.picked = null;
   state.pickContext = null;
+  state.viewed = null;
   state.roleOf = {};
   state.targetRole = null;
   state.selected = null;
@@ -1544,7 +1609,7 @@ function resetDraft() {
 // Annuler (5 secondes) après une action qui retire des adversaires : Nouvelle draft, Retour arrière.
 // La draft exacte est rétablie. L'annonce reste locale à la fenêtre qui a agi.
 const UNDO_MS = 5000;
-const UNDO_KEYS = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "roleOf", "targetRole", "selected", "notice"];
+const UNDO_KEYS = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice"];
 let undoOffer = null;
 const copyOf = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
 function withUndo(text, action) {
@@ -1624,6 +1689,18 @@ function pickContextFor(pick) {
   const first = V && V.res && V.res.ranking[0];
   return { suggested: tiedWith.includes(pick) ? pick : state.shown, close: !state.clear, tied: tiedWith.length > 0, tiedWith, recommended: first ? first.pick : null };
 }
+// Consulter un champion (sans rien noter) : ses conseils, son plan et sa comparaison avec le conseil s'affichent, le bouton propose
+// « Je joue X ». Consulter le conseil, ou le champion déjà confirmé, revient à l'affichage normal. Le classement ne bouge pas.
+function consult(pick) {
+  // À égalité, aucun nom n'est le conseil à lui seul : chaque ex æquo se consulte, puis se confirme.
+  const isAdvice = !V.tied && pick === V.shown;
+  state.viewed = pick && !isAdvice && pick !== currentPick() && V.res.ranking.some(p => p.pick === pick) ? pick : null;
+  publish(null);
+}
+// Champion consulté encore classé (un adversaire peut l'avoir pris entre-temps), ou null.
+const viewedPick = () => state.viewed && V && !V.none && V.res.ranking.some(p => p.pick === state.viewed) ? state.viewed : null;
+// Champion dont le plan, les menaces et la condition de victoire s'affichent : consulté, sinon confirmé, sinon le conseil.
+const playingPick = () => viewedPick() || currentPick() || (V.tied ? null : V.shown);
 // Origine des entrées créées par cette version : une vraie draft (rien n'est écrit en simulation), et la version de DRAFT.
 // Une entrée sans ces champs vient d'une version plus ancienne : origine inconnue. Rien n'est reconstruit ni migré.
 const JOURNAL_ORIGIN = "draft";
@@ -1633,6 +1710,8 @@ const JOURNAL_ORIGIN = "draft";
 // Simulation : le choix reste dans la simulation. Rien n'est écrit dans le journal, qui ne compte que les vraies drafts.
 function choosePick(pick) {
   if (!pick) return;
+  // Confirmer termine la consultation : le bouton et la coche montrent maintenant le choix confirmé.
+  state.viewed = null;
   if (pick === currentPick() && (state.current || simulating)) { publish(null); return; }
   state.picked = pick;
   state.pickContext = pickContextFor(pick);
@@ -1976,28 +2055,59 @@ function SplashStack({ name }) {
 const TIE_SHOWN = 3;
 const speakVerdict = name => V.tied ? t("advice.speak.tie", { champions: V.tied.map(label).join(", ") }) : t(!V.rival ? "advice.speak.one" : V.clear ? "advice.speak.clear" : "advice.speak.close", { champion: name, rival: V.rival ? label(V.rival.pick) : "" });
 
-// Bouton « Je joue » (fenêtre, barre du bas, panneaux) : il dit toujours le choix du joueur. Sans choix, il propose le conseil ;
-// avec un choix, il le montre noté (« choisi » en simulation, qui n'écrit rien dans le journal). Un clic ne remplace jamais
-// un choix différent du conseil : le conseil reste affiché à part (PickAdvice), avec « Revenir au conseil ».
+// Bouton « Je joue » (fenêtre, barre du bas, panneaux) : la seule CONFIRMATION, qui écrit picked dans le journal (jamais rien dans
+// League). Il vise le champion consulté s'il y en a un, sinon le choix confirmé, sinon le conseil. Il dit toujours qui : un clic ne
+// remplace jamais silencieusement un autre choix. Confirmé, il dit « X noté » (« choisi » en simulation, rien dans le journal).
+// À égalité sans consultation ni choix : pas de bouton, chaque ex æquo se consulte d'abord.
 function pickCta() {
-  const picked = currentPick(), target = picked || V.shown, name = label(target);
+  const picked = currentPick(), viewed = viewedPick(), target = viewed || picked || (V.tied ? null : V.shown);
+  if (!target) return null;
+  const name = label(target), done = !!picked && target === picked;
   return {
-    picked, name,
-    text: picked ? t(simulating ? "advice.cta.chosen" : "advice.cta.noted", { champion: name }) : t("advice.cta.play", { champion: name }),
-    short: picked ? t(simulating ? "advice.mobile.chosen" : "advice.mobile.saved") : t("advice.mobile.play"),
+    picked: done ? picked : null, viewed, target, name,
+    text: done ? t(simulating ? "advice.cta.chosen" : "advice.cta.noted", { champion: name }) : t("advice.cta.play", { champion: name }),
+    short: done ? t(simulating ? "advice.mobile.chosen" : "advice.mobile.saved") : t("advice.mobile.play"),
     help: simulating ? t("advice.cta.simHelp") : CTA_HELP,
     click: () => choosePick(target)
   };
 }
-// Conseil rappelé à part quand le joueur a choisi un autre champion. Le retour au conseil est un clic explicite.
+// Conseil rappelé à part, toujours identifiable : pendant une consultation, « Revenir au conseil » l'annule (rien n'était noté) ;
+// après la confirmation d'un autre champion, il confirme le conseil à la place.
 function PickAdvice() {
-  const picked = currentPick();
-  if (!picked || V.none || V.tied || picked === V.shown) return null;
-  const advice = label(V.shown);
+  if (V.none) return null;
+  const picked = currentPick(), viewed = viewedPick();
+  const advice = V.tied ? V.tied.map(label).join(", ") : label(V.shown);
+  if (!viewed && (!picked || V.tied || picked === V.shown)) return null;
+  const title = viewed ? t("advice.pick.backViewHelp", { viewed: label(viewed) }) : t("advice.pick.backHelp", { picked: label(picked), champion: advice });
   return html`<p className="pick-advice" data-test="pick-advice">
     <span>${t("advice.pick.advice", { champion: advice })}</span>
-    <button type="button" className="link-btn" data-test="back-to-advice" title=${t("advice.pick.backHelp", { picked: label(picked), champion: advice })} onClick=${() => choosePick(V.shown)}>${t("advice.pick.back")}</button>
+    <button type="button" className="link-btn" data-test="back-to-advice" title=${title} onClick=${() => viewed ? consult(null) : choosePick(V.shown)}>${t("advice.pick.back")}</button>
   </p>`;
+}
+// Champion consulté : ses raisons, son risque, son matchup et sa comparaison avec le conseil. Rien n'est noté.
+function compareSummary(a, b) {
+  const cmp = comparePicks(a, b), leader = a.score >= b.score ? a : b, trailer = leader === a ? b : a, lead = leadCriterion(leader, trailer);
+  const other = comparePicks(trailer, leader).decisive.find(r => r.diff > 0);
+  return [Math.abs(cmp.gap) < 1e-9 ? t("compare.summary.tie") : t(Math.abs(cmp.gap) < HOLD_GAP ? "compare.summary.close" : "compare.summary.clear", { champion: label(leader.pick) }),
+    lead ? t(other ? "compare.summary.leadBoth" : "compare.summary.lead", { champion: label(leader.pick), criterion: lead.label, other: label(trailer.pick), otherCriterion: (other || {}).label }) : ""].filter(Boolean).join(" ");
+}
+function ViewedCard({ panel }) {
+  const viewed = viewedPick();
+  if (!viewed) return null;
+  const i = V.order.findIndex(p => p.pick === viewed), entry = V.res.ranking.find(p => p.pick === viewed);
+  const ref = V.res.ranking.find(p => p.pick === (V.tied ? V.tied.find(x => x !== viewed) || V.shown : V.shown));
+  const [word, tone] = i >= 0 ? rankWord(V.order[i], i) : ["", "other"];
+  const matchup = entry.criteria.find(c => c.key === "matchup" && c.text);
+  const reasons = positiveReasons(entry), risk = mainRisk(entry);
+  // Dans les panneaux, la comparaison reste visible ; matchup, raisons et risque se déplient (pas de défilement pour l'essentiel).
+  const details = html`${matchup ? html`<p className="viewed-line">${t("viewed.matchup", { text: matchup.text })}</p>` : null}
+    ${reasons.length ? html`<ul className="viewed-reasons">${reasons.map(r => html`<li key=${r}>${r}</li>`)}</ul>` : null}
+    ${risk ? html`<p className="viewed-line"><b>${t("advice.risk")}</b> ${risk}</p>` : null}`;
+  return html`<section className=${`viewed${panel ? " p-viewed" : ""}`} data-test="viewed" data-pick=${viewed} aria-label=${t("viewed.label")}>
+    <div className="viewed-head"><${Portrait} name=${label(viewed)} size=${panel ? 32 : 36} /><span><small>${t("viewed.label")}</small><b>${label(viewed)}</b></span>${word ? html`<span className=${`rank-word ${tone}`}>${word}</span>` : null}</div>
+    ${ref && ref !== entry ? html`<p className="viewed-cmp" data-test="viewed-compare">${t("viewed.vsAdvice", { summary: compareSummary(entry, ref) })}</p>` : null}
+    ${panel && (matchup || reasons.length || risk) ? html`<details className="viewed-more"><summary>${t("viewed.more")}</summary>${details}</details>` : details}
+  </section>`;
 }
 // À égalité, un choix pris hors des ex æquo (dans Ton pool) est rappelé : aucune case de l'égalité ne le montre.
 function PickCurrent() {
@@ -2013,8 +2123,8 @@ function TieGroup({ detailed }) {
     <p className="tie-title">${tx("advice.tie.heading", { picks: html`<b>${t("advice.tie.count", { count: V.tied.length })}</b>` })}</p>
     <div className="tie-list">
       ${list.map(p => {
-        const chosen = picked === p, why = detailed ? positiveReasons(V.res.ranking.find(x => x.pick === p))[0] : null;
-        return html`<button key=${p} type="button" className=${`tie-item${chosen ? " picked" : ""}`} aria-pressed=${!!chosen} title=${simulating ? t("advice.cta.simHelp") : CTA_HELP} onClick=${() => choosePick(p)}>
+        const chosen = picked === p, seen = viewedPick() === p, why = detailed ? positiveReasons(V.res.ranking.find(x => x.pick === p))[0] : null;
+        return html`<button key=${p} type="button" className=${`tie-item${chosen ? " picked" : ""}${seen ? " viewed" : ""}`} aria-pressed=${!!chosen} aria-current=${seen ? "true" : undefined} data-pick=${p} title=${t("viewed.help")} onClick=${() => consult(p)}>
           <${Portrait} name=${label(p)} size=${36} />
           <span className="tie-text"><span className="tie-name">${label(p)}</span>${p === PREFS.favorite ? html`<small>${t("advice.tie.favorite")}</small>` : null}${why ? html`<small>${why}</small>` : null}</span>
           ${chosen ? html`<span className="tie-check" aria-hidden="true">✓</span>` : null}
@@ -2155,8 +2265,11 @@ function Stage() {
         <div className="badges"><span data-test="badge" className="badge close">${t("advice.badge.tie")}</span>${V.n < 5 ? html`<span data-test="badge" className="badge">${t("advice.badge.enemies", { count: V.n })}</span>` : null}</div>
         <${TieGroup} detailed=${true} />
         <${PickCurrent} />
+        <${ViewedCard} />
         ${V.rival ? html`<div className="alt-line"><em>${t("advice.alt.else")}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
         <div className="stage-notes"><${CoachLine} /><${FamiliarLine} /><${OpponentLine} /></div>
+        ${cta ? html`<button type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} onClick=${cta.click}>${cta.text}</button>` : null}
+        <${PickAdvice} />
       </div>
     </section>`;
   }
@@ -2192,8 +2305,9 @@ function Stage() {
           ${V.without ? html`<p className="note">${t("advice.more.noFront")} <b>${label(V.without)}</b></p>` : null}
         </details>` : null}
       <//>
+      <${ViewedCard} />
       <${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
-        <${motion.span} key=${cta.picked ? "done-" + cta.picked : "take"} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${cta.text}<//>
+        <${motion.span} key=${cta.target + (cta.picked ? "-done" : "")} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${cta.text}<//>
       <//>
       <${PickAdvice} />
     <//>
@@ -2225,11 +2339,12 @@ function Ranking() {
         ${V.order.slice(0, RANK_SHOWN).map((p, i) => {
           const [word, tone] = rankWord(p, i);
           const name = label(p.pick);
-          const isPicked = picked === p.pick;
+          const isPicked = picked === p.pick, isViewed = viewedPick() === p.pick;
           const rows = STAT_ROWS.length ? record(STAT_ROWS.filter(r => r.acct === MAIN_ACCOUNT && r.champ === name)) : null;
           return html`<${motion.button} key=${p.pick} layout="position" transition=${SNAP} type="button" whileHover=${{ y:-2 }} whileTap=${{ scale:.98 }}
             data-pick=${p.pick} aria-pressed=${!!isPicked}
-            className=${`rank tier-${tone}${i === 0 && !V.tied ? " first" : ""}${isPicked ? " picked" : ""}`} onClick=${() => choosePick(p.pick)}>
+            className=${`rank tier-${tone}${i === 0 && !V.tied ? " first" : ""}${isPicked ? " picked" : ""}${isViewed ? " viewed" : ""}`} onClick=${() => consult(p.pick)}
+            aria-current=${isViewed ? "true" : undefined} title=${t("viewed.help")}>
             ${isPicked ? html`<${motion.span} key="chosen" className="chosen" initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${SNAP} title=${t("pool.rank.chosen")}><span aria-hidden="true">✓</span><span className="sr">${t("pool.rank.chosenShort")}</span><//>` : null}
             ${i === 0 && !V.tied ? html`<${motion.span} key=${`best-${p.pick}`} className="rank-glow" aria-hidden="true" initial=${{ opacity:.55 }} animate=${{ opacity:0 }} transition=${{ duration:.45 }} />` : null}
             ${isPicked ? html`<${motion.span} layoutId="picked-ring" className="rank-ring" aria-hidden="true" transition=${SNAP} />` : null}
@@ -2266,7 +2381,7 @@ function PlanBlock() {
   const entry = state.current && list.find(x => x.id === state.current);
   const pending = !entry && !state.enemies.length && [...list].reverse().find(x => x.result === null);
   const c = V.res.counts;
-  const playing = currentPick() || (V.tied ? null : V.shown);
+  const playing = playingPick();
   const threats = playing ? threatsFor(playing, c) : [];
   const targets = playing ? targetsFor(playing, c) : [];
   return html`<section className="plan-block" aria-label=${t("plan.title")}>
@@ -2286,7 +2401,7 @@ const PHASES = [["lane", t("plan.phase.lane")], ["mid", t("plan.phase.mid")], ["
 
 function PlanTab() {
   const [phase, setPhase] = useState("lane");
-  const playing = currentPick() || (V.tied ? null : V.shown);
+  const playing = playingPick();
   if (!playing) return html`<p className="small">${V.tied ? t("plan.chooseTied") : t("plan.noPick")}</p>`;
   const slots = deriveSlots();
   const plan = buildPlan(playing, V.res.counts, V.mid, slots.jungle);
@@ -2366,7 +2481,9 @@ function CompareTab() {
   const entries = V.res.ranking;
   const [pair, setPair] = useState(null);
   if (entries.length < 2) return html`<p className="small">${t("compare.needTwo")}</p>`;
-  const defaults = V.tied ? [V.tied[0], V.tied[1]] : [V.shown, V.rival ? V.rival.pick : entries.find(p => p.pick !== V.shown).pick];
+  // Un champion consulté se compare d'office au conseil.
+  const vw = viewedPick();
+  const defaults = vw ? [V.tied ? V.tied.find(x => x !== vw) || V.shown : V.shown, vw] : V.tied ? [V.tied[0], V.tied[1]] : [V.shown, V.rival ? V.rival.pick : entries.find(p => p.pick !== V.shown).pick];
   const valid = pair && pair.every(p => entries.some(x => x.pick === p)) && pair[0] !== pair[1];
   const [pa, pb] = valid ? pair : defaults;
   const a = entries.find(x => x.pick === pa);
@@ -2392,8 +2509,10 @@ function CompareTab() {
     ${[[a, b], [b, a]].map(([x, y]) => {
       const list = pros(x, y);
       const risk = mainRisk(x);
+      const on = currentPick() === x.pick;
       return html`<div key=${x.pick} className="cmp-side-text">
         <h3>${label(x.pick)}</h3>
+        <button type="button" className=${`ghost-btn cmp-play${on ? " on" : ""}`} data-test="compare-choose" data-pick=${x.pick} aria-pressed=${on} title=${pickTitle()} onClick=${() => choosePick(x.pick)}>${on ? t(simulating ? "advice.cta.chosen" : "advice.cta.noted", { champion: label(x.pick) }) : t("advice.cta.play", { champion: label(x.pick) })}</button>
         <p className="small">${pickStyle(x.pick)}</p>
         ${list.length ? html`<ul className="why">${list.map(t => html`<li key=${t} className="pos">+ ${t}</li>`)}</ul>` : null}
         ${risk ? html`<ul className="why"><li className="neg">− ${risk}</li></ul>` : null}
@@ -2617,8 +2736,8 @@ function SidePanel() {
 }
 function MobileBar() {
   if (V.none) return null;
-  if (V.tied) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span><${PickCurrent} /></div>`;
   const cta = pickCta();
+  if (!cta) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span><${PickCurrent} /></div>`;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${cta.name} size=${32} />${cta.name}</span>
     <${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.short}<//>
@@ -2646,8 +2765,11 @@ function roleSwitchTitle(r) {
   const n = PROFILES.roles[r].pool.length, base = n ? tp("role.switch.title", n, { role: ROLE_NAMES[r] }) : t("role.switch.titleEmpty", { role: ROLE_NAMES[r] });
   return state.assignedRole === r ? t("role.switch.assigned", { title: base }) : base;
 }
-function RoleSwitch() {
-  const suggestion = roleSuggestion();
+// Bascule automatique de cette draft : visible et réversible d'un clic (le retour vaut choix à la main pour la draft). La notice ne vaut
+// que tant que League indique toujours ce poste (poste effacé ou changé : plus de notice, le rôle joué ne change pas pour autant).
+const autoFromRole = () => state.roleFrom && state.roleHandled && state.assignedRole === state.roleHandled && PROFILES.active === state.roleHandled && !state.roleManual ? state.roleFrom : null;
+// notes : proposition, notice de bascule et état du rôle sous les boutons (panneaux). Dans la fenêtre, ils vont dans une bande (RoleBand).
+function RoleSwitch({ notes = true }) {
   return html`<div className="role-switch-wrap">
     <div className="role-switch" role="group" aria-label=${t("role.switch.label")}>
       <span className="role-now" data-test="role-now">${PROFILES.active ? ROLE_NAMES[PROFILES.active] : t("role.switch.none")}</span>
@@ -2656,10 +2778,37 @@ function RoleSwitch() {
         title=${roleSwitchTitle(r)}
         aria-label=${t("role.switch.aria", { role: ROLE_NAMES[r] })} onClick=${() => switchRole(r, "manual")}><${RoleIcon} role=${r} /></button>`)}
     </div>
-    ${suggestion ? html`<p className="role-hint" data-test="role-hint" role="status">${t("role.hint.assigned", { role: ROLE_NAMES[suggestion] })}
+    ${notes ? html`<${RoleNotes} />` : null}
+  </div>`;
+}
+function RoleNotes() {
+  const suggestion = roleSuggestion(), autoFrom = autoFromRole(), rs = roleState();
+  return html`${suggestion ? html`<p className="role-hint" data-test="role-hint" role="status">${t("role.hint.assigned", { role: ROLE_NAMES[suggestion] })}
       <button type="button" className="link-btn" data-test="role-hint-switch" onClick=${() => switchRole(suggestion, "manual")}>${t("role.hint.switch", { role: ROLE_NAMES[suggestion] })}</button>
       <button type="button" className="link-btn" data-test="role-hint-dismiss" aria-label=${t("role.hint.dismiss")} onClick=${() => { state.roleDismissed = suggestion; publish(null); }}>${t("role.hint.dismiss")}</button></p>` : null}
-  </div>`;
+    ${autoFrom ? html`<p className="role-hint role-auto" data-test="role-auto" role="status">${t("role.auto.done", { role: ROLE_NAMES[PROFILES.active] })}
+      <button type="button" className="link-btn" data-test="role-auto-undo" onClick=${() => switchRole(autoFrom, "manual")}>${t("role.auto.undo", { role: ROLE_NAMES[autoFrom] })}</button></p>` : null}
+    ${rs ? html`<p className=${`role-source ${rs.code}`} data-test="role-state" data-state=${rs.code} title=${t(rs.title)}>${t(rs.text)}</p>` : null}`;
+}
+// Fenêtre : l'en-tête garde sa hauteur ; proposition, notice et état du rôle passent dessous, sur une ligne qui n'existe que s'il y a à dire.
+function RoleBand() {
+  if (!roleSuggestion() && !autoFromRole() && !roleState()) return null;
+  return html`<div className="role-band" data-test="role-band"><${RoleNotes} /></div>`;
+}
+// Trois états du rôle, dans la fenêtre et les panneaux : DÉTECTÉ par League (son poste est le rôle joué), CHOISI À LA MAIN (correction
+// pendant la draft, ou lecture du client indisponible : la raison est dite, sans présenter la lecture comme obligatoire), INCONNU
+// (lecture active, sélection en cours, mais League n'indique pas de poste). Rien hors de l'application.
+function roleState() {
+  if (!hostState.available) return null;
+  const reading = hostState.lcuEnabled && hostState.lcuStatus === "connected";
+  const why = !hostState.lcuEnabled || hostState.lcuStatus === "off" ? "role.manual.off" : hostState.lcuStatus === "failed" ? "role.manual.failed" : "role.manual.closed";
+  const manual = text => ({ code:"manual", text, title:text });
+  if (state.roleManual) return manual("role.state.manual");
+  if (!reading) return state.roleHandled && PROFILES.active === state.roleHandled ? { code:"detected", text:"role.state.detected", title:"role.state.detected" } : { code:"manual", text:PANEL ? "role.manual.short" : why, title:why };
+  if (state.assignedRole && state.assignedRole === PROFILES.active) return { code:"detected", text:"role.state.detected", title:"role.state.detected" };
+  // League indique un autre poste (mode « proposer », pool vide) : le rôle joué reste celui du profil, la proposition est affichée.
+  if (state.assignedRole) return manual("role.state.manual");
+  return state.sessionActive ? { code:"unknown", text:"role.state.unknown", title:"role.state.unknown" } : null;
 }
 
 // Outils de l'overlay (UX-6) : trois icônes SVG au lieu de caractères. Réglages d'affichage ouvre Réglages > Affichage et fenêtres.
@@ -2690,6 +2839,26 @@ function TitleBar() {
 // Le nom affiché est-il 1er du classement ? Pendant la draft, il peut être maintenu alors qu'un autre mène de moins de HOLD_GAP points.
 const shownIsFirst = () => { const first = V.res.ranking[0]; return !first || first.pick === V.shown || (first.tiedWith || []).includes(V.shown); };
 
+// Panneaux (interface principale) : CONSULTER un champion = un clic sur l'alternative ou une ligne du pool, comme dans « Ton pool »
+// de la fenêtre ; CONFIRMER = « Je joue X » (bouton principal), jamais un pick envoyé au client. « Comparer » ouvre la comparaison
+// dans la fenêtre et ne choisit jamais. Sémantique de chaque élément : docs/technique/JOURNAL.md.
+const pickTitle = () => simulating ? t("advice.cta.simHelp") : CTA_HELP;
+// Tout le pool classé, replié par défaut : un clic consulte (le bouton propose alors « Je joue X »), la coche marque le confirmé.
+function PanelPool() {
+  if (V.none || V.order.length < 2) return null;
+  const picked = currentPick(), viewed = viewedPick();
+  return html`<details className="p-pool" data-test="panel-pool">
+    <summary>${tp("panel.pool.title", V.order.length)}</summary>
+    <ul className="p-pool-list">${V.order.map((p, i) => {
+      const [word, tone] = rankWord(p, i), n = label(p.pick), on = picked === p.pick, seen = viewed === p.pick;
+      return html`<li key=${p.pick}><button type="button" className=${`p-pool-row${on ? " picked" : ""}${seen ? " viewed" : ""}`} data-test="panel-pool-pick" data-pick=${p.pick} aria-pressed=${on} aria-current=${seen ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(p.pick)}>
+        <${Portrait} name=${n} size=${28} /><span className="p-pool-name">${n}<small className=${`rank-word ${tone}`}>${word}</small></span>
+        <span className="p-pool-go">${on ? html`<span aria-hidden="true">✓ </span>${t("panel.pool.noted")}` : seen ? t("viewed.label") : t("panel.pool.view")}</span>
+      </button></li>`;
+    })}</ul>
+  </details>`;
+}
+
 function VerdictPanel() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
@@ -2702,9 +2871,9 @@ function VerdictPanel() {
   const unknown = 5 - V.n;
   const cta = pickCta();
   const reasons = V.tied ? V.commonReasons : V.reasons;
-  const playing = currentPick() || (V.tied ? null : V.shown);
-  // QA-2 : dans le panneau compact, la menace passe juste après le conseil (avant le changement, l'alternative et les raisons),
-  // pour rester visible sans défiler à 125 % au-dessus de « Je joue » et « Détails ».
+  const playing = playingPick();
+  // QA-2, étendu au panneau droit (correctif beta.1, panneaux primaires) : la menace passe juste après le conseil, avant le champion
+  // consulté, le changement, l'alternative et les raisons, pour rester visible sans défiler à 125 % au-dessus de « Je joue ».
   const threatBox = threat ? html`<section className="p-threat" data-test="panel-threat" aria-label=${t("panel.threat.label")}>
       <${Portrait} name=${threat} size=${36} />
       <div><b>${t("panel.threat.title", { champion: threat })}</b><p>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
@@ -2724,19 +2893,22 @@ function VerdictPanel() {
         <div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div>
       <//>
     </section>`}
-    ${threat && PANEL === "compact" ? threatBox : null}
+    ${threat ? threatBox : null}
+    <${ViewedCard} panel=${true} />
     ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>` : null}
-    ${V.rival ? html`<button type="button" className="p-alt" data-test="open-compare" title=${t("panel.compareTitle")} onClick=${() => openDetail("compare")}>
-      <${Portrait} name=${label(V.rival.pick)} size=${40} />
-      <span className="p-alt-text"><small>${t(V.tied ? "advice.alt.else" : V.clear ? "advice.rank.alternative" : shownIsFirst() ? "panel.alt.almostTie" : "panel.alt.justAhead")}</small>${label(V.rival.pick)}</span>
-      <span className="p-alt-go">${t("panel.compare")}</span>
-    </button>` : null}
+    ${V.rival ? html`<div className=${`p-alt${viewedPick() === V.rival.pick ? " viewed" : ""}`} data-test="alt-line">
+      <button type="button" className="p-alt-view" data-test="view-alt" data-pick=${V.rival.pick} aria-current=${viewedPick() === V.rival.pick ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(V.rival.pick)}>
+        <${Portrait} name=${label(V.rival.pick)} size=${40} />
+        <span className="p-alt-text"><small>${t(V.tied ? "advice.alt.else" : V.clear ? "advice.rank.alternative" : shownIsFirst() ? "panel.alt.almostTie" : "panel.alt.justAhead")}</small>${label(V.rival.pick)}</span>
+      </button>
+      <button type="button" className="p-alt-go" data-test="open-compare" title=${t("panel.compareTitle")} onClick=${() => openDetail("compare")}>${t("panel.compare")}</button>
+    </div>` : null}
+    <${PanelPool} />
     <${FamiliarLine} />
     <h2 className="sr">${t("panel.why")}</h2>
     <ul className="p-reasons">
       ${(reasons.length ? reasons : [V.tied ? t("panel.reasons.tieDiffer") : t("panel.reasons.none")]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
     </ul>
-    ${threat && PANEL !== "compact" ? threatBox : null}
     <${CoachLine} />
     <${OpponentLine} />
     <details key=${V.n ? "draft" : "bans"} className="p-more" open=${!V.n}>
@@ -2748,9 +2920,10 @@ function VerdictPanel() {
       ${playing ? html`<section className="p-win"><b>${t("plan.winIf")}</b><p>${winCondition(playing, c)}</p></section>` : html`<p className="note">${t("panel.choosePlan")}</p>`}
     </details>
     <div className="p-actions">
-      ${V.tied ? null : html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>`}
+      ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
       <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" />${t("panel.details")}</button>
-      ${V.tied ? html`<${PickCurrent} />` : html`<${PickAdvice} />`}
+      <${PickCurrent} />
+      <${PickAdvice} />
     </div>
     ${entry || pending ? html`<div>
       ${pending ? html`<p className="result-note">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
@@ -2810,6 +2983,8 @@ function ProfileBackup() {
       if (!done.ok) { setNote(done.error); return; }
       PROFILES = done.profiles;
       Object.assign(PREFS, parsed.preferences);
+      // Un export ne porte pas le marqueur du choix : « suggest » importé est traité comme l'ancien défaut, comme au chargement.
+      if (PREFS.autoRole === "suggest" && !PREFS.autoRoleChosen) PREFS.autoRole = "auto";
       try { localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS)); } catch (e2) {}
       writeLegacyMark(localStorage);
       storeProfiles();
@@ -3395,7 +3570,7 @@ function SettingsSection({ id }) {
       <p className=${`lcu-state ${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[0]}`} role="status"><i aria-hidden="true"></i>${(LCU_STATES[hostState.lcuStatus] || LCU_STATES.off)[1]}</p>
       <p className="set-hint">${t("home.lcu.risk")}</p>
       <label className="set-row coach-level"><span>${t("settings.league.autoRole")}</span>
-        <select value=${PREFS.autoRole} onChange=${e => savePrefs({ autoRole:e.target.value })}>
+        <select value=${PREFS.autoRole} data-test="auto-role-select" onChange=${e => savePrefs({ autoRole:e.target.value, autoRoleChosen:true })}>
           <option value="suggest">${t("settings.league.autoRole.suggest")}</option><option value="auto">${t("settings.league.autoRole.auto")}</option><option value="off">${t("settings.league.autoRole.off")}</option>
         </select></label>
       <p className="set-hint">${t("settings.league.autoRoleHint")}</p>
@@ -3484,7 +3659,7 @@ function SimView() {
   return html`<div className="app" data-test="view-sim-body">
     <header className="top">
       <h1 id="view-title" className="view-title">${t("nav.sim")}</h1>
-      <${RoleSwitch} />
+      <${RoleSwitch} notes=${false} />
       <span className="patch">${t("sim.patch", { patch: ddVersion.split(".").slice(0, 2).join(".") })}</span>
       <span className="grow"></span>
       <div className="seg-tabs source-switch" role="group" aria-label=${t("sim.source.label")}>
@@ -3500,6 +3675,7 @@ function SimView() {
       <button type="button" className="ghost-btn" data-test="resume-live" disabled=${!liveCopy || !(liveCopy.enemies || []).length} title=${t("sim.resume.title")} onClick=${resumeLiveInSimulation}>${t("sim.resume")}</button>
       <button type="button" className="ghost-btn" data-test="leave-simulation" onClick=${leaveSimulation}>${t("sim.leave")}</button>
     </div>` : null}
+    <${RoleBand} />
     <div className="desk">
       <${EnemyPanel} />
       <div className="col col-mid"><${Stage} /><${Ranking} /></div>
@@ -3544,7 +3720,7 @@ function App() {
     rerender = force;
     // « Simuler une draft » du menu de l'icône quand la fenêtre n'était pas encore chargée.
     if (!PANEL || PANEL === "full") { if (new URLSearchParams(location.search).get("tab") === "simulate") startSimulation(); }
-    if (channel) { channel.postMessage({ kind:"hello" }); setTimeout(() => { synced = true; }, SYNC_WAIT_MS); }
+    if (channel) { channel.postMessage({ kind:"hello" }); setTimeout(() => { if (!synced) { synced = true; afterSync(); } }, SYNC_WAIT_MS); }
     if (IS_HOST) {
       window.chrome.webview.addEventListener("message", e => {
         const m = e.data;
@@ -3561,10 +3737,12 @@ function App() {
           if (PROFILE && !window.draftProfileSent) { window.draftProfileSent = true; sendProfile(); }
           if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"pool" }); }
           force();
-          handleAssignedRole(m.assignedRole || null);
+          // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
+          // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
+          if (synced) handleAssignedRole(m.assignedRole || null);
         }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") { clearUndo(); leaveSimulation(); resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
+        if (m.kind === "draftStart") onDraftStart();
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
         // Message gardé une version (alias) : ouvre la section Réglages.
