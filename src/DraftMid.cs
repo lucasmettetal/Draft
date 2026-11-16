@@ -1763,7 +1763,7 @@ public static class Autostart
                         if (!altViewed) problem += mode + " : l'alternative " + alt + " ne se consulte pas depuis le panneau ; ";
                         // Essentiel visible sans défiler : boutons de la barre d'actions dans la fenêtre ; rôle et menace au-dessus de cette barre (collée en bas) ;
                         // le champion consulté est nommé par « Je joue X » dans la barre (la carte « Consulté » peut commencer sous la barre).
-                        string visScript = "(() => { const H = innerHeight, W = innerWidth, cta = " + Cta + ", bar = document.querySelector('.p-actions'), barTop = bar ? bar.getBoundingClientRect().top : H; const need = [['Je joue', cta], ['Détails', document.querySelector('[data-test=\"open-analysis\"]')], ['Revenir au conseil', document.querySelector('[data-test=\"back-to-advice\"]')], ['rôle', document.querySelector('[data-test^=\"role-switch-\"]')], ['consulté', state.viewed && cta && cta.textContent.includes(label(state.viewed)) ? cta : null]].concat(document.querySelector('.p-threat') ? [['menace', document.querySelector('.p-threat')]] : []); return need.filter(([n, e]) => { if (!e) return true; const r = e.getBoundingClientRect(), lim = e.closest('.p-actions') ? H : barTop; return !(r.width > 0 && r.top >= -0.5 && r.bottom <= lim + 0.5 && r.left >= -0.5 && r.right <= W + 0.5); }).map(([n]) => n).join(', ') + ' / ' + W + 'x' + H + ' à ' + devicePixelRatio; })()";
+                        string visScript = "(() => { const H = innerHeight, W = innerWidth, cta = " + Cta + ", bar = document.querySelector('.p-actions'), barTop = bar ? bar.getBoundingClientRect().top : H; const need = [['Je joue', cta], ['Détails', document.querySelector('[data-test=\"open-analysis\"]')], ['Revenir au conseil', document.querySelector('[data-test=\"back-to-advice\"]')], ['rôle', document.querySelector('[data-test^=\"role-switch-\"]')], ['consulté', state.viewed && cta && cta.textContent.includes(label(state.viewed)) ? cta : null]].concat(document.querySelector('.p-threat') ? [['menace', document.querySelector('.p-threat')]] : []); return need.filter(([n, e]) => { if (!e) return true; const r = e.getBoundingClientRect(), lim = e.closest('.p-actions') ? H : barTop; return !(r.width > 0 && r.top >= -0.5 && r.bottom <= lim + 0.5 && r.left >= -0.5 && r.right <= W + 0.5); }).map(([n, e]) => { if (!e) return n; const r = e.getBoundingClientRect(); return n + ' ' + Math.round(r.top) + '..' + Math.round(r.bottom) + ' pour ' + Math.round(e.closest('.p-actions') ? H : barTop); }).join(', ') + ' / ' + W + 'x' + H + ' à ' + devicePixelRatio + (need.some(([n, e]) => n === 'menace' && e && e.getBoundingClientRect().bottom > barTop + 0.5) ? ' [' + [...document.querySelectorAll('.p-title,.role-switch-wrap > *,.p-compact-enemies > *,.p-body > *')].filter(x => x.getBoundingClientRect().height > 0 && x.getBoundingClientRect().top < H).map(x => (x.className || x.tagName).toString().split(' ')[0] + ' ' + Math.round(x.getBoundingClientRect().top) + '..' + Math.round(x.getBoundingClientRect().bottom)).join(' | ') + ']' : ''); })()";
                         string hidden = await text(side, visScript);
                         if (!hidden.StartsWith(" / ")) problem += mode + " : commandes hors écran pendant la consultation (" + hidden + ") ; ";
                         PickVisibility += mode + " " + hidden.Substring(hidden.IndexOf('/') + 1).Trim() + " ; ";
@@ -1782,9 +1782,15 @@ public static class Autostart
                             if (mode == "right" && pl.Mode != "two") continue;
                             Native.RECT box = mode == "right" ? pl.Right : pl.Mode == "compact" ? pl.Single : Layout.Narrowest(win, one).Single;
                             int cssW = (int)Math.Round(box.W / cfg[2]), cssH = (int)Math.Round(box.H / cfg[2]);
-                            side.ClientSize = new Size((int)Math.Round(cssW * dpr), (int)Math.Round(cssH * dpr));
-                            await Task.Delay(700);
-                            string seen = await text(side, visScript);
+                            // Le placement du programme peut remettre la taille juste après : la taille est reposée jusqu'à être lue dans la page.
+                            string seen = "";
+                            for (int tryN = 0; tryN < 4; tryN++)
+                            {
+                                side.ClientSize = new Size((int)Math.Round(cssW * dpr), (int)Math.Round(cssH * dpr));
+                                await Task.Delay(700);
+                                seen = await text(side, visScript);
+                                if (Math.Abs(int.Parse(await run(side, "innerWidth")) - cssW) <= 10 && Math.Abs(int.Parse(await run(side, "innerHeight")) - cssH) <= 12) break;
+                            }
                             string label = sw + "x" + sh + "@" + (int)(cfg[2] * 100) + "% " + pl.Mode + " " + cssW + "x" + cssH;
                             if (!seen.StartsWith(" / ")) problem += mode + " : " + label + " : commandes hors écran (" + seen + ") ; ";
                             PickVisibility += mode + " " + label + " (zone utile " + seen.Substring(seen.IndexOf('/') + 1).Trim() + ")" + (seen.StartsWith(" / ") ? " ok" : " MANQUE " + seen.Substring(0, seen.IndexOf('/')).Trim()) + " ; ";

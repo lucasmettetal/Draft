@@ -58,7 +58,7 @@ Importance en draft : **I** = indispensable, **U** = utile, **S** = secondaire.
 | Duel (tableau de matchups, recherche) | non | non | non | S | Détails |
 | « Plus de détails » (picks à éviter, bilan contre le mid, sans frontline) | non | non | non | S | À ajouter au repli « Plan et ban » : 1 à 3 lignes. Coût faible |
 | Résultat (Victoire, Défaite, Ignorer) et dernière partie en attente | non | oui | oui | U | Déjà présent après une confirmation |
-| Source des adversaires (lecture du client, saisie) | non | oui | non | S | Déjà en D |
+| Source des adversaires (lecture du client, saisie) | non | oui | oui | S | Déjà en D et C ; masquée sous 240 px de large (place) |
 | Pool, exclusions, favori (édition) | non | non | non | S | Mon pool, hors draft ; « Ouvrir Mon pool » si le pool est vide |
 | Simulation, draft aléatoire, règles | non | non | non | S | Fenêtre seulement : pas utile pendant une vraie draft |
 
@@ -82,7 +82,7 @@ Dans les panneaux, le matchup, les raisons et le risque du champion consulté so
   - sous 540 px de haut : illustration du conseil 68 px, écarts 5 px ;
   - la barre ne garde que « Revenir au conseil », le conseil étant affiché juste au-dessus ;
   - la recherche, désactivée quand les 5 adversaires sont saisis, est masquée (42 px) ;
-  - sous 240 px de large : « Détails » passe en icône, et les cases vides n'affichent plus « Ajouter », qui débordait sur la voisine.
+  - sous 240 px de large : « Détails » passe en icône, « Je joue X » passe sur deux lignes dans le bouton, les cases vides n'affichent plus « Ajouter » (qui débordait sur la voisine), et la source des adversaires (« Lecture du client ») est masquée : avec « Choix net », elle passait sur une seconde ligne (+30 px dans la vraie WebView2).
 - Champion consulté : la carte entière est visible dans le panneau droit et dans le compact à 100 %. Dans le compact à 125 %, seule sa tête (portrait, nom) dépasse au-dessus de la barre ; le nom reste dans « Je joue Vex », et la carte suit en défilant.
 - La liste du pool ouverte ajoute environ 180 à 190 px pour 4 champions (45 à 47 px par ligne).
 - Fenêtre : la notice, la proposition et l'état du rôle sont sur une bande sous l'en-tête, qui garde ses 52 px.

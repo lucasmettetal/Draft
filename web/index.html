@@ -649,6 +649,8 @@
     .panel .p-actions .cta { flex:1 1 0; min-width:0; white-space:normal; line-height:1.15; }
     /* Cases vides : 40 px chacune, « Ajouter » débordait sur la voisine ; le cadre vide suffit. */
     .compact-roles .role-empty { display:none; }
+    /* Source des adversaires (« Lus dans le client ») : secondaire, elle passait sur une seconde ligne (+30 px) et poussait la menace sous la barre. */
+    .panel .p-status .badge.source { display:none; }
   }
 
   /* Le mouvement réduit concerne aussi le CSS, pas seulement Motion. */
@@ -1492,6 +1494,9 @@ if (channel) channel.onmessage = e => {
 };
 function applyRemote(m) {
   SHARED.forEach(k => { state[k] = m[k]; });
+  // Le poste attribué vient du programme, qui l'envoie à chaque page : l'état d'une autre page, en retard d'un message (début de
+  // draft traité avant le poste), ne le remplace pas. Les décisions (bascule, correction, proposition ignorée) restent partagées.
+  if (hostState.available) state.assignedRole = hostState.assignedRole || null;
   const sent = m.profiles ? normalizeProfiles(m.profiles) : null;
   PROFILES = sent || loadProfiles(localStorage, PREFS);
   if (m.profile) applyProfile(m.profile);
