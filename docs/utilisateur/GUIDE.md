@@ -45,7 +45,9 @@ L'adversaire direct reste une supposition, car le client ne donne pas les rôles
 
 Le score compare tes champions : ce n'est ni un winrate, ni une probabilité. Le clic sur « Je joue » note ton choix dans ton journal, sans rien envoyer au client. Tu verrouilles toujours toi-même. Détails : [moteur](../technique/MOTEUR.md).
 
-Tu peux aussi cliquer un autre champion de « Ton pool ». Le bouton « Je joue » de la fenêtre et des panneaux montre alors ce choix (« Vex noté »). Le conseil reste affiché à part, avec **Revenir au conseil**. Ton choix ne change ni le classement, ni les scores.
+Un clic sur un autre champion (« Ton pool », l'alternative ou la liste du pool d'un panneau) le **consulte** : ses raisons, son matchup et sa comparaison avec le conseil s'affichent, sans rien noter. **Je joue Vex** le confirme, dans DRAFT seulement : le bouton dit alors « Vex noté », dans la fenêtre comme dans les panneaux. Le conseil reste affiché à part, avec **Revenir au conseil**. Ni la consultation ni ton choix ne changent le classement ou les scores.
+
+Si la lecture du client est active, DRAFT charge le pool du poste que League t'attribue et te le dit (« League t'a attribué Jungle : pool Jungle chargé »), avec **Revenir en Mid**. Sous le sélecteur de rôle, DRAFT indique si ton rôle est détecté par League, choisi à la main ou inconnu.
 
 ## Données avec une clé Riot
 

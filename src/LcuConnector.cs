@@ -238,6 +238,25 @@ namespace DraftMid
         }
     }
 
+    // Sessions de sélection au FORMAT RÉEL du client (champs, imbrications, nombres longs), valeurs fictives : selftest et e2e seulement.
+    // localCell : localPlayerCellId ; playerCell : case du joueur dans myTeam (une autre valeur = joueur absent de son équipe).
+    public static class LcuSamples
+    {
+        public static string RealSession(string position, int localCell, int playerCell, params int[] enemies)
+        {
+            string member = "\"cellId\":{0},\"championId\":0,\"championPickIntent\":{1},\"entitledFeatureType\":\"NONE\",\"nameVisibilityType\":\"{2}\",\"obfuscatedPuuid\":\"\",\"obfuscatedSummonerId\":0,\"puuid\":\"{3}\",\"selectedSkinId\":0,\"spell1Id\":11,\"spell2Id\":4,\"summonerId\":{4},\"team\":2,\"wardSkinId\":-1";
+            string ally = "{\"assignedPosition\":\"top\"," + string.Format(member, localCell == 5 ? 6 : 5, 0, "HIDDEN", "", 0) + "}";
+            string me = "{\"assignedPosition\":\"" + position + "\"," + string.Format(member, playerCell, 64, "VISIBLE", "00000000-0000-4000-8000-000000000000", 2834567890123L) + "}";
+            string their = string.Join(",", enemies.Select((id, i) => "{\"assignedPosition\":\"\",\"cellId\":" + i + ",\"championId\":" + id + ",\"championPickIntent\":0,\"summonerId\":0,\"team\":1}"));
+            return "{\"actions\":[[{\"actorCellId\":" + localCell + ",\"championId\":0,\"completed\":false,\"id\":1,\"isAllyAction\":true,\"isInProgress\":true,\"pickTurn\":1,\"type\":\"ban\"}]],"
+                + "\"allowBattleBoost\":false,\"allowRerolling\":false,\"bans\":{\"myTeamBans\":[],\"numBans\":10,\"theirTeamBans\":[]},\"benchChampions\":[],\"benchEnabled\":false,"
+                + "\"chatDetails\":{\"mucJwtDto\":{\"channelClaim\":\"\",\"domain\":\"\",\"jwt\":\"\",\"targetRegion\":\"\"},\"multiUserChatId\":\"\",\"multiUserChatPassword\":\"\"},"
+                + "\"counter\":-1,\"gameId\":7012345678,\"hasSimultaneousBans\":true,\"hasSimultaneousPicks\":false,\"isCustomGame\":false,\"isSpectating\":false,"
+                + "\"localPlayerCellId\":" + localCell + ",\"lockedEventIndex\":-1,\"myTeam\":[" + ally + "," + me + "],\"pickOrderSwaps\":[],\"recoveryCounter\":0,\"rerollsRemaining\":0,"
+                + "\"skipChampionSelect\":false,\"theirTeam\":[" + their + "],\"timer\":{\"adjustedTimeLeftInPhase\":29854,\"internalNowInEpochMs\":1763290000000,\"isInfinite\":false,\"phase\":\"BAN_PICK\",\"totalTimeInPhase\":30000},\"trades\":[]}";
+        }
+    }
+
     public class LcuSnapshot
     {
         public bool Available;
@@ -278,7 +297,8 @@ namespace DraftMid
         {
             try
             {
-                Dictionary<string, object> root = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
+                // Même limite que ParseEnemies : une session lue pour les adversaires l'est aussi pour le poste.
+                Dictionary<string, object> root = new JavaScriptSerializer { MaxJsonLength = 8 * 1024 * 1024 }.DeserializeObject(json) as Dictionary<string, object>;
                 object cell, team;
                 if (root == null || !root.TryGetValue("localPlayerCellId", out cell) || !(cell is int) || !root.TryGetValue("myTeam", out team) || !(team is object[])) return null;
                 foreach (object o in (object[])team)
@@ -493,6 +513,14 @@ namespace DraftMid
             t(LcuParser.ParseAssignedRole(withPos("middle", "jungle")) == "mid" && LcuParser.ParseAssignedRole(withPos("bottom", "")) == "adc" && LcuParser.ParseAssignedRole(withPos("utility", "")) == "support" && LcuParser.ParseAssignedRole(withPos("top", "")) == "top", "LCU : les cinq postes sont reconnus");
             t(LcuParser.ParseAssignedRole(withPos("", "jungle")) == null && LcuParser.ParseAssignedRole(withPos("nouveau", "")) == null, "LCU : poste vide ou inconnu, rôle inconnu");
             t(LcuParser.ParseAssignedRole("{abimé") == null && LcuParser.ParseAssignedRole("{\"myTeam\":[]}") == null && LcuParser.ParseAssignedRole("{\"localPlayerCellId\":2,\"myTeam\":[{\"cellId\":3,\"assignedPosition\":\"top\"}]}") == null, "LCU : réponse abîmée ou joueur absent, rôle inconnu");
+            // Format réel du client : case du joueur 7 (côté rouge), summonerId long, puuid, actions imbriquées, minuteur.
+            Func<string, string> real = pos => LcuSamples.RealSession(pos, 7, 7, 875, 254);
+            t(LcuParser.ParseAssignedRole(real("jungle")) == "jungle" && LcuParser.ParseAssignedRole(real("JUNGLE")) == "jungle" && LcuParser.ParseAssignedRole(real("Middle")) == "mid", "LCU : format réel, poste en minuscules ou majuscules (jungle, JUNGLE, Middle)");
+            t(LcuParser.ParseAssignedRole(real("utility")) == "support" && LcuParser.ParseAssignedRole(LcuSamples.RealSession("bottom", 0, 0)) == "adc", "LCU : format réel, autofill : le poste attribué est lu tel quel (utility, bottom), côté bleu ou rouge");
+            t(LcuParser.ParseAssignedRole(real("")) == null, "LCU : format réel, mode sans poste : aucun rôle");
+            t(LcuParser.ParseAssignedRole(LcuSamples.RealSession("jungle", 7, 8)) == null, "LCU : format réel, joueur absent de myTeam : aucun rôle");
+            t(LcuParser.ParseAssignedRole(real("jungle").Substring(0, 700)) == null && LcuParser.ParseEnemies(real("jungle").Substring(0, 700)) == null, "LCU : format réel tronqué : réponse abîmée, rien n'est lu");
+            t(string.Join(",", LcuParser.ParseEnemies(real("jungle"))) == "875,254", "LCU : format réel, adversaires lus à côté du poste");
             List<int> ids = LcuParser.ParseEnemies(Session);
             t(string.Join(",", ids) == "875,254,3,40", "LCU : seuls les champions adverses verrouillés sont lus");
             t(!ids.Contains(157) && !ids.Contains(222), "LCU : les intentions de pick ne sont jamais lues");

@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests du test réel de la beta.1</title></head><body><pre id="out"></pre>
+<!-- Défauts trouvés par l'utilisateur sur la candidate 4 de la 3.0.0-beta.1 (bf14d7b), en français et en anglais, sur la vraie page.
+     Défaut 1 : dans les panneaux, l'alternative (« Alternative Vex · Comparer ») ne pouvait pas être choisie. Correctif : un clic sur un
+     champion le CONSULTE (alternative, liste du pool, classement, égalité), « Je joue X » le CONFIRME ; « Comparer » ne choisit jamais.
+     Défaut 2 : rôle Jungle attribué par League, DRAFT reste en Mid. Correctif : « auto » par défaut (choix explicite respecté), bascule
+     visible et réversible, trois états du rôle (détecté, à la main, inconnu), raison affichée sans lecture du client.
+     « [avant : échec] » : échoue sur main 10f83f7. Pools, journaux et sessions FICTIFS. Page de test : exclue de la compilation.
+     Lancement : tools\run-v215-tests.ps1 -Page draft-beta1-reel-tests.html -Work <dossier>. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const show=()=>{document.getElementById("out").textContent=JSON.stringify(res);};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));const settle=()=>wait(250);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]};
+const JUNGLE={role:"jungle",pool:["Cho'Gath","Viego","Master Yi","Lee Sin"]};
+const TANKS=["Ornn","Sion","Maokai","Jinx","Thresh"];
+const COMPS=[["Ahri","Ornn","Vi","Jinx","Lulu"],["Ahri","Ornn","Jinx"],["Syndra","Ornn","Lee Sin","Jinx","Thresh"],["Kassadin","Ornn","Vi"],["Katarina","Sion","Vi","Jinx","Thresh"],["Zed","Malphite","Vi","Caitlyn","Leona"],["Annie","Ornn","Vi"],["Lissandra","Ornn","Vi","Jinx","Lulu"]];
+const OLD=[{id:1,date:"2026-10-01T10:00:00Z",suggested:"TF",close:false,picked:"Fizz",enemies:["Ahri"],mid:"Ahri",result:"win",engine:"x"}];
+const EXPOSE="window.$={get V(){return V},get state(){return state},get PREFS(){return PREFS},get PROFILES(){return PROFILES},get simulating(){return simulating},addEnemy,choosePick,loadJournal,resetDraft,dispatchDraft,label,myRole}";
+let SRC="";{const x=new XMLHttpRequest();x.open("GET","index.html",false);x.send();SRC=x.responseText;}
+function prepare(profile,journal,prefs){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(profile));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));if(prefs)localStorage.setItem("draftPrefs",JSON.stringify(prefs));}
+async function ready(f){for(let i=0;i<120;i++){try{if(f.contentWindow.I18N&&f.contentWindow.eval("typeof V!=='undefined'&&!!V")&&f.contentDocument.querySelector('[data-test="panel"],[data-test="app"],.app'))break;}catch(e){}await wait(50);}
+  await wait(300);const w=f.contentWindow;w.eval(EXPOSE);w.open=()=>null;return {f,w,d:f.contentDocument,$:w.$,T:(k,v)=>w.I18N.t(k,v)};}
+async function open(lang,panel,W,H){const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?"+(panel?"panel="+panel:"view=sim")+"&lang="+lang+"&i18ncheck=1";document.body.appendChild(f);await new Promise(r=>f.onload=r);return ready(f);}
+// Page « dans l'application » : hôte WebView2 simulé. Les messages du programme sont rejoués par __host(m) ; rien n'est envoyé ailleurs.
+// fresh : page qui vient de s'ouvrir, pas encore synchronisée. Sinon, synchronisée comme après SYNC_WAIT_MS sans autre page (attente évitée).
+// reply : message de l'hôte rendu à la demande getHost de la page, avant l'état des autres pages (ordre défavorable possible dans l'application).
+async function openHost(lang,panel,W,H,fresh,reply){const host='<script>window.__sent=[];window.__reply='+JSON.stringify(reply||null)+';window.chrome=window.chrome||{};window.chrome.webview={postMessage(m){window.__sent.push(m);if(m&&m.cmd==="getHost"&&window.__reply)setTimeout(()=>window.__hostFn&&window.__hostFn({data:window.__reply}),0)},addEventListener(k,fn){if(k==="message")window.__hostFn=fn},removeEventListener(){}};window.__host=m=>window.__hostFn&&window.__hostFn({data:m});<\/script>';
+  window.history.replaceState(null,"",location.pathname+"?"+(panel?"panel="+panel:"view=sim")+"&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=W;f.height=H;document.body.appendChild(f);const d0=f.contentDocument;d0.open();d0.write(SRC.replace('<script src="draft-stats.js"><\/script>',host));d0.close();const x=await ready(f);window.history.replaceState(null,"",location.pathname);if(!fresh)x.w.eval("synced=true");return x;}
+const HOST={kind:"host",available:true,lcuConfirmed:true,lcuEnabled:true,lcuStatus:"connected",hotkey:true,autoDraft:true,follow:true,phase:{key:"native.phase.outOfDraft",vars:{}},placement:{key:"native.placement.two",vars:{}}};
+const hostMsg=(x,extra)=>{x.w.__host(Object.assign({},HOST,extra));};
+const snap=x=>JSON.stringify({shown:x.$.V.shown,tied:x.$.V.tied,order:x.$.V.order.map(p=>p.pick),scores:x.$.V.res.ranking.map(p=>[p.pick,p.score])});
+const q=(x,s)=>x.d.querySelector(s);const clk=e=>{if(e)e.click();};
+const cta=x=>q(x,'.p-actions [data-test="choose-pick"]')||q(x,'[data-test="stage"] [data-test="choose-pick"]');
+const entry=x=>{const id=x.$.state.current;return (id&&x.$.loadJournal().find(j=>j.id===id))||null;};
+const fmt=e=>e?"suggested="+e.suggested+", picked="+e.picked:"aucune entrée";
+const visible=(e,H,W)=>{if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&r.top>=-0.5&&r.bottom<=H+0.5&&r.left>=-0.5&&r.right<=W+0.5;};
+async function draft(x,comp){x.$.resetDraft();comp.forEach(n=>x.$.addEnemy(n));await settle();}
+// Conseil Twisted Fate et alternative Vex (cas de l'utilisateur), sinon le conseil et son alternative.
+async function scenario(x){for(const comp of COMPS){await draft(x,comp);const V=x.$.V;if(V.shown==="TF"&&!V.tied&&V.rival&&V.rival.pick==="Vex")return {comp,rec:"TF",alt:"Vex"};}
+  for(const comp of COMPS){await draft(x,comp);const V=x.$.V;if(!V.tied&&V.rival)return {comp,rec:V.shown,alt:V.rival.pick};}return null;}
+
+(async()=>{
+for(const lang of ["fr","en"]){
+  const LG=lang.toUpperCase();
+  // ---------- Défaut 1 : panneaux droit et compact (125 % : 256 x 608 et 282 x 576) ----------
+  for(const [kind,W,H] of [["right",256,608],["compact",282,576]]){
+    const L=LG+" "+kind+" : ";prepare(MID,OLD);const x=await open(lang,kind,W,H);const sc=await scenario(x);
+    const recName=x.$.label(sc.rec),altName=x.$.label(sc.alt);const before=snap(x),n0=x.$.loadJournal().length;
+    const note={composition:sc.comp.join(", "),conseil:recName,alternative:altName};
+    note.ligne_alternative=text(q(x,'[data-test="alt-line"]')||q(x,'[data-test="open-compare"]'));
+    // « Comparer » ouvre la comparaison et ne choisit jamais.
+    clk(q(x,'[data-test="open-compare"]'));await settle();
+    t(!x.$.state.picked&&!x.$.state.viewed&&x.$.loadJournal().length===n0&&text(cta(x))===x.T("advice.cta.play",{champion:recName}),L+"« Comparer » ne choisit rien (bouton « "+text(cta(x))+" »)");
+    // Un clic sur l'alternative la CONSULTE : bouton « Je joue Vex », conseil rappelé, carte du champion consulté, rien de noté.
+    const alt=q(x,'[data-test="view-alt"]');if(alt)alt.click();await settle();
+    note.bouton_consultation=text(cta(x));note.carte_consultee=text(q(x,'[data-test="viewed"]')).slice(0,120);
+    t(!!alt&&x.$.state.viewed===sc.alt&&note.bouton_consultation===x.T("advice.cta.play",{champion:altName}),L+"[avant : échec] un clic sur l'alternative la consulte : le bouton propose « "+x.T("advice.cta.play",{champion:altName})+" » (lu « "+note.bouton_consultation+" »)");
+    t(!!q(x,'[data-test="viewed"]')&&!!q(x,'[data-test="viewed-compare"]'),L+"[avant : échec] le champion consulté s'affiche avec sa comparaison au conseil");
+    t(text(q(x,'[data-test="pick-advice"]')).includes(recName),L+"[avant : échec] pendant la consultation, le conseil reste identifiable (« Conseil : "+recName+" »)");
+    t(x.$.loadJournal().length===n0&&!x.$.state.current,L+"[avant : échec] consulter n'écrit rien dans le journal");
+    t(snap(x)===before,L+"consulter ne change ni le classement, ni le conseil, ni les scores");
+    // Visibilité sans défilement, à 125 % : conseil consulté, « Je joue », « Détails », retour au conseil, rôle, menace.
+    const need=[["Je joue",cta(x)],["Détails",q(x,'[data-test="open-analysis"]')],["Revenir au conseil",q(x,'[data-test="back-to-advice"]')],["rôle",q(x,'[data-test="role-switch-mid"]')]].concat(q(x,'.p-threat')?[["menace",q(x,'.p-threat')]]:[]);
+    const hidden=need.filter(([n,e])=>!visible(e,H,W)).map(([n])=>n);
+    const pos=e=>{if(!e)return "absent";const r=e.getBoundingClientRect();return Math.round(r.top)+".."+Math.round(r.bottom);};note.positions="menace "+pos(q(x,'.p-threat'))+" ; consulté "+pos(q(x,'[data-test="viewed"]'))+" ; actions "+pos(q(x,'.p-actions'))+" ; hauteur "+H;
+    t(!!q(x,'[data-test="viewed"] .viewed-head')&&visible(q(x,'[data-test="viewed"] .viewed-head'),H,W),L+"[avant : échec] "+W+"x"+H+" : nom du champion consulté visible sans défiler ("+note.positions+")");
+    t(hidden.length===0,L+"[avant : échec] "+W+"x"+H+" : essentiel visible sans défiler pendant la consultation ("+(hidden.join(", ")||"tout")+")");
+    // « Revenir au conseil » annule la consultation (rien n'était noté).
+    clk(q(x,'[data-test="back-to-advice"]'));await settle();
+    t(!x.$.state.viewed&&text(cta(x))===x.T("advice.cta.play",{champion:recName})&&x.$.loadJournal().length===n0,L+"[avant : échec] « Revenir au conseil » annule la consultation");
+    // Consulter puis CONFIRMER l'alternative : seule écriture du journal, conseil rappelé, classement inchangé.
+    clk(q(x,'[data-test="view-alt"]'));await settle();clk(cta(x));await settle();
+    const e=entry(x);note.journal_confirmation=fmt(e);note.bouton_confirme=text(cta(x));
+    t(!!e&&e.picked===sc.alt&&e.suggested===sc.rec&&e.origin==="draft"&&e.tied===false&&e.recommended===x.$.V.res.ranking[0].pick&&x.$.loadJournal().length===n0+1,L+"[avant : échec] « Je joue "+altName+" » confirme : une entrée, picked="+sc.alt+", suggested="+sc.rec+" ("+note.journal_confirmation+")");
+    t(note.bouton_confirme===x.T("advice.cta.noted",{champion:altName})&&text(q(x,'[data-test="pick-advice"]')).includes(recName),L+"[avant : échec] après confirmation : « "+x.T("advice.cta.noted",{champion:altName})+" » et le conseil à part");
+    t(snap(x)===before,L+"confirmer ne change ni le classement, ni le conseil, ni les scores");
+    // Liste du pool dans le panneau : chaque champion se consulte, puis se confirme.
+    const pool=q(x,'[data-test="panel-pool"]');if(pool)pool.open=true;await settle();
+    const rows=[...x.d.querySelectorAll('[data-test="panel-pool-pick"]')];note.liste_du_pool=rows.map(text).join(" | ");
+    t(!!pool&&rows.length===x.$.V.order.length,L+"[avant : échec] la liste du pool est dans le panneau ("+rows.length+" champions)");
+    const other=x.$.V.order.map(p=>p.pick).find(p=>p!==sc.rec&&p!==sc.alt);const row=rows.find(r=>r.dataset.pick===other);if(row)row.click();await settle();
+    t(!!row&&x.$.state.viewed===other&&x.$.state.picked===sc.alt&&text(cta(x))===x.T("advice.cta.play",{champion:x.$.label(other)})&&x.$.loadJournal().length===n0+1,L+"[avant : échec] un champion de la liste se consulte sans remplacer le choix confirmé (« "+text(cta(x))+" »)");
+    clk(q(x,'[data-test="back-to-advice"]'));await settle();
+    t(!x.$.state.viewed&&text(cta(x))===x.T("advice.cta.noted",{champion:altName}),L+"[avant : échec] fin de consultation : le bouton revient au choix confirmé");
+    // Après confirmation, « Revenir au conseil » confirme le conseil à la place.
+    clk(q(x,'[data-test="back-to-advice"]'));await settle();const e2=entry(x);
+    t(!!e2&&e2.picked===sc.rec&&e2.suggested===sc.rec&&x.$.loadJournal().length===n0+1,L+"après confirmation, « Revenir au conseil » confirme le conseil ("+fmt(e2)+")");
+    t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+    res.notes[lang+"_"+kind]=note;x.f.remove();show();
+  }
+  // ---------- Défaut 1 : fenêtre, égalité, comparaison, simulation ----------
+  {const L=LG+" fenêtre : ";prepare(MID,OLD);const x=await open(lang,null,1366,900);const sc=await scenario(x);const n0=x.$.loadJournal().length,before=snap(x);
+   clk(q(x,`.rank[data-pick="${sc.alt}"]`));await settle();
+   t(x.$.state.viewed===sc.alt&&!x.$.state.picked&&x.$.loadJournal().length===n0&&!!q(x,'[data-test="stage"] [data-test="viewed"]'),L+"[avant : échec] un clic dans « Ton pool » consulte, sans rien noter");
+   t(text(cta(x))===x.T("advice.cta.play",{champion:x.$.label(sc.alt)})&&q(x,`.rank[data-pick="${sc.alt}"]`).classList.contains("viewed")&&!q(x,".rank.picked"),L+"[avant : échec] consulté : contour sur la carte, pas de coche, bouton « Je joue "+x.$.label(sc.alt)+" »");
+   // Vue Comparer : la paire conseil / consulté, et un « Je joue X » par champion. Les vignettes du haut ne choisissent pas.
+   const tab=q(x,'[data-tab="compare"]');if(tab)tab.click();await settle();
+   const plays=[...x.d.querySelectorAll('[data-test="compare-choose"]')].map(b=>b.dataset.pick);
+   t(plays.includes(sc.rec)&&plays.includes(sc.alt),L+"[avant : échec] Comparer : conseil et champion consulté, chacun avec « Je joue » ("+plays.join(", ")+")");
+   const nTile=x.$.loadJournal().length,pickTile=x.$.state.picked;const tile=q(x,'.cmp-btn');if(tile)tile.click();await settle();
+   t(!!tile&&x.$.loadJournal().length===nTile&&x.$.state.picked===pickTile,L+"Comparer : changer la paire ne note rien (garantie inchangée)");
+   const cb=[...x.d.querySelectorAll('[data-test="compare-choose"]')].find(b=>b.dataset.pick===sc.rec);if(cb)cb.click();await settle();
+   const e=entry(x);t(!!e&&e.picked===sc.rec&&x.$.loadJournal().length===n0+1,L+"[avant : échec] Comparer : « Je joue » confirme ("+fmt(e)+")");
+   t(snap(x)===before,L+"classement, conseil et scores inchangés");
+   x.f.remove();}
+  {const L=LG+" égalité : ";prepare(JUNGLE,OLD);const x=await open(lang,"right",256,608);await draft(x,TANKS);const V=x.$.V,B=(V.tied||[]).find(p=>p!==V.shown);
+   t(!cta(x),L+"pas de bouton « Je joue » tant qu'aucun ex æquo n'est consulté");
+   const item=[...x.d.querySelectorAll(".tie-item")].find(e=>e.dataset.pick===B);if(item)item.click();await settle();
+   t(!!item&&x.$.state.viewed===B&&!x.$.state.picked&&text(cta(x))===x.T("advice.cta.play",{champion:x.$.label(B)}),L+"[avant : échec] un ex æquo cliqué est consulté, le bouton propose de le confirmer");
+   clk(cta(x));await settle();const e=entry(x);
+   t(!!e&&e.picked===B&&e.suggested===B&&e.tied===true&&Array.isArray(e.tiedWith)&&e.tiedWith.includes(B),L+"[avant : échec] confirmé : conseil suivi à égalité ("+fmt(e)+", tied="+(e&&e.tied)+")");
+   x.f.remove();}
+  {const L=LG+" simulation : ";prepare(MID,OLD);const x=await open(lang,null,1366,900);clk(q(x,'[data-test="source-sim"]'));await settle();const sc=await scenario(x);
+   clk(q(x,`.rank[data-pick="${sc.alt}"]`));await settle();clk(cta(x));await settle();
+   t(x.$.simulating&&x.$.state.picked===sc.alt&&JSON.stringify(x.$.loadJournal())===JSON.stringify(OLD),L+"consulter puis confirmer en simulation : rien dans le journal");
+   x.f.remove();}
+  // ---------- Synchronisation dans les deux sens : fenêtre, panneaux droit et compact ----------
+  {const L=LG+" synchronisation : ";prepare(MID,OLD);const full=await open(lang,null,1366,900),right=await open(lang,"right",256,608),compact=await open(lang,"compact",282,576);await wait(1800);
+   const sc=await scenario(full);await wait(400);
+   // Consultation dans un panneau, vue dans la fenêtre ; confirmation dans la fenêtre, vue dans les panneaux.
+   clk(q(right,'[data-test="view-alt"]'));await wait(500);
+   t(full.$.state.viewed===sc.alt&&text(cta(full))===full.T("advice.cta.play",{champion:full.$.label(sc.alt)})&&compact.$.state.viewed===sc.alt,L+"[avant : échec] consultation dans le panneau droit, vue dans la fenêtre et le compact");
+   clk(cta(full));await wait(500);
+   const noted=full.T("advice.cta.noted",{champion:full.$.label(sc.alt)});
+   t(text(cta(right))===noted&&text(cta(compact))===noted&&!right.$.state.viewed&&entry(full)&&entry(full).picked===sc.alt,L+"[avant : échec] confirmation dans la fenêtre, vue dans les panneaux (« "+text(cta(right))+" »)");
+   // Rôle changé dans un panneau : la fenêtre et l'autre panneau suivent (pool actif compris).
+   clk(q(compact,'[data-test="role-switch-jungle"]'));await wait(600);
+   t(full.$.myRole()==="jungle"&&right.$.myRole()==="jungle"&&full.$.state.roleManual,L+"rôle changé dans le compact : fenêtre et panneau droit suivent");
+   clk(q(full,'[data-test="role-switch-mid"]'));await wait(600);
+   t(right.$.myRole()==="mid"&&compact.$.myRole()==="mid",L+"rôle changé dans la fenêtre : les panneaux suivent");
+   // Draft suivante : ni consultation, ni confirmation, ni rôle manuel.
+   q(right,`[data-test="view-alt"]`)&&clk(q(right,`[data-test="view-alt"]`));await wait(300);
+   [full,right,compact].forEach(p=>p.w.eval("typeof onDraftStart==='function'?onDraftStart():(clearUndo(),leaveSimulation(),resetRoleSession(),riotProvider.reset(),dispatchDraft({type:'session-start'}))"));await wait(600);
+   t([full,right,compact].every(p=>!p.$.state.viewed&&!p.$.state.picked&&!p.$.state.current&&!p.$.state.roleManual),L+"draft suivante : ni consultation, ni confirmation, ni rôle manuel ne survivent");
+   [full,right,compact].forEach(p=>p.f.remove());show();}
+  // ---------- Défaut 2 : rôle attribué par League (hôte simulé) ----------
+  {const L=LG+" rôle : ";
+   // Préférence par défaut : « auto ». Un ancien « suggest » sans marqueur redevient le défaut ; un choix explicite est respecté.
+   for(const [prefs,want,mark] of [[null,"auto",true],[{autoRole:"suggest"},"auto",true],[{autoRole:"suggest",autoRoleChosen:true},"suggest",false],[{autoRole:"off"},"off",false],[{autoRole:"auto",autoRoleChosen:true},"auto",false]]){
+     prepare(MID,null,prefs);const x=await open(lang,"right",256,608);
+     t(x.$.PREFS.autoRole===want,L+(mark?"[avant : échec] ":"")+"préférence "+JSON.stringify(prefs)+" : mode « "+want+" » (lu « "+x.$.PREFS.autoRole+" »)");x.f.remove();}
+   // Bascule automatique : notice dans le panneau, réversible, état « détecté » ; correction manuelle jamais écrasée pendant la draft.
+   for(const kind of ["right","compact",null]){
+     prepare(MID,null,null);const x=await openHost(lang,kind,kind?256:1366,kind?608:900);
+     x.w.eval("saveMyProfile('jungle',['Viego','Lee Sin']);saveMyProfile('mid',['TF','Vex','Fizz','Xerath']);switchRole('mid','manual');resetRoleSession();1");
+     hostMsg(x,{});x.$.dispatchDraft({type:"session-start"});await settle();
+     hostMsg(x,{assignedRole:"jungle"});await settle();
+     const K=L+(kind||"fenêtre")+" : ";const notice=q(x,'[data-test="role-auto"]'),st=q(x,'[data-test="role-state"]');
+     res.notes[lang+"_role_"+(kind||"full")]={role:x.$.myRole(),notice:text(notice),etat:st?st.dataset.state+" « "+text(st)+" »":"absent"};
+     t(x.$.myRole()==="jungle"&&x.$.PROFILES.active==="jungle",K+"[avant : échec] mode par défaut : Jungle attribué, pool Jungle chargé (rôle "+x.$.myRole()+")");
+     t(!!notice&&text(notice).includes(x.T("role.name.jungle"))&&!!q(x,'[data-test="role-auto-undo"]'),K+"[avant : échec] notice de bascule visible, avec « "+x.T("role.auto.undo",{role:x.T("role.name.mid")})+" » (« "+text(notice)+" »)");
+     t(!!st&&st.dataset.state==="detected",K+"[avant : échec] état du rôle : détecté par League");
+     if(kind)t(visible(notice,608,kind?256:1366)&&visible(q(x,'[data-test="role-auto-undo"]'),kind==="compact"?576:608,kind==="compact"?282:256),K+"[avant : échec] notice et retour visibles sans défiler");
+     clk(q(x,'[data-test="role-auto-undo"]'));await settle();
+     t(x.$.myRole()==="mid"&&x.$.state.roleManual&&(q(x,'[data-test="role-state"]')||{dataset:{}}).dataset.state==="manual",K+"[avant : échec] « Revenir en Mid » : rôle Mid, choisi à la main");
+     hostMsg(x,{assignedRole:"top"});await settle();
+     t(x.$.myRole()==="mid"&&!!q(x,'[data-test="role-hint"]'),K+"détection tardive après une correction manuelle : rien n'est écrasé, une proposition s'affiche");
+     x.f.remove();}
+   // Page ouverte pendant la draft (Détails, panneau recréé) après une correction manuelle : elle ne rebascule pas et ne réenregistre
+   // pas le rôle. Elle attend l'état des autres pages ; seule, elle traite le poste après SYNC_WAIT_MS.
+   {prepare(MID,null,{autoRole:"auto",autoRoleChosen:true});const a=await openHost(lang,"right",256,608);a.w.eval("saveMyProfile('jungle',['Viego','Lee Sin']);saveMyProfile('mid',['TF','Vex','Fizz','Xerath']);switchRole('mid','manual');resetRoleSession();1");
+    hostMsg(a,{});a.$.dispatchDraft({type:"session-start"});hostMsg(a,{assignedRole:"jungle"});await settle();clk(q(a,'[data-test="role-auto-undo"]'));await settle();
+    const b=await openHost(lang,null,1366,900,true,Object.assign({},HOST,{assignedRole:"jungle"}));await wait(900);
+    const stored=b.w.eval("loadProfiles(localStorage, PREFS).active");
+    t(a.$.myRole()==="mid"&&b.$.myRole()==="mid"&&b.$.state.roleManual&&stored==="mid",L+"[avant : échec] page ouverte après une correction manuelle : pas de nouvelle bascule (panneau "+a.$.myRole()+", fenêtre "+b.$.myRole()+", enregistré "+stored+")");
+    a.f.remove();b.f.remove();
+    prepare(MID,null,null);localStorage.setItem("draftProfiles",JSON.stringify({version:1,active:"mid",roles:{mid:{pool:["TF","Vex","Fizz","Xerath"]},jungle:{pool:["Viego","Lee Sin"]}}}));const c=await openHost(lang,"right",256,608,true,Object.assign({},HOST,{assignedRole:"jungle"}));const before=c.$.myRole();
+    for(let i=0;i<40&&!c.w.eval("synced");i++)await wait(50);await settle();
+    t(before==="mid"&&c.$.myRole()==="jungle",L+"[avant : échec] page seule : poste traité une fois synchronisée ("+before+" puis "+c.$.myRole()+")");
+    // Début de draft reçu après la lecture du poste (panneaux créés à ce moment) : la bascule de cette draft et sa notice restent. Draft suivante (poste effacé hors sélection) : tout repart.
+    c.w.eval("typeof onDraftStart==='function'?onDraftStart():(resetRoleSession(),dispatchDraft({type:'session-start'}))");await settle();
+    t(c.$.myRole()==="jungle"&&!!q(c,'[data-test="role-auto"]')&&c.$.state.roleHandled==="jungle",L+"[avant : échec] début de draft arrivé après le poste : bascule et notice gardées");
+    hostMsg(c,{assignedRole:null});c.w.eval("typeof onDraftStart==='function'?onDraftStart():(resetRoleSession(),dispatchDraft({type:'session-start'}))");await settle();
+    t(!c.$.state.roleHandled&&!c.$.state.roleManual&&!q(c,'[data-test="role-auto"]'),L+"draft suivante : bascule précédente oubliée");c.f.remove();}
+   // Mode « proposer » explicite : pas de bascule, proposition nettement visible dans le panneau.
+   {prepare(MID,null,{autoRole:"suggest",autoRoleChosen:true});const x=await openHost(lang,"right",256,608);x.w.eval("saveMyProfile('jungle',['Viego','Lee Sin']);saveMyProfile('mid',['TF','Fizz']);switchRole('mid','manual');resetRoleSession();1");
+    hostMsg(x,{});x.$.dispatchDraft({type:"session-start"});hostMsg(x,{assignedRole:"jungle"});await settle();const h=q(x,'[data-test="role-hint"]');
+    t(x.$.myRole()==="mid"&&!!h&&visible(h,608,256)&&x.w.getComputedStyle(h).borderTopStyle!=="none",L+"[avant : échec] « proposer » choisi : pas de bascule, proposition encadrée et visible dans le panneau");x.f.remove();}
+   // Pool du poste vide : rien n'est chargé (aucun conseil possible), DRAFT propose.
+   {prepare(MID,null,null);const x=await openHost(lang,"right",256,608);hostMsg(x,{});x.$.dispatchDraft({type:"session-start"});hostMsg(x,{assignedRole:"support"});await settle();
+    t(x.$.myRole()==="mid"&&!!q(x,'[data-test="role-hint"]'),L+"poste dont le pool est vide : pas de bascule, proposition affichée");x.f.remove();}
+   // Sans lecture du client : rôle choisi à la main, raison dite près du sélecteur.
+   for(const [status,enabled,key] of [["off",false,"role.manual.off"],["waiting",true,"role.manual.closed"],["failed",true,"role.manual.failed"]]){
+     prepare(MID,null,null);const x=await openHost(lang,"right",256,608);hostMsg(x,{lcuEnabled:enabled,lcuStatus:status});await settle();const st=q(x,'[data-test="role-state"]');
+     t(!!st&&st.dataset.state==="manual"&&st.title===x.T(key)&&visible(st,608,256),L+"[avant : échec] lecture "+status+" : « "+(st?text(st):"absent")+" », raison : "+x.T(key));
+     clk(q(x,'[data-test="role-switch-jungle"]'));await settle();const st2=q(x,'[data-test="role-state"]');
+     t(x.$.myRole()==="jungle"&&!!st2&&st2.dataset.state==="manual"&&st2.title===x.T(key),L+"[avant : échec] lecture "+status+", rôle changé à la main : la raison reste dite");x.f.remove();}
+   {prepare(MID,null,null);const x=await openHost(lang,null,1366,900);hostMsg(x,{lcuEnabled:false,lcuStatus:"off"});await settle();const st=q(x,'[data-test="role-state"]');
+    t(!!st&&text(st)===x.T("role.manual.off"),L+"[avant : échec] fenêtre, sans lecture : « "+(st?text(st):"absent")+" »");x.f.remove();}
+   // Lecture active, sélection en cours, aucun poste indiqué : rôle inconnu.
+   {prepare(MID,null,null);const x=await openHost(lang,"right",256,608);hostMsg(x,{});x.$.dispatchDraft({type:"session-start"});await settle();const st=q(x,'[data-test="role-state"]');
+    t(!!st&&st.dataset.state==="unknown",L+"[avant : échec] aucun poste indiqué pendant la sélection : rôle inconnu (« "+(st?text(st):"absent")+" »)");
+    t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");x.f.remove();}
+  }
+}
+res.notes.fin=true;show();document.title="done";
+})().catch(e=>{res.ko.push("ERREUR "+e.message+" "+(e.stack||"").slice(0,300));show();document.title="done";});
+</script></body></html>

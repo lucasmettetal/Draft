@@ -25,11 +25,12 @@
 
 | Document | Sujet |
 |---|---|
-| [Profils, migration, rôle attribué](technique/PROFILS.md) | Renommage, stockage, export, compatibilité, `assignedPosition` |
+| [Profils, migration, rôle attribué](technique/PROFILS.md) | Renommage, stockage, export, compatibilité, `assignedPosition`, bascule automatique, état du rôle |
 | [Architecture](technique/ARCHITECTURE.md) | C# et WebView2, frontend, compilation, carte des fichiers |
 | [Moteur](technique/MOTEUR.md) | Calcul du conseil, stabilité, historique des changements |
 | [Données](technique/DONNEES.md) | Sources, rôles probabilistes, fiabilité, licences |
-| [Journal des drafts](technique/JOURNAL.md) | Format d'une entrée, égalités, origine, anciennes entrées, compatibilité 2.16.2 |
+| [Journal des drafts](technique/JOURNAL.md) | Consulter et confirmer, format d'une entrée, égalités, origine, anciennes entrées, compatibilité 2.16.2 |
+| [Panneaux primaires](technique/PANNEAUX-PRIMAIRES.md) | Étude : ce que la fenêtre offre en draft, place dans les panneaux, tailles mesurées |
 | [Détection](technique/DETECTION.md) | Fenêtre, phase, reconnaissance visuelle |
 | [Lecture du client](technique/LCU.md) | Endpoints, politique de Riot, garanties |
 | [Intégration Riot](technique/INTEGRATION-RIOT.md) | Méthodes, conditions, risque résiduel |
