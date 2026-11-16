@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tailles des panneaux : proposition</title>
+<style>html,body{margin:0;background:#0b0f15;overflow:hidden}iframe{display:block;border:0}#out{display:none}</style></head><body><pre id="out"></pre>
+<!-- Proposition de tailles (docs/technique/PROPOSITION-TAILLES-PANNEAUX.md). La taille du panneau est une option de CETTE page de test
+     (paramètres w et h, en pixels CSS) : rien n'est changé dans l'application, qui garde les tailles de son placement (Layout).
+     ?panel=compact|right&w=..&h=..&state=draft|consult&lang=fr|en. Pools et draft FICTIFS ; lecture du client désactivée (réglage par défaut).
+     Lancement : Chrome sans interface, --dump-dom pour les mesures (JSON dans #out), --screenshot pour la capture. -->
+<script>
+const q=new URLSearchParams(location.search);const W=+q.get("w")||222,H=+q.get("h")||511,P=q.get("panel")||"compact",ST=q.get("state")||"consult",LANG=q.get("lang")||"fr",SEUIL=+q.get("seuil")||0;
+const wait=m=>new Promise(r=>setTimeout(r,m));
+localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify({role:"mid",pool:["TF","Vex","Fizz","Xerath"]}));localStorage.setItem("draftPatch","16.22");
+const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?panel="+P+"&lang="+LANG;document.body.appendChild(f);
+f.onload=async()=>{await wait(700);const w=f.contentWindow,d=f.contentDocument;
+  w.eval("Object.assign(hostState,{available:true,lcuConfirmed:true,lcuEnabled:false,lcuStatus:'off'});1");
+  ["Zed","Malphite","Vi","Caitlyn","Leona"].forEach(n=>w.eval("addEnemy("+JSON.stringify(n)+")"));await wait(500);
+  if(ST==="consult")w.eval("consult(V.rival?V.rival.pick:V.order.find(p=>p.pick!==V.shown).pick)");await wait(600);
+  // Animations figées pour la mesure et la capture.
+  const st=d.createElement("style");st.textContent="*,*::before,*::after{transition:none!important;animation:none!important}";d.head.appendChild(st);
+  // Option de la proposition : le resserrement des panneaux bas (règles « max-height:540px » de la page) s'applique jusqu'à SEUIL px.
+  if(SEUIL){const add=[];for(const sh of d.styleSheets){let rules;try{rules=sh.cssRules}catch(e){continue}for(const r of rules)if(r.media&&/max-height:\s*540px/.test(r.conditionText||r.media.mediaText))add.push(r.cssText.replace(/max-height:\s*540px/,"max-height: "+SEUIL+"px"));}const s2=d.createElement("style");s2.textContent=add.join("\n");d.head.appendChild(s2);}
+  await wait(200);
+  const b=e=>{if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.top),Math.round(r.bottom)]};
+  const fs=e=>e?parseFloat(w.getComputedStyle(e).fontSize):null;
+  const bar=d.querySelector(".p-actions"),barTop=bar?Math.round(bar.getBoundingClientRect().top):H;
+  const ess={role:d.querySelector(".role-switch"),etat:d.querySelector('[data-test="role-state"]'),conseil:d.querySelector(".p-reco"),menace:d.querySelector(".p-threat"),consulte:d.querySelector('[data-test="viewed"] .viewed-head'),alternative:d.querySelector('[data-test="alt-line"]'),raisons:d.querySelector(".p-reasons")};
+  const pos={},vis={};for(const [k,e] of Object.entries(ess)){pos[k]=b(e);vis[k]=!!e&&e.getBoundingClientRect().bottom<=barTop+0.5&&e.getBoundingClientRect().top>=0;}
+  const scroller=d.querySelector(".p-scroll")||d.querySelector(".p-body");
+  const cta=d.querySelector('.p-actions [data-test="choose-pick"]'),det=d.querySelector('[data-test="open-analysis"]');
+  const out={taille:W+"x"+H,panel:P,etat:ST,lang:LANG,barre:[barTop,H],positions:pos,visiblesSansDefiler:vis,
+    nbVisibles:Object.values(vis).filter(Boolean).length,nbElements:Object.values(ess).filter(Boolean).length,
+    contenu:scroller?Math.round(scroller.scrollHeight):null,
+    police:{conseil:fs(d.querySelector(".p-name")),menace:fs(d.querySelector(".p-threat p")),bouton:fs(cta),etatRole:fs(ess.etat),raisons:fs(d.querySelector(".p-reasons li"))},
+    bouton:cta?{texte:cta.textContent.trim(),hauteur:Math.round(cta.getBoundingClientRect().height),lignes:(()=>{const rr=d.createRange();rr.selectNodeContents(cta);return new Set([...rr.getClientRects()].map(x=>Math.round(x.top))).size})()}:null,
+    details:det?{libelle:!!det.querySelector(".details-label")&&w.getComputedStyle(det.querySelector(".details-label")).display!=="none",largeur:Math.round(det.getBoundingClientRect().width)}:null,
+    conseilDansBarre:!!d.querySelector('.p-actions .pick-advice > span')&&w.getComputedStyle(d.querySelector('.p-actions .pick-advice > span')).display!=="none"};
+  document.getElementById("out").textContent=JSON.stringify(out);document.title="done";};
+</script></body></html>
