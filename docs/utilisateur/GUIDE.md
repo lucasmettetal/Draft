@@ -45,6 +45,8 @@ L'adversaire direct reste une supposition, car le client ne donne pas les rôles
 
 Le score compare tes champions : ce n'est ni un winrate, ni une probabilité. Le clic sur « Je joue » note ton choix dans ton journal, sans rien envoyer au client. Tu verrouilles toujours toi-même. Détails : [moteur](../technique/MOTEUR.md).
 
+Tu peux aussi cliquer un autre champion de « Ton pool ». Le bouton « Je joue » de la fenêtre et des panneaux montre alors ce choix (« Vex noté »). Le conseil reste affiché à part, avec **Revenir au conseil**. Ton choix ne change ni le classement, ni les scores.
+
 ## Données avec une clé Riot
 
 Tout est facultatif. La [clé](https://developer.riotgames.com) est saisie par toi, masquée et jamais enregistrée. Elle est réservée à un usage privé.

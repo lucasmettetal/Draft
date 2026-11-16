@@ -43,7 +43,8 @@ $Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEX
 $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
-foreach ($s in 'empty', 'one', 'full', 'midunknown', 'close', 'excluded', 'none', 'picked', 'history', 'extreme') { $Runs += , @($s, "state=$s&frozen=1", $false) }
+foreach ($s in 'empty', 'one', 'full', 'midunknown', 'close', 'excluded', 'none', 'picked', 'pickedother', 'history', 'extreme') { $Runs += , @($s, "state=$s&frozen=1", $false) }
+$Runs += , @('egalite jungle, choix hors egalite', 'state=tieother&profile=jungle&frozen=1', $false)
 $Runs += , @('analyse, vue comparer', 'state=history&set=full&tabclick=analyse&view=compare&frozen=1', $false)
 $Runs += , @('analyse, vue regles', 'state=history&set=full&tabclick=analyse&view=rules&frozen=1', $false)
 $Runs += , @('analyse, comparer sur egalite', 'state=tie&profile=jungle&set=full&tabclick=analyse&view=compare&frozen=1', $false)

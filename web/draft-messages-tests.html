@@ -96,7 +96,7 @@ UI-085 | index.html:1567 | Repli | Plus de détails
 UI-086 | index.html:1568 | Picks à éviter (tableau) | À éviter : {liste}
 UI-087 | index.html:1569 | Bilan personnel | Tes parties : {x}
 UI-088 | index.html:1570 | Pick sans frontline allié (V.without) | Sans frontline : {C}
-UI-089 | index.html:1574,2077 | Bouton principal | re:^(Je joue .+|.+ noté)$
+UI-089 | index.html:1574,2077 | Bouton principal (correctif du choix : il montre le choix du joueur ; « choisi » en simulation) | re:^(Je joue .+|.+ noté|.+ choisi)$
 UI-090 | index.html:1581 | Étiquette du pool | À égalité
 UI-091 | index.html:1582 | Étiquette du pool | À éviter
 UI-092 | index.html:1583 | Étiquette du pool, 1er | Recommandé
@@ -199,7 +199,7 @@ UI-188 | index.html:1936 | Mention légale | Outil personnel non approuvé par R
 UI-189 | index.html:SidePanel | Onglets Critères et Comparer, aide des règles (UX-7 : un seul niveau) | re:^(Critères|Comparer)$
 UI-190 | index.html:SidePanel | Onglets du Simulateur (UX-7 : un seul niveau) | re:^(Plan|Critères|Comparer|Conseils|Duel|Détails et statistiques)$
 UI-191 | index.html:1974 | Barre mobile, égalité | Égalité : {liste}
-UI-192 | index.html:1977 | Barre mobile, bouton (PR C) | re:^(Enregistré|Je joue)$
+UI-192 | index.html:1977 | Barre mobile, bouton (PR C ; « Choisi » en simulation) | re:^(Enregistré|Je joue|Choisi)$
 UI-193 | index.html:noPickText (fr.js panel.empty.noProfile) | Aucun profil (UX-6 : Mon pool) | Choisis ton rôle et tes champions dans Mon pool.
 UI-194 | index.html:noPickText (fr.js panel.empty.noPick) | Rôle sans champion (UX-6 : Mon pool) | Aucun champion pour le rôle {Rôle}. Ajoute-les dans Mon pool, ou change de rôle.
 UI-195 | index.html:noPickText (fr.js panel.empty.allExcluded) | Tous les picks exclus ou pris (UX-6 : Mon pool) | Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans Mon pool.
@@ -280,7 +280,7 @@ UI-266 | index.html:2014,2406 | Marque | DRAFT
 UI-267 | index.html:1835 | Barre de victoires (aria) | re:^.+ : \d+V \d+D$
 UI-269 | index.html:1866,1869 | Statistiques : nom du compte importé (donnée) | re:^[^ ]+#[^ ]+$
 UI-268 | index.html:SettingsSection diag | Réglages > Diagnostic : phase et placement transmis par le programme (src/DraftDetection.cs PhaseText, placementNote), en deux lignes (UX-7) | re:^((Client LoL fermé|Client ouvert, hors draft \(estimation\)|Draft en cours \(estimation\)|Partie en cours|Phase incertaine)|Panneaux .+\.|Panneau .+\.|Pas de place .+\.|Position manuelle conservée\..+|.+panneau étroit .+\.)$
-UI-270 | index.html:App | Simulateur, bandeau (2.16.2, boutons UX-2) | re:^(Simulation : ta draft en cours n'est pas modifiée\.|Simulation|Reprendre la draft en cours|Quitter la simulation|Copie la draft en cours dans la simulation, sans lien avec elle\.)$
+UI-270 | index.html:App | Simulateur, bandeau (2.16.2, boutons UX-2 ; correctif du choix : rien dans le journal) | re:^(Simulation : ta draft en cours n'est pas modifiée\. Rien n'est noté dans ton journal\.|Simulation|Reprendre la draft en cours|Quitter la simulation|Copie la draft en cours dans la simulation, sans lien avec elle\.)$
 UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 champions vus (PR E, B-05) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) \? hypothèse \(\d champions? vus?\)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-273 | index.html:UndoNote | UX-1, annonce après Nouvelle draft ou Retour arrière, avec « Annuler » 5 s (UX-2 : simulation) | re:^((Draft effacée\.|Simulation effacée\.|Draft en cours copiée dans la simulation\.|Retrait de .+\.)( Annuler)?|Annuler)$
@@ -300,6 +300,7 @@ UI-288 | index.html:StatsView (fr.js stats.*) | UX-5, Mes statistiques : titres,
 UI-289 | index.html:HistoryImportBox (fr.js stats.history.*) | UX-5, Mes statistiques : historique Riot, états vides, clé et collecte | re:^(Ton expérience, jamais le classement\.|Historique Riot Ton expérience, jamais le classement\.|Aucun historique importé\. DRAFT peut lire tes parties classées avec ta clé Riot, saisie à chaque import et jamais enregistrée\.|\d+ parties? importées?, le \d\d/\d\d/\d{4}|L'import se fait dans l'application DRAFT\.|Ta clé Riot se saisit dans une fenêtre DRAFT, une seule fois pour l'historique, les rôles et les matchups\. Elle n'est jamais enregistrée\.|Lu : tes parties classées solo/duo\. Gardé sur ce PC : champion, rôle, résultat, KDA, patch et champions adverses\. Aucun nom ni identifiant de joueur\.|Aucune partie importée en (Top|Jungle|Mid|ADC|Support)\.)$
 UI-298 | index.html:RecentDrafts, StatsOverview (fr.js stats.recent.*, stats.overview.*) | UX-5, dernières drafts et journal vide | re:^(Dernières drafts|Notées avec « Je joue »\. DRAFT garde le pick, ton vis-à-vis et le résultat, rien d'autre\.|Dernières drafts Notées avec .+|Voir tout le journal|Ton pick|Ton vis-à-vis|Conseil|Résultat|Date|Suivi|Autre choix|Aucune partie notée pour l'instant\. Pendant une draft, clique sur « Je joue », puis sur le résultat : tes bilans apparaîtront ici\.|Victoires par champion joué Journal DRAFT)$
 UI-309 | index.html:StatsKpis, SampleGauge, WinBars (fr.js stats.kpi.rate, stats.sample.*, stats.gauge.aria) | DA B+, Mes statistiques : période, échantillon, seuil de 10 parties, jauge de crans (aria-label) | re:^(Aucune draft notée : la période et le nombre de parties s'afficheront ici\.|Période : (du \d\d/\d\d/\d{4} au \d\d/\d\d/\d{4}|le \d\d/\d\d/\d{4})|\d+ parties? terminées?|Moins de \d+ parties terminées : pas encore de pourcentage, l'écart peut venir du hasard\.|Pourcentage affiché à partir de \d+ parties terminées ; il reste indicatif sur un petit nombre\.|\d+ % de victoires|\d+ parties? terminées? sur les \d+ nécessaires pour un pourcentage)$
+UI-310 | index.html:PickAdvice, PickCurrent, pickCta (fr.js advice.pick.*, advice.cta.simHelp) | Correctif du choix : conseil rappelé sous le bouton quand le joueur choisit un autre champion, retour explicite au conseil, choix hors égalité, aide du bouton en simulation | re:^(Conseil : [^,]+|Revenir au conseil|Ton choix : .+|Remplace .+ par .+, le conseil de DRAFT\.|Simulation : ce choix sert à t'entraîner\. Il n'est pas noté dans ton journal\.)$
 NA-004 | RiotKeyDialog.cs:RiotDialogText | [non affiché] fenêtre Windows commune de la clé Riot (UX-5), textes regroupés pour native.riot.dialog.* | re:^(DRAFT : lectures avec ta clé Riot|Une seule clé pour les lectures que tu coches\..+|Lectures à lancer, l'une après l'autre :|Importer mon historique|Mettre à jour les (rôles des champions|matchups de ton pool) \(environ \d+ minutes\)|Lu : .+|Choisis d'abord ton rôle et ton pool dans Mon pool\.|Lancer)$
 NA-005 | DraftMid.cs:MenuText | [non affiché] menu de l'icône, 8 entrées (UX-6), libellés identiques à ceux de la page | re:^(Ouvrir DRAFT|Afficher les panneaux|Simuler une draft|Détection de la draft|C'est une draft : retenir cet écran|Ce n'est pas une draft : retenir cet écran|Diagnostic de connexion LoL|Réglages|Rechercher une mise à jour|Quitter)$
 NA-006 | DraftMid.cs:MenuText.Hidden* | [non affiché] bulle Windows, premier masquage depuis l'outil du panneau (UX-6) | re:^Panneaux masqués\. (Ctrl\+Alt\+D pour les rappeler\.|Menu de l'icône, « Afficher les panneaux », pour les rappeler\.)$
@@ -742,7 +743,7 @@ async function open(profile, panel, W, H, extra, folder) {
   w.console.error = (...args) => { const t = args.map(a => a && a.message ? a.message : String(a)).join(" "); if (!/Failed to load resource|net::/.test(t)) res.errors.push(`console (${current}) : ${t.slice(0, 300)}`); original(...args); };
   w.eval(`window.$ = { get V(){return V}, get state(){return state}, get PREFS(){return PREFS}, analyze, commit, rerender, savePrefs, addEnemy, removeEnemy, setMid, clickRole, choosePick, setResult,
     coachData, essentialAdvice, hostState, historyProfile, opponentBelief, roleBelief, beliefScenarios, deriveSlots, comparePicks, whenBetter, matchupOf, label, myRole, saveMyProfile, switchRole, draftApi,
-    reset(){ state.enemies.length = 0; state.manualMid = null; state.held = null; state.roleOf = {}; state.targetRole = null; state.selected = null; state.notice = null; state.current = null; commit(); } }`);
+    reset(){ state.enemies.length = 0; state.manualMid = null; state.held = null; state.roleOf = {}; state.targetRole = null; state.selected = null; state.notice = null; state.current = null; state.picked = null; state.pickContext = null; commit(); } }`);
   if (!NAMES.length) NAMES = w.eval("NAMES.slice()");
   return { f, w, d:f.contentDocument, $:w.$ };
 }
@@ -993,6 +994,8 @@ async function special() {
     ["Ornn", "Thresh", "Kog'Maw"].forEach(n => x.$.addEnemy(n)); await settle(); collect(x.d, "saisie pick pris"); checks(x, "saisie");
     // Journal : choix, résultat, dernière partie.
     x.$.choosePick(x.$.V.shown); await settle(); collect(x.d, "journal");
+    // Correctif du choix : un autre champion que le conseil, puis le retour au conseil.
+    { const o = x.$.V.order.find(p => p.pick !== x.$.V.shown && !(x.$.V.tied || []).includes(p.pick)); if (o) { x.$.choosePick(o.pick); await settle(); collect(x.d, "choix différent du conseil"); x.$.choosePick(x.$.V.shown); await settle(); } }
     x.$.setResult(x.$.state.current, "win"); await settle(); collect(x.d, "journal");
     x.$.reset(); await settle(); ["Ahri"].forEach(n => x.$.addEnemy(n)); x.$.choosePick("Fizz"); await settle(); x.$.reset(); await settle(); collect(x.d, "journal en attente");
     await showView(x, "stats"); for (const k of ["overview", "journal", "history"]) { const b = x.d.querySelector(`[data-test="stats-tab-${k}"]`); if (b) { b.click(); await settle(); } collect(x.d, "journal parties"); } await showView(x, "sim");
@@ -1028,6 +1031,9 @@ async function special() {
     const z = await open({ role:"mid", pool:["TF", "Fizz"] }, null, 1280, 720); current = "ux2 simulation";
     ["Ahri", "Sion"].forEach(n => z.$.addEnemy(n)); await settle();
     for (const s of ["source-sim", "resume-live", "new-draft"]) { const b = z.d.querySelector(`[data-test="${s}"]`); if (b) { b.click(); await settle(); collect(z.d, current); } }
+    // Correctif du choix : un choix dans la simulation (« choisi », rien dans le journal), différent du conseil.
+    ["Ahri", "Sion"].forEach(n => z.$.addEnemy(n)); await settle();
+    { const o = z.$.V.order.find(p => p.pick !== z.$.V.shown && !(z.$.V.tied || []).includes(p.pick)); if (o) { z.$.choosePick(o.pick); await settle(); collect(z.d, current + " choix"); } }
     close(z);
   }
   // Sans profil, puis rôle sans champion.

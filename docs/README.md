@@ -29,6 +29,7 @@
 | [Architecture](technique/ARCHITECTURE.md) | C# et WebView2, frontend, compilation, carte des fichiers |
 | [Moteur](technique/MOTEUR.md) | Calcul du conseil, stabilité, historique des changements |
 | [Données](technique/DONNEES.md) | Sources, rôles probabilistes, fiabilité, licences |
+| [Journal des drafts](technique/JOURNAL.md) | Format d'une entrée, égalités, origine, anciennes entrées, compatibilité 2.16.2 |
 | [Détection](technique/DETECTION.md) | Fenêtre, phase, reconnaissance visuelle |
 | [Lecture du client](technique/LCU.md) | Endpoints, politique de Riot, garanties |
 | [Intégration Riot](technique/INTEGRATION-RIOT.md) | Méthodes, conditions, risque résiduel |

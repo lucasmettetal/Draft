@@ -22,7 +22,7 @@ La page et l'hôte échangent des messages JSON par `chrome.webview` : commandes
 
 | Donnée | Emplacement |
 |---|---|
-| Profil, préférences, journal | `localStorage` du WebView2, avec une copie partielle dans `settings.json` |
+| Profil, préférences, journal | `localStorage` du WebView2, avec une copie partielle dans `settings.json`. Format du journal : [JOURNAL.md](JOURNAL.md) |
 | Fenêtres et apprentissage | `settings.json` |
 | Calculs Riot | `draft-*-live.js`, `draft-*-state*.json` |
 | Statistiques importées | `draft-stats.js` |
