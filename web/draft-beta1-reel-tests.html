@@ -99,8 +99,8 @@ for(const lang of ["fr","en"]){
    const tab=q(x,'[data-tab="compare"]');if(tab)tab.click();await settle();
    const plays=[...x.d.querySelectorAll('[data-test="compare-choose"]')].map(b=>b.dataset.pick);
    t(plays.includes(sc.rec)&&plays.includes(sc.alt),L+"[avant : échec] Comparer : conseil et champion consulté, chacun avec « Je joue » ("+plays.join(", ")+")");
-   const tile=q(x,'.cmp-btn');if(tile)tile.click();await settle();
-   t(x.$.loadJournal().length===n0,L+"Comparer : changer la paire ne note rien");
+   const nTile=x.$.loadJournal().length,pickTile=x.$.state.picked;const tile=q(x,'.cmp-btn');if(tile)tile.click();await settle();
+   t(!!tile&&x.$.loadJournal().length===nTile&&x.$.state.picked===pickTile,L+"Comparer : changer la paire ne note rien (garantie inchangée)");
    const cb=[...x.d.querySelectorAll('[data-test="compare-choose"]')].find(b=>b.dataset.pick===sc.rec);if(cb)cb.click();await settle();
    const e=entry(x);t(!!e&&e.picked===sc.rec&&x.$.loadJournal().length===n0+1,L+"[avant : échec] Comparer : « Je joue » confirme ("+fmt(e)+")");
    t(snap(x)===before,L+"classement, conseil et scores inchangés");
@@ -184,7 +184,9 @@ for(const lang of ["fr","en"]){
    // Sans lecture du client : rôle choisi à la main, raison dite près du sélecteur.
    for(const [status,enabled,key] of [["off",false,"role.manual.off"],["waiting",true,"role.manual.closed"],["failed",true,"role.manual.failed"]]){
      prepare(MID,null,null);const x=await openHost(lang,"right",256,608);hostMsg(x,{lcuEnabled:enabled,lcuStatus:status});await settle();const st=q(x,'[data-test="role-state"]');
-     t(!!st&&st.dataset.state==="manual"&&st.title===x.T(key)&&visible(st,608,256),L+"[avant : échec] lecture "+status+" : « "+(st?text(st):"absent")+" », raison : "+x.T(key));x.f.remove();}
+     t(!!st&&st.dataset.state==="manual"&&st.title===x.T(key)&&visible(st,608,256),L+"[avant : échec] lecture "+status+" : « "+(st?text(st):"absent")+" », raison : "+x.T(key));
+     clk(q(x,'[data-test="role-switch-jungle"]'));await settle();const st2=q(x,'[data-test="role-state"]');
+     t(x.$.myRole()==="jungle"&&!!st2&&st2.dataset.state==="manual"&&st2.title===x.T(key),L+"[avant : échec] lecture "+status+", rôle changé à la main : la raison reste dite");x.f.remove();}
    {prepare(MID,null,null);const x=await openHost(lang,null,1366,900);hostMsg(x,{lcuEnabled:false,lcuStatus:"off"});await settle();const st=q(x,'[data-test="role-state"]');
     t(!!st&&text(st)===x.T("role.manual.off"),L+"[avant : échec] fenêtre, sans lecture : « "+(st?text(st):"absent")+" »");x.f.remove();}
    // Lecture active, sélection en cours, aucun poste indiqué : rôle inconnu.

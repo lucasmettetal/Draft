@@ -630,6 +630,25 @@
     .panel-left .hint { margin-bottom:6px; }
     .panel .p-name { font-size:24px; }
     .panel .p-name.long { font-size:18px; }
+  }  /* Panneau unique d'un écran 1366 x 768 à 125 % (230 x 520 px CSS, placement réel) : la menace reste au-dessus de la barre d'actions. */
+  @media (max-height:540px) {
+    .compact-roles .role { min-height:62px; }
+    .panel .p-body { gap:5px; padding-top:5px; }
+    .panel .p-threat { padding-top:5px; padding-bottom:5px; }
+    .panel .p-reco { height:68px; }
+    /* Le conseil est affiché juste au-dessus (illustration) : la barre ne garde que « Revenir au conseil », sur une ligne. */
+    .panel .p-actions .pick-advice > span { display:none; }
+    /* Cinq adversaires saisis : la recherche est désactivée, elle laisse sa place (42 px) au conseil et à la menace. */
+    .p-compact-enemies .search:has(input:disabled) { display:none; }
+  }
+  /* Panneau unique étroit (1366 x 768 à 125 % : 222 px CSS utiles) : « Détails » en icône, « Je joue X » reste entier sur la même ligne. */
+  @media (max-width:240px) {
+    .panel .p-actions .details-label { display:none; }
+    .panel .p-actions .details-btn { padding-left:8px; padding-right:8px; }
+    /* Nom long (« I'm playing Twisted Fate ») : le texte passe sur deux lignes dans le bouton, au lieu d'une seconde rangée de boutons. */
+    .panel .p-actions .cta { flex:1 1 0; min-width:0; white-space:normal; line-height:1.15; }
+    /* Cases vides : 40 px chacune, « Ajouter » débordait sur la voisine ; le cadre vide suffit. */
+    .compact-roles .role-empty { display:none; }
   }
 
   /* Le mouvement réduit concerne aussi le CSS, pas seulement Motion. */
@@ -2803,8 +2822,9 @@ function roleState() {
   const reading = hostState.lcuEnabled && hostState.lcuStatus === "connected";
   const why = !hostState.lcuEnabled || hostState.lcuStatus === "off" ? "role.manual.off" : hostState.lcuStatus === "failed" ? "role.manual.failed" : "role.manual.closed";
   const manual = text => ({ code:"manual", text, title:text });
+  // Sans lecture, la raison est toujours dite, même après un changement à la main (le joueur sait pourquoi rien n'est détecté).
+  if (!reading) return state.roleHandled && PROFILES.active === state.roleHandled && !state.roleManual ? { code:"detected", text:"role.state.detected", title:"role.state.detected" } : { code:"manual", text:PANEL ? "role.manual.short" : why, title:why };
   if (state.roleManual) return manual("role.state.manual");
-  if (!reading) return state.roleHandled && PROFILES.active === state.roleHandled ? { code:"detected", text:"role.state.detected", title:"role.state.detected" } : { code:"manual", text:PANEL ? "role.manual.short" : why, title:why };
   if (state.assignedRole && state.assignedRole === PROFILES.active) return { code:"detected", text:"role.state.detected", title:"role.state.detected" };
   // League indique un autre poste (mode « proposer », pool vide) : le rôle joué reste celui du profil, la proposition est affichée.
   if (state.assignedRole) return manual("role.state.manual");
@@ -2921,7 +2941,7 @@ function VerdictPanel() {
     </details>
     <div className="p-actions">
       ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
-      <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" />${t("panel.details")}</button>
+      <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} aria-label=${t("panel.details")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" /><span className="details-label">${t("panel.details")}</span></button>
       <${PickCurrent} />
       <${PickAdvice} />
     </div>

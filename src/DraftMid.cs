@@ -1761,9 +1761,36 @@ public static class Autostart
                         bool altViewed = await waitIn(full, "state.viewed === " + A + " && !!document.querySelector('[data-test=\"stage\"] [data-test=\"viewed\"]')", 4000)
                             && await waitIn(side, Cta + " && " + Cta + ".textContent.trim() === I18N.t('advice.cta.play', { champion: label(" + A + ") })", 2000);
                         if (!altViewed) problem += mode + " : l'alternative " + alt + " ne se consulte pas depuis le panneau ; ";
-                        string hidden = await text(side, "(() => { const H = innerHeight, W = innerWidth; const need = [['Je joue', " + Cta + "], ['Détails', document.querySelector('[data-test=\"open-analysis\"]')], ['Revenir au conseil', document.querySelector('[data-test=\"back-to-advice\"]')], ['rôle', document.querySelector('[data-test^=\"role-switch-\"]')]].concat(document.querySelector('.p-threat') ? [['menace', document.querySelector('.p-threat')]] : []); return need.filter(([n, e]) => { if (!e) return true; const r = e.getBoundingClientRect(); return !(r.width > 0 && r.top >= -0.5 && r.bottom <= H + 0.5 && r.left >= -0.5 && r.right <= W + 0.5); }).map(([n]) => n).join(', ') + ' / ' + W + 'x' + H + ' à ' + devicePixelRatio; })()");
+                        // Essentiel visible sans défiler : boutons de la barre d'actions dans la fenêtre ; rôle et menace au-dessus de cette barre (collée en bas) ;
+                        // le champion consulté est nommé par « Je joue X » dans la barre (la carte « Consulté » peut commencer sous la barre).
+                        string visScript = "(() => { const H = innerHeight, W = innerWidth, cta = " + Cta + ", bar = document.querySelector('.p-actions'), barTop = bar ? bar.getBoundingClientRect().top : H; const need = [['Je joue', cta], ['Détails', document.querySelector('[data-test=\"open-analysis\"]')], ['Revenir au conseil', document.querySelector('[data-test=\"back-to-advice\"]')], ['rôle', document.querySelector('[data-test^=\"role-switch-\"]')], ['consulté', state.viewed && cta && cta.textContent.includes(label(state.viewed)) ? cta : null]].concat(document.querySelector('.p-threat') ? [['menace', document.querySelector('.p-threat')]] : []); return need.filter(([n, e]) => { if (!e) return true; const r = e.getBoundingClientRect(), lim = e.closest('.p-actions') ? H : barTop; return !(r.width > 0 && r.top >= -0.5 && r.bottom <= lim + 0.5 && r.left >= -0.5 && r.right <= W + 0.5); }).map(([n]) => n).join(', ') + ' / ' + W + 'x' + H + ' à ' + devicePixelRatio; })()";
+                        string hidden = await text(side, visScript);
                         if (!hidden.StartsWith(" / ")) problem += mode + " : commandes hors écran pendant la consultation (" + hidden + ") ; ";
                         PickVisibility += mode + " " + hidden.Substring(hidden.IndexOf('/') + 1).Trim() + " ; ";
+                        // Tailles réelles, calculées par le placement (Layout.Compute, client centré) : 1366 x 768 à 125 % (client 1024 x 576),
+                        // 1920 x 1080 à 100 et 125 % (client 1280 x 720). Le panneau est mis à cette taille en pixels CSS (la WebView2 de l'e2e
+                        // garde le facteur d'échelle de l'écran), puis les mêmes commandes sont vérifiées sans défiler.
+                        double dpr = double.Parse(await run(side, "devicePixelRatio"), System.Globalization.CultureInfo.InvariantCulture);
+                        Size keepSize = side.ClientSize;
+                        foreach (double[] cfg in new[] { new[] { 1366, 768, 1.25, 1024, 576 }, new[] { 1920, 1080, 1.0, 1280, 720 }, new[] { 1920, 1080, 1.25, 1280, 720 } })
+                        {
+                            int bar = (int)(40 * cfg[2]), sw = (int)cfg[0], sh = (int)cfg[1], cw = (int)cfg[3], ch = (int)cfg[4];
+                            List<Monitor> one = new List<Monitor> { new Monitor { Work = new Native.RECT(0, 0, sw, sh - bar), Scale = cfg[2], Primary = true } };
+                            Native.RECT win = new Native.RECT((sw - cw) / 2, (sh - bar - ch) / 2, (sw - cw) / 2 + cw, (sh - bar - ch) / 2 + ch);
+                            Placement pl = Layout.Compute(win, one, mode == "compact");
+                            // Pas de place pour deux panneaux : le programme montre le panneau unique (compact), mesuré dans ce mode-là.
+                            if (mode == "right" && pl.Mode != "two") continue;
+                            Native.RECT box = mode == "right" ? pl.Right : pl.Mode == "compact" ? pl.Single : Layout.Narrowest(win, one).Single;
+                            int cssW = (int)Math.Round(box.W / cfg[2]), cssH = (int)Math.Round(box.H / cfg[2]);
+                            side.ClientSize = new Size((int)Math.Round(cssW * dpr), (int)Math.Round(cssH * dpr));
+                            await Task.Delay(700);
+                            string seen = await text(side, visScript);
+                            string label = sw + "x" + sh + "@" + (int)(cfg[2] * 100) + "% " + pl.Mode + " " + cssW + "x" + cssH;
+                            if (!seen.StartsWith(" / ")) problem += mode + " : " + label + " : commandes hors écran (" + seen + ") ; ";
+                            PickVisibility += mode + " " + label + " (zone utile " + seen.Substring(seen.IndexOf('/') + 1).Trim() + ")" + (seen.StartsWith(" / ") ? " ok" : " MANQUE " + seen.Substring(0, seen.IndexOf('/')).Trim()) + " ; ";
+                        }
+                        side.ClientSize = keepSize;
+                        await Task.Delay(400);
                         await run(side, Cta + ".click(); 1");
                         if (!await waitIn(full, "state.current && loadJournal().find(x => x.id === state.current).picked === " + A + " && !state.viewed", 4000)) problem += mode + " : « Je joue " + alt + " » dans le panneau n'est pas noté ; ";
                     }
@@ -3150,7 +3177,8 @@ public static class Autostart
             Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
             Func<string, Task<string>> everywhere = async code => { List<string> r = new List<string> { await run(code) }; foreach (string id in new[] { "left", "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null) r.Add(id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code)); } return string.Join(" ", r); };
             // Panneau qui porte le rôle et le conseil (droit, sinon compact), affiché ou non.
-            Func<string, Task<string>> inSide = async code => { foreach (string id in new[] { "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null) return id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code); } return "aucun panneau"; };
+            // Le panneau affiché d'abord : un panneau masqué (droit en mode compact) peut être mis en pause par WebView2 et rattraper plus tard.
+            Func<string, Task<string>> inSide = async code => { foreach (bool shown in new[] { true, false }) foreach (string id in new[] { "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (pf != null && !pf.IsDisposed && pf.Visible == shown && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null) return id + (shown ? "" : " (masqué)") + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code); } return "aucun panneau"; };
             // La fenêtre vient de s'ouvrir : tant qu'elle n'est pas synchronisée (1,5 s au plus), elle ne diffuse rien aux panneaux.
             await wait("synced");
             await run("saveMyProfile('top',['Sett','Ornn']); saveMyProfile('jungle',['Viego','Lee Sin']); saveMyProfile('mid',['Fizz','Xerath']); saveMyProfile('adc',['Jinx','Caitlyn']); saveMyProfile('support',['Janna','Lulu']); savePrefs({autoRole:'auto', autoRoleChosen:false}); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
