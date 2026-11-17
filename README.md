@@ -98,4 +98,6 @@ Les exécutables sont dans `dist\`. Les tests natifs se lancent avec `dist\DRAFT
 
 **Publier une version :** monter `AssemblyFileVersion`, pousser un tag `vX.Y.Z` (le workflow compile, teste et publie la release), puis lancer `.\tools\sign-release.ps1 -Tag vX.Y.Z` sur le PC qui détient la clé de signature. Sans signature, la mise à jour intégrée refuse la version. Voir [Branches et publication](docs/technique/BRANCHES.md).
 
+**Publier une préversion :** `AssemblyInformationalVersion` avec un « - » (par exemple `3.0.0-beta.1`, égale à `APP_VERSION`) donne l'édition préversion : données dans `%LOCALAPPDATA%\DRAFT-beta` (copie de la 2.x au premier lancement), ni installation ni mise à jour automatique. Un tag `vX.Y.Z-suffixe` publie une release marquée préversion, jamais « latest », avec l'exe portable seul et les notes de `docs/release/NOTES-X.Y.Z-suffixe.md`. Étapes : [Checklist de publication](docs/release/CHECKLIST-PUBLICATION.md).
+
 Aucun fichier de licence n'accompagne le projet pour l'instant : le code est public, mais sans licence de réutilisation accordée.

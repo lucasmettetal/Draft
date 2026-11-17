@@ -63,8 +63,24 @@ jobs:
           $p = Start-Process .\dist\DRAFT-Portable.exe -ArgumentList '--selftest','--data',"$env:RUNNER_TEMP\dm",'--out',"$env:RUNNER_TEMP\selftest.txt" -PassThru -Wait
           Get-Content "$env:RUNNER_TEMP\selftest.txt"
           exit $p.ExitCode
+      # Tag avec « - » (v3.0.0-beta.1) : préversion. Release marquée --prerelease et --latest=false, exe portable seul, notes lues
+      # dans docs/release/NOTES-<version>.md. La version de l'exe (AssemblyInformationalVersion) doit être celle du tag : sinon
+      # l'exe serait l'édition stable, qui partage les données de la 2.x. GitHub ne renvoie jamais une préversion à /releases/latest :
+      # les 2.16.x ne la voient pas. Tag sans « - » : exactement la commande d'avant.
+      # Le script est lu par Windows PowerShell 5.1 sans BOM : un accent écrit ici arrive abîmé (« approuvÃ© » dans les notes de
+      # v2.16.2). La branche préversion n'a donc que de l'ASCII ; ses notes, accentuées, viennent d'un fichier lu par gh en UTF-8.
       - name: Publier l'exécutable
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME dist\DRAFT-Portable.exe dist\DRAFT-Setup.exe --repo $env:GITHUB_REPOSITORY --title "DRAFT $env:GITHUB_REF_NAME" --notes "Outil non approuvé par Riot Games. Compilé et testé par GitHub Actions. Signature DRAFT jointe séparément."
+        run: |
+          if ($env:GITHUB_REF_NAME.Contains('-')) {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+            $notes = "docs\release\NOTES-$version.md"
+            $built = (Get-Item dist\DRAFT-Portable.exe).VersionInfo.ProductVersion
+            if ($built -ne $version) { throw "Version de l'exe ($built) <> tag ($version) : rien n'est publie." }
+            if (-not (Test-Path $notes)) { throw "Notes de version absentes : $notes" }
+            gh release create $env:GITHUB_REF_NAME dist\DRAFT-Portable.exe --repo $env:GITHUB_REPOSITORY --title "DRAFT $env:GITHUB_REF_NAME" --notes-file $notes --prerelease --latest=false
+          } else {
+            gh release create $env:GITHUB_REF_NAME dist\DRAFT-Portable.exe dist\DRAFT-Setup.exe --repo $env:GITHUB_REPOSITORY --title "DRAFT $env:GITHUB_REF_NAME" --notes "Outil non approuvé par Riot Games. Compilé et testé par GitHub Actions. Signature DRAFT jointe séparément."
+          }
