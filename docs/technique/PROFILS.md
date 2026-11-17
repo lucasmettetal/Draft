@@ -57,15 +57,32 @@ L'ancien format `{ role, pool }` est accepté et ne remplace que son rôle. Un r
 
 **Ce champ n'est pas documenté par Riot**, et il n'a été vérifié qu'avec des réponses simulées. Il est souvent vide en sélection aveugle et dans les modes sans poste.
 
-**Préférence `autoRole` :**
+**Stabilité :** le programme ne transmet un poste qu'après **deux lectures identiques d'affilée**. Un poste qui oscille (jungle, top, jungle…) ne fait rien basculer. Une session illisible garde la dernière valeur ; hors sélection, en cas de déconnexion ou de lecture désactivée, le rôle attribué redevient inconnu, sans changer le rôle joué.
+
+**Préférence `autoRole` (depuis le correctif de la 3.0.0-beta.1) :**
 
 | Valeur | Effet |
 |---|---|
-| `suggest` (par défaut) | Indication discrète « LoL t'attribue Jungle », avec un bouton pour changer |
-| `auto` | Change de profil une fois par draft |
+| `auto` (par défaut) | Charge le pool du poste attribué, une fois par draft. Notice « League t'a attribué Jungle : pool Jungle chargé », avec **Revenir en Mid** |
+| `suggest` | Proposition encadrée « LoL t'attribue Jungle », avec **Passer à Jungle** et **Ignorer** |
 | `off` | Rien |
 
-Une correction manuelle pendant la draft arrête tout changement automatique jusqu'à la draft suivante. Une indication ignorée ne revient pas. Hors draft, en cas de déconnexion ou de lecture désactivée, le rôle attribué redevient inconnu.
+- **Choix explicite :** le sélecteur des réglages enregistre `autoRoleChosen: true` avec la valeur. Ce choix est toujours respecté.
+- **Ancien défaut :** avant ce correctif, `suggest` était le défaut, et `savePrefs` enregistrait toutes les préférences. Un `suggest` **sans** `autoRoleChosen` est donc traité comme le défaut, `auto`. Un `off` sans marqueur ne pouvait venir que d'un choix : il est respecté. Rien n'est réécrit dans le stockage.
+- **Export et import :** l'export ne contient pas le marqueur. Un `suggest` importé est traité comme l'ancien défaut.
+- **Pool vide :** en `auto`, un poste dont le pool est vide n'est pas chargé, car il n'y aurait plus aucun conseil. DRAFT le propose à la place.
+
+**Correction manuelle :** un changement de rôle à la main pendant la draft (boutons de rôle, **Revenir en …**) arrête tout changement automatique jusqu'à la draft suivante. Un poste lu plus tard, même stable, n'est alors qu'une proposition. Une proposition ignorée ne revient pas. Les cinq pools restent indépendants : changer de rôle ne modifie aucun pool.
+
+**État du rôle**, affiché sous le sélecteur de rôle, dans les panneaux droit et compact comme dans la fenêtre :
+
+| État | Quand | Texte |
+|---|---|---|
+| Détecté | League indique un poste, et c'est le rôle joué (bascule automatique ou même rôle) | « Rôle détecté par League ». Dans les panneaux, tant que la notice de bascule est affichée, elle en tient lieu |
+| Choisi à la main | Correction pendant la draft, ou lecture du client indisponible | « Rôle choisi à la main », avec la raison : lecture désactivée, client LoL fermé ou injoignable |
+| Inconnu | Lecture active, sélection en cours, aucun poste indiqué | « Rôle inconnu : League n'indique pas de poste » |
+
+**Diagnostic :** la ligne de `diagnostic.log` porte le poste lu pendant une sélection : `lcu=ChampSelect/0 poste=jungle`, `poste=aucun` ou `poste=illisible`. Le rapport « Diagnostic de connexion LoL » du menu ajoute la dernière lecture. Aucune autre donnée de joueur n'y figure.
 
 ## Vérifier une migration
 

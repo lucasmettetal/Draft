@@ -44,6 +44,10 @@ $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
 foreach ($s in 'empty', 'one', 'full', 'midunknown', 'close', 'excluded', 'none', 'picked', 'pickedother', 'history', 'extreme') { $Runs += , @($s, "state=$s&frozen=1", $false) }
+# Correctif beta.1 : champion consulte, bascule automatique du role (notice), role choisi a la main sans lecture du client.
+$Runs += , @('consultation', 'state=viewed&frozen=1', $false)
+$Runs += , @('bascule de role', 'state=roleauto&frozen=1', $false)
+$Runs += , @('role a la main sans lecture', 'state=full&host=off&frozen=1', $false)
 $Runs += , @('egalite jungle, choix hors egalite', 'state=tieother&profile=jungle&frozen=1', $false)
 $Runs += , @('analyse, vue comparer', 'state=history&set=full&tabclick=analyse&view=compare&frozen=1', $false)
 $Runs += , @('analyse, vue regles', 'state=history&set=full&tabclick=analyse&view=rules&frozen=1', $false)
