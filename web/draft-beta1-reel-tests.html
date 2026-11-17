@@ -189,6 +189,35 @@ for(const lang of ["fr","en"]){
      t(x.$.myRole()==="jungle"&&!!st2&&st2.dataset.state==="manual"&&st2.title===x.T(key),L+"[avant : échec] lecture "+status+", rôle changé à la main : la raison reste dite");x.f.remove();}
    {prepare(MID,null,null);const x=await openHost(lang,null,1366,900);hostMsg(x,{lcuEnabled:false,lcuStatus:"off"});await settle();const st=q(x,'[data-test="role-state"]');
     t(!!st&&text(st)===x.T("role.manual.off"),L+"[avant : échec] fenêtre, sans lecture : « "+(st?text(st):"absent")+" »");x.f.remove();}
+   // Vérifications explicites, trois pages hôtes (fenêtre, panneau droit, compact) recevant chacune les messages du programme.
+   {const K=L+"trois pages : ",bc=(xs,extra)=>xs.forEach(x=>hostMsg(x,extra)),role=x=>x.$.myRole()+"|"+x.w.eval("PICKS.join()"),
+     setup="saveMyProfile('jungle',['Viego','Lee Sin']);saveMyProfile('top',['Sett','Ornn']);saveMyProfile('mid',['TF','Vex','Fizz','Xerath']);switchRole('mid','manual');resetRoleSession();publish(null);1";
+    prepare(MID,null,null);const xs=[await openHost(lang,null,1366,900),await openHost(lang,"right",256,608),await openHost(lang,"compact",282,576)];
+    xs[0].w.eval(setup);await wait(400);bc(xs,{});xs[0].$.dispatchDraft({type:"session-start"});await wait(300);
+    // 1a. Poste Jungle : pool Jungle chargé partout, notice dans les deux panneaux.
+    bc(xs,{assignedRole:"jungle"});await wait(600);
+    t(xs.every(x=>role(x)==="jungle|Viego,Lee Sin")&&!!q(xs[1],'[data-test="role-auto"]')&&!!q(xs[2],'[data-test="role-auto"]'),K+"1a. poste Jungle : pool Jungle dans la fenêtre et les deux panneaux, notice dans les panneaux ("+xs.map(role).join(" | ")+")");
+    // 1b. Correction à la main dans le compact, puis lectures tardives et instables (top, jungle, top) : rien n'est écrasé.
+    clk(q(xs[2],'[data-test="role-auto-undo"]'));await wait(400);
+    for(const r of ["top","jungle","top"]){bc(xs,{assignedRole:r});await wait(120);}await wait(400);
+    t(xs.every(x=>x.$.myRole()==="mid"&&x.$.state.roleManual)&&!!q(xs[1],'[data-test="role-hint"]'),K+"1b. correction à la main prioritaire : lectures tardives et instables sans effet, proposition seulement ("+xs.map(x=>x.$.myRole()+"/"+x.$.state.roleManual).join(" | ")+")");
+    // 1d. Consultation et confirmation, puis fin de sélection et draft suivante avec le poste Top.
+    xs[1].w.eval("consult(V.order.find(p=>p.pick!==V.shown).pick);choosePick(state.viewed);consult(V.order.find(p=>p.pick!==V.shown&&p.pick!==state.picked).pick);1");await wait(400);
+    const before=xs.map(x=>!!x.$.state.picked&&!!x.$.state.viewed&&x.$.state.roleManual);
+    bc(xs,{assignedRole:null});xs.forEach(x=>x.w.__host({kind:"draftEnd"}));await wait(300);
+    xs[1].w.__host({kind:"draftStart"});await wait(300);bc(xs,{assignedRole:"top"});await wait(700);
+    t(before.every(Boolean)&&xs.every(x=>role(x)==="top|Sett,Ornn"&&!x.$.state.roleManual&&!x.$.state.picked&&!x.$.state.viewed&&!x.$.state.current),K+"1d. draft suivante : rôle à la main oublié, poste Top appliqué, consultation et confirmation vidées ("+xs.map(x=>role(x)+"/"+x.$.state.roleManual+"/"+x.$.state.picked+"/"+x.$.state.viewed).join(" | ")+")");
+    xs.forEach(x=>x.f.remove());
+    // 1c. DRAFT lancé pendant la sélection : trois pages ouvertes ensemble, le programme répond déjà « Jungle » à leur demande.
+    for(const [prefs,want,hint] of [[null,"jungle|Viego,Lee Sin",false],[{autoRole:"suggest",autoRoleChosen:true},"mid|TF,Vex,Fizz,Xerath",true]]){
+      prepare(MID,null,prefs);localStorage.setItem("draftProfiles",JSON.stringify({version:1,active:"mid",roles:{mid:{pool:["TF","Vex","Fizz","Xerath"]},jungle:{pool:["Viego","Lee Sin"]}}}));
+      const reply=Object.assign({},HOST,{assignedRole:"jungle",phase:{key:"native.phase.draft",vars:{}}});
+      const ys=await Promise.all([openHost(lang,null,1366,900,true,reply),openHost(lang,"right",256,608,true,reply),openHost(lang,"compact",282,576,true,reply)]);
+      for(let i=0;i<50&&!ys.every(y=>y.w.eval("synced"));i++)await wait(50);await wait(600);
+      const ok=ys.every(y=>role(y)===want&&y.$.state.assignedRole==="jungle")&&(hint?ys.slice(1).every(y=>!!q(y,'[data-test="role-hint"]')):ys.slice(1).every(y=>!!q(y,'[data-test="role-auto"]')));
+      t(ok,K+"1c. lancé pendant la sélection, mode "+(prefs?"proposer":"auto")+" : "+(hint?"Mid gardé, proposition":"Jungle chargé, notice")+" dans les pages créées ensemble ("+ys.map(role).join(" | ")+")");
+      ys.forEach(y=>y.f.remove());}
+   }
    // Lecture active, sélection en cours, aucun poste indiqué : rôle inconnu.
    {prepare(MID,null,null);const x=await openHost(lang,"right",256,608);hostMsg(x,{});x.$.dispatchDraft({type:"session-start"});await settle();const st=q(x,'[data-test="role-state"]');
     t(!!st&&st.dataset.state==="unknown",L+"[avant : échec] aucun poste indiqué pendant la sélection : rôle inconnu (« "+(st?text(st):"absent")+" »)");

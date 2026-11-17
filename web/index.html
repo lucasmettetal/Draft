@@ -1384,13 +1384,45 @@ const SYNC_WAIT_MS = 1500;
 // Simulation (Draft aléatoire) : la fenêtre principale travaille sur sa propre draft, sans toucher à la draft en cours.
 let simulating = false;
 
+// ---------- Ordre des messages entre fenêtres ----------
+// Chaque groupe de champs synchronisés porte une version [compteur, page d'origine] (horloge de Lamport). Une page qui change un
+// groupe lui donne un compteur plus grand que tous ceux qu'elle a vus ; une page qui reçoit un groupe ne le prend que si sa
+// version est plus récente. Un message en retard, livré deux fois ou rejoué ne remplace donc jamais une sélection plus récente.
+// Deux changements simultanés (même compteur) se départagent par l'identifiant de la page, de la même façon partout.
+// Un message sans version (page d'une version précédente) est appliqué entièrement, comme avant.
+const PAGE_ID = (PANEL || "full") + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const SYNC_GROUPS = {
+  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive"],
+  pick: ["current", "picked", "pickContext"],
+  viewed: ["viewed"],
+  // Rôle joué (PROFILES.active) et décisions sur le rôle attribué. Le poste attribué lui-même vient du programme (applyRemote).
+  role: ["assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"],
+  pools: [],
+  prefs: []
+};
+let syncClock = 0;
+const syncVer = {}, syncSeen = {};
+// Le pool affiché (PROFILE) se déduit du rôle joué : il ne compte dans « pools » que sans profils par rôle (ancien format).
+const groupJson = g => JSON.stringify(g === "pools" ? [PROFILES.roles, PROFILES.active ? null : PROFILE] : g === "prefs" ? PREFS
+  : g === "role" ? SYNC_GROUPS.role.map(k => state[k] === undefined ? null : state[k]).concat(PROFILES.active || null)
+  : SYNC_GROUPS[g].map(k => state[k] === undefined ? null : state[k]));
+const newerVer = (a, b) => !!a && (!b || a[0] > b[0] || (a[0] === b[0] && String(a[1]) > String(b[1])));
+// État de départ (stockage, page qui s'ouvre) : version 0, il ne remplace rien de ce qu'une autre page a changé.
+function markSyncBase() { Object.keys(SYNC_GROUPS).forEach(g => { syncSeen[g] = groupJson(g); if (!syncVer[g]) syncVer[g] = [0, PAGE_ID]; }); }
+// Groupes changés ici depuis le dernier envoi ou la dernière réception : nouvelle version.
+function bumpChangedGroups() {
+  Object.keys(SYNC_GROUPS).forEach(g => { const j = groupJson(g); if (j !== syncSeen[g]) { syncSeen[g] = j; syncVer[g] = [++syncClock, PAGE_ID]; } });
+}
+
 function publish(action) {
   rerender();
   if (!channel || !synced || simulating) return;
+  bumpChangedGroups();
   // QA 3.0 : les profils voyagent avec l'état. Relus dans localStorage, ils pouvaient être en retard : l'écriture d'une autre
   // fenêtre (autre processus WebView2) n'y est pas toujours visible à l'arrivée du message, et un panneau resté sur d'anciens
   // profils les réenregistrait ensuite (rôle automatique en début de draft), effaçant les derniers pools modifiés.
-  const snapshot = { kind:"state", action: action || null, prefs: PREFS, profile: PROFILE, profiles: { version:PROFILES_VERSION, active:PROFILES.active, roles:PROFILES.roles } };
+  const snapshot = { kind:"state", action: action || null, prefs: PREFS, profile: PROFILE, profiles: { version:PROFILES_VERSION, active:PROFILES.active, roles:PROFILES.roles },
+    v: JSON.parse(JSON.stringify(syncVer)), from: PAGE_ID };
   SHARED.forEach(k => { snapshot[k] = state[k]; });
   channel.postMessage(snapshot);
 }
@@ -1488,19 +1520,50 @@ if (channel) channel.onmessage = e => {
   if (m.kind !== "state") return;
   const first = !synced;
   synced = true;
-  if (simulating) { liveCopy = m; rerender(); return; }
+  // Pendant une simulation, la draft en cours suivie à part garde, groupe par groupe, la valeur la plus récente.
+  if (simulating) { liveCopy = mergeNewer(liveCopy, m); rerender(); return; }
   applyRemote(m);
   if (first) afterSync();
 };
-function applyRemote(m) {
-  SHARED.forEach(k => { state[k] = m[k]; });
+// Copie de base, puis chaque groupe de m dont la version est plus récente (base sans version : m entier).
+function mergeNewer(base, m) {
+  if (!base || !base.v || !m.v) return m;
+  const out = Object.assign({}, base, { v:Object.assign({}, base.v), action:m.action });
+  Object.keys(SYNC_GROUPS).forEach(g => {
+    if (!newerVer(m.v[g], out.v[g])) return;
+    out.v[g] = m.v[g];
+    SYNC_GROUPS[g].forEach(k => { out[k] = m[k]; });
+    if (g === "pools" || g === "role") out.profiles = Object.assign({}, out.profiles, g === "pools" ? { version:m.profiles.version, roles:m.profiles.roles } : { active:m.profiles.active });
+    if (g === "pools") out.profile = m.profile;
+    if (g === "prefs") out.prefs = m.prefs;
+  });
+  return out;
+}
+// force : retour de simulation, la draft suivie à part remplace tout (l'état local était celui de la simulation).
+function applyRemote(m, force) {
+  const v = m.v;
+  if (v) Object.values(v).forEach(x => { if (x && x[0] > syncClock) syncClock = x[0]; });
+  const take = g => force || !v || newerVer(v[g], syncVer[g]);
+  const taken = Object.keys(SYNC_GROUPS).filter(take);
+  if (!taken.length) return;
+  taken.forEach(g => { SYNC_GROUPS[g].forEach(k => { state[k] = m[k]; }); });
   // Le poste attribué vient du programme, qui l'envoie à chaque page : l'état d'une autre page, en retard d'un message (début de
   // draft traité avant le poste), ne le remplace pas. Les décisions (bascule, correction, proposition ignorée) restent partagées.
   if (hostState.available) state.assignedRole = hostState.assignedRole || null;
-  const sent = m.profiles ? normalizeProfiles(m.profiles) : null;
-  PROFILES = sent || loadProfiles(localStorage, PREFS);
-  if (m.profile) applyProfile(m.profile);
-  if (m.prefs) { Object.assign(PREFS, m.prefs); ENGINE_PREFS.excluded = PREFS.excluded; ENGINE_PREFS.favorite = PREFS.favorite; }
+  if (taken.includes("pools") || taken.includes("role")) {
+    const sent = m.profiles ? normalizeProfiles(m.profiles) : null;
+    const base = sent || loadProfiles(localStorage, PREFS);
+    // Pools et rôle joué ont chacun leur version : un panneau qui change de rôle n'impose pas ses anciens pools.
+    PROFILES = taken.includes("pools") && taken.includes("role") ? base
+      : taken.includes("pools") ? Object.assign({}, base, { active:PROFILES.active }) : Object.assign({}, PROFILES, { active:base.active });
+    if (PROFILES.active) useActiveRole(); else if (m.profile) applyProfile(m.profile);
+  }
+  if (taken.includes("prefs") && m.prefs) Object.assign(PREFS, m.prefs);
+  ENGINE_PREFS.excluded = PREFS.excluded; ENGINE_PREFS.favorite = PREFS.favorite;
+  taken.forEach(g => { if (v && v[g]) syncVer[g] = v[g]; });
+  // Ce qui vient d'être reçu n'est pas un changement fait ici : rien à rediffuser avec une nouvelle version. Les exclusions et le
+  // favori (préférences) se déduisent du rôle joué et de ses pools : ils suivent sans nouvelle version.
+  (taken.includes("pools") || taken.includes("role") ? taken.concat("prefs") : taken).forEach(g => { syncSeen[g] = groupJson(g); });
   state.lastAction = m.action;
   computeVerdict();
   rerender();
@@ -1575,7 +1638,7 @@ function leaveSimulation() {
   clearUndo();
   if (!liveCopy) resetDraft();
   simulating = false;
-  if (liveCopy) applyRemote(Object.assign({}, liveCopy, { action:null }));
+  if (liveCopy) applyRemote(Object.assign({}, liveCopy, { action:null }), true);
   liveCopy = null;
   rerender();
   if (channel) channel.postMessage({ kind:"hello" });
@@ -3745,6 +3808,7 @@ function App() {
     rerender = force;
     // « Simuler une draft » du menu de l'icône quand la fenêtre n'était pas encore chargée.
     if (!PANEL || PANEL === "full") { if (new URLSearchParams(location.search).get("tab") === "simulate") startSimulation(); }
+    markSyncBase();
     if (channel) { channel.postMessage({ kind:"hello" }); setTimeout(() => { if (!synced) { synced = true; afterSync(); } }, SYNC_WAIT_MS); }
     if (IS_HOST) {
       window.chrome.webview.addEventListener("message", e => {

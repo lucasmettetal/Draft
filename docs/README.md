@@ -31,6 +31,8 @@
 | [Données](technique/DONNEES.md) | Sources, rôles probabilistes, fiabilité, licences |
 | [Journal des drafts](technique/JOURNAL.md) | Consulter et confirmer, format d'une entrée, égalités, origine, anciennes entrées, compatibilité 2.16.2 |
 | [Panneaux primaires](technique/PANNEAUX-PRIMAIRES.md) | Étude : ce que la fenêtre offre en draft, place dans les panneaux, tailles mesurées |
+| [Synchronisation](technique/SYNCHRONISATION.md) | Fenêtre et panneaux : messages, version par groupe, ordre fiable, tests |
+| [Proposition de tailles des panneaux](technique/PROPOSITION-TAILLES-PANNEAUX.md) | Proposition non appliquée : tailles actuelles du placement, largeur de 272, mesures et captures |
 | [Détection](technique/DETECTION.md) | Fenêtre, phase, reconnaissance visuelle |
 | [Lecture du client](technique/LCU.md) | Endpoints, politique de Riot, garanties |
 | [Intégration Riot](technique/INTEGRATION-RIOT.md) | Méthodes, conditions, risque résiduel |
