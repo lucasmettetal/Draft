@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests de synchronisation entre fenêtres</title></head><body><pre id="out"></pre>
+<!-- Ordre des messages entre la fenêtre et les panneaux (BroadcastChannel « draftmid ») : une ancienne information ne doit jamais
+     écraser une sélection plus récente. La livraison est perturbée dans la page de test seulement : retard, ordre inversé, double
+     livraison (le gestionnaire channel.onmessage de la page est enveloppé), ancien message rejoué par un canal espion.
+     Trois vraies pages : fenêtre (Simulateur), panneau droit, panneau compact. Pools FICTIFS. Rien n'est envoyé hors de la page.
+     « [avant : échec] » : échoue sur main fdcb071 (dernier message reçu). Lancement : tools\run-v215-tests.ps1 -Page draft-sync-tests.html -->
+<script>
+const res={ok:0,ko:[],notes:{}};const show=()=>{document.getElementById("out").textContent=JSON.stringify(res);};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]};
+const COMP=["Ahri","Ornn","Vi","Jinx","Lulu"];
+const EXPOSE="window.$={get V(){return V},get state(){return state},get PROFILES(){return PROFILES},myRole}";
+function prepare(){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(MID));localStorage.setItem("draftPatch","16.22");}
+async function ready(f){for(let i=0;i<120;i++){try{if(f.contentWindow.I18N&&f.contentWindow.eval("typeof V!=='undefined'&&!!V")&&f.contentDocument.querySelector('[data-test="panel"],[data-test="app"],.app'))break;}catch(e){}await wait(50);}
+  const w=f.contentWindow;for(let i=0;i<60&&!w.eval("synced");i++)await wait(50);w.eval(EXPOSE);w.open=()=>null;return {f,w,$:w.$,run:c=>w.eval(c)};}
+async function open(panel,W,H){const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?"+(panel?"panel="+panel:"view=sim")+"&lang=fr";document.body.appendChild(f);await new Promise(r=>f.onload=r);return ready(f);}
+// Livraison perturbée pour la page x : chaque message reçu est remis après delay(i, m) ms (i : rang d'arrivée), et une seconde fois
+// après dup(i, m) ms si dup le demande. Le gestionnaire d'origine de la page est gardé et remis par release.
+function intercept(x,delay,dup){x.w.__delay=delay;x.w.__dup=dup||null;x.run("(()=>{if(window.__orig)return;const o=channel.onmessage;window.__orig=o;let n=0;channel.onmessage=e=>{const i=n++,d=e.data;window.__rx=(window.__rx||[]);setTimeout(()=>{window.__rx.push(i+String.fromCharCode(58)+(d&&d.viewed));o({data:d})},window.__delay(i,d));const k=window.__dup&&window.__dup(i,d);if(k)setTimeout(()=>o({data:d}),k);}})()");}
+// Ancien message remis à chaque page par son propre gestionnaire (channel.onmessage), comme une livraison tardive du canal.
+function replay(xs,m){xs.forEach(x=>x.run("channel.onmessage")({data:JSON.parse(JSON.stringify(m))}));}
+function release(x){x.run("(()=>{if(window.__orig){channel.onmessage=window.__orig;window.__orig=null}})()");}
+// Autres champions du pool actif de la page (hors conseil) : seuls ceux-là se consultent.
+const OTHER="(k=>{const o=V.order.map(p=>p.pick).filter(p=>p!==V.shown&&p!==state.picked);return o[k%o.length]})";
+const view=x=>JSON.stringify([x.$.myRole(),x.$.state.viewed||null,x.$.state.picked||null,!!x.$.state.roleManual,(x.$.state.enemies||[]).length]);
+const agree=xs=>xs.every(x=>view(x)===view(xs[0]));
+(async()=>{
+  prepare();
+  const spy=new BroadcastChannel("draftmid"),heard=[];spy.onmessage=e=>heard.push(e.data);
+  const full=await open(null,1366,900),right=await open("right",256,608);let compact=await open("compact",282,576);
+  full.run("saveMyProfile('jungle',['Viego','Lee Sin']);switchRole('mid','manual');resetDraft();"+JSON.stringify(COMP)+".forEach(addEnemy);1");await wait(700);
+  const pages=()=>[full,right,compact];
+  t(pages().every(x=>x.$.state.enemies.length===5&&x.$.myRole()==="mid"),"préparation : trois pages, cinq adversaires, rôle Mid ("+pages().map(view).join(" | ")+")");
+  const o=[0,1,2].map(k=>full.run(OTHER+"("+k+")"));res.notes.pool=o;
+
+  // 1. Désordre : le panneau droit reçoit les messages de la fenêtre dans l'ordre inverse (6 consultations en 360 ms).
+  intercept(right,i=>Math.max(0,14-i)*120);
+  const seq=[o[0],o[1],o[2],o[0],o[1],o[2]];for(const p of seq){full.run("consult("+JSON.stringify(p)+");1");await wait(60);}
+  await wait(2000);release(right);res.notes.t1=right.w.__rx.join(" ");
+  t(right.$.state.viewed===seq[5]&&agree(pages()),"[avant : échec] désordre : la dernière consultation de la fenêtre ("+seq[5]+") reste dans le panneau, qui reçoit les messages à l'envers ("+pages().map(view).join(" | ")+")");
+
+  // 2. Double livraison : le message du premier choix confirmé revient une seconde fois après le second choix.
+  intercept(right,()=>0,(i,m)=>m&&m.picked===o[0]?700:0);
+  full.run("choosePick("+JSON.stringify(o[0])+");1");await wait(150);full.run("choosePick("+JSON.stringify(o[1])+");1");
+  await wait(1100);release(right);
+  t(right.$.state.picked===o[1]&&full.$.state.picked===o[1]&&agree(pages()),"[avant : échec] doublon : un ancien message reçu deux fois n'écrase pas le choix confirmé plus récent ("+pages().map(view).join(" | ")+")");
+
+  // 3. Rafale : 10 changements de rôle, de champion consulté et de champion confirmé en 900 ms, répartis sur les trois pages,
+  //    chaque page recevant les messages avec des retards variés. Ensuite, les trois pages sont d'accord ; une action faite après
+  //    le calme s'applique partout.
+  pages().forEach(x=>intercept(x,i=>((i*7)%5)*150));
+  const burst=[[full,"switchRole('jungle','manual')"],[right,"switchRole('mid','manual')"],[compact,"consult("+OTHER+"(0))"],[full,"consult("+OTHER+"(1))"],[right,"choosePick("+OTHER+"(0))"],
+    [compact,"switchRole('jungle','manual')"],[full,"switchRole('mid','manual')"],[right,"consult("+OTHER+"(1))"],[compact,"choosePick("+OTHER+"(1))"],[full,"consult("+OTHER+"(0))"]];
+  const t0=Date.now();for(const [x,c] of burst){x.run(c+";1");await wait(90);}res.notes.rafaleMs=Date.now()-t0;
+  await wait(2200);pages().forEach(release);
+  t(agree(pages()),"[avant : échec] rafale (10 changements en "+res.notes.rafaleMs+" ms, retards variés) : les trois pages ont le même état ("+pages().map(view).join(" | ")+")");
+  compact.run("switchRole('mid','manual');consult("+OTHER+"(0));1");await wait(700);
+  const last=compact.$.state.viewed;
+  t(!!last&&pages().every(x=>x.$.myRole()==="mid"&&x.$.state.viewed===last),"après la rafale, une action faite au calme s'applique partout ("+pages().map(view).join(" | ")+")");
+
+  // 4. Changements simultanés : la fenêtre et le panneau consultent chacun un champion sans avoir vu l'autre. L'égalité se
+  //    départage de la même façon partout.
+  intercept(full,()=>350);intercept(right,()=>350);
+  full.run("consult("+OTHER+"(0));1");right.run("consult("+OTHER+"(1));1");
+  await wait(1000);release(full);release(right);
+  t(agree(pages())&&!!full.$.state.viewed,"[avant : échec] changements simultanés : un seul gagnant, le même dans les trois pages ("+pages().map(view).join(" | ")+")");
+
+  // 5. Page ouverte en retard, puis ancien message rejoué : la page tardive prend l'état récent et garde la sélection récente.
+  compact.f.remove();
+  const a5=full.run(OTHER+"(0)"),b5=full.run(OTHER+"(1)");
+  full.run("consult("+JSON.stringify(a5)+");1");await wait(300);
+  const stale=heard.filter(m=>m&&m.kind==="state"&&m.viewed===a5).pop();
+  full.run("consult("+JSON.stringify(b5)+");1");await wait(300);
+  compact=await open("compact",282,576);for(let i=0;i<40&&compact.$.state.viewed!==b5;i++)await wait(50);
+  const lateOk=compact.$.state.viewed===b5;
+  if(stale)replay(pages(),stale);await wait(500);
+  t(lateOk,"page ouverte en retard : elle reçoit la consultation en cours ("+view(compact)+")");
+  t(!!stale&&pages().every(x=>x.$.state.viewed===b5),"[avant : échec] ancien message rejoué après l'ouverture : aucune page ne revient à "+a5+" ("+pages().map(view).join(" | ")+")");
+
+  // 6. Draft suivante : le panneau reçoit à l'envers consultation, confirmation, rôle à la main et début de draft. Rien ne revient.
+  intercept(right,i=>Math.max(0,14-i)*120);
+  full.run("consult("+OTHER+"(0));1");await wait(60);full.run("choosePick("+OTHER+"(0));1");await wait(60);full.run("switchRole('jungle','manual');1");await wait(60);
+  full.run("onDraftStart();1");
+  await wait(2200);release(right);
+  t(!right.$.state.viewed&&!right.$.state.picked&&!right.$.state.roleManual&&right.$.state.enemies.length===0&&agree(pages()),"[avant : échec] draft suivante : ni consultation, ni choix, ni rôle à la main ne reviennent par un message en retard ("+pages().map(view).join(" | ")+")");
+
+  // 8. Profils : la fenêtre modifie le pool Mid pendant que le panneau, qui ne l'a pas encore reçu, change de rôle. Le changement de
+  //    rôle du panneau n'impose pas son ancien pool ; le nouveau pool et le nouveau rôle restent partout.
+  full.run("switchRole('mid','manual');1");await wait(500);
+  intercept(full,()=>400);intercept(right,()=>400);
+  full.run("saveMyProfile('mid',['TF','Vex','Fizz']);1");right.run("switchRole('jungle','manual');1");
+  await wait(1100);release(full);release(right);
+  t(pages().every(x=>x.$.PROFILES.roles.mid.pool.length===3&&x.$.myRole()==="jungle"),"[avant : échec] profils : un changement de rôle venu d'un panneau en retard n'efface pas le pool modifié dans la fenêtre ("+pages().map(x=>x.$.myRole()+" mid="+x.$.PROFILES.roles.mid.pool.length).join(" | ")+")");
+
+  // 7. Compatibilité : un message sans numéro de version (page d'une version précédente) est encore appliqué.
+  pages().forEach(x=>intercept(x,()=>0));const cur=heard.filter(m=>m&&m.kind==="state").pop();
+  if(cur){const old=JSON.parse(JSON.stringify(cur));delete old.v;delete old.from;old.viewed=null;old.enemies=COMP.slice(0,2);old.roleOf={};replay(pages(),old);await wait(500);res.notes.compat={avant:cur.enemies,envoye:old.enemies,pages:pages().map(x=>x.$.state.enemies.length),recu:pages().map(x=>(x.w.__rx||[]).slice(-2).join(" "))};pages().forEach(release);}
+  t(!!cur&&pages().every(x=>x.$.state.enemies.length===2),"compatibilité : un message sans version est appliqué ("+pages().map(view).join(" | ")+")");
+  res.notes.messages=heard.length;res.notes.versionne=heard.some(m=>m&&m.v);
+  res.notes.fin=true;show();document.title="done";
+})().catch(e=>{res.ko.push("ERREUR "+e.message+" "+(e.stack||"").slice(0,300));show();document.title="done";});
+</script></body></html>

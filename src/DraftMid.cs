@@ -1240,6 +1240,9 @@ public static class Autostart
         // ---------- WebView2, créé seulement quand le client est là ----------
 
         // Simule une fermeture puis un retour du client, comme en usage réel.
+        // DRAFT lancé pendant une sélection : aucune WebView2, comme au démarrage du programme ; la suite recrée tout.
+        public void TestReleaseWeb() { ReleaseWeb(); }
+
         public async Task<bool> TestReleaseAndReopen()
         {
             ReleaseWeb();
@@ -3493,7 +3496,7 @@ public static class Autostart
         }
 
         // QA A2 : rôle attribué par League, de bout en bout (LCU simulé > programme > pages). Pools fictifs, un par rôle.
-        public static string RoleReport = "non mesuré", DiagReport = "non mesuré";
+        public static string RoleReport = "non mesuré", DiagReport = "non mesuré", DetectReport = "non mesuré", LateStartReport = "non mesuré";
         static async Task<string> TestAssignedRoleThroughLcu(CompanionApp app)
         {
             string p = "";
@@ -3557,6 +3560,11 @@ public static class Autostart
             bool switched = await wait("myRole()==='jungle' && state.roleFrom==='mid'");
             string notice = await inSide("(() => { const n = document.querySelector('[data-test=\"role-auto\"]'), s = document.querySelector('[data-test=\"role-state\"]'); return (n && n.getBoundingClientRect().bottom <= innerHeight ? 'notice' : 'notice absente ou cachée') + ' | ' + (s ? s.dataset.state : 'sans état'); })()");
             if (!midEverywhere || !switched || !notice.Contains("notice |") || !notice.Contains("detected")) p += "bascule automatique : départ Mid partout " + midEverywhere + ", rôle " + await run("myRole()") + ", panneau " + notice + " ; ";
+            // 1a. Détection Jungle : le pool Jungle est chargé dans la fenêtre ET dans chaque panneau.
+            string jungleAll = "";
+            bool jungleEverywhere = await Until(async () => { jungleAll = await everywhere("myRole() + '|' + PICKS.join('/').replace(/ /g, '_')"); return jungleAll.Split(' ').All(x => x.Contains("jungle|Viego/Lee_Sin")); }, 4000);
+            if (!jungleEverywhere) p += "1a. pool Jungle absent d'une page (" + jungleAll + ") ; ";
+            DetectReport = jungleAll;
             string undoInfo = await inSide("(() => { const b = document.querySelector('[data-test=\"role-auto-undo\"]'); if (!b) return 'bouton absent'; b.click(); return 'clic'; })()");
             bool undone = await wait("myRole()==='mid' && state.roleManual && PICKS.join()==='Fizz,Xerath'");
             string afterUndo = await everywhere("myRole() + '/' + state.roleManual + '/' + state.roleHandled + '/' + state.assignedRole");
@@ -3624,6 +3632,90 @@ public static class Autostart
             return p;
         }
 
+        // 1c. DRAFT lancé alors que la sélection est déjà en cours, poste déjà indiqué : aucune page au départ (comme au démarrage du
+        // programme), puis deux lectures du client en ChampSelect. Les pages, créées tard, doivent détecter le poste, basculer (auto) ou
+        // proposer (suggest), et rester cohérentes. 1d. Draft suivante : rôle à la main oublié, nouveau poste appliqué, consultation et
+        // confirmation vidées, dans toutes les pages.
+        static async Task<string> TestRoleLateStart(CompanionApp app)
+        {
+            string p = "";
+            List<string> rep = new List<string>();
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            Func<PanelForm, bool> usable = pf => pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null;
+            Func<PanelForm, string, Task<string>> runIn = async (pf, code) => await pf.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<string>> all = async code => { List<string> r = new List<string>(); foreach (string id in new[] { "full", "left", "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (usable(pf)) r.Add(id + ":" + await runIn(pf, code)); } return string.Join(" ; ", r); };
+            Func<string, string, bool> every = (list, want) => list.Length > 0 && list.Split(new[] { " ; " }, StringSplitOptions.None).All(x => x.EndsWith(":" + want));
+            Func<Task<PanelForm>> openFull = async () =>
+            {
+                app.TestOpenFull("pool");
+                PanelForm f = null;
+                await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && usable(f) && f.Visible && await runIn(f, "typeof PROFILES !== 'undefined' && synced") == "true"; }, 20000);
+                return usable(f) ? f : null;
+            };
+            // Pools fictifs : Mid à trois champions pendant ces cas (un confirmé, un consulté, le conseil), remis à deux à la fin.
+            Func<string, string, Task<bool>> prepareWith = async (prefs, mid) =>
+            {
+                PanelForm f = await openFull();
+                if (f == null) return false;
+                await runIn(f, "saveMyProfile('jungle',['Viego','Lee Sin']); saveMyProfile('mid'," + mid + "); saveMyProfile('top',['Sett','Ornn']); savePrefs(" + prefs + "); switchRole('mid','manual'); resetRoleSession(); publish(null); 1");
+                await Task.Delay(500);
+                return true;
+            };
+            Func<string, Task<bool>> prepare = prefs => prepareWith(prefs, "['Fizz','Xerath','Vex']");
+            PanelForm side = null;
+            Func<string, Task<bool>> lateStart = async position =>
+            {
+                sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(200);
+                app.TestReleaseWeb();
+                sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = LcuSamples.RealSession(position, 7, 7, 875);
+                await app.PollLcuOnce(); await app.PollLcuOnce();
+                bool up = await Until(async () => { side = new[] { "right", "compact" }.Select(app.PanelFor).FirstOrDefault(x => usable(x) && x.Visible); return side != null && await runIn(side, "typeof myRole === 'function' && synced && state.assignedRole === '" + position + "'") == "true"; }, 30000);
+                // Les pages créées tard se synchronisent (1,5 s au plus) avant de décider.
+                await Task.Delay(2000);
+                return up;
+            };
+            // 1c, mode « auto » (défaut).
+            if (!await prepare("{autoRole:'auto', autoRoleChosen:false}")) return "(fenêtre absente)";
+            bool upAuto = await lateStart("jungle");
+            string autoRoles = await all("myRole() + '|' + PICKS.join() + '|' + state.assignedRole + '|' + state.roleHandled");
+            string autoNotice = side != null ? await runIn(side, "!!document.querySelector('[data-test=\"role-auto\"]')") : "false";
+            PanelForm fullAuto = await openFull();
+            string fullRole = fullAuto != null ? await runIn(fullAuto, "myRole() + '|' + PICKS.join() + '|' + state.assignedRole + '|' + state.roleHandled") : "absente";
+            bool autoOk = upAuto && every(autoRoles, "\"jungle|Viego,Lee Sin|jungle|jungle\"") && autoNotice == "true" && fullRole == "\"jungle|Viego,Lee Sin|jungle|jungle\"";
+            if (!autoOk) p += "1c. lancé pendant la sélection (auto) : pages " + upAuto + ", " + autoRoles + ", notice " + autoNotice + ", fenêtre ouverte ensuite " + fullRole + " ; ";
+            rep.Add("1c auto : " + (autoOk ? "Jungle et pool Jungle dans " + autoRoles.Split(new[] { " ; " }, StringSplitOptions.None).Length + " pages créées tard + fenêtre ouverte ensuite, notice dans le panneau" : "ÉCHEC"));
+            // 1d. Même draft : rôle Mid à la main, champion consulté puis confirmé dans le panneau. Draft suivante : poste TOP.
+            if (side != null)
+            {
+                await runIn(side, "switchRole('mid','manual'); 1"); await Task.Delay(300);
+                await runIn(side, "consult(V.order.find(p => p.pick !== V.shown).pick); 1"); await Task.Delay(200);
+                await runIn(side, "choosePick(state.viewed); consult(V.order.find(p => p.pick !== state.picked && p.pick !== V.shown).pick); 1"); await Task.Delay(400);
+                string before = await all("myRole() + '|' + !!state.roleManual + '|' + !!state.picked + '|' + !!state.viewed");
+                sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(300);
+                sim.PhaseJson = "\"ChampSelect\""; sim.SessionJson = LcuSamples.RealSession("top", 7, 7, 875); await app.PollLcuOnce(); await app.PollLcuOnce();
+                string after = "";
+                bool reset = await Until(async () => { after = await all("myRole() + '|' + PICKS.join() + '|' + !!state.roleManual + '|' + !!state.picked + '|' + !!state.current + '|' + !!state.viewed"); return every(after, "\"top|Sett,Ornn|false|false|false|false\""); }, 8000);
+                if (!every(before, "\"mid|true|true|true\"") || !reset) p += "1d. draft suivante : avant " + before + ", après " + after + " ; ";
+                rep.Add("1d : " + (reset ? "avant (Mid à la main, consulté, confirmé) " + before.Split(new[] { " ; " }, StringSplitOptions.None).Length + " pages ; après, Top et pool Top, rien de manuel, consulté ni confirmé" : "ÉCHEC"));
+            }
+            // 1c, mode « proposer » choisi : pas de bascule, proposition dans le panneau créé tard, toutes les pages d'accord.
+            if (!await prepare("{autoRole:'suggest', autoRoleChosen:true}")) return p + "(fenêtre absente, proposer)";
+            bool upSuggest = await lateStart("jungle");
+            string sugRoles = await all("myRole() + '|' + roleSuggestion()");
+            string sugHint = side != null ? await runIn(side, "(() => { const h = document.querySelector('[data-test=\"role-hint\"]'); return !!h && h.getBoundingClientRect().bottom <= innerHeight; })()") : "false";
+            bool sugOk = upSuggest && every(sugRoles, "\"mid|jungle\"") && sugHint == "true";
+            if (!sugOk) p += "1c. lancé pendant la sélection (proposer) : pages " + upSuggest + ", " + sugRoles + ", proposition visible " + sugHint + " ; ";
+            rep.Add("1c proposer : " + (sugOk ? "Mid gardé, proposition Jungle visible, " + sugRoles.Split(new[] { " ; " }, StringSplitOptions.None).Length + " pages d'accord" : "ÉCHEC"));
+            // Remise en état : défaut « auto », Mid (Fizz, Xerath, comme les autres scénarios), hors sélection.
+            await prepareWith("{autoRole:'auto', autoRoleChosen:false}", "['Fizz','Xerath']");
+            sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce();
+            PanelForm last = app.PanelFor("full"); if (last != null && !last.IsDisposed) last.Hide();
+            if (!sim.Requests.All(LcuEndpoints.IsAllowed)) p += "endpoint non autorisé appelé ; ";
+            LateStartReport = string.Join(" ; ", rep) + " ; " + sim.Requests.Count + " requêtes GET autorisées";
+            return p;
+        }
         // QA A1 : changement de langue PENDANT une draft (LCU simulé). Les panneaux gardent la draft et leur langue jusqu'à la fin
         // de la sélection, puis se rechargent ; la draft suivante est dans la nouvelle langue, sans reste de la précédente.
         // Menu et bulles changent tout de suite. Valeur hors liste refusée, « auto » = langue de Windows.
@@ -3964,6 +4056,8 @@ public static class Autostart
                 await RunLcuScenario(app, t, js);
                 string roleProblem = await TestAssignedRoleThroughLcu(app);
                 t(roleProblem == "", "QA A2. Rôle attribué par League (LCU simulé, de bout en bout) : 5 postes, poste vide ou inconnu, changement entre deux drafts, autoRole, sans LCU ; jamais déduit du champion (" + RoleReport + ") " + roleProblem);
+                string lateProblem = await TestRoleLateStart(app);
+                t(lateProblem == "", "1a/1c/1d. Rôle automatique : détection Jungle dans toutes les pages (" + DetectReport + "), DRAFT lancé pendant la sélection, draft suivante (" + LateStartReport + ") " + lateProblem);
                 string langDraftProblem = await TestLanguageDuringDraft(app);
                 t(langDraftProblem == "", "QA A1. Langue changée pendant une draft : panneaux gardés jusqu'à la fin, draft suivante dans la nouvelle langue, menu et bulle traduits, valeur hors liste refusée, auto (" + LanguageDraftReport + ") " + langDraftProblem);
                 // En dernier : recharger les pages efface l'état des panneaux, que les étapes précédentes vérifient.
