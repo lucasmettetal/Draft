@@ -42,7 +42,8 @@ Note pour chaque point : OK ou problème, et ce que tu as vu.
 - [ ] **Tes données** : Mon pool montre tes champions par rôle ; Mes statistiques montre ton journal et ton historique, comme dans ta 2.x.
 - [ ] **Langue** : Réglages > Général > Langue. Passe en English, puis reviens en français. La fenêtre change tout de suite.
 - [ ] **Vraie draft** : lecture du client (si tu l'as activée) ou détection par l'écran ; ton rôle attribué par League ; le pool du rôle ; le conseil ; « Je joue » ; le journal. Protocole détaillé : [TEST-DRAFT-REELLE.md](TEST-DRAFT-REELLE.md).
-- [ ] **Choix du champion** : coche un autre champion que le conseil. Le bouton dit « {choix} noté », le conseil reste affiché à part avec « Revenir au conseil ». Mes statistiques > journal : ton choix est noté.
+- [ ] **Choix du champion, depuis les panneaux** : clique sur un autre champion que le conseil (alternative ou « Choisir dans ton pool »). Il est **consulté** : ses conseils et sa comparaison s'affichent, rien n'est noté. Clique sur « Je joue X » : le bouton dit « X noté », « Conseil : … » reste affiché avec « Revenir au conseil ». Rien n'est sélectionné dans League. Mes statistiques > journal : ton choix est noté.
+- [ ] **Rôle attribué** : avec la lecture du client, la bascule sur le rôle donné par League et le chargement de son pool (« League t'a attribué … : pool … chargé »), « Revenir en … » ; ta correction à la main reste en place jusqu'à la draft suivante. En cas de doute, le diagnostic LCU indique le poste lu.
 - [ ] **Simulateur** : une draft simulée n'ajoute rien au journal.
 - [ ] **Panneaux** : ils apparaissent pendant la sélection, se collent au client, disparaissent au lancement de la partie et après un dodge.
 - [ ] **Ctrl+Alt+D** : selon ton cas (voir § 2). Si tu as un second compte Windows, protocole : [TEST-CTRL-ALT-D-REEL.md](TEST-CTRL-ALT-D-REEL.md).

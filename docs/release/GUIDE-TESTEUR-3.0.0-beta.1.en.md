@@ -42,7 +42,8 @@ For each point, note: OK or problem, and what you saw.
 - [ ] **Your data**: My pool shows your champions per role; My stats shows your journal and your history, as in your 2.x.
 - [ ] **Language**: Settings > General > Language. Switch to English, then back to French. The window changes right away.
 - [ ] **Real draft**: client reading (if you turned it on) or screen detection; the role assigned by League; that role's pool; the advice; "I'm playing"; the journal. Detailed protocol: [TEST-DRAFT-REELLE.md](TEST-DRAFT-REELLE.md) (French).
-- [ ] **Champion choice**: tick another champion than the advice. The button says "{choice} logged", the advice stays shown apart with "Back to advice". My stats > journal: your choice is recorded.
+- [ ] **Champion choice, from the panels**: click another champion than the advice (alternative or "Pick from your pool"). It is **shown**: its advice and comparison appear, nothing is logged. Click "I'm playing X": the button says "X logged", "Advice: …" stays shown with "Back to advice". Nothing is picked in League. My stats > journal: your choice is recorded.
+- [ ] **Assigned role**: with client reading on, the switch to the role given by League and the loading of its pool ("League assigned you …: … pool loaded"), "Back to …"; your manual correction stays until the next draft. If in doubt, the LCU diagnostic shows the position read.
 - [ ] **Simulator**: a simulated draft adds nothing to the journal.
 - [ ] **Panels**: they show during champion select, stick to the client, disappear when the game starts and after a dodge.
 - [ ] **Ctrl+Alt+D**: depending on your case (see § 2). If you have a second Windows account, protocol: [TEST-CTRL-ALT-D-REEL.md](TEST-CTRL-ALT-D-REEL.md) (French).
