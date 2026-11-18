@@ -3938,7 +3938,8 @@ public static class Autostart
         }
 
         // Panneaux droit et compact à la taille calculée pour 1366 x 768 à 125 % (client 1024 x 576, barre des tâches 50 px) : l'élément
-        // demandé doit être visible sans défiler. Avec --capture, capture réelle de la WebView2 (CapturePreviewAsync).
+        // demandé doit être visible sans défiler, puis aux tailles « 125 % » des pages de test. Avec --capture, capture réelle de la WebView2
+        // (CapturePreviewAsync) à ces tailles-là.
         static async Task<string> LeaguePanels(CompanionApp app, string name, string selector)
         {
             List<string> done = new List<string>();
@@ -3961,14 +3962,24 @@ public static class Autostart
                     await Task.Delay(700);
                     if (Math.Abs(int.Parse(await run("innerWidth")) - cssW) <= 10 && Math.Abs(int.Parse(await run("innerHeight")) - cssH) <= 12) break;
                 }
-                string vis = new JavaScriptSerializer().Deserialize<string>(await run("(() => { const e = document.querySelector('" + selector.Replace("'", "\\'") + "'); if (!e) return 'absent'; const r = e.getBoundingClientRect(); return (r.width > 0 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5 && r.right <= innerWidth + 0.5 ? 'visible' : 'cachée ' + Math.round(r.top) + '..' + Math.round(r.bottom)) + ' ' + innerWidth + 'x' + innerHeight; })()")) ?? "";
+                string check = "(() => { const e = document.querySelector('" + selector.Replace("'", "\\'") + "'); if (!e) return 'absent'; const r = e.getBoundingClientRect(); return (r.width > 0 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5 && r.right <= innerWidth + 0.5 ? 'visible' : 'cachée ' + Math.round(r.top) + '..' + Math.round(r.bottom)) + ' ' + innerWidth + 'x' + innerHeight; })()";
+                string vis = new JavaScriptSerializer().Deserialize<string>(await run(check)) ?? "";
+                // Aussi aux tailles « 125 % » des pages de test (droit 256 x 608, compact 282 x 576), où se font les captures.
+                int fixW = compact ? 282 : 256, fixH = compact ? 576 : 608;
+                for (int tryN = 0; tryN < 4; tryN++)
+                {
+                    side.ClientSize = new Size((int)Math.Round(fixW * dpr), (int)Math.Round(fixH * dpr));
+                    await Task.Delay(700);
+                    if (Math.Abs(int.Parse(await run("innerWidth")) - fixW) <= 4 && Math.Abs(int.Parse(await run("innerHeight")) - fixH) <= 4) break;
+                }
+                string visFix = new JavaScriptSerializer().Deserialize<string>(await run(check)) ?? "";
                 if (app.CaptureDir != null)
                 {
-                    string file = Path.Combine(app.CaptureDir, name + "-" + mode + "-1366-125.png");
+                    string file = Path.Combine(app.CaptureDir, name + "-" + mode + "-" + fixW + "x" + fixH + ".png");
                     using (FileStream fs = File.Create(file)) await side.View.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
                     LeagueShots += Path.GetFileName(file) + " ";
                 }
-                done.Add(mode + " " + vis);
+                done.Add(mode + " " + vis + " (placement réel 1366 à 125 %), " + visFix);
             }
             app.TestEndShowPanel(compactBefore);
             await Task.Delay(300);
