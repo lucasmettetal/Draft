@@ -130,7 +130,7 @@ Les autres cases de `myTeam` ne sont pas ouvertes : seule leur `cellId` est comp
 - verrouillage puis draft annulée : rien n'est écrit, la page dit « Draft annulée : pas de partie à noter. » ;
 - démarrage non observé (DRAFT fermé ou redémarré pendant le chargement) : rien n'est écrit, jamais joué d'office.
 
-**Tests :** selftest (lecture : survol, présélection, verrouillage, échange, aucun, mode à banc, sans poste, sans action, joueur absent, réponse tronquée, test négatif des coéquipiers ; suivi « Dans League »), étape e2e « Beta.2. Journal automatique » (LCU simulé au format réel, vraies pages WebView2), page `web/draft-journal-auto-tests.html` (FR et EN).
+**Tests :** selftest (lecture : survol, présélection, verrouillage, échange, aucun, mode à banc, sans poste, sans action, joueur absent, réponse tronquée, test négatif des coéquipiers ; suivi « Dans League »), étape e2e « Beta.2. Journal automatique » (LCU simulé au format réel, vraies pages WebView2), page `web/draft-journal-auto-tests.html` (FR et EN). Captures WebView2 réelles, avant (PR A) et après : `docs/qa/captures-journal-auto/`, à 125 % (taille de la page en pixels CSS dans le nom du fichier).
 
 **Limites :**
 - Champs non documentés par Riot, vérifiés seulement sur des sessions simulées au format réel. Un essai sur un vrai client reste à faire (sans dodge volontaire).
