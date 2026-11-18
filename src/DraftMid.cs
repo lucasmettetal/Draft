@@ -888,14 +888,24 @@ public static class Autostart
             try
             {
                 LcuSnapshot s = await lcu.PollAsync();
-                if (!s.Available) { roleCandidate = null; roleReads = 0; UpdateAssignedRole(null); return false; }
+                if (!s.Available)
+                {
+                    roleCandidate = null; roleReads = 0; UpdateAssignedRole(null);
+                    // Lecture perdue en pleine sélection : « Je joue » revient (journal automatique impossible).
+                    if (machine.Current == Phase.Draft && league.Lose()) BroadcastHost();
+                    return false;
+                }
                 // Pendant une sélection, le poste lu est noté aussi (rôle de DRAFT, « aucun » ou « illisible ») : aucune autre donnée de joueur.
+                // Beta.2 : état de ton pick (aucun, survolé, verrouillé, final), sans nom ; « mode=autre » hors draft classique.
                 lcuInfo = s.PhaseName + "/" + (s.EnemyChampionIds == null ? "illisible" : s.EnemyChampionIds.Count.ToString())
-                    + (s.Phase == Phase.Draft ? " poste=" + (s.EnemyChampionIds == null ? "illisible" : s.AssignedRole ?? "aucun") : "");
+                    + (s.Phase == Phase.Draft ? " poste=" + (s.EnemyChampionIds == null ? "illisible" : s.AssignedRole ?? "aucun") : "")
+                    + (s.Phase == Phase.Draft && s.Pick != null && s.Pick.Readable ? " pick=" + LeaguePickTracker.Word(s.Pick.State) + (s.Pick.Supported ? "" : " mode=autre") : "");
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
                 // Phase donnée par le client : un retour au lobby ou à la file tranche tout de suite (draft annulée).
                 AfterPhase(before, machine.Current, true, SampleMs / 1000.0);
+                // « Dans League » : ton pick lu dans la session, transmis à chaque page (état versionné).
+                if (machine.Current == Phase.Draft && s.EnemyChampionIds != null && league.Read(s.Pick)) BroadcastHost();
                 ApplyVisibility();
                 PostEnemies(s);
                 // Session illisible : on garde la dernière valeur connue. Hors draft : plus de rôle attribué.
@@ -949,8 +959,11 @@ public static class Autostart
         // Issue de la sélection pour le journal : en mémoire seulement (docs/technique/JOURNAL.md).
         DraftOutcomeTracker outcome = new DraftOutcomeTracker();
         public DraftOutcomeTracker Outcome { get { return outcome; } }
-        // Essai : DRAFT redémarré, la mémoire de l'issue est perdue.
-        public void TestForgetOutcome() { outcome = new DraftOutcomeTracker(); BroadcastHost(); }
+        // « Dans League » (beta.2) : ton pick pendant la sélection suivie, en mémoire seulement.
+        LeaguePickTracker league = new LeaguePickTracker();
+        public LeaguePickTracker League { get { return league; } }
+        // Essai : DRAFT redémarré, la mémoire de l'issue et du pick est perdue.
+        public void TestForgetOutcome() { outcome = new DraftOutcomeTracker(); league = new LeaguePickTracker(); BroadcastHost(); }
         // Essai : un message du programme livré de nouveau (double, en retard).
         public void TestSendAll(string json) { SendAll(json); }
 
@@ -960,10 +973,12 @@ public static class Autostart
             // Sortie de draft : draftEnd { outcome: "pending" }, puis draftOutcome { outcome: "game" | "abandoned" }, une seule fois.
             // Le même draftEnd partait avant pour une partie lancée et pour une draft annulée.
             List<string> outcomeMessages = outcome.Update(now, certain, seconds);
+            // Nouvelle sélection : « Dans League » repart de zéro, sous la même clé.
+            bool leagueReset = outcome.State == DraftOutcomeTracker.InDraft && league.Begin(outcome.Key);
             if (now == Phase.Draft && before != Phase.Draft) { NotifyDraftStart(); WarnOtherPanels(); }
             else if (now != before && before == Phase.Draft) validationPending = true;
             foreach (string m in outcomeMessages) SendAll(m);
-            if (now == before && outcomeMessages.Count > 0) BroadcastHost();
+            if (now == before && (outcomeMessages.Count > 0 || leagueReset)) BroadcastHost();
             if (now != before)
             {
                 if (env == null && now != Phase.ClientClosed) Prewarm();
@@ -1664,7 +1679,9 @@ public static class Autostart
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
                 { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning },
                 // Sélection suivie et son issue (draft, pending, game, abandoned) : une page ouverte après la décision la retrouve.
-                { "draftKey", outcome.Key }, { "draftOutcome", outcome.State } };
+                { "draftKey", outcome.Key }, { "draftOutcome", outcome.State },
+                // « Dans League » (beta.2) : ton pick, versionné (v). Identifiants de champions seulement, jamais de nom de joueur.
+                { "league", league.ToState() } };
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -3614,7 +3631,7 @@ public static class Autostart
             sim.SessionJson = "{\"theirTeam\":[{\"champ"; await app.PollLcuOnce();
             string diagBad = app.LcuDiagLine;
             string menuReport = await app.LcuDiagnosticText();
-            if (diagJungle != "ChampSelect/1 poste=jungle" || diagNone != "ChampSelect/1 poste=aucun" || diagBad != "ChampSelect/illisible poste=illisible" || !menuReport.Contains("poste=illisible")) p += "diagnostic du poste : « " + diagJungle + " », « " + diagNone + " », « " + diagBad + " », menu " + menuReport.Contains("poste=") + " ; ";
+            if (diagJungle != "ChampSelect/1 poste=jungle pick=aucun mode=autre" || diagNone != "ChampSelect/1 poste=aucun pick=aucun mode=autre" || diagBad != "ChampSelect/illisible poste=illisible" || !menuReport.Contains("poste=illisible")) p += "diagnostic du poste : « " + diagJungle + " », « " + diagNone + " », « " + diagBad + " », menu " + menuReport.Contains("poste=") + " ; ";
             DiagReport = diagJungle + " ; " + diagNone + " ; " + diagBad;
             // Réglage autoRole : « suggest » propose sans changer, « off » ne fait rien.
             sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
