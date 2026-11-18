@@ -1300,7 +1300,7 @@ const leagueNow = () => IS_HOST && leaguePick && hostState.draftKey && leaguePic
 // pick sera noté au lancement de la partie. Sinon (lecture désactivée ou perdue, autre mode, Simulateur), « Je joue » sert de repli.
 function autoJournal() {
   const l = leagueNow();
-  return !!l && !simulating && l.readable && l.supported && !l.lost && !!hostState.lcuEnabled && hostState.lcuStatus === "connected"
+  return !!l && !simulating && l.readable && l.supported && !l.lost && !!hostState.lcuEnabled
     && (hostState.draftOutcome === "draft" || hostState.draftOutcome === "pending");
 }
 // Identifiant de champion du client → pick de DRAFT (« TF » pour Twisted Fate), ou null.

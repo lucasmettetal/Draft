@@ -32,6 +32,7 @@ Les champs synchronisés sont rangés en groupes. Chaque groupe porte une versio
 - **État de départ** (stockage, page qui s'ouvre) : version 0. Il ne remplace rien de ce qu'une autre page a changé.
 - **Pools et rôle joué** ont chacun leur version. Un panneau qui change de rôle sans avoir encore reçu un pool modifié ailleurs n'impose pas son ancien pool.
 - **Poste attribué par League :** il vient toujours du programme, qui l'envoie à chaque page. L'état d'une autre page ne le remplace jamais.
+- **« Dans League »** (beta.2, ton pick lu dans le client) : même règle. Le programme l'envoie à chaque page (`league`), avec sa propre version `v` : une page ignore un état plus ancien (clé de sélection plus petite, ou même clé et `v` plus petit). Il n'entre dans aucun groupe synchronisé. Le conseil mémorisé au verrouillage est gardé une fois par sélection (`draftLockMemo`).
 - **Compatibilité :** un message sans `v` (page d'une version précédente) est appliqué entièrement, comme avant. Les champs du message ne changent pas ; `v` et `from` s'ajoutent.
 - **Simulation :** la draft en cours suivie à part (`liveCopy`) garde, groupe par groupe, la version la plus récente. Au retour, elle remplace l'état de la simulation.
 

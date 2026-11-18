@@ -8,8 +8,9 @@ Le journal garde les drafts réelles où le joueur a dit quel champion il jouait
 - **Création :** à la première **confirmation** d'une vraie draft : « Je joue X » (voir ci-dessous). Consulter un champion n'écrit rien.
 - **Mise à jour :** à chaque nouvelle confirmation dans la même draft, à chaque action sur la composition (`enemies`, `mid`), puis au résultat.
 - **Issue de la sélection** (beta.2) : `gameStarted` si la partie a démarré, `abandoned` si la draft a été annulée. Voir plus bas.
+- **Journal automatique** (beta.2) : avec la lecture du client en draft classique, ton pick est lu dans League et noté au lancement de la partie, sans « Je joue ». Voir plus bas.
 - **Simulation :** rien n'est écrit. Une draft simulée n'a pas de résultat.
-- **Aucune déduction :** le champion choisi vient toujours d'un clic du joueur, jamais de l'historique Riot.
+- **Aucune déduction :** le champion choisi vient d'un clic du joueur (« Je joue ») ou de son verrouillage lu dans le client (journal automatique), jamais de l'historique Riot.
 
 ## Consulter et confirmer
 
@@ -46,11 +47,15 @@ Garanties inchangées : le classement, le conseil et les scores ne bougent pas, 
 | `tied` | 3.0 | `true` si le conseil était une égalité au moment du choix |
 | `tiedWith` | 3.0 | Groupe complet des ex æquo à ce moment (vide sans égalité) |
 | `recommended` | 3.0 | Premier du classement du moteur. Il peut différer du nom affiché, maintenu pendant la draft pour ne pas clignoter |
-| `origin` | 3.0 | `"draft"` : vraie draft, détectée ou saisie à la main hors simulation |
+| `origin` | 3.0 | `"draft"` : vraie draft, détectée ou saisie à la main hors simulation, choix par « Je joue ». `"lcu"` (beta.2) : voir plus bas |
 | `app` | 3.0 | Version de DRAFT qui a créé l'entrée (`APP_VERSION`) |
 | `selection` | 3.0 beta.2 | Clé de la sélection donnée par le programme : horodatage de son début (ms). Absente hors sélection détectée |
 | `gameStarted` | 3.0 beta.2 | `true` : la partie a démarré après cette sélection. Le résultat reste à saisir |
 | `abandoned` | 3.0 beta.2 | `true` : la draft a été annulée (lobby, file, client fermé). Gardée, jamais comptée |
+| `origin: "lcu"` | 3.0 beta.2 | Pick lu dans le client et partie lancée : entrée du journal automatique |
+| `lockedFirst` | 3.0 beta.2 | Premier champion verrouillé, seulement s'il diffère de `picked` (échange) |
+| `traded` | 3.0 beta.2 | `true` si un échange a changé le champion final |
+| `gameId` | 3.0 beta.2 | Identifiant de la partie lu dans la session, s'il est présent. Clé anti-doublon avec `selection` |
 
 `suggested`, `close`, `tied`, `tiedWith` et `recommended` décrivent le moment du choix : ils changent avec un nouveau choix dans la même draft, pas quand le conseil bouge seul. `origin` et `app` sont posés à la création.
 
@@ -92,6 +97,46 @@ Les anciennes entrées n'ont ni `selection` ni issue : elles sont « À confirme
 - Sans aucune détection de draft (affichage manuel seul), l'entrée n'a pas de clé : son issue reste inconnue.
 - « Je joue » après une issue définitive : l'entrée n'a pas de clé, son issue reste inconnue.
 - Une draft de plus de 8 minutes en détection par l'image redevient incertaine ; si elle est détectée de nouveau, c'est une nouvelle sélection et la précédente est annulée. La page repartait déjà de zéro dans ce cas.
+
+## Journal automatique (beta.2)
+
+**Lecture** (`LcuParser.ParseLocalPick`, `src/LcuConnector.cs`), dans la session déjà lue, GET, mêmes deux adresses :
+- ton action de pick (`actorCellId == localPlayerCellId`, `type: "pick"`) : survolée si `isInProgress` et pas `completed`, verrouillée si `completed` ;
+- ta case de `myTeam` : `championPickIntent` (présélection), `championId` (final, après échange), `assignedPosition` ;
+- `timer.phase` (`FINALIZATION`, `GAME_STARTING` : final) et `gameId`.
+
+Les autres cases de `myTeam` ne sont pas ouvertes : seule leur `cellId` est comparée. Aucune donnée de coéquipier, aucun nom, aucun identifiant de joueur (test négatif dans le selftest).
+
+**Mode pris en charge :** draft classique, c'est-à-dire une action de pick pour toi ET un poste attribué. Les autres modes (ARAM, sélection aveugle, sans action de pick) gardent « Je joue ». Pour en ajouter un, il suffit d'élargir `Supported`.
+
+**État « Dans League »** (`LeaguePickTracker`) : `{ v, key, supported, readable, lost, state, champion, lockedFirst, traded, gameId }`, dans l'état envoyé aux pages (`league`). `state` vaut `none`, `hover`, `locked` ou `final`. `v` augmente à chaque changement ; une page ignore un état plus ancien (clé plus petite, ou même clé et `v` plus petit). Comme le poste attribué, il vient toujours du programme, jamais d'une autre page.
+
+**Affichage** (panneaux et fenêtre, à part du champion consulté) : « Dans League : Vex (survolé) », puis « Dans League : Vex verrouillé ✓ » (« …, après échange » si le champion final diffère). Consulter un champion dans DRAFT ne change pas cette ligne, et un survol dans League ne change ni le champion consulté, ni le classement.
+
+**« Je joue »** :
+
+| Cas | « Je joue » | Ligne |
+|---|---|---|
+| Lecture opérationnelle, draft classique | Absent | « Ton pick sera noté automatiquement au lancement de la partie. » |
+| Lecture désactivée ou indisponible | Présent | Aucune |
+| Lecture perdue en pleine draft | Présent | « Lecture du client perdue : confirme ton pick avec « Je joue ». » |
+| Mode non pris en charge | Présent | « Ce mode n'est pas noté automatiquement… » |
+| Simulateur | Présent, sans écriture | Aucune |
+
+**Écriture** (`writeLeagueEntry`, `web/index.html`), seulement à l'issue `"game"` de la sélection, si un verrouillage a été lu, en draft classique, lecture non perdue :
+- UNE entrée : `origin: "lcu"`, `picked` = champion final, `lockedFirst` s'il diffère, `traded`, `gameStarted: true`, `result: null`, `selection`, `gameId` s'il est présent ;
+- `suggested`, `close`, `tied`, `tiedWith`, `recommended` : conseil mémorisé au premier verrouillage vu (`draftLockMemo`, une fois par sélection, jamais en simulation) ;
+- une entrée « Je joue » de la même sélection (même `selection`, sinon même `gameId`) est COMPLÉTÉE, jamais doublée : même `id`, même date ;
+- verrouillage puis draft annulée : rien n'est écrit, la page dit « Draft annulée : pas de partie à noter. » ;
+- démarrage non observé (DRAFT fermé ou redémarré pendant le chargement) : rien n'est écrit, jamais joué d'office.
+
+**Tests :** selftest (lecture : survol, présélection, verrouillage, échange, aucun, mode à banc, sans poste, sans action, joueur absent, réponse tronquée, test négatif des coéquipiers ; suivi « Dans League »), étape e2e « Beta.2. Journal automatique » (LCU simulé au format réel, vraies pages WebView2), page `web/draft-journal-auto-tests.html` (FR et EN).
+
+**Limites :**
+- Champs non documentés par Riot, vérifiés seulement sur des sessions simulées au format réel. Un essai sur un vrai client reste à faire (sans dodge volontaire).
+- Lecture perdue au lancement de la partie : rien d'automatique ; seule une entrée « Je joue » suit la règle de l'issue.
+- Un échange fait après une perte de lecture n'est pas vu.
+- Plusieurs pages peuvent écrire en même temps : le journal étant une seule valeur, il ne peut pas y avoir deux entrées, mais une autre modification simultanée pourrait être perdue.
 
 ## Exemple
 
