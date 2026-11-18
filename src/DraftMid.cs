@@ -3827,12 +3827,12 @@ public static class Autostart
             const string Status = "(document.querySelector('[data-test=\"league-status\"]') || {}).textContent";
             const string StageCta = "document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]')";
             Func<string, string> entries = key => "loadJournal().filter(x => x.selection === '" + key + "')";
-            // Nouvelle sélection : ChampSelect lu, la page repart (draftStart), clé reçue.
+            // Nouvelle sélection : la page repart (draftStart), puis ChampSelect lu (adversaires reçus), clé reçue.
             Func<string, Task<string>> begin = async session =>
             {
-                await phase("Lobby"); sim.SessionJson = session; await phase("ChampSelect"); await app.PollLcuOnce(); await Task.Delay(300);
+                await phase("Lobby"); await run("onDraftStart(); 1"); await Task.Delay(300);
+                sim.SessionJson = session; await phase("ChampSelect"); await app.PollLcuOnce(); await Task.Delay(300);
                 string key = app.Outcome.Key;
-                await run("onDraftStart(); 1"); await Task.Delay(300);
                 if (!await wait("leaguePick && leaguePick.key === '" + key + "' && hostState.draftKey === '" + key + "'")) p += "état « Dans League » de la sélection " + key + " non reçu ; ";
                 return key;
             };
