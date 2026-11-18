@@ -34,7 +34,8 @@ t(/^Historique Riot 12 12 parties, 08\/11\/2026$/.test(k("kpi-history")),"chiffr
 t(/12 parties importées, le 08\/11\/2026/.test(text(q(x,"stats-history-summary"))),"historique : nombre et date");
 t(/Le plus joué en Mid/.test(text(q(x,"stats-history")))&&/Fizz/.test(text(q(x,"stats-history"))),"historique : le plus joué au rôle joué");
 const rows=[...x.d.querySelectorAll('[data-test="stats-recent"] tbody tr')];t(rows.length===5&&/Autre choix/.test(text(rows[0]))&&/Suivi/.test(text(rows[1])),"dernières drafts : 5 lignes, conseil suivi ou non");
-t(/En attente/.test(text(q(x,"stats-recent"))),"dernières drafts : partie sans résultat « En attente »");
+// Correctif beta.2 (draft annulée) : une entrée sans issue connue (ni partie lancée, ni draft annulée) est « À confirmer ».
+t(/À confirmer/.test(text(q(x,"stats-recent"))),"dernières drafts : entrée sans résultat ni issue connue « À confirmer »");
 q(x,"stats-all-journal").click();await settle();t(!!q(x,"stats-journal-full")&&!!x.d.querySelector('[data-test="import-journal"]'),"Voir tout le journal : journal complet et import d'un ancien fichier");
 q(x,"stats-tab-history").click();await settle();t(/Parties par rôle/.test(text(x.d.body))&&!!q(x,"stats-old"),"onglet historique : parties par rôle et anciens imports");
 t(!/RGAPI|puuid|Test#TEST/.test(x.d.body.innerText),"aucune clé ni identifiant de compte affiché");
