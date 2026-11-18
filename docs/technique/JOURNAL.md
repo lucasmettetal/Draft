@@ -7,6 +7,7 @@ Le journal garde les drafts réelles où le joueur a dit quel champion il jouait
 - **Stockage :** `localStorage`, clé `draftJournal`, du navigateur intégré (hôte `draftmid.local`). C'est un tableau JSON d'entrées. Export : « Télécharger le journal ». Import : Mes statistiques, sans rien supprimer.
 - **Création :** à la première **confirmation** d'une vraie draft : « Je joue X » (voir ci-dessous). Consulter un champion n'écrit rien.
 - **Mise à jour :** à chaque nouvelle confirmation dans la même draft, à chaque action sur la composition (`enemies`, `mid`), puis au résultat.
+- **Issue de la sélection** (beta.2) : `gameStarted` si la partie a démarré, `abandoned` si la draft a été annulée. Voir plus bas.
 - **Simulation :** rien n'est écrit. Une draft simulée n'a pas de résultat.
 - **Aucune déduction :** le champion choisi vient toujours d'un clic du joueur, jamais de l'historique Riot.
 
@@ -47,10 +48,50 @@ Garanties inchangées : le classement, le conseil et les scores ne bougent pas, 
 | `recommended` | 3.0 | Premier du classement du moteur. Il peut différer du nom affiché, maintenu pendant la draft pour ne pas clignoter |
 | `origin` | 3.0 | `"draft"` : vraie draft, détectée ou saisie à la main hors simulation |
 | `app` | 3.0 | Version de DRAFT qui a créé l'entrée (`APP_VERSION`) |
+| `selection` | 3.0 beta.2 | Clé de la sélection donnée par le programme : horodatage de son début (ms). Absente hors sélection détectée |
+| `gameStarted` | 3.0 beta.2 | `true` : la partie a démarré après cette sélection. Le résultat reste à saisir |
+| `abandoned` | 3.0 beta.2 | `true` : la draft a été annulée (lobby, file, client fermé). Gardée, jamais comptée |
 
 `suggested`, `close`, `tied`, `tiedWith` et `recommended` décrivent le moment du choix : ils changent avec un nouveau choix dans la même draft, pas quand le conseil bouge seul. `origin` et `app` sont posés à la création.
 
 **Conseil suivi :** `picked === suggested`. À égalité, choisir un ex æquo du groupe compte comme conseil suivi ; un champion hors du groupe compte comme autre choix.
+
+## Issue de la sélection (beta.2)
+
+**Défaut corrigé.** Jusqu'à la beta.1, le programme envoyait le même `draftEnd` pour une partie lancée et pour une draft annulée (dodge, retour au lobby). Une entrée notée avec « Je joue » puis annulée restait `result: null`, et la page la proposait comme « Dernière partie ».
+
+**Programme** (`DraftOutcomeTracker`, `src/DraftDetection.cs`) :
+- À la sortie de draft, l'issue est en attente : `{ kind:"draftEnd", draft, outcome:"pending" }`. Rien n'est écrit.
+- Elle devient `"game"` quand la partie est observée : lecture du client (`GameStart`, `InProgress`, `Reconnect`) ou processus de jeu.
+- Elle devient `"abandoned"` quand le client revient hors draft sans partie :
+  - lobby, file, `ReadyCheck` ou `None` lus dans le client : tout de suite ;
+  - image hors draft ou client fermé : après 20 s sans partie (`ConfirmSeconds`), le temps que la partie démarre.
+- `Uncertain` ne tranche rien, et ce temps ne compte pas.
+- Une nouvelle sélection sans partie entre les deux clôt la précédente : annulée.
+- Message : `{ kind:"draftOutcome", draft, outcome }`, une seule fois. Une issue définitive ne change plus.
+- La clé et l'issue sont aussi dans l'état envoyé aux pages (`draftKey`, `draftOutcome`) : une page ouverte après la décision la retrouve.
+- **En mémoire seulement.** DRAFT fermé ou redémarré avant la décision : rien n'est déduit, l'issue reste inconnue.
+
+**Page** (`applyDraftOutcome`, `web/index.html`) :
+- « Je joue » pendant la sélection, ou juste après sa fin, pose `selection` sur l'entrée.
+- L'issue n'est notée que dans l'entrée de cette clé, une seule fois : `gameStarted: true` ou `abandoned: true`. Rien n'est créé.
+- Plusieurs pages (fenêtre, panneaux) reçoivent l'issue : elles écrivent la même chose. Messages en double, en retard ou contradictoires : sans effet.
+- `result` reste `null` tant que le joueur ne l'a pas saisi. Aucun résultat n'est inventé.
+
+| Entrée | Statut affiché | « Dernière partie » | Mes statistiques |
+|---|---|---|---|
+| `abandoned: true` | Annulée ; dans la draft : « Draft annulée : pas de partie à noter. », sans boutons de résultat | Jamais | Pas comptée (drafts, victoires, conseil suivi) |
+| `gameStarted: true`, sans résultat | En attente | Oui | Comptée comme draft, pas encore comme partie terminée |
+| Ni l'un ni l'autre, sans résultat | À confirmer (issue inconnue) | Jamais | Comptée comme draft, jamais comme partie jouée d'office |
+
+Les anciennes entrées n'ont ni `selection` ni issue : elles sont « À confirmer » et ne sont pas réécrites. Leur résultat se saisit encore tant que la draft est affichée (entrée en cours).
+
+**Tests :** selftest (`DraftOutcomeSelfTest` : partie, lobby, client fermé, image puis partie, Uncertain, redémarrage, deux sélections, lectures répétées), étape e2e « Beta.2. Issue de la sélection » (LCU simulé, vraie fenêtre WebView2), page `web/draft-abandon-tests.html` (FR et EN).
+
+**Limites :**
+- Sans aucune détection de draft (affichage manuel seul), l'entrée n'a pas de clé : son issue reste inconnue.
+- « Je joue » après une issue définitive : l'entrée n'a pas de clé, son issue reste inconnue.
+- Une draft de plus de 8 minutes en détection par l'image redevient incertaine ; si elle est détectée de nouveau, c'est une nouvelle sélection et la précédente est annulée. La page repartait déjà de zéro dans ce cas.
 
 ## Exemple
 
@@ -84,3 +125,5 @@ Une entrée sans `origin` vient d'une version antérieure : origine inconnue. El
 ## Compatibilité
 
 La 2.16.2 ne lit que `id`, `date`, `picked`, `suggested`, `result`, `mid` et `enemies`. Elle ignore les autres champs et les garde quand elle enregistre un résultat (`Object.assign`, puis `JSON.stringify` de la liste). Vérifié sur la vraie page v2.16.2 : quatre entrées affichées, « Conseil suivi » et « Autre choix » comptés comme avant, résultat saisi sans perte de champ, aucune erreur.
+
+**Beta.2 (`selection`, `gameStarted`, `abandoned`) :** mêmes garanties, vérifiées dans le code de v2.16.2 (`updateEntry` : `Object.assign` puis `saveJournal` ; import : `concat` des entrées entières). Limite : la 2.16.2 ne connaît pas `abandoned`. Relue par elle, une entrée annulée et sans résultat peut encore être proposée comme « Dernière partie » (sa règle : `result === null`).
