@@ -1,0 +1,150 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests du journal automatique (Dans League)</title></head><body><pre id="out"></pre>
+<!-- Beta.2 : ton pick lu dans le client (« Dans League »), noté automatiquement au lancement de la partie, sans « Je joue » quand la
+     lecture fonctionne en draft classique. Le programme envoie hostState.league (versionné), draftKey, draftOutcome et les messages
+     draftEnd / draftOutcome : ici rejoués par un hôte WebView2 simulé, sur la vraie page, en français et en anglais.
+     « [avant : échec] » : échoue sur fix/draft-abandonnee (PR A). Pools, journaux, clés et identifiants FICTIFS.
+     Page de test : exclue de la compilation. Lancement : tools\run-v215-tests.ps1 -Page draft-journal-auto-tests.html -Work <dossier>. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const show=()=>{document.getElementById("out").textContent=JSON.stringify(res);};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));const settle=()=>wait(250);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]};
+const OLD={id:1,date:"2026-10-01T10:00:00Z",suggested:"TF",close:false,picked:"Fizz",enemies:["Ahri"],mid:"Ahri",result:"win",engine:"x"};
+// Identifiants du client (Data Dragon) : Vex 711, Fizz 105, Xerath 101.
+const VEX=711,FIZZ=105,XERATH=101,GAME=7012345678;
+const K=n=>String(1763290000000+n);
+const EXPOSE="window.$={get V(){return V},get state(){return state},get simulating(){return simulating},addEnemy,choosePick,consult,loadJournal,resetDraft,dispatchDraft,label}";
+let SRC="";{const x=new XMLHttpRequest();x.open("GET","index.html",false);x.send();SRC=x.responseText;}
+function prepare(profile,journal){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(profile));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));}
+async function ready(f){for(let i=0;i<120;i++){try{if(f.contentWindow.I18N&&f.contentWindow.eval("typeof V!=='undefined'&&!!V")&&f.contentDocument.querySelector('[data-test="panel"],[data-test="app"],.app'))break;}catch(e){}await wait(50);}
+  await wait(300);const w=f.contentWindow;w.eval(EXPOSE);w.open=()=>null;return {f,w,d:f.contentDocument,$:w.$,T:(k,v)=>w.I18N.t(k,v)};}
+async function openHost(lang,where,W,H){const host='<script>window.__sent=[];window.chrome=window.chrome||{};window.chrome.webview={postMessage(m){window.__sent.push(m)},addEventListener(k,fn){if(k==="message")window.__hostFn=fn},removeEventListener(){}};window.__host=m=>window.__hostFn&&window.__hostFn({data:m});<\/script>';
+  window.history.replaceState(null,"",location.pathname+"?"+where+"&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=W;f.height=H;document.body.appendChild(f);const d0=f.contentDocument;d0.open();d0.write(SRC.replace('<script src="draft-stats.js"><\/script>',host));d0.close();const x=await ready(f);window.history.replaceState(null,"",location.pathname);x.w.eval("synced=true");return x;}
+const HOST={kind:"host",available:true,lcuConfirmed:true,lcuEnabled:true,lcuStatus:"connected",hotkey:true,autoDraft:true,follow:true,phase:{key:"native.phase.draft",vars:{}},placement:{key:"native.placement.two",vars:{}}};
+// État « Dans League » du programme : versionné (v), clé de la sélection, identifiants de champions seulement.
+const L=(key,v,o)=>Object.assign({v,key,supported:true,readable:true,lost:false,state:"none",champion:0,lockedFirst:0,traded:false,gameId:GAME+Number(key)-1763290000000},o||{});
+const live=(x,key,outcome,league,extra)=>x.w.__host(Object.assign({},HOST,{draftKey:key,draftOutcome:outcome,league},extra||{}));
+const q=(x,s)=>x.d.querySelector(s);
+const journal=()=>JSON.parse(localStorage.getItem("draftJournal")||"[]");
+const bySel=key=>journal().filter(e=>e.selection===key);
+const cta=x=>q(x,'[data-test="choose-pick"]');
+const status=x=>text(q(x,'[data-test="league-status"]'));
+const visible=(x,e)=>{if(!e)return false;const r=e.getBoundingClientRect(),W=x.w.innerWidth,H=x.w.innerHeight;return r.width>0&&r.height>0&&r.top>=-0.5&&r.bottom<=H+0.5&&r.left>=-0.5&&r.right<=W+0.5;};
+const snap=x=>JSON.stringify({shown:x.$.V.shown,order:x.$.V.order.map(p=>p.pick),scores:x.$.V.res.ranking.map(p=>[p.pick,p.score])});
+async function start(x,key,league){live(x,key,"draft",league);x.$.dispatchDraft({type:"session-start"});await settle();x.$.addEnemy("Ahri");await settle();}
+async function end(x,key,outcome,league){x.w.__host({kind:"draftEnd",draft:key,outcome:"pending"});live(x,key,"pending",league);await settle();
+  if(outcome){x.w.__host({kind:"draftOutcome",draft:key,outcome});live(x,key,outcome,league);await settle();}}
+const fmt=e=>e?["origin="+e.origin,"picked="+e.picked,"lockedFirst="+e.lockedFirst,"traded="+e.traded,"gameStarted="+e.gameStarted,"result="+e.result,"gameId="+e.gameId].join(", "):"aucune";
+
+(async()=>{
+for(const lang of ["fr","en"]){
+  const LG=lang.toUpperCase();
+  // ---------- Panneau droit (125 % : 256 x 608) : survol, consultation, verrouillage, partie ----------
+  {const L0=LG+" panneau droit : ";prepare(MID,[OLD]);let x=await openHost(lang,"panel=right",256,608);live(x,null,null,null);await settle();
+   await start(x,K(1),L(K(1),1));const n0=journal().length;
+   t(!cta(x)&&text(q(x,'[data-test="league-auto"]'))===x.T("league.auto"),L0+"[avant : échec] lecture opérationnelle : pas de « Je joue », « "+x.T("league.auto")+" » ("+(cta(x)?"bouton « "+text(cta(x))+" »":"sans bouton")+")");
+   t(status(x)===x.T("league.none"),L0+"[avant : échec] aucun survol : « "+x.T("league.none")+" » (lu « "+status(x)+" »)");
+   const before=snap(x);
+   live(x,K(1),"draft",L(K(1),2,{state:"hover",champion:VEX}));await settle();
+   t(status(x)===x.T("league.hover",{champion:"Vex"})&&journal().length===n0&&snap(x)===before,L0+"[avant : échec] survol dans League : « "+x.T("league.hover",{champion:"Vex"})+" », rien n'est noté, classement inchangé (lu « "+status(x)+" »)");
+   // Consultation indépendante du survol, dans les deux sens.
+   const other=x.$.V.order.map(p=>p.pick).find(p=>p!==x.$.V.shown&&p!=="Xerath");x.$.consult(other);await settle();const viewed1=x.$.state.viewed;
+   live(x,K(1),"draft",L(K(1),3,{state:"hover",champion:XERATH}));await settle();
+   t(viewed1===other&&x.$.state.viewed===other&&status(x)===x.T("league.hover",{champion:"Xerath"})&&!!q(x,'[data-test="viewed"]'),L0+"[avant : échec] consulter "+other+" ne change pas « Dans League », un nouveau survol (Xerath) ne change pas le champion consulté (consulté "+x.$.state.viewed+", « "+status(x)+" »)");
+   x.$.consult(null);await settle();
+   live(x,K(1),"draft",L(K(1),4,{state:"locked",champion:VEX,lockedFirst:VEX}));await settle();
+   const memo=JSON.parse(localStorage.getItem("draftLockMemo")||"null");
+   t(status(x)===x.T("league.locked",{champion:"Vex"})&&journal().length===n0,L0+"[avant : échec] verrouillage : « "+x.T("league.locked",{champion:"Vex"})+" », toujours rien de noté avant la partie (lu « "+status(x)+" »)");
+   t(!!memo&&memo.key===K(1)&&memo.context&&memo.context.suggested===x.$.V.shown&&Array.isArray(memo.context.tiedWith)&&"recommended" in memo.context,L0+"[avant : échec] conseil mémorisé au verrouillage (suggested="+(memo&&memo.context&&memo.context.suggested)+")");
+   const line=q(x,'[data-test="league-line"]');res.notes[lang+"_panneau_droit"]=text(line);
+   t(visible(x,line)&&visible(x,q(x,'[data-test="league-auto"]')),L0+"[avant : échec] 256 x 608 (1366 à 125 %) : « Dans League » et la ligne du journal automatique visibles sans défiler");
+   // Désordre et doublons : un état plus ancien ou rejoué ne remplace jamais le verrouillage.
+   live(x,K(1),"draft",L(K(1),2,{state:"hover",champion:XERATH}));live(x,K(1),"draft",L(K(1),4,{state:"locked",champion:VEX,lockedFirst:VEX}));await settle();
+   t(status(x)===x.T("league.locked",{champion:"Vex"}),L0+"[avant : échec] état ancien (survol Xerath, v2) puis rejoué : le verrouillage reste");
+   await end(x,K(1),"game",L(K(1),4,{state:"locked",champion:VEX,lockedFirst:VEX}));
+   const e1=bySel(K(1));
+   t(e1.length===1&&e1[0].origin==="lcu"&&e1[0].picked==="Vex"&&e1[0].gameStarted===true&&e1[0].result===null&&e1[0].traded===false&&e1[0].lockedFirst===undefined&&e1[0].gameId===GAME+1&&e1[0].suggested===memo.context.suggested,L0+"[avant : échec] verrouillage → partie : UNE entrée, origin lcu, picked Vex, gameStarted, résultat vide ("+fmt(e1[0])+")");
+   for(let i=0;i<2;i++){x.w.__host({kind:"draftOutcome",draft:K(1),outcome:"game"});live(x,K(1),"game",L(K(1),4,{state:"locked",champion:VEX,lockedFirst:VEX}));}await settle();
+   t(bySel(K(1)).length===1&&journal().length===n0+1,L0+"[avant : échec] issue « game » rejouée deux fois : toujours une entrée");
+   // Draft suivante : « Dernière partie » propose la partie notée automatiquement.
+   live(x,K(2),"draft",L(K(2),5));x.$.dispatchDraft({type:"session-start"});await settle();
+   const lg=[...x.d.querySelectorAll('.result-note')].map(text).join(" | ");
+   t(lg.includes("Vex"),L0+"[avant : échec] draft suivante : « Dernière partie » propose Vex (lu « "+lg+" »)");
+   // Verrouillage → abandon : aucune entrée, la page le dit.
+   x.$.addEnemy("Ahri");await settle();
+   live(x,K(2),"draft",L(K(2),6,{state:"locked",champion:FIZZ,lockedFirst:FIZZ}));await settle();
+   await end(x,K(2),"abandoned",L(K(2),6,{state:"locked",champion:FIZZ,lockedFirst:FIZZ}));
+   t(bySel(K(2)).length===0&&journal().length===n0+1&&text(q(x,'[data-test="league-line"]'))===x.T("journal.abandoned.note"),L0+"[avant : échec] verrouillage → draft annulée : aucune entrée, « "+x.T("journal.abandoned.note")+" »");
+   x.f.remove();show();}
+  // ---------- Compact (125 % : 282 x 576) : échange, lecture perdue puis revenue, mode non pris en charge ----------
+  {const L0=LG+" compact : ";prepare(MID,[OLD]);let x=await openHost(lang,"panel=compact",282,576);live(x,null,null,null);await settle();
+   // Échange : verrouillé Vex, final Xerath.
+   await start(x,K(3),L(K(3),1,{state:"locked",champion:VEX,lockedFirst:VEX}));
+   t(visible(x,q(x,'[data-test="league-line"]'))&&visible(x,q(x,'[data-test="league-auto"]'))&&!cta(x),L0+"[avant : échec] 282 x 576 (1366 à 125 %) : « Dans League » visible sans défiler, pas de « Je joue »");
+   res.notes[lang+"_compact"]=text(q(x,'[data-test="league-line"]'));
+   live(x,K(3),"draft",L(K(3),2,{state:"final",champion:XERATH,lockedFirst:VEX,traded:true}));await settle();
+   t(status(x)===x.T("league.lockedTraded",{champion:"Xerath"}),L0+"[avant : échec] échange accepté : « "+x.T("league.lockedTraded",{champion:"Xerath"})+" »");
+   await end(x,K(3),"game",L(K(3),2,{state:"final",champion:XERATH,lockedFirst:VEX,traded:true}));
+   const e3=bySel(K(3))[0];
+   t(!!e3&&e3.picked==="Xerath"&&e3.lockedFirst==="Vex"&&e3.traded===true&&e3.origin==="lcu",L0+"[avant : échec] échange : champion final retenu (picked Xerath, lockedFirst Vex, traded) ("+fmt(e3)+")");
+   // Lecture perdue en pleine draft : « Je joue » revient avec sa raison ; confirmé ; la lecture revient ; la partie COMPLÈTE l'entrée.
+   await start(x,K(4),L(K(4),3,{state:"hover",champion:VEX}));
+   live(x,K(4),"draft",L(K(4),4,{state:"hover",champion:VEX,lost:true}),{lcuStatus:"failed"});await settle();
+   t(!!cta(x)&&text(q(x,'[data-test="league-line"]'))===x.T("league.lost"),L0+"[avant : échec] lecture perdue : « Je joue » revient, avec « "+x.T("league.lost")+" »");
+   x.$.choosePick("Fizz");await settle();const fallback=bySel(K(4));
+   live(x,K(4),"draft",L(K(4),5,{state:"locked",champion:FIZZ,lockedFirst:FIZZ}));await settle();
+   t(!cta(x)&&status(x)===x.T("league.locked",{champion:"Fizz"}),L0+"[avant : échec] lecture revenue : plus de « Je joue », « Dans League : Fizz verrouillé ✓ »");
+   await end(x,K(4),"game",L(K(4),5,{state:"locked",champion:FIZZ,lockedFirst:FIZZ}));
+   const e4=bySel(K(4));
+   t(fallback.length===1&&fallback[0].origin==="draft"&&fallback[0].gameId===GAME+4&&e4.length===1&&e4[0].id===fallback[0].id&&e4[0].origin==="lcu"&&e4[0].gameStarted===true,L0+"[avant : échec] perte de lecture puis retour : l'entrée « Je joue » est complétée, pas doublée ("+fmt(e4[0])+")");
+   // Mode non pris en charge (sans poste ou sans action de pick) : « Je joue » reste, rien n'est noté seul.
+   await start(x,K(5),L(K(5),6,{supported:false,state:"hover",champion:VEX}));
+   t(!!cta(x)&&text(q(x,'[data-test="league-line"]'))===x.T("league.unsupported"),L0+"[avant : échec] mode non pris en charge : « Je joue » présent, « "+x.T("league.unsupported")+" »");
+   live(x,K(5),"draft",L(K(5),7,{supported:false,state:"locked",champion:VEX,lockedFirst:VEX}));await end(x,K(5),"game",L(K(5),7,{supported:false,state:"locked",champion:VEX,lockedFirst:VEX}));
+   t(bySel(K(5)).length===0,L0+"mode non pris en charge, partie lancée sans « Je joue » : aucune entrée automatique");
+   // Lecture désactivée : « Je joue », aucune ligne « Dans League ».
+   await start(x,K(6),L(K(6),8,{readable:false}));live(x,K(6),"draft",L(K(6),9,{readable:false}),{lcuEnabled:false,lcuStatus:"off"});await settle();
+   t(!!cta(x)&&!q(x,'[data-test="league-line"]'),L0+"lecture du client désactivée : « Je joue » présent, pas de ligne « Dans League »");
+   t(x.w.I18N.missing().length===0,L0+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+   x.f.remove();show();}
+  // ---------- Redémarrages, DRAFT lancé après le verrouillage, démarrage non observé ----------
+  {const L0=LG+" redémarrages : ";prepare(MID,[OLD]);let x=await openHost(lang,"panel=right",256,608);live(x,null,null,null);await settle();
+   // DRAFT lancé après le verrouillage : la première lecture est déjà verrouillée.
+   await start(x,K(7),L(K(7),1,{state:"locked",champion:VEX,lockedFirst:VEX,gameId:GAME+7}));
+   await end(x,K(7),"game",L(K(7),1,{state:"locked",champion:VEX,lockedFirst:VEX,gameId:GAME+7}));
+   t(bySel(K(7)).length===1&&bySel(K(7))[0].origin==="lcu"&&bySel(K(7))[0].picked==="Vex",L0+"[avant : échec] DRAFT lancé après le verrouillage : une entrée");
+   // DRAFT redémarré pendant la sélection : nouvelle clé, même gameId ; l'entrée « Je joue » d'avant est complétée.
+   await start(x,K(8),L(K(8),2,{state:"hover",champion:FIZZ,gameId:GAME+8,lost:true}));x.$.choosePick("Fizz");await settle();
+   const n8=journal().length;x.f.remove();
+   x=await openHost(lang,"panel=right",256,608);
+   await start(x,K(9),L(K(9),1,{state:"locked",champion:FIZZ,lockedFirst:FIZZ,gameId:GAME+8}));
+   await end(x,K(9),"game",L(K(9),1,{state:"locked",champion:FIZZ,lockedFirst:FIZZ,gameId:GAME+8}));
+   const same=journal().filter(e=>e.gameId===GAME+8);
+   t(journal().length===n8&&same.length===1&&same[0].origin==="lcu"&&same[0].gameStarted===true,L0+"[avant : échec] DRAFT redémarré pendant la sélection : même partie (gameId), l'entrée est complétée, pas doublée ("+same.length+" entrée)");
+   // DRAFT redémarré pendant le chargement : le programme n'a plus d'issue. Démarrage non observé : jamais joué d'office.
+   await start(x,K(10),L(K(10),2,{state:"locked",champion:XERATH,lockedFirst:XERATH,gameId:GAME+10}));
+   x.w.__host({kind:"draftEnd",draft:K(10),outcome:"pending"});await settle();const n10=journal().length;x.f.remove();
+   x=await openHost(lang,"panel=right",256,608);live(x,null,null,null);await settle();
+   t(journal().length===n10&&bySel(K(10)).length===0&&!journal().some(e=>e.gameId===GAME+10),L0+"démarrage non observé (DRAFT redémarré pendant le chargement) : rien n'est noté, jamais joué d'office");
+   // Deux drafts de suite : deux entrées distinctes, une par partie.
+   const auto=journal().filter(e=>e.origin==="lcu");
+   t(new Set(auto.map(e=>e.selection)).size===auto.length&&auto.length===2,L0+"[avant : échec] deux drafts de suite : deux entrées distinctes ("+auto.length+")");
+   x.f.remove();show();}
+  // ---------- Fenêtre (1366 x 768) et Simulateur ----------
+  {const L0=LG+" fenêtre : ";prepare(MID,[OLD]);const x=await openHost(lang,"view=sim",1366,768);live(x,null,null,null);await settle();
+   await start(x,K(11),L(K(11),1,{state:"hover",champion:VEX}));
+   const line=q(x,'[data-test="stage"] [data-test="league-line"]');res.notes[lang+"_fenetre"]=text(line);
+   t(!q(x,'[data-test="stage"] [data-test="choose-pick"]')&&visible(x,line)&&status(x)===x.T("league.hover",{champion:"Vex"}),L0+"[avant : échec] 1366 x 768 : « Dans League » visible sans défiler, pas de « Je joue »");
+   // Simulateur : « Je joue » présent, aucune ligne « Dans League », rien n'est écrit (même à l'issue « game »).
+   const before=localStorage.getItem("draftJournal");
+   x.w.eval("startSimulation()");await settle();x.$.addEnemy("Ornn");await settle();
+   t(!!q(x,'[data-test="stage"] [data-test="choose-pick"]')&&!q(x,'[data-test="league-line"]'),L0+"Simulateur : « Je joue » présent, pas de ligne « Dans League »");
+   x.$.choosePick(x.$.V.shown);live(x,K(11),"draft",L(K(11),2,{state:"locked",champion:VEX,lockedFirst:VEX}));await end(x,K(11),"game",L(K(11),2,{state:"locked",champion:VEX,lockedFirst:VEX}));
+   t(localStorage.getItem("draftJournal")===before,L0+"Simulateur : rien n'est écrit, même à l'issue « game »");
+   x.w.eval("leaveSimulation()");x.f.remove();show();}
+}
+show();
+})().catch(e=>{res.ko.push("EXC "+e.stack);show();});
+</script></body></html>

@@ -1275,7 +1275,7 @@ const selectionEntry = (list, key, gameId) => list.find(x => x.selection === Str
 function applyDraftOutcome(key, outcome) {
   if (!key || !OUTCOME_FIELDS[outcome]) return false;
   const list = loadJournal();
-  const l = leagueState && leagueState.key === String(key) ? leagueState : null;
+  const l = leaguePick && leaguePick.key === String(key) ? leaguePick : null;
   const entry = selectionEntry(list, key, l && l.gameId);
   if (!entry || entry.gameStarted === true || isAbandoned(entry)) return false;
   Object.assign(entry, OUTCOME_FIELDS[outcome]);
@@ -1287,15 +1287,15 @@ function applyDraftOutcome(key, outcome) {
 // Ton pick lu dans le client (survolé, verrouillé, final), envoyé par le programme à chaque page (hostState.league). Comme le poste
 // attribué, il ne vient jamais d'une autre page. Versionné : une sélection plus récente (clé plus grande), sinon une version plus
 // grande. Indépendant du champion CONSULTÉ dans DRAFT : l'un ne change jamais l'autre, ni le classement.
-let leagueState = null;
+let leaguePick = null;
 function takeLeague(next) {
   if (!next || typeof next.v !== "number" || !next.key) return false;
-  const cur = leagueState;
+  const cur = leaguePick;
   if (cur && (Number(next.key) < Number(cur.key) || (next.key === cur.key && next.v <= cur.v))) return false;
-  leagueState = next;
+  leaguePick = next;
   return true;
 }
-const leagueNow = () => IS_HOST && leagueState && hostState.draftKey && leagueState.key === String(hostState.draftKey) ? leagueState : null;
+const leagueNow = () => IS_HOST && leaguePick && hostState.draftKey && leaguePick.key === String(hostState.draftKey) ? leaguePick : null;
 // Journal automatique : lecture du client opérationnelle, draft classique, sélection en cours ou juste finie. Pas de « Je joue » : le
 // pick sera noté au lancement de la partie. Sinon (lecture désactivée ou perdue, autre mode, Simulateur), « Je joue » sert de repli.
 function autoJournal() {
@@ -1323,7 +1323,7 @@ function memoLock() {
 // de la même sélection est complétée, jamais doublée. result reste null : aucun résultat n'est inventé. Lecture perdue au lancement,
 // autre mode ou Simulateur : rien ici (l'entrée « Je joue », s'il y en a une, suit la règle de l'issue).
 function writeLeagueEntry(key) {
-  const l = leagueState;
+  const l = leaguePick;
   if (!IS_HOST || simulating || !l || l.key !== String(key) || !l.readable || !l.supported || l.lost || !l.lockedFirst || !l.champion) return false;
   const picked = pickIdOf(l.champion), first = pickIdOf(l.lockedFirst);
   if (!picked) return false;
