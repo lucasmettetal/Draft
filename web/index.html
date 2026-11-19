@@ -417,6 +417,11 @@
   .p-ban .note { margin-top:3px; font-size:12px; }
   .p-actions { position:sticky; bottom:-12px; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:auto -12px -12px; padding:8px 12px 10px; background:var(--bg); border-top:1px solid var(--line); }
   .p-actions .cta { margin:0; min-height:36px; padding:5px 13px; font-size:15px; }
+  /* « Dans League » (beta.2) : pick lu dans le client, à part du champion consulté. */
+  .league-line { flex:1 1 100%; display:flex; flex-direction:column; gap:1px; min-width:0; margin:2px 0; font-size:var(--fs-sm); line-height:1.25; }
+  .league-status { font-weight:600; overflow-wrap:anywhere; }
+  .league-status.done { color:var(--good); }
+  .league-auto { color:var(--muted); font-size:var(--fs-xs); overflow-wrap:anywhere; }
   .p-empty { color:var(--muted); }
   .settings-back { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(10,8,14,.74); }
   .settings { width:min(520px,100%); max-height:100%; overflow:auto; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:8px; }
@@ -1265,14 +1270,84 @@ const liveSelection = () => IS_HOST && hostState.draftKey && (hostState.draftOut
 // Notée une seule fois, dans l'entrée de CETTE sélection : messages en double, en retard ou dans le désordre ne changent plus rien,
 // et rien n'est créé. Plusieurs pages peuvent l'appliquer : elles écrivent la même chose.
 const OUTCOME_FIELDS = { game: { gameStarted: true }, abandoned: { abandoned: true } };
+// Entrée d'une sélection : même clé, sinon même partie (gameId, DRAFT redémarré pendant la sélection).
+const selectionEntry = (list, key, gameId) => list.find(x => x.selection === String(key)) || (gameId ? list.find(x => x.gameId === gameId) : null) || null;
 function applyDraftOutcome(key, outcome) {
   if (!key || !OUTCOME_FIELDS[outcome]) return false;
   const list = loadJournal();
-  const entry = list.find(x => x.selection === String(key));
+  const l = leaguePick && leaguePick.key === String(key) ? leaguePick : null;
+  const entry = selectionEntry(list, key, l && l.gameId);
   if (!entry || entry.gameStarted === true || isAbandoned(entry)) return false;
   Object.assign(entry, OUTCOME_FIELDS[outcome]);
   saveJournal(list);
   return true;
+}
+
+// ---------- « Dans League » et journal automatique (beta.2, docs/technique/JOURNAL.md) ----------
+// Ton pick lu dans le client (survolé, verrouillé, final), envoyé par le programme à chaque page (hostState.league). Comme le poste
+// attribué, il ne vient jamais d'une autre page. Versionné : une sélection plus récente (clé plus grande), sinon une version plus
+// grande. Indépendant du champion CONSULTÉ dans DRAFT : l'un ne change jamais l'autre, ni le classement.
+let leaguePick = null;
+function takeLeague(next) {
+  if (!next || typeof next.v !== "number" || !next.key) return false;
+  const cur = leaguePick;
+  if (cur && (Number(next.key) < Number(cur.key) || (next.key === cur.key && next.v <= cur.v))) return false;
+  leaguePick = next;
+  return true;
+}
+const leagueNow = () => IS_HOST && leaguePick && hostState.draftKey && leaguePick.key === String(hostState.draftKey) ? leaguePick : null;
+// Journal automatique : lecture du client opérationnelle, draft classique, sélection en cours ou juste finie. Pas de « Je joue » : le
+// pick sera noté au lancement de la partie. Sinon (lecture désactivée ou perdue, autre mode, Simulateur), « Je joue » sert de repli.
+function autoJournal() {
+  const l = leagueNow();
+  return !!l && !simulating && l.readable && l.supported && !l.lost && !!hostState.lcuEnabled
+    && (hostState.draftOutcome === "draft" || hostState.draftOutcome === "pending");
+}
+// Identifiant de champion du client → pick de DRAFT (« TF » pour Twisted Fate), ou null.
+function pickIdOf(id) {
+  const name = id ? toName(CHAMPION_IDS[id]) : "";
+  return name ? Object.keys(FULL).find(k => FULL[k] === name) || name : null;
+}
+// Conseil au moment du verrouillage (suggested, close, tied, tiedWith, recommended) : mémorisé une fois par sélection, par la première
+// page qui voit le verrouillage. Jamais en simulation.
+const LOCK_MEMO_KEY = "draftLockMemo";
+function lockMemo(key) {
+  try { const m = JSON.parse(localStorage.getItem(LOCK_MEMO_KEY)); return m && m.key === String(key) ? m : null; } catch (e) { return null; }
+}
+function memoLock() {
+  const l = leagueNow();
+  if (!l || simulating || !V || V.none || !l.lockedFirst || lockMemo(l.key)) return;
+  try { localStorage.setItem(LOCK_MEMO_KEY, JSON.stringify({ key: l.key, context: pickContextFor(pickIdOf(l.lockedFirst)) })); } catch (e) {}
+}
+// Partie lancée après un verrouillage lu dans le client : UNE entrée, origin "lcu", picked = champion final. Une entrée « Je joue »
+// de la même sélection est complétée, jamais doublée. result reste null : aucun résultat n'est inventé. Lecture perdue au lancement,
+// autre mode ou Simulateur : rien ici (l'entrée « Je joue », s'il y en a une, suit la règle de l'issue).
+function writeLeagueEntry(key) {
+  const l = leaguePick;
+  if (!IS_HOST || simulating || !l || l.key !== String(key) || !l.readable || !l.supported || l.lost || !l.lockedFirst || !l.champion) return false;
+  const picked = pickIdOf(l.champion), first = pickIdOf(l.lockedFirst);
+  if (!picked) return false;
+  const list = loadJournal();
+  const existing = selectionEntry(list, key, l.gameId);
+  if (existing && existing.origin === "lcu") return false;
+  const memo = lockMemo(key);
+  const fields = Object.assign({}, memo ? memo.context : {}, { picked }, first && first !== picked ? { lockedFirst: first } : {},
+    { traded: !!l.traded, origin: "lcu", selection: String(key) }, l.gameId ? { gameId: l.gameId } : {}, { gameStarted: true });
+  let entry = existing;
+  if (entry) { Object.assign(entry, fields); if (!fields.lockedFirst) delete entry.lockedFirst; }
+  else {
+    entry = Object.assign({ id: Date.now(), date: new Date().toISOString() }, fields, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, app: APP_VERSION });
+    list.push(entry);
+  }
+  saveJournal(list);
+  // Résultat à saisir depuis cette draft, comme après « Je joue ».
+  state.current = entry.id;
+  return true;
+}
+// Issue reçue : partie lancée (entrée automatique d'abord), puis gameStarted ou abandoned (une seule fois).
+function settleOutcome(key, outcome) {
+  const wrote = outcome === "game" && writeLeagueEntry(key);
+  return applyDraftOutcome(key, outcome) || wrote;
 }
 
 // L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
@@ -1863,8 +1938,9 @@ function choosePick(pick) {
     const entry = currentEntry(list);
     if (entry) Object.assign(entry, noted);
     else {
-      const id = Date.now(), selection = liveSelection();
-      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }, selection ? { selection } : {}));
+      // « Je joue » de repli (lecture perdue) : la partie lue plus tard complète cette entrée (même clé ou même gameId).
+      const id = Date.now(), selection = liveSelection(), l = selection && leagueNow();
+      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }, selection ? { selection } : {}, l && l.gameId ? { gameId: l.gameId } : {}));
       state.current = id;
     }
     saveJournal(list);
@@ -2202,6 +2278,8 @@ const speakVerdict = name => V.tied ? t("advice.speak.tie", { champions: V.tied.
 // remplace jamais silencieusement un autre choix. Confirmé, il dit « X noté » (« choisi » en simulation, rien dans le journal).
 // À égalité sans consultation ni choix : pas de bouton, chaque ex æquo se consulte d'abord.
 function pickCta() {
+  // Journal automatique (beta.2) : pas de « Je joue », le pick est lu dans League et noté au lancement de la partie (LeagueLine).
+  if (autoJournal()) return null;
   const picked = currentPick(), viewed = viewedPick(), target = viewed || picked || (V.tied ? null : V.shown);
   if (!target) return null;
   const name = label(target), done = !!picked && target === picked;
@@ -2212,6 +2290,22 @@ function pickCta() {
     help: simulating ? t("advice.cta.simHelp") : CTA_HELP,
     click: () => choosePick(target)
   };
+}
+// « Dans League : Vex (survolé) », puis « Dans League : Vex verrouillé ✓ » : lu dans le client, à part du champion consulté.
+// Avec le journal automatique, la ligne « Ton pick sera noté automatiquement… » remplace « Je joue ». Lecture perdue ou autre mode :
+// la raison du repli « Je joue ». Rien sans lecture du client, ni en simulation.
+function LeagueLine() {
+  const l = leagueNow();
+  if (!l || simulating || !hostState.lcuEnabled) return null;
+  const line = (state, content) => html`<div className="league-line" data-test="league-line" data-state=${state} role="status">${content}</div>`;
+  if (hostState.draftOutcome === "abandoned") return line("abandoned", html`<span className="league-status">${t("journal.abandoned.note")}</span>`);
+  if (l.lost) return line("lost", html`<span className="league-status">${t("league.lost")}</span>`);
+  if (!l.readable) return null;
+  if (!l.supported) return line("unsupported", html`<span className="league-status">${t("league.unsupported")}</span>`);
+  const pick = pickIdOf(l.champion), name = pick ? label(pick) : "", done = l.state === "locked" || l.state === "final";
+  const text = !name ? t("league.none") : done ? t(l.traded ? "league.lockedTraded" : "league.locked", { champion: name }) : t("league.hover", { champion: name });
+  return line(l.state, html`<span className=${`league-status${done && name ? " done" : ""}`} data-test="league-status">${text}</span>
+    ${autoJournal() ? html`<small className="league-auto" data-test="league-auto">${t("league.auto")}</small>` : null}`);
 }
 // Conseil rappelé à part, toujours identifiable : pendant une consultation, « Revenir au conseil » l'annule (rien n'était noté) ;
 // après la confirmation d'un autre champion, il confirme le conseil à la place.
@@ -2410,6 +2504,7 @@ function Stage() {
         <${ViewedCard} />
         ${V.rival ? html`<div className="alt-line"><em>${t("advice.alt.else")}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
         <div className="stage-notes"><${CoachLine} /><${FamiliarLine} /><${OpponentLine} /></div>
+        <${LeagueLine} />
         ${cta ? html`<button type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} onClick=${cta.click}>${cta.text}</button>` : null}
         <${PickAdvice} />
       </div>
@@ -2448,9 +2543,10 @@ function Stage() {
         </details>` : null}
       <//>
       <${ViewedCard} />
-      <${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
+      <${LeagueLine} />
+      ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
         <${motion.span} key=${cta.target + (cta.picked ? "-done" : "")} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${cta.text}<//>
-      <//>
+      <//>` : null}
       <${PickAdvice} />
     <//>
   </section>`;
@@ -2890,6 +2986,7 @@ function SidePanel() {
 function MobileBar() {
   if (V.none) return null;
   const cta = pickCta();
+  if (!cta && autoJournal()) return html`<div className="mobile-bar"><${LeagueLine} /></div>`;
   if (!cta) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span><${PickCurrent} /></div>`;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${cta.name} size=${32} />${cta.name}</span>
@@ -3074,6 +3171,7 @@ function VerdictPanel() {
       ${playing ? html`<section className="p-win"><b>${t("plan.winIf")}</b><p>${winCondition(playing, c)}</p></section>` : html`<p className="note">${t("panel.choosePlan")}</p>`}
     </details>
     <div className="p-actions">
+      <${LeagueLine} />
       ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
       <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} aria-label=${t("panel.details")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" /><span className="details-label">${t("panel.details")}</span></button>
       <${PickCurrent} />
@@ -3903,6 +4001,7 @@ function App() {
       window.chrome.webview.addEventListener("message", e => {
         const m = e.data;
         if (m.kind === "host") {
+          takeLeague(m.league);
           Object.assign(hostState, m, { available:true });
           // Stockage du navigateur vide mais copie dans le dossier de données : les profils reviennent.
           if (!PROFILES.active && m.savedProfiles) {
@@ -3921,8 +4020,10 @@ function App() {
           // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
           // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
           if (synced) handleAssignedRole(m.assignedRole || null);
+          // Verrouillage vu dans League : le conseil du moment est mémorisé (une fois par sélection).
+          memoLock();
           // Page ouverte après la décision : l'issue gardée par le programme est notée (une seule fois).
-          if (applyDraftOutcome(m.draftKey, m.draftOutcome)) force();
+          if (settleOutcome(m.draftKey, m.draftOutcome)) force();
         }
         if (m.kind === "demo") runDemo(m.stepMs);
         // Avec sa clé (programme beta.2) : une fois par sélection. Sans clé (ancien programme, essais) : comme avant.
@@ -3930,7 +4031,7 @@ function App() {
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         // Fin de sélection : issue en attente (outcome "pending"), rien n'est écrit. Puis draftOutcome : partie lancée ou draft annulée.
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
-        if (m.kind === "draftOutcome" && applyDraftOutcome(m.draft, m.outcome)) force();
+        if (m.kind === "draftOutcome" && settleOutcome(m.draft, m.outcome)) force();
         // Message gardé une version (alias) : ouvre la section Réglages.
         if (m.kind === "openSettings") { goView("settings", m.section); window.__openSettingsSeen = m.token || 0; }
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
