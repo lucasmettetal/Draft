@@ -1252,15 +1252,25 @@
   }
   /* Le conseil est en haut du panneau : dans la barre, « Revenir au conseil » suffit (le nom est dans son titre). */
   .panel .p-actions [data-test="pick-advice"] > span { display:none; }
-  /* Compact à 1366 x 768 et 125 % (222 x 511) : « Pourquoi », le changement et la comparaison du champion consulté passent dans
-     les détails (« Pourquoi X ») ; restent le conseil, la menace et le nom du champion consulté. */
-  @media (max-height:600px) { .panel .p-reco { min-height:68px; } }
-  @media (max-height:560px) {
+  /* Compact (adversaires et conseil dans un seul panneau) jusqu'à 700 px de haut : « Pourquoi », le changement et la comparaison du
+     champion consulté passent dans les détails (« Pourquoi X ») ; restent le conseil, la menace (ou le ban) et le nom du consulté.
+     Mesuré : à 222 x 567 et 248 x 567, les afficher poussait la menace ou le consulté sous la barre (tools/run-panneaux-tests.ps1). */
+  @media (max-height:700px) {
     .panel-compact .p-why, .panel-compact .p-change, .panel-compact .p-viewed .viewed-cmp { display:none; }
+  }
+  @media (max-height:600px) {
+    .panel .p-reco { min-height:68px; }
     .panel-compact .p-now { gap:5px; }
     .panel-compact .p-rolemeta { padding-bottom:3px; }
+    .panel-compact .p-reco { min-height:60px; }
+    .panel-compact .p-reco-text { padding-top:6px; padding-bottom:6px; }
+    .panel-compact .compact-roles .role { min-height:62px; }
     .panel .p-viewed .viewed-cmp { -webkit-line-clamp:2; }
   }
+  /* Panneau gauche et compact : la recherche disparaît quand les 5 adversaires sont saisis ; forces et failles avant les jauges. */
+  .panel-left .search:has(input:disabled), .p-compact-enemies .search:has(input:disabled) { display:none; }
+  .panel-left .roles { gap:3px; }
+  .panel-left .col-left > .effects { padding:5px 8px; }
 </style>
 </head>
 <body>
@@ -2232,8 +2242,8 @@ function EnemyPanel() {
       </div>
     <//>
     ${panel ? html`<p className="p-legend" data-test="enemy-legend">${t("enemy.legend")}</p>` : null}
-    <h2 className="sec-title profile">${t("enemy.profileTitle")}</h2>
     ${panel ? html`<${DraftEffects} />` : null}
+    <h2 className="sec-title profile">${t("enemy.profileTitle")}</h2>
     <div className="meters profile">
       <${Meter} label=${t("enemy.meter.front")} count=${c.front.length} />
       <${Meter} label=${t("enemy.meter.carries")} count=${c.carries.length} />
