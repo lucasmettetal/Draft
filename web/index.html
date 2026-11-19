@@ -1253,9 +1253,41 @@ function updateEntry(id, change) {
   if (entry) { Object.assign(entry, change); saveJournal(list); }
 }
 
+// Issue de la sélection (docs/technique/JOURNAL.md), transmise par le programme : gameStarted (partie lancée) ou abandoned (draft
+// annulée). Sans l'une ni l'autre, l'issue est inconnue : « à confirmer », jamais jouée d'office. Une entrée annulée reste dans le
+// journal, mais n'est ni comptée ni proposée comme « Dernière partie ». Les anciennes entrées ne sont pas réécrites.
+const isAbandoned = x => !!x && x.abandoned === true;
+const countedEntries = list => list.filter(x => !isAbandoned(x));
+// « Dernière partie » à compléter : seulement une partie dont le lancement a été vu.
+const lastGameToComplete = list => [...list].reverse().find(x => x.result === null && x.gameStarted === true && !isAbandoned(x)) || null;
+// Clé de la sélection en cours, donnée par le programme : posée sur l'entrée créée pendant cette sélection, ou juste après sa fin.
+const liveSelection = () => IS_HOST && hostState.draftKey && (hostState.draftOutcome === "draft" || hostState.draftOutcome === "pending") ? String(hostState.draftKey) : null;
+// Notée une seule fois, dans l'entrée de CETTE sélection : messages en double, en retard ou dans le désordre ne changent plus rien,
+// et rien n'est créé. Plusieurs pages peuvent l'appliquer : elles écrivent la même chose.
+const OUTCOME_FIELDS = { game: { gameStarted: true }, abandoned: { abandoned: true } };
+function applyDraftOutcome(key, outcome) {
+  if (!key || !OUTCOME_FIELDS[outcome]) return false;
+  const list = loadJournal();
+  const entry = list.find(x => x.selection === String(key));
+  if (!entry || entry.gameStarted === true || isAbandoned(entry)) return false;
+  Object.assign(entry, OUTCOME_FIELDS[outcome]);
+  saveJournal(list);
+  return true;
+}
+
 // L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
 function syncCurrentEntry() {
-  if (state.current) updateEntry(state.current, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+  const entry = currentEntry();
+  if (entry) updateEntry(entry.id, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+}
+// Entrée de la draft affichée, ou null (correctif beta.2). Elle doit appartenir à la sélection en cours (même clé), ou, sans
+// sélection du programme (navigateur, affichage manuel, après le lancement), ne porter aucune clé. Une entrée d'une autre
+// sélection n'est jamais réutilisée ni modifiée : une page restée sur la draft d'avant crée une nouvelle entrée.
+function currentEntry(list) {
+  const entry = state.current ? (list || loadJournal()).find(x => x.id === state.current) : null;
+  if (!entry) return null;
+  const live = liveSelection();
+  return (entry.selection || null) === (live || state.sessionKey || null) || (!entry.selection && !live) ? entry : null;
 }
 
 
@@ -1373,7 +1405,7 @@ ENGINE_PREFS.favorite = PREFS.favorite;
 const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
 // Le choix du joueur (picked, pickContext) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
 // en retard dans une autre fenêtre (autre processus WebView2), et le bouton d'un panneau montrait alors un ancien choix.
-const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
+const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
 // Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
@@ -1392,7 +1424,7 @@ let simulating = false;
 // Un message sans version (page d'une version précédente) est appliqué entièrement, comme avant.
 const PAGE_ID = (PANEL || "full") + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const SYNC_GROUPS = {
-  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive"],
+  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey"],
   pick: ["current", "picked", "pickContext"],
   viewed: ["viewed"],
   // Rôle joué (PROFILES.active) et décisions sur le rôle attribué. Le poste attribué lui-même vient du programme (applyRemote).
@@ -1489,9 +1521,28 @@ function resetRoleSession() { state.roleManual = false; state.roleDismissed = nu
 // survivent à la draft précédente (resetDraft efface aussi viewed, picked et current).
 // Le programme efface le rôle attribué hors sélection : un rôle déjà connu ici vient de cette draft (message draftStart arrivé après
 // la lecture du poste, panneaux créés à ce moment). La bascule, la correction manuelle ou la proposition ignorée sont alors gardées.
-function onDraftStart() { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
-// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : le rôle attribué en attente est traité.
-function afterSync() { if (hostState.available) handleAssignedRole(hostState.assignedRole || null); }
+// key : clé de la sélection (programme), gardée dans l'état partagé (sessionKey) pour que chaque page sache quelle draft elle montre.
+function onDraftStart(key) { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); if (key) state.sessionKey = String(key); dispatchDraft({ type:"session-start" }); }
+// Correctif beta.2 : une nouvelle sélection remet la draft à zéro dans TOUTES les pages, une seule fois par clé. Elle arrive par le
+// message draftStart, ou se voit dans l'état du programme (draftKey) : page ouverte en retard, message perdu, panneau en pause.
+// Une page déjà passée à cette clé, elle-même ou par la synchronisation, ne recommence pas : un double signal n'efface jamais une
+// draft commencée. Une page pas encore synchronisée attend l'état des autres (afterSync).
+let pendingSelection = null;
+function startSelection(key) {
+  if (!key) return false;
+  if (!synced) { pendingSelection = String(key); return false; }
+  const live = simulating ? liveCopy : state;
+  if (live && live.sessionKey === String(key)) return false;
+  onDraftStart(key);
+  return true;
+}
+// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : la sélection en cours, puis le rôle attribué en attente.
+function afterSync() {
+  const key = pendingSelection || (hostState.available && hostState.draftOutcome === "draft" ? hostState.draftKey : null);
+  pendingSelection = null;
+  if (key) startSelection(key);
+  if (hostState.available) handleAssignedRole(hostState.assignedRole || null);
+}
 const roleSuggestion = () => roleDecision() === "suggest" ? state.assignedRole : null;
 
 function savePrefs(change) {
@@ -1802,17 +1853,18 @@ function choosePick(pick) {
   if (!pick) return;
   // Confirmer termine la consultation : le bouton et la coche montrent maintenant le choix confirmé.
   state.viewed = null;
-  if (pick === currentPick() && (state.current || simulating)) { publish(null); return; }
+  if (pick === currentPick() && (currentEntry() || simulating)) { publish(null); return; }
   state.picked = pick;
   state.pickContext = pickContextFor(pick);
   if (!simulating) {
     const list = loadJournal();
     const noted = Object.assign({}, state.pickContext, { picked: pick });
-    const entry = state.current && list.find(x => x.id === state.current);
+    // Correctif beta.2 : seulement l'entrée de CETTE sélection. Une page restée sur la draft d'avant n'y réécrit plus rien.
+    const entry = currentEntry(list);
     if (entry) Object.assign(entry, noted);
     else {
-      const id = Date.now();
-      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }));
+      const id = Date.now(), selection = liveSelection();
+      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }, selection ? { selection } : {}));
       state.current = id;
     }
     saveJournal(list);
@@ -2466,10 +2518,17 @@ function ResultButtons({ id, result, disabled }) {
   </div>`;
 }
 
+// Résultat de l'entrée en cours, ou de la dernière partie lancée. Draft annulée : pas de résultat à saisir, elle n'est pas comptée.
+function EntryResult({ entry, pending }) {
+  if (isAbandoned(entry)) return html`<p className="result-note" data-test="draft-abandoned" role="status">${t("journal.abandoned.note")}</p>`;
+  if (!entry && !pending) return null;
+  return html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />`;
+}
+
 function PlanBlock() {
   const list = loadJournal();
   const entry = state.current && list.find(x => x.id === state.current);
-  const pending = !entry && !state.enemies.length && [...list].reverse().find(x => x.result === null);
+  const pending = !entry && !state.enemies.length && lastGameToComplete(list);
   const c = V.res.counts;
   const playing = playingPick();
   const threats = playing ? threatsFor(playing, c) : [];
@@ -2482,8 +2541,8 @@ function PlanBlock() {
     <div className="plan-row threat"><span>${t("plan.threats")}</span><${Faces} names=${threats} empty=${t("plan.threatsNone")} /></div>
     <div className="plan-row target"><span>${t("plan.targets")}</span><${Faces} names=${targets} empty=${t("plan.targetsNone")} /></div>
     <div className="plan-row ban-row"><span>${t("plan.bans")}</span><${Faces} names=${V.bans} empty=${t("plan.bansNone")} /></div>
-    ${pending ? html`<p className="result-note">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
-    ${entry || pending ? html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />` : null}
+    ${pending ? html`<p className="result-note" data-test="last-game">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
+    <${EntryResult} entry=${entry} pending=${pending} />
   </section>`;
 }
 
@@ -2728,10 +2787,14 @@ function StatsTab() {
   </div>`;
 }
 
+// Statut d'une entrée : draft annulée, résultat saisi, partie lancée en attente du résultat, ou issue inconnue (à confirmer).
+const entryStatus = x => isAbandoned(x) ? t("journal.status.abandoned")
+  : ({ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") })[x.result] || t(x.gameStarted === true ? "journal.status.pending" : "journal.status.unconfirmed");
+
 function JournalTab() {
-  const list = loadJournal();
-  if (!list.length) return html`<p className="small">${t("journal.empty")}</p>`;
-  const played = list.filter(x => x.result === "win" || x.result === "loss");
+  const all = loadJournal();
+  if (!all.length) return html`<p className="small">${t("journal.empty")}</p>`;
+  const played = countedEntries(all).filter(x => x.result === "win" || x.result === "loss");
   const tally = rows => { const w = rows.filter(x => x.result === "win").length; return { wins:w, losses:rows.length - w, games:rows.length }; };
   const followed = tally(played.filter(x => x.picked === x.suggested));
   const other = tally(played.filter(x => x.picked !== x.suggested));
@@ -2746,9 +2809,9 @@ function JournalTab() {
       <ul className="comps">${played.slice(-5).reverse().map(x => html`<li key=${x.id}><span className=${`game ${x.result}`}></span><b>${label(x.picked)}</b><span className="comp-faces">${(x.enemies || []).map(n => html`<${Portrait} key=${n} name=${n} size=${22} />`)}</span></li>`)}</ul>` : null}
     <p className="small">${t("journal.followed", { followed: fmtRecord(followed), other: fmtRecord(other) })}</p>
     <table><thead><tr><th>${t("journal.table.date")}</th><th>${t("journal.table.pick")}</th><th>${t("journal.table.mid")}</th><th>${t("journal.table.advice")}</th><th>${t("journal.table.result")}</th></tr></thead>
-    <tbody>${list.slice(-10).reverse().map(x => html`<tr key=${x.id}>
+    <tbody>${all.slice(-10).reverse().map(x => html`<tr key=${x.id}>
       <td>${fmtDate(x.date)}</td><td>${label(x.picked)}</td><td>${x.mid || "-"}</td><td>${label(x.suggested || "-")}</td>
-      <td>${{ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") }[x.result] || t("journal.status.pending")}</td></tr>`)}</tbody></table>
+      <td>${entryStatus(x)}</td></tr>`)}</tbody></table>
     <p style=${{ marginTop:10 }}><button type="button" className="ghost-btn" onClick=${exportJournal}>${t("journal.download")}</button></p>
   </div>`;
 }
@@ -2952,7 +3015,7 @@ function PanelPool() {
 
 function VerdictPanel() {
   const entry = state.current && loadJournal().find(x => x.id === state.current);
-  const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
+  const pending = !entry && !state.enemies.length && lastGameToComplete(loadJournal());
   if (V.none) return html`<div className="p-body"><p className="p-empty" data-test="no-pick">${noPickText()}</p><button type="button" className="ghost-btn" data-test="choose-profile" onClick=${() => hostSend({ cmd:"openFull", tab:"pool" })}>${t("panel.openPool")}</button></div>`;
   const name = label(V.shown);
   const c = V.res.counts;
@@ -3017,8 +3080,8 @@ function VerdictPanel() {
       <${PickAdvice} />
     </div>
     ${entry || pending ? html`<div>
-      ${pending ? html`<p className="result-note">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
-      <${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />
+      ${pending ? html`<p className="result-note" data-test="last-game">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
+      <${EntryResult} entry=${entry} pending=${pending} />
     </div>` : null}
   </div>`;
 }
@@ -3346,7 +3409,7 @@ function HomeUpdate() {
 }
 
 function HomeData() {
-  const journal = loadJournal().length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
+  const journal = countedEntries(loadJournal()).length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
   const role = PROFILES.active || "mid", rates = window.ROLE_RATES_LIVE, live = window.MATCHUPS_LIVE;
   const status = nativeText(hostState.historyStatus) || nativeText(hostState.rolesStatus);
   const row = (key, label, value, ok) => html`<div key=${key} className=${`data-row${ok ? " ok" : ""}`} data-test=${`home-data-${key}`}><dt>${label}</dt><dd>${value}</dd></div>`;
@@ -3556,7 +3619,8 @@ const historyRows = () => window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HIS
 const wl = rows => { const w = rows.filter(r => r.win).length; return t("stats.wl", { wins:w, losses:rows.length - w }); };
 
 function StatsKpis() {
-  const list = loadJournal(), played = list.filter(x => x.result === "win" || x.result === "loss");
+  // Draft annulée : gardée dans le journal, jamais comptée.
+  const list = countedEntries(loadJournal()), played = list.filter(x => x.result === "win" || x.result === "loss");
   const wins = played.filter(x => x.result === "win").length, followed = list.filter(x => x.picked === x.suggested).length;
   const rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
   const kpi = (label, value, rest, test, extra) => html`<div data-test=${test}><span>${label}</span><b className="num">${value}</b>${rest ? html` <small>${rest}${extra || null}</small>` : null}</div>`;
@@ -3609,19 +3673,18 @@ function HistoryImportBox({ detailed }) {
 
 function RecentDrafts({ onAll }) {
   const list = loadJournal().slice(-8).reverse();
-  const results = { win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") };
   return html`<section className="box" data-test="stats-recent">
     <header className="box-head-row"><h2 className="box-title">${t("stats.recent.title")} <small>${t("stats.recent.sub")}</small></h2>
       ${list.length ? html`<button type="button" className="ghost-btn" data-test="stats-all-journal" onClick=${onAll}>${t("stats.recent.all")}</button>` : null}</header>
     ${list.length ? html`<table className="stats-table recent"><thead><tr><th scope="col">${t("stats.recent.pick")}</th><th scope="col">${t("stats.recent.opponent")}</th><th scope="col">${t("stats.recent.advice")}</th><th scope="col">${t("stats.recent.result")}</th><th scope="col">${t("stats.recent.date")}</th></tr></thead>
       <tbody>${list.map(x => html`<tr key=${x.id}><th scope="row"><span className="pool-name"><${Portrait} name=${label(x.picked)} size=${28} />${label(x.picked)}</span></th><td>${x.mid || "-"}</td><td>${t(x.picked === x.suggested ? "stats.recent.followed" : "stats.recent.other")}</td>
-        <td><span className=${`result-tag ${x.result || "wait"}`}>${results[x.result] || t("journal.status.pending")}</span></td><td className="num">${fmtDate(x.date)}</td></tr>`)}</tbody></table>`
+        <td><span className=${`result-tag ${isAbandoned(x) ? "wait" : x.result || "wait"}`} data-test="entry-status">${entryStatus(x)}</span></td><td className="num">${fmtDate(x.date)}</td></tr>`)}</tbody></table>`
       : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
   </section>`;
 }
 
 function StatsOverview({ onAll }) {
-  const played = loadJournal().filter(x => x.result === "win" || x.result === "loss");
+  const played = countedEntries(loadJournal()).filter(x => x.result === "win" || x.result === "loss");
   return html`<div className="stats-overview">
     <div className="stats-grid">
       <section className="box box-pad" data-test="stats-journal">
@@ -3852,14 +3915,22 @@ function App() {
           if (PROFILE && !window.draftProfileSent) { window.draftProfileSent = true; sendProfile(); }
           if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"pool" }); }
           force();
+          // Nouvelle sélection vue dans l'état du programme (message draftStart perdu ou page ouverte en retard) : remise à zéro,
+          // une fois par clé, AVANT le rôle attribué de cette sélection.
+          if (synced && m.draftOutcome === "draft") startSelection(m.draftKey);
           // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
           // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
           if (synced) handleAssignedRole(m.assignedRole || null);
+          // Page ouverte après la décision : l'issue gardée par le programme est notée (une seule fois).
+          if (applyDraftOutcome(m.draftKey, m.draftOutcome)) force();
         }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") onDraftStart();
+        // Avec sa clé (programme beta.2) : une fois par sélection. Sans clé (ancien programme, essais) : comme avant.
+        if (m.kind === "draftStart") { if (m.draft) startSelection(m.draft); else onDraftStart(); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
+        // Fin de sélection : issue en attente (outcome "pending"), rien n'est écrit. Puis draftOutcome : partie lancée ou draft annulée.
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
+        if (m.kind === "draftOutcome" && applyDraftOutcome(m.draft, m.outcome)) force();
         // Message gardé une version (alias) : ouvre la section Réglages.
         if (m.kind === "openSettings") { goView("settings", m.section); window.__openSettingsSeen = m.token || 0; }
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }

@@ -894,7 +894,8 @@ public static class Autostart
                     + (s.Phase == Phase.Draft ? " poste=" + (s.EnemyChampionIds == null ? "illisible" : s.AssignedRole ?? "aucun") : "");
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
-                AfterPhase(before, machine.Current);
+                // Phase donnée par le client : un retour au lobby ou à la file tranche tout de suite (draft annulée).
+                AfterPhase(before, machine.Current, true, SampleMs / 1000.0);
                 ApplyVisibility();
                 PostEnemies(s);
                 // Session illisible : on garde la dernière valeur connue. Hors draft : plus de rôle attribué.
@@ -941,16 +942,30 @@ public static class Autostart
         {
             Phase before = machine.Current;
             Phase now = machine.Step(open, game, ev, seconds);
-            AfterPhase(before, now);
+            AfterPhase(before, now, false, seconds);
             ApplyVisibility();
         }
 
-        void AfterPhase(Phase before, Phase now)
+        // Issue de la sélection pour le journal : en mémoire seulement (docs/technique/JOURNAL.md).
+        DraftOutcomeTracker outcome = new DraftOutcomeTracker();
+        public DraftOutcomeTracker Outcome { get { return outcome; } }
+        // Essai : DRAFT redémarré, la mémoire de l'issue est perdue.
+        public void TestForgetOutcome() { outcome = new DraftOutcomeTracker(); BroadcastHost(); }
+        // Essai : un message du programme livré de nouveau (double, en retard).
+        public void TestSendAll(string json) { SendAll(json); }
+
+        // certain : phase lue dans le client (sinon image ou fermeture du client) ; seconds : durée de l'observation.
+        void AfterPhase(Phase before, Phase now, bool certain, double seconds)
         {
+            // Sortie de draft : draftEnd { outcome: "pending" }, puis draftOutcome { outcome: "game" | "abandoned" }, une seule fois.
+            // Le même draftEnd partait avant pour une partie lancée et pour une draft annulée.
+            List<string> outcomeMessages = outcome.Update(now, certain, seconds);
+            if (now == Phase.Draft && before != Phase.Draft) { NotifyDraftStart(); WarnOtherPanels(); }
+            else if (now != before && before == Phase.Draft) validationPending = true;
+            foreach (string m in outcomeMessages) SendAll(m);
+            if (now == before && outcomeMessages.Count > 0) BroadcastHost();
             if (now != before)
             {
-                if (now == Phase.Draft && before != Phase.Draft) { NotifyDraftStart(); WarnOtherPanels(); }
-                else if (before == Phase.Draft) { validationPending = true; SendAll("{\"kind\":\"draftEnd\"}"); }
                 if (env == null && now != Phase.ClientClosed) Prewarm();
                 // Le mot de passe change à chaque lancement du client : il est oublié dès sa fermeture.
                 if (now == Phase.ClientClosed && lcu != null) lcu.Forget();
@@ -959,7 +974,10 @@ public static class Autostart
             }
         }
 
-        void NotifyDraftStart() { pendingStart = true; if (panelsShown) { pendingStart = false; PostStart(); } }
+        // Début de sélection : envoyé tout de suite à TOUTES les pages créées (fenêtre comprise), puis de nouveau quand les panneaux
+        // s'affichent (pages créées entre-temps). Les pages ne remettent la draft à zéro qu'une fois par clé de sélection ; une page
+        // qui ne reçoit pas le message (créée plus tard, message perdu) voit la nouvelle clé dans l'état du programme (draftKey).
+        void NotifyDraftStart() { pendingStart = true; PostStart(); if (panelsShown) pendingStart = false; }
         bool pendingStart;
 
         void OnClientChanged()
@@ -1017,10 +1035,11 @@ public static class Autostart
             if (pendingStart) { pendingStart = false; PostStart(); }
         }
 
+        // Avant (beta.1) : au premier panneau prêt seulement, et perdu si aucun ne l'était. Les autres pages gardaient la draft
+        // précédente : « Je joue » y réécrivait l'entrée de la draft d'avant.
         void PostStart()
         {
-            foreach (PanelForm f in panels.Values)
-                if (f.Id != "full" && f.View.CoreWebView2 != null) { f.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"draftStart\"}"); break; }
+            SendAll("{\"kind\":\"draftStart\",\"draft\":\"" + (outcome.Key ?? "") + "\"}");
         }
 
         // ---------- Mise à jour des rôles, en arrière-plan ----------
@@ -1647,7 +1666,9 @@ public static class Autostart
             return new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } };
+                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning },
+                // Sélection suivie et son issue (draft, pending, game, abandoned) : une page ouverte après la décision la retrouve.
+                { "draftKey", outcome.Key }, { "draftOutcome", outcome.State } };
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
@@ -3632,6 +3653,171 @@ public static class Autostart
             return p;
         }
 
+        // Correctif beta.2 : issue de la sélection, de bout en bout (LCU simulé > programme > vraie fenêtre WebView2). Partie lancée :
+        // gameStarted. Draft annulée : abandoned, jamais proposée comme « Dernière partie ». Issue inconnue : rien. Journal fictif.
+        public static string OutcomeReport = "non mesuré";
+        static async Task<string> TestDraftOutcome(CompanionApp app)
+        {
+            string p = "";
+            List<string> rep = new List<string>();
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof applyDraftOutcome === 'function' && synced && hostState.available && PICKS.length > 0") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            string saved = await run("localStorage.getItem('draftJournal')");
+            // Une ancienne entrée sans issue (avant la beta.2) : jamais réécrite, jamais proposée.
+            const string Old = "{\"id\":1,\"date\":\"2026-10-01T10:00:00Z\",\"suggested\":\"Fizz\",\"picked\":\"Fizz\",\"enemies\":[\"Ahri\"],\"mid\":\"Ahri\",\"result\":null,\"engine\":\"x\"}";
+            await run("localStorage.setItem('draftJournal', " + json.Serialize("[" + Old + "]") + "); goView('sim'); 1");
+            Func<string, string> entry = key => "loadJournal().find(x => x.selection === '" + key + "')";
+            Func<string, Task<string>> flags = async key => json.Deserialize<string>(await run("(() => { const e = " + entry(key) + "; return e ? 'g=' + (e.gameStarted === true) + ' a=' + (e.abandoned === true) + ' r=' + e.result : 'aucune'; })()")) ?? "";
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            // Une sélection : ChampSelect, nouvelle draft dans la page, puis « Je joue » (vraie confirmation, une entrée).
+            Func<Task<string>> select = async () =>
+            {
+                sim.SessionJson = TheirTeam(103); await phase("ChampSelect"); await Task.Delay(400);
+                string key = app.Outcome.Key;
+                if (!await wait("hostState.draftKey === '" + key + "' && hostState.draftOutcome === 'draft'")) p += "clé " + key + " non reçue par la page (" + await run("hostState.draftKey + '/' + hostState.draftOutcome") + ") ; ";
+                await run("onDraftStart(); 1"); await Task.Delay(300);
+                await run("choosePick(PICKS[0]); 1");
+                if (!await wait(entry(key) + " && state.current === " + entry(key) + ".id")) p += "« Je joue » : entrée sans la clé " + key + " (" + await run("JSON.stringify(loadJournal().slice(-1))") + ") ; ";
+                return key;
+            };
+            int n0 = int.Parse(await run("loadJournal().length"));
+            // 1. Draft → partie (GameStart, InProgress), fin de partie, lobby : partie lancée, résultat à saisir.
+            string k1 = await select();
+            await phase("GameStart");
+            bool game = await wait(entry(k1) + ".gameStarted === true");
+            await phase("InProgress"); await phase("EndOfGame"); await phase("Lobby");
+            string f1 = await flags(k1);
+            if (!game || f1 != "g=true a=false r=null") p += "draft → partie : " + f1 + " ; ";
+            rep.Add("partie " + f1);
+            // 2. Draft → lobby (dodge) : annulée, dite dans la page, sans boutons de résultat.
+            string k2 = await select();
+            await phase("Lobby");
+            bool cancelled = await wait(entry(k2) + ".abandoned === true");
+            bool note = await wait("(() => { const n = document.querySelector('[data-test=\"draft-abandoned\"]'); return n && n.textContent.trim() === I18N.t('journal.abandoned.note') && !document.querySelector('[data-test=\"result-buttons\"]'); })()");
+            string f2 = await flags(k2);
+            if (!cancelled || f2 != "g=false a=true r=null" || !note) p += "draft → lobby : " + f2 + ", note " + note + " ; ";
+            rep.Add("lobby " + f2 + (note ? " (note affichée)" : ""));
+            // « Dernière partie » : la partie lancée, jamais la draft annulée ni l'ancienne entrée.
+            await run("resetDraft(); 1");
+            bool last = await wait("lastGameToComplete(loadJournal()) && lastGameToComplete(loadJournal()).selection === '" + k1 + "' && document.querySelector('[data-test=\"last-game\"]') && document.querySelector('[data-test=\"last-game\"]').textContent.includes(label(PICKS[0]))");
+            if (!last) p += "« Dernière partie » : " + await run("JSON.stringify(lastGameToComplete(loadJournal()))") + " ; ";
+            // 3. Draft → image hors draft → Uncertain (40 s) → partie : Uncertain ne tranche rien.
+            string k3 = await select();
+            for (int i = 0; i < 3; i++) app.StepPhase(true, false, Evidence.NotDraft, 1);
+            for (int i = 0; i < 40; i++) app.StepPhase(true, false, Evidence.Unknown, 1);
+            await Task.Delay(300);
+            string f3a = await flags(k3);
+            app.StepPhase(true, true, Evidence.Unknown, 1);
+            bool game3 = await wait(entry(k3) + ".gameStarted === true");
+            if (f3a != "g=false a=false r=null" || !game3) p += "draft → Uncertain → partie : " + f3a + " puis " + await flags(k3) + " ; ";
+            rep.Add("incertain " + f3a + " puis " + await flags(k3));
+            await phase("Lobby");
+            // 4. Draft → client fermé : en attente à 18 s, annulée après ConfirmSeconds (20 s) sans partie.
+            string k4 = await select();
+            for (int i = 0; i < 18; i++) app.StepPhase(false, false, Evidence.Unknown, 1);
+            await Task.Delay(300);
+            string f4a = await flags(k4);
+            for (int i = 0; i < 3; i++) app.StepPhase(false, false, Evidence.Unknown, 1);
+            bool closed = await wait(entry(k4) + ".abandoned === true");
+            if (f4a != "g=false a=false r=null" || !closed) p += "draft → client fermé : " + f4a + " puis " + await flags(k4) + " ; ";
+            rep.Add("client fermé " + f4a + " puis " + await flags(k4));
+            // 5. DRAFT redémarré pendant le chargement : mémoire perdue, rien n'est déduit, l'entrée reste à confirmer.
+            string k5 = await select();
+            app.TestForgetOutcome();
+            await phase("GameStart"); await phase("InProgress");
+            await Task.Delay(300);
+            string f5 = await flags(k5);
+            string status5 = json.Deserialize<string>(await run("entryStatus(" + entry(k5) + ")")) ?? "";
+            if (f5 != "g=false a=false r=null" || status5 != json.Deserialize<string>(await run("I18N.t('journal.status.unconfirmed')"))) p += "DRAFT redémarré pendant le chargement : " + f5 + ", statut " + status5 + " ; ";
+            rep.Add("redémarré " + f5 + " (" + status5 + ")");
+            await phase("Lobby");
+            // 6. Signaux en double, en retard et dans le désordre, clé inconnue : rien ne change, rien n'est créé.
+            string before = await run("localStorage.getItem('draftJournal')");
+            foreach (string m in new[] { "draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"game", "draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"game", "draftEnd\",\"draft\":\"" + k1 + "\",\"outcome\":\"pending", "draftOutcome\",\"draft\":\"" + k2 + "\",\"outcome\":\"game", "draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"abandoned", "draftOutcome\",\"draft\":\"1\",\"outcome\":\"game" })
+                app.TestSendAll("{\"kind\":\"" + m + "\"}");
+            await Task.Delay(500);
+            if (await run("localStorage.getItem('draftJournal')") != before) p += "signaux en double ou dans le désordre : le journal a changé ; ";
+            // 7. Simulateur : rien n'est écrit.
+            await run("startSimulation(); ['Ahri','Ornn'].forEach(addEnemy); choosePick(PICKS[0]); 1");
+            await Task.Delay(300);
+            if (await run("localStorage.getItem('draftJournal')") != before) p += "le Simulateur a écrit dans le journal ; ";
+            await run("leaveSimulation(); 1");
+            // Aucun doublon : une entrée par « Je joue », l'ancienne entrée intacte.
+            int added = int.Parse(await run("loadJournal().length")) - n0;
+            bool oldKept = await run("JSON.stringify(loadJournal().find(x => x.id === 1)) === " + json.Serialize(Old)) == "true";
+            if (added != 5 || !oldKept) p += "doublons ou ancienne entrée réécrite : " + added + " entrées ajoutées, ancienne intacte " + oldKept + " ; ";
+            OutcomeReport = string.Join(" ; ", rep) + " ; " + added + " entrées pour 5 sélections, ancienne intacte " + oldKept;
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); 1");
+            f.Hide();
+            return p;
+        }
+
+        // Correctif beta.2 (défaut réel de la candidate 4) : la draft suivante repart de zéro dans TOUTES les pages (fenêtre restée
+        // ouverte comprise) ; « Je joue » n'y réécrit jamais l'entrée de la draft d'avant ; le rôle à la main de la draft 1 n'empêche pas
+        // le poste attribué en draft 2. LCU simulé, vraies pages, journal fictif.
+        public static string NextDraftReport = "non mesuré";
+        static async Task<string> TestNextDraft(CompanionApp app)
+        {
+            string p = "";
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof startSelection === 'function' && synced && hostState.available && PICKS.length > 1") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<PanelForm, bool> usable = pf => pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null;
+            // Toutes les pages créées : fenêtre et panneaux, affichés ou non.
+            Func<string, Task<string>> all = async code => { List<string> r = new List<string>(); foreach (string id in new[] { "full", "left", "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (usable(pf)) r.Add(id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code)); } return string.Join(" ", r); };
+            Func<string, Task<bool>> everywhere = code => Until(async () => !(await all("!!(" + code + ")")).Contains("false"), 5000);
+            Func<string, Task<string>> inPanel = async code => { foreach (string id in new[] { "right", "compact", "left" }) { PanelForm pf = app.PanelFor(id); if (usable(pf)) return await pf.View.CoreWebView2.ExecuteScriptAsync(code); } return "aucun panneau"; };
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            string saved = await run("localStorage.getItem('draftJournal')");
+            await run("localStorage.setItem('draftJournal', '[]'); goView('sim'); 1");
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            Func<string, string> entries = key => "loadJournal().filter(x => x.selection === '" + key + "')";
+            // Draft 1 : « Je joue » dans la fenêtre, puis dans un panneau ; rôle mis à la main dans un panneau.
+            sim.SessionJson = TheirTeam(103); await phase("ChampSelect"); await app.PollLcuOnce(); await Task.Delay(300);
+            string k1 = app.Outcome.Key;
+            bool started1 = await everywhere("state.sessionKey === '" + k1 + "' && !state.current");
+            await run("choosePick(PICKS[0]); 1"); await Task.Delay(500);
+            await inPanel("choosePick(PICKS[1]); 1"); await Task.Delay(600);
+            bool sameDraft = await Until(async () => await run(entries(k1) + ".length === 1 && " + entries(k1) + "[0].picked === PICKS[1]") == "true", 4000);
+            await inPanel("switchRole('top', 'manual'); 1"); await Task.Delay(600);
+            bool manual = await everywhere("state.roleManual && myRole() === 'top'");
+            await phase("GameStart"); await phase("InProgress"); await phase("EndOfGame"); await phase("Lobby");
+            string first = await run("JSON.stringify(" + entries(k1) + "[0])");
+            // Draft 2 : nouvelle sélection, poste Jungle attribué (format réel). Toutes les pages repartent de zéro, rôle attribué partout.
+            sim.SessionJson = LcuSamples.RealSession("jungle", 7, 7, 875); await phase("ChampSelect");
+            string k2 = app.Outcome.Key;
+            bool reset2 = await everywhere("state.sessionKey === '" + k2 + "' && !state.current && !state.picked && !state.viewed && !state.roleManual");
+            string after2 = await all("[state.sessionKey === '" + k2 + "', state.current, state.roleManual, myRole()].join('/')");
+            await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
+            bool role2 = await everywhere("myRole() === 'jungle' && !state.roleManual && state.assignedRole === 'jungle'");
+            string roles = await all("myRole() + (state.roleManual ? ' à la main' : '')");
+            await inPanel("choosePick(PICKS[0]); 1"); await Task.Delay(600);
+            bool second = await Until(async () => await run(entries(k2) + ".length === 1 && " + entries(k1) + ".length === 1 && JSON.stringify(" + entries(k1) + "[0]) === " + json.Serialize(json.Deserialize<string>(first) ?? "")) == "true", 4000);
+            string count = await run("loadJournal().length");
+            if (!started1 || !sameDraft || !manual) p += "draft 1 : début partout " + started1 + ", fenêtre puis panneau une entrée " + sameDraft + ", rôle à la main partout " + manual + " ; ";
+            if (!reset2) p += "draft 2 : pages restées sur la draft 1 (" + after2 + ") ; ";
+            if (!role2) p += "draft 2 : poste attribué pas appliqué partout (" + roles + ") ; ";
+            if (!second || count != "2") p += "draft 2 : « Je joue » a réécrit la draft 1 ou doublé (" + count + " entrées) ; ";
+            NextDraftReport = "début partout " + started1 + ", une entrée fenêtre puis panneau " + sameDraft + ", draft 2 remise à zéro partout " + reset2 + ", rôle attribué partout (" + roles + "), " + count + " entrées, draft 1 intacte " + second;
+            await phase("Lobby");
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); 1");
+            f.Hide();
+            return p;
+        }
+
         // 1c. DRAFT lancé alors que la sélection est déjà en cours, poste déjà indiqué : aucune page au départ (comme au démarrage du
         // programme), puis deux lectures du client en ChampSelect. Les pages, créées tard, doivent détecter le poste, basculer (auto) ou
         // proposer (suggest), et rester cohérentes. 1d. Draft suivante : rôle à la main oublié, nouveau poste appliqué, consultation et
@@ -4056,6 +4242,10 @@ public static class Autostart
                 await RunLcuScenario(app, t, js);
                 string roleProblem = await TestAssignedRoleThroughLcu(app);
                 t(roleProblem == "", "QA A2. Rôle attribué par League (LCU simulé, de bout en bout) : 5 postes, poste vide ou inconnu, changement entre deux drafts, autoRole, sans LCU ; jamais déduit du champion (" + RoleReport + ") " + roleProblem);
+                string nextProblem = await TestNextDraft(app);
+                t(nextProblem == "", "Beta.2. Draft suivante (défaut réel de la candidate 4) : toutes les pages repartent de zéro, « Je joue » de la draft 2 ne réécrit pas la draft 1, rôle à la main de la draft 1 oublié partout (" + NextDraftReport + ") " + nextProblem);
+                string outcomeProblem = await TestDraftOutcome(app);
+                t(outcomeProblem == "", "Beta.2. Issue de la sélection (LCU simulé, vraie fenêtre) : partie lancée notée, draft annulée (lobby, client fermé) jamais proposée ni comptée, Uncertain sans effet, DRAFT redémarré sans déduction, doublons et désordre sans effet, Simulateur sans écriture (" + OutcomeReport + ") " + outcomeProblem);
                 string lateProblem = await TestRoleLateStart(app);
                 t(lateProblem == "", "1a/1c/1d. Rôle automatique : détection Jungle dans toutes les pages (" + DetectReport + "), DRAFT lancé pendant la sélection, draft suivante (" + LateStartReport + ") " + lateProblem);
                 string langDraftProblem = await TestLanguageDuringDraft(app);
@@ -4303,6 +4493,7 @@ public static class Autostart
             m.Step(true, false, Evidence.Draft, 1); m.Step(true, false, Evidence.Draft, 1);
             m.Step(true, false, Evidence.Draft, PhaseMachine.MaxDraftSeconds + 1);
             t(m.DraftTimedOut && m.Current == Phase.Uncertain, "Machine : une draft trop longue redevient incertaine");
+            DraftOutcomeSelfTest(t);
 
             PanelVisibilityController v = new PanelVisibilityController();
             t(!v.ShouldShow(Phase.ClientClosed, false, true), "Affichage : rien au lancement");
@@ -4325,6 +4516,61 @@ public static class Autostart
                 for (int i = 0; i < 20; i++) g.Grab(new Native.RECT(0, 0, 800, 450), fr);
                 s.AppendLine("MESURE : capture réduite d'une zone d'écran " + (w2.Elapsed.TotalMilliseconds / 20).ToString("0.00") + " ms");
             }
+        }
+
+        // Issue d'une sélection (docs/technique/JOURNAL.md). Séquences de phases simulées : aucune fenêtre, aucun client.
+        static void DraftOutcomeSelfTest(Action<bool, string> t)
+        {
+            long clock = 1763290000000;
+            Func<DraftOutcomeTracker> fresh = () => new DraftOutcomeTracker { Clock = () => clock };
+            // Sortie de draft : en attente, puis partie. Une seule issue, même si la partie est relue.
+            DraftOutcomeTracker o = fresh();
+            o.Update(Phase.OutOfDraft, true, 1);
+            t(o.State == null && o.Key == null, "Issue : rien avant la première sélection");
+            o.Update(Phase.Draft, true, 1); o.Update(Phase.Draft, true, 1);
+            string k1 = o.Key;
+            t(o.State == "draft" && k1 == "1763290000000", "Issue : sélection suivie, clé = horodatage de son début (" + k1 + ")");
+            List<string> end = o.Update(Phase.InGame, true, 1);
+            t(end.Count == 2 && end[0] == "{\"kind\":\"draftEnd\",\"draft\":\"" + k1 + "\",\"outcome\":\"pending\"}" && end[1] == "{\"kind\":\"draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"game\"}" && o.State == "game",
+                "Issue : draft → partie : draftEnd { pending } puis draftOutcome { game } (" + string.Join(" ", end) + ")");
+            t(o.Update(Phase.InGame, true, 1).Count == 0 && o.Update(Phase.OutOfDraft, true, 1).Count == 0 && o.State == "game", "Issue : partie relue, puis retour au lobby après la partie : rien de plus, l'issue ne change pas");
+            // Draft → lobby (phase lue dans le client) : annulée tout de suite.
+            o = fresh(); o.Update(Phase.Draft, true, 1);
+            List<string> lobby = o.Update(Phase.OutOfDraft, true, 1);
+            t(lobby.Count == 2 && lobby[0].Contains("\"pending\"") && lobby[1].Contains("\"abandoned\"") && o.State == "abandoned", "Issue : draft → lobby lu dans le client : annulée (" + string.Join(" ", lobby) + ")");
+            t(o.Update(Phase.InGame, true, 1).Count == 0 && o.State == "abandoned", "Issue : une partie vue après l'annulation ne change rien");
+            // Draft → client fermé : annulée après ConfirmSeconds sans partie ; une partie dans ce délai l'emporte.
+            o = fresh(); o.Update(Phase.Draft, false, 1);
+            int sent = o.Update(Phase.ClientClosed, false, 1).Count;
+            for (int i = 0; i < 17; i++) sent += o.Update(Phase.ClientClosed, false, 1).Count;
+            t(sent == 1 && o.State == "pending", "Issue : client fermé, 18 s : encore en attente");
+            for (int i = 0; i < 3; i++) sent += o.Update(Phase.ClientClosed, false, 1).Count;
+            t(sent == 2 && o.State == "abandoned", "Issue : draft → client fermé : annulée après " + DraftOutcomeTracker.ConfirmSeconds + " s sans partie");
+            o = fresh(); o.Update(Phase.Draft, false, 1);
+            for (int i = 0; i < 5; i++) o.Update(Phase.OutOfDraft, false, 1);
+            o.Update(Phase.InGame, false, 1);
+            t(o.State == "game", "Issue : image hors draft 5 s puis partie : partie, jamais annulée");
+            // Draft → Uncertain → partie : Uncertain ne tranche rien, même long.
+            o = fresh(); o.Update(Phase.Draft, true, 1);
+            for (int i = 0; i < 120; i++) o.Update(Phase.Uncertain, false, 1);
+            t(o.State == "pending", "Issue : 120 s d'incertitude : rien n'est tranché");
+            o.Update(Phase.InGame, true, 1);
+            t(o.State == "game", "Issue : draft → Uncertain → partie : partie");
+            // DRAFT redémarré pendant le chargement : la mémoire est perdue, rien n'est déduit.
+            o = fresh();
+            t(o.Update(Phase.InGame, true, 1).Count == 0 && o.State == null && o.Key == null, "Issue : DRAFT redémarré pendant le chargement : aucune issue, l'entrée reste à confirmer");
+            // Deux sélections de suite, la première sans partie : la première est annulée, la seconde a sa propre clé.
+            o = fresh(); o.Update(Phase.Draft, false, 1); k1 = o.Key;
+            o.Update(Phase.OutOfDraft, false, 1);
+            List<string> again = o.Update(Phase.Draft, false, 1);
+            t(again.Count == 1 && again[0].Contains("\"" + k1 + "\"") && again[0].Contains("\"abandoned\"") && o.Key != k1 && o.State == "draft", "Issue : nouvelle sélection sans partie entre les deux : la précédente est annulée, nouvelle clé (" + k1 + " puis " + o.Key + ")");
+            o.Update(Phase.InGame, false, 1);
+            t(o.State == "game", "Issue : la seconde sélection suit son propre cours");
+            // Lectures en double : une seule issue, aucun message répété.
+            o = fresh(); o.Update(Phase.Draft, true, 1);
+            int total = 0;
+            foreach (Phase p in new[] { Phase.Draft, Phase.Uncertain, Phase.Uncertain, Phase.InGame, Phase.InGame, Phase.OutOfDraft, Phase.OutOfDraft }) total += o.Update(p, true, 1).Count;
+            t(total == 2 && o.State == "game", "Issue : lectures répétées : deux messages en tout, une seule issue");
         }
     }
 
