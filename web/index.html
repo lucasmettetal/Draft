@@ -1271,13 +1271,18 @@
     .panel .p-reco { min-height:68px; }
     .panel-compact .p-now { gap:5px; }
     .panel-compact .p-rolemeta { padding-bottom:3px; }
-    .panel-compact .p-reco-text { padding-top:6px; padding-bottom:6px; }
     .panel-compact .compact-roles .role { min-height:62px; }
     .panel-compact .p-threat, .panel-compact .p-keyban { padding-top:4px; padding-bottom:4px; }
     .panel-compact .p-threat .portrait, .panel-compact .p-keyban .portrait { width:32px !important; height:32px !important; }
     .panel-compact .p-reco { min-height:56px; }
     .panel-compact .p-actions { padding-top:6px; padding-bottom:7px; }
+    /* Menace sur une ligne (texte complet au survol et dans « Menaces et cibles ») ; proposition de rôle plus serrée. */
+    .panel-compact .p-threat p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; }
+    .panel-compact .role-hint { margin:0 8px 4px; padding:3px 7px; line-height:1.25; }
     .panel .p-viewed .viewed-cmp { -webkit-line-clamp:2; }
+    .panel-compact .compact-roles .role-icon { line-height:1.1; }
+    .panel-compact .compact-roles .portrait, .panel-compact .compact-roles .slot-ghost { width:28px !important; height:28px !important; }
+    .panel-compact .p-reco-text { padding-top:4px; padding-bottom:4px; }
   }
   /* Panneau gauche et compact : la recherche disparaît quand les 5 adversaires sont saisis ; forces et failles avant les jauges. */
   .panel-left .search:has(input:disabled), .p-compact-enemies .search:has(input:disabled) { display:none; }
@@ -3311,7 +3316,7 @@ function VerdictPanel({ compact }) {
   // QA-2 et correctif beta.1 : elle reste visible sans défiler à 125 %, au-dessus de la barre d'actions.
   const keyBox = threat ? html`<section className="p-threat" data-test="panel-threat" aria-label=${t("panel.threat.label")}>
       <${Portrait} name=${threat} size=${36} />
-      <div><b>${t("panel.threat.title", { champion: threat })}</b><p>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
+      <div><b>${t("panel.threat.title", { champion: threat })}</b><p title=${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
     </section>`
     : !V.n && V.bans[0] ? html`<section className="p-keyban" data-test="panel-keyban" aria-label=${t("panel.ban.title")}>
       <${Portrait} name=${V.bans[0]} size=${36} />
@@ -3337,7 +3342,7 @@ function VerdictPanel({ compact }) {
       <${ViewedCard} panel=${true} />
       ${!compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null}
     </div>
-    <${PanelDeep} compact=${compact} open=${open} toggle=${toggle} alt=${compact || (viewed && V.rival && viewed === V.rival.pick) ? altLine : null} />
+    <${PanelDeep} compact=${compact} open=${open} toggle=${toggle} alt=${compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null} />
     <${PanelActions} cta=${cta} deepIn=${deepIn} onDetails=${() => goDeep(null)} />
     ${entry || pending ? html`<div className="p-results">
       ${pending ? html`<p className="result-note">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}

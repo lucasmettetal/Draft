@@ -28,7 +28,7 @@ $sizes = @(
   @(1.5, '1920x1080 150 %', 'V1', 'compact', '222x511'), @(1.5, '1920x1080 150 %', 'V2', 'compact', '248x671'), @(1.5, '1920x1080 150 %', 'V3', 'compact', '352x511')
 )
 # Lecture immédiate : scénarios mesurés pour V1 et V2 (V3 garde la lecture immédiate de V1). Panneau gauche : ses propres scénarios.
-$immediate = @('consulte:fr', 'connecte:fr', 'debut:fr', 'partielle:fr', 'egalite:fr', 'longs:en', 'sanslecture:fr')
+$immediate = @('consulte:fr', 'connecte:fr', 'debut:fr', 'partielle:fr', 'egalite:fr', 'egalitevide:fr', 'rolemain:fr', 'longs:en', 'sanslecture:fr')
 $leftSc = @('partielle:fr', 'complete:fr', 'sanslecture:fr', 'longs:en')
 $rows = @()
 foreach ($scale in 1.0, 1.25, 1.5) {
