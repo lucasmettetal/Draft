@@ -3915,11 +3915,11 @@ function App() {
           if (PROFILE && !window.draftProfileSent) { window.draftProfileSent = true; sendProfile(); }
           if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"pool" }); }
           force();
-          // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
-          // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
           // Nouvelle sélection vue dans l'état du programme (message draftStart perdu ou page ouverte en retard) : remise à zéro,
           // une fois par clé, AVANT le rôle attribué de cette sélection.
           if (synced && m.draftOutcome === "draft") startSelection(m.draftKey);
+          // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
+          // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
           if (synced) handleAssignedRole(m.assignedRole || null);
           // Page ouverte après la décision : l'issue gardée par le programme est notée (une seule fois).
           if (applyDraftOutcome(m.draftKey, m.draftOutcome)) force();
