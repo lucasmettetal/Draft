@@ -1,0 +1,82 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Panneaux primaires : scénarios et mesures</title>
+<style>html,body{margin:0;background:#0b0f15;overflow:hidden}iframe{display:block;border:0}#out{display:none}</style></head><body><pre id="out"></pre>
+<!-- Proposition « panneaux primaires » (docs/technique/PANNEAUX-PROPOSITION.md). Page de TEST, exclue de la compilation.
+     Un panneau (right, compact, left) à la taille donnée (w, h : zone utile en pixels CSS), dans un scénario FICTIF :
+     ?panel=right&w=252&h=567&sc=complete&lang=fr[&variante=v3][&league=hover|locked][&open=why,plan][&fixture=1]
+     Scénarios : debut, partielle, complete, consulte, egalite, grandpool, rolemain, sanslecture, longs, connecte, verrouille.
+     L'état du programme (lecture du client, poste attribué) est une FIXTURE de page (hostState), comme dans draft-layout-tests.
+     « Dans League » (league=hover|locked, scénarios connecte et verrouille) : donnée de test, la lecture réelle vient de la PR #40.
+     variante=v3 : vue étendue « Détails » simulée (lecture immédiate masquée, sections ouvertes) ; elle n'est pas dans l'application.
+     Sortie : JSON dans #out (essentiel visible sans défilement, positions, polices, défilement, débordements). -->
+<script>
+const q=new URLSearchParams(location.search);const P=q.get("panel")||"right",W=+q.get("w")||252,H=+q.get("h")||567,SC=q.get("sc")||"complete",LANG=q.get("lang")||"fr",VAR=q.get("variante")||"v1";
+const wait=m=>new Promise(r=>setTimeout(r,m));
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]},BIG={role:"mid",pool:["TF","Vex","Fizz","Xerath","Ahri","Syndra","Orianna","Viktor","Annie"]};
+const JUNGLE={role:"jungle",pool:["Cho'Gath","Viego","Master Yi","Lee Sin"]},LONGS={role:"mid",pool:["Renata Glasc","Aurelion Sol","TF","Miss Fortune","Nunu"]};
+const COMP=["Zed","Malphite","Vi","Caitlyn","Leona"];
+const CONNECTED={available:true,lcuConfirmed:true,lcuEnabled:true,lcuStatus:"connected",hotkey:true,autoDraft:true,follow:true};
+// Scénarios : profil, état du programme (fixture), adversaires, action. Données fictives.
+const SCENARIOS={
+  debut:{profile:MID,host:CONNECTED,assigned:"mid",enemies:[]},
+  partielle:{profile:MID,host:CONNECTED,assigned:"mid",enemies:["Zed","Malphite","Vi"]},
+  complete:{profile:MID,host:CONNECTED,assigned:"mid",enemies:COMP},
+  consulte:{profile:MID,host:CONNECTED,assigned:"mid",enemies:COMP,consult:true},
+  egalite:{profile:JUNGLE,host:CONNECTED,assigned:"jungle",enemies:["Ornn","Sion","Maokai","Jinx","Thresh"]},
+  grandpool:{profile:BIG,host:CONNECTED,assigned:"mid",enemies:COMP,open:"pool"},
+  rolemain:{profile:MID,host:CONNECTED,assigned:"jungle",manualBack:true,enemies:["Zed","Malphite","Vi"]},
+  sanslecture:{profile:MID,host:{available:true,lcuConfirmed:true,lcuEnabled:false,lcuStatus:"off",hotkey:true,autoDraft:true,follow:true},enemies:COMP},
+  longs:{profile:LONGS,host:CONNECTED,assigned:"mid",enemies:["Kassadin","Tahm Kench","Master Yi","Kai'Sa","Miss Fortune"],consult:true,longs:true},
+  connecte:{profile:MID,host:CONNECTED,assigned:"mid",enemies:COMP,consult:true,league:{champion:"Fizz",state:"hover"}},
+  verrouille:{profile:MID,host:CONNECTED,assigned:"mid",enemies:COMP,league:{champion:"TF",state:"locked"}}
+};
+const S=SCENARIOS[SC];if(!S)throw new Error("scénario inconnu");
+localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(S.profile));localStorage.setItem("draftPatch","16.22");
+const f=document.createElement("iframe");f.width=W;f.height=H;f.src="index.html?panel="+P+"&lang="+LANG+"&i18ncheck=1";document.body.appendChild(f);
+f.onload=async()=>{await wait(700);const w=f.contentWindow,d=f.contentDocument,ev=s=>w.eval(s);
+  ev("synced=true;1");
+  if(S.longs)ev("FULL.Nunu='Nunu & Willump';1");
+  if(S.manualBack)ev("saveMyProfile('jungle',['Viego','Lee Sin']);saveMyProfile('mid',"+JSON.stringify(MID.pool)+");switchRole('mid','manual');resetRoleSession();1");
+  ev("Object.assign(hostState,"+JSON.stringify(Object.assign({},S.host,{assignedRole:S.assigned||null}))+");state.sessionActive=true;rerender();1");
+  if(S.assigned)ev("handleAssignedRole("+JSON.stringify(S.assigned)+");1");
+  // Rôle changé à la main : League attribue Jungle, DRAFT bascule, le joueur revient en Mid (« Revenir en Mid »).
+  if(S.manualBack)ev("switchRole('mid','manual');1");
+  S.enemies.forEach(n=>ev("addEnemy("+JSON.stringify(n)+")"));await wait(400);
+  if(S.consult)ev("consult(V.rival?V.rival.pick:V.order.find(p=>p.pick!==V.shown).pick);1");
+  const lg=q.get("league")?{champion:q.get("league")==="locked"?"TF":"Fizz",state:q.get("league")}:S.league;
+  if(lg)ev("leagueSlot="+JSON.stringify(lg)+";rerender();1");
+  await wait(500);
+  const st=d.createElement("style");st.textContent="*,*::before,*::after{transition:none!important;animation:none!important}";d.head.appendChild(st);
+  // Vue étendue « Détails » (V3), simulée : la lecture immédiate laisse la place aux sections, toutes ouvertes.
+  if(VAR==="v3"){const s3=d.createElement("style");s3.textContent=".p-now,.p-compact-enemies{display:none!important}";d.head.appendChild(s3);}
+  const toOpen=(q.get("open")||S.open||(VAR==="v3"?"pool,why,plan,threats,bans,compare,criteria,compo,sources":"")).split(",").filter(Boolean);
+  toOpen.forEach(k=>{const e=d.querySelector('[data-sec="'+k+'"]');if(e)e.open=true;});
+  await wait(500);
+  if(q.get("fixture")!=="0"&&(lg||q.get("fixture")==="1")){const b=d.createElement("div");b.dataset.fixture="1";b.textContent=LANG==="en"?"Test data: “In League” simulated":"Donnée de test : « Dans League » simulé";b.style.cssText="position:fixed;left:0;right:0;top:0;z-index:99;background:#79C6DA;color:#0B1A20;font:600 11px Bahnschrift,Arial;padding:1px 6px;text-align:center";d.body.appendChild(b);}
+  const out=measure(w,d);document.getElementById("out").textContent=JSON.stringify(out);document.title="done";};
+function measure(w,d){
+  const R=e=>{if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.top),Math.round(r.bottom)]};
+  const bar=d.querySelector(".p-actions"),barTop=bar?Math.round(bar.getBoundingClientRect().top):H;
+  const viewed=d.querySelector('[data-test="viewed"] .viewed-head');
+  const ess=[["roles",d.querySelector('[data-test="role-switch-support"]')],["etatRole",d.querySelector('[data-test="panel-role-meta"]')],
+    ["conseil",d.querySelector(".p-reco")||d.querySelector(".p-tie")],["pourquoi",P==="right"?d.querySelector(".p-why"):null],
+    ["menaceOuBan",d.querySelector(".p-threat")||d.querySelector(".p-keyban")],["consulte",viewed],
+    ["pick",d.querySelector('.p-actions [data-test="choose-pick"]')||d.querySelector('[data-test="league-line"]')],["details",d.querySelector('[data-test="open-analysis"]')],
+    ["retourConseil",d.querySelector('[data-test="back-to-advice"]')],["adversaires",P==="compact"?d.querySelector(".compact-roles"):P==="left"?d.querySelector(".roles"):null],
+    ["profilAdverse",P==="left"?d.querySelector(".effects"):null],["dansLeague",d.querySelector('[data-test="league-line"]')]].filter(x=>x[1]);
+  const vis={},pos={};for(const [k,e] of ess){const r=e.getBoundingClientRect(),lim=e.closest(".p-actions")?H:barTop;pos[k]=R(e);vis[k]=r.width>0&&r.top>=-0.5&&r.bottom<=lim+0.5&&r.left>=-0.5&&r.right<=W+0.5;}
+  const sc=d.querySelector(".p-scroll")||d.querySelector(".p-body")||d.querySelector(".col-left");
+  // Polices : plus petite taille de texte visible dans le panneau.
+  const sizes=[];const tw=d.createTreeWalker(d.body,w.NodeFilter.SHOW_TEXT);let n;while(n=tw.nextNode()){const el=n.parentElement;if(!n.nodeValue.trim()||el.closest(".sr,[data-fixture]")||["SCRIPT","STYLE"].includes(el.tagName))continue;const cs=w.getComputedStyle(el);if(cs.display==="none"||cs.visibility==="hidden")continue;const r=el.getBoundingClientRect();if(!r.width||r.bottom<0||r.top>H)continue;sizes.push(parseFloat(cs.fontSize));}
+  const fs=e=>e?parseFloat(w.getComputedStyle(e).fontSize):null;
+  const deep=d.getElementById("p-deep");
+  return {panel:P,taille:W+"x"+H,scenario:SC,lang:LANG,variante:VAR,barre:[barTop,H],
+    essentiel:Object.keys(vis).length,visibles:Object.values(vis).filter(Boolean).length,caches:Object.keys(vis).filter(k=>!vis[k]),positions:pos,
+    contenu:sc?Math.round(sc.scrollHeight):null,defilement:sc?Math.max(0,Math.round(sc.scrollHeight-sc.clientHeight)):null,
+    debordementX:Math.max(0,d.documentElement.scrollWidth-W),
+    lectureApprofondie:deep?Math.round(deep.getBoundingClientRect().top):null,sectionsVisibles:[...d.querySelectorAll(".p-sec > summary")].filter(s=>{const r=s.getBoundingClientRect();return r.bottom<=barTop+0.5&&r.top>=0}).length,
+    police:{min:sizes.length?Math.min(...sizes):null,conseil:fs(d.querySelector(".p-name")),corps:fs(d.querySelector(".p-why p")||d.querySelector(".p-threat p")),bouton:fs(d.querySelector('.p-actions [data-test="choose-pick"]'))},
+    bouton:(()=>{const b=d.querySelector('.p-actions [data-test="choose-pick"]');if(!b)return null;const rr=d.createRange();rr.selectNodeContents(b);return {texte:b.textContent.trim(),lignes:new Set([...rr.getClientRects()].map(x=>Math.round(x.top))).size,hauteur:Math.round(b.getBoundingClientRect().height)}})(),
+    rects:q.get("rects")?q.get("rects").split(",").map(x=>{const e=d.querySelector(x);if(!e)return x+" absent";const r=e.getBoundingClientRect(),cs=w.getComputedStyle(e);return x+" "+Math.round(r.left)+","+Math.round(r.top)+" "+Math.round(r.width)+"x"+Math.round(r.height)+" h="+cs.height+" min="+cs.minHeight+" fs="+cs.fontSize+" lh="+cs.lineHeight+" pos="+cs.position}):undefined,
+    cles:w.I18N?w.I18N.missing():[]};
+}
+</script></body></html>

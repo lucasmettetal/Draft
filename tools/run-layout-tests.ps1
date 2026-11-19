@@ -1,4 +1,4 @@
-# Verifie le rendu reel des panneaux dans Chrome : debordements, textes coupes ou superposes, cibles trop petites.
+﻿# Verifie le rendu reel des panneaux dans Chrome : debordements, textes coupes ou superposes, cibles trop petites.
 # Tailles en pixels d'interface : 230 et 256 correspondent aux panneaux reels a 125 % d'affichage Windows.
 # Ce test ne remplace pas un controle a l'oeil : -Shots ecrit aussi des captures.
 # -Lang qps : pseudo-langue (tools/i18n/pseudo-localize.ps1), dans la copie de test seulement. Chaque texte du catalogue devient
@@ -48,6 +48,11 @@ foreach ($s in 'empty', 'one', 'full', 'midunknown', 'close', 'excluded', 'none'
 $Runs += , @('consultation', 'state=viewed&frozen=1', $false)
 $Runs += , @('bascule de role', 'state=roleauto&frozen=1', $false)
 $Runs += , @('role a la main sans lecture', 'state=full&host=off&frozen=1', $false)
+# Panneaux primaires : lecture approfondie ouverte (toutes les sections), ligne Dans League (donnee de test), sans lecture du client.
+$Runs += , @('lecture approfondie ouverte', 'state=viewed&open=1&frozen=1', $false)
+$Runs += , @('dans league survole (donnee de test)', 'state=league&frozen=1', $false)
+$Runs += , @('dans league verrouille (donnee de test)', 'state=leaguelocked&frozen=1', $false)
+$Runs += , @('egalite sans lecture du client', 'state=tie&profile=jungle&host=off&frozen=1', $false)
 $Runs += , @('egalite jungle, choix hors egalite', 'state=tieother&profile=jungle&frozen=1', $false)
 $Runs += , @('analyse, vue comparer', 'state=history&set=full&tabclick=analyse&view=compare&frozen=1', $false)
 $Runs += , @('analyse, vue regles', 'state=history&set=full&tabclick=analyse&view=rules&frozen=1', $false)
