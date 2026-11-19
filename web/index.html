@@ -1212,7 +1212,8 @@
   .p-cmp { display:grid; gap:3px; }
   .p-cmp .cmp-row { grid-template-columns:minmax(0,1fr) minmax(76px,42%); font-size:13px; }
   .p-cmp .cmp-legend { font-size:13px; }
-  .p-sec .p-pool-list { margin:0; padding:2px 8px 8px; }
+  .p-sec .p-pool-list { grid-template-columns:minmax(0,1fr); margin:0; padding:2px 8px 8px; }
+  .p-sec .p-pool-row { min-width:0; }
   .p-sec .familiar-line { padding:0 8px 8px; }
   .p-force { display:block; width:100%; margin-top:3px; }
   .p-pool-list li:first-child .p-force i { background:var(--prio); }
@@ -1256,15 +1257,26 @@
      champion consulté passent dans les détails (« Pourquoi X ») ; restent le conseil, la menace (ou le ban) et le nom du consulté.
      Mesuré : à 222 x 567 et 248 x 567, les afficher poussait la menace ou le consulté sous la barre (tools/run-panneaux-tests.ps1). */
   @media (max-height:700px) {
-    .panel-compact .p-why, .panel-compact .p-change, .panel-compact .p-viewed .viewed-cmp { display:none; }
+    .panel-compact .p-why, .panel-compact .p-change, .panel-compact .p-viewed .viewed-cmp, .panel-compact .p-keyban p.p-keyban-more, .panel-compact .p-tie > .note { display:none; }
+    .panel-compact .p-keyban p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+    /* Égalité dans le compact : les ex æquo côte à côte (portrait, puis nom), la coche dans le coin, loin du nom. */
+    .panel-compact .p-tie .tie-list { flex-direction:row; }
+    .panel-compact .p-tie .tie-item { position:relative; flex:1 1 0; min-width:0; flex-direction:column; justify-content:flex-start; gap:3px; min-height:0; padding:5px 3px 4px; text-align:center; }
+    .panel-compact .p-tie .tie-text { flex:none; width:100%; align-items:center; }
+    .panel-compact .p-tie .tie-name { font-size:13px; line-height:1.15; }
+    .panel-compact .p-tie .tie-text small { display:none; }
+    .panel-compact .p-tie .tie-check { position:absolute; top:3px; right:4px; }
   }
   @media (max-height:600px) {
     .panel .p-reco { min-height:68px; }
     .panel-compact .p-now { gap:5px; }
     .panel-compact .p-rolemeta { padding-bottom:3px; }
-    .panel-compact .p-reco { min-height:60px; }
     .panel-compact .p-reco-text { padding-top:6px; padding-bottom:6px; }
     .panel-compact .compact-roles .role { min-height:62px; }
+    .panel-compact .p-threat, .panel-compact .p-keyban { padding-top:4px; padding-bottom:4px; }
+    .panel-compact .p-threat .portrait, .panel-compact .p-keyban .portrait { width:32px !important; height:32px !important; }
+    .panel-compact .p-reco { min-height:56px; }
+    .panel-compact .p-actions { padding-top:6px; padding-bottom:7px; }
     .panel .p-viewed .viewed-cmp { -webkit-line-clamp:2; }
   }
   /* Panneau gauche et compact : la recherche disparaît quand les 5 adversaires sont saisis ; forces et failles avant les jauges. */
@@ -3303,7 +3315,7 @@ function VerdictPanel({ compact }) {
     </section>`
     : !V.n && V.bans[0] ? html`<section className="p-keyban" data-test="panel-keyban" aria-label=${t("panel.ban.title")}>
       <${Portrait} name=${V.bans[0]} size=${36} />
-      <div><b>${t("panel.keyban.title", { champion: V.bans[0] })}</b><p>${banReason(V.bans[0]) ? t("panel.ban.reason", { champion: V.bans[0], reason: banReason(V.bans[0]) }) : t("panel.keyban.none")}${V.bans.length > 1 ? " " + t("panel.ban.or", { champions: V.bans.slice(1).join(", ") }) : ""}</p></div>
+      <div><b>${t("panel.keyban.title", { champion: V.bans[0] })}</b><p>${banReason(V.bans[0]) ? t("panel.ban.reason", { champion: V.bans[0], reason: banReason(V.bans[0]) }) : t("panel.keyban.none")}</p>${V.bans.length > 1 ? html`<p className="p-keyban-more">${t("panel.ban.or", { champions: V.bans.slice(1).join(", ") })}</p>` : null}</div>
     </section>` : null;
   const altLine = V.rival ? html`<div className=${`p-alt${viewed === V.rival.pick ? " viewed" : ""}`} data-test="alt-line">
       <button type="button" className="p-alt-view" data-test="view-alt" data-pick=${V.rival.pick} aria-current=${viewed === V.rival.pick ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(V.rival.pick)}>

@@ -26,6 +26,7 @@ const SCENARIOS={
   complete:{profile:MID,host:CONNECTED,assigned:"mid",enemies:COMP},
   consulte:{profile:MID,host:CONNECTED,assigned:"mid",enemies:COMP,consult:true},
   egalite:{profile:JUNGLE,host:CONNECTED,assigned:"jungle",enemies:["Ornn","Sion","Maokai","Jinx","Thresh"]},
+  egalitevide:{profile:{role:"jungle",pool:["Viego","Master Yi","Cho'Gath","Lee Sin","Renata Glasc"]},host:CONNECTED,assigned:"jungle",enemies:[]},
   grandpool:{profile:BIG,host:CONNECTED,assigned:"mid",enemies:COMP,open:"pool"},
   rolemain:{profile:MID,host:CONNECTED,assigned:"jungle",manualBack:true,enemies:["Zed","Malphite","Vi"]},
   sanslecture:{profile:MID,host:{available:true,lcuConfirmed:true,lcuEnabled:false,lcuStatus:"off",hotkey:true,autoDraft:true,follow:true},enemies:COMP},
@@ -87,6 +88,7 @@ function measure(w,d,c){const P=c.panel,W=c.w,H=c.h;
     police:{min:sizes.length?Math.min(...sizes):null,conseil:fs(d.querySelector(".p-name")),corps:fs(d.querySelector(".p-why p")||d.querySelector(".p-threat p")),bouton:fs(d.querySelector('.p-actions [data-test="choose-pick"]'))},
     bouton:(()=>{const b=d.querySelector('.p-actions [data-test="choose-pick"]');if(!b)return null;const rr=d.createRange();rr.selectNodeContents(b);return {texte:b.textContent.trim(),lignes:new Set([...rr.getClientRects()].map(x=>Math.round(x.top))).size,hauteur:Math.round(b.getBoundingClientRect().height)}})(),
     rects:c.rects?c.rects.split(",").map(x=>{const e=d.querySelector(x);if(!e)return x+" absent";const r=e.getBoundingClientRect(),cs=w.getComputedStyle(e);return x+" "+Math.round(r.left)+","+Math.round(r.top)+" "+Math.round(r.width)+"x"+Math.round(r.height)+" h="+cs.height+" min="+cs.minHeight+" fs="+cs.fontSize+" lh="+cs.lineHeight+" pos="+cs.position}):undefined,
+    debordants:(()=>{const sc2=d.querySelector(".p-scroll")||d.querySelector(".p-body");if(!sc2)return [];const lim=sc2.getBoundingClientRect().left+sc2.clientWidth;return [...sc2.querySelectorAll("*")].filter(e=>e.getBoundingClientRect().right>lim+0.5).slice(0,8).map(e=>(e.className&&e.className.baseVal===undefined?e.className:e.tagName)+" "+Math.round(e.getBoundingClientRect().right-lim))})(),
     cles:w.I18N?w.I18N.missing():[]};
 }
 </script></body></html>
