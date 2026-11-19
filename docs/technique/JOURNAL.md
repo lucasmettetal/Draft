@@ -74,6 +74,7 @@ Garanties inchangées : le classement, le conseil et les scores ne bougent pas, 
 
 **Page** (`applyDraftOutcome`, `web/index.html`) :
 - « Je joue » pendant la sélection, ou juste après sa fin, pose `selection` sur l'entrée.
+- « Je joue » ne modifie que l'entrée de la sélection affichée (même `selection`, ou aucune clé hors sélection du programme). Une entrée d'une autre sélection n'est jamais réutilisée : une page restée sur la draft d'avant crée une nouvelle entrée (défaut réel de la candidate 4, voir SYNCHRONISATION.md).
 - L'issue n'est notée que dans l'entrée de cette clé, une seule fois : `gameStarted: true` ou `abandoned: true`. Rien n'est créé.
 - Plusieurs pages (fenêtre, panneaux) reçoivent l'issue : elles écrivent la même chose. Messages en double, en retard ou contradictoires : sans effet.
 - `result` reste `null` tant que le joueur ne l'a pas saisi. Aucun résultat n'est inventé.

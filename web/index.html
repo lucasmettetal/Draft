@@ -1277,7 +1277,17 @@ function applyDraftOutcome(key, outcome) {
 
 // L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
 function syncCurrentEntry() {
-  if (state.current) updateEntry(state.current, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+  const entry = currentEntry();
+  if (entry) updateEntry(entry.id, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+}
+// Entrée de la draft affichée, ou null (correctif beta.2). Elle doit appartenir à la sélection en cours (même clé), ou, sans
+// sélection du programme (navigateur, affichage manuel, après le lancement), ne porter aucune clé. Une entrée d'une autre
+// sélection n'est jamais réutilisée ni modifiée : une page restée sur la draft d'avant crée une nouvelle entrée.
+function currentEntry(list) {
+  const entry = state.current ? (list || loadJournal()).find(x => x.id === state.current) : null;
+  if (!entry) return null;
+  const live = liveSelection();
+  return (entry.selection || null) === (live || state.sessionKey || null) || (!entry.selection && !live) ? entry : null;
 }
 
 
@@ -1395,7 +1405,7 @@ ENGINE_PREFS.favorite = PREFS.favorite;
 const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
 // Le choix du joueur (picked, pickContext) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
 // en retard dans une autre fenêtre (autre processus WebView2), et le bouton d'un panneau montrait alors un ancien choix.
-const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
+const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
 // Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
@@ -1414,7 +1424,7 @@ let simulating = false;
 // Un message sans version (page d'une version précédente) est appliqué entièrement, comme avant.
 const PAGE_ID = (PANEL || "full") + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const SYNC_GROUPS = {
-  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive"],
+  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey"],
   pick: ["current", "picked", "pickContext"],
   viewed: ["viewed"],
   // Rôle joué (PROFILES.active) et décisions sur le rôle attribué. Le poste attribué lui-même vient du programme (applyRemote).
@@ -1511,9 +1521,28 @@ function resetRoleSession() { state.roleManual = false; state.roleDismissed = nu
 // survivent à la draft précédente (resetDraft efface aussi viewed, picked et current).
 // Le programme efface le rôle attribué hors sélection : un rôle déjà connu ici vient de cette draft (message draftStart arrivé après
 // la lecture du poste, panneaux créés à ce moment). La bascule, la correction manuelle ou la proposition ignorée sont alors gardées.
-function onDraftStart() { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
-// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : le rôle attribué en attente est traité.
-function afterSync() { if (hostState.available) handleAssignedRole(hostState.assignedRole || null); }
+// key : clé de la sélection (programme), gardée dans l'état partagé (sessionKey) pour que chaque page sache quelle draft elle montre.
+function onDraftStart(key) { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); if (key) state.sessionKey = String(key); dispatchDraft({ type:"session-start" }); }
+// Correctif beta.2 : une nouvelle sélection remet la draft à zéro dans TOUTES les pages, une seule fois par clé. Elle arrive par le
+// message draftStart, ou se voit dans l'état du programme (draftKey) : page ouverte en retard, message perdu, panneau en pause.
+// Une page déjà passée à cette clé, elle-même ou par la synchronisation, ne recommence pas : un double signal n'efface jamais une
+// draft commencée. Une page pas encore synchronisée attend l'état des autres (afterSync).
+let pendingSelection = null;
+function startSelection(key) {
+  if (!key) return false;
+  if (!synced) { pendingSelection = String(key); return false; }
+  const live = simulating ? liveCopy : state;
+  if (live && live.sessionKey === String(key)) return false;
+  onDraftStart(key);
+  return true;
+}
+// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : la sélection en cours, puis le rôle attribué en attente.
+function afterSync() {
+  const key = pendingSelection || (hostState.available && hostState.draftOutcome === "draft" ? hostState.draftKey : null);
+  pendingSelection = null;
+  if (key) startSelection(key);
+  if (hostState.available) handleAssignedRole(hostState.assignedRole || null);
+}
 const roleSuggestion = () => roleDecision() === "suggest" ? state.assignedRole : null;
 
 function savePrefs(change) {
@@ -1824,13 +1853,14 @@ function choosePick(pick) {
   if (!pick) return;
   // Confirmer termine la consultation : le bouton et la coche montrent maintenant le choix confirmé.
   state.viewed = null;
-  if (pick === currentPick() && (state.current || simulating)) { publish(null); return; }
+  if (pick === currentPick() && (currentEntry() || simulating)) { publish(null); return; }
   state.picked = pick;
   state.pickContext = pickContextFor(pick);
   if (!simulating) {
     const list = loadJournal();
     const noted = Object.assign({}, state.pickContext, { picked: pick });
-    const entry = state.current && list.find(x => x.id === state.current);
+    // Correctif beta.2 : seulement l'entrée de CETTE sélection. Une page restée sur la draft d'avant n'y réécrit plus rien.
+    const entry = currentEntry(list);
     if (entry) Object.assign(entry, noted);
     else {
       const id = Date.now(), selection = liveSelection();
@@ -3887,12 +3917,16 @@ function App() {
           force();
           // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
           // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
+          // Nouvelle sélection vue dans l'état du programme (message draftStart perdu ou page ouverte en retard) : remise à zéro,
+          // une fois par clé, AVANT le rôle attribué de cette sélection.
+          if (synced && m.draftOutcome === "draft") startSelection(m.draftKey);
           if (synced) handleAssignedRole(m.assignedRole || null);
           // Page ouverte après la décision : l'issue gardée par le programme est notée (une seule fois).
           if (applyDraftOutcome(m.draftKey, m.draftOutcome)) force();
         }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") onDraftStart();
+        // Avec sa clé (programme beta.2) : une fois par sélection. Sans clé (ancien programme, essais) : comme avant.
+        if (m.kind === "draftStart") { if (m.draft) startSelection(m.draft); else onDraftStart(); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
         // Fin de sélection : issue en attente (outcome "pending"), rien n'est écrit. Puis draftOutcome : partie lancée ou draft annulée.
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }

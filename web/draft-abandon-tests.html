@@ -102,6 +102,46 @@ for(const lang of ["fr","en"]){
    t(status.join("|")===[x.T("journal.status.pending"),x.T("journal.status.abandoned"),x.T("journal.result.win"),x.T("journal.status.unconfirmed")].join("|"),L+"[avant : échec] statuts : en attente (partie lancée), annulée, victoire, à confirmer (issue inconnue) ("+status.join(", ")+")");
    t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
    x.f.remove();show();}
+  // ---------- Draft suivante (défaut de la candidate 4 : « DRAFT garde la draft d'avant et n'enregistre pas la suivante ») ----------
+  // Avant ce correctif (e980dc7), une page qui ne recevait pas draftStart gardait current, picked, viewed et le rôle à la main de la
+  // draft précédente ; « Je joue » y réécrivait l'entrée d'avant. « [avant correctif : échec] » : échoue sur e980dc7.
+  {const L=LG+" draft suivante : ";prepare(MID,[OLD]);
+   const full=await openHost(lang,"view=sim",1366,900),right=await openHost(lang,"panel=right",256,608),compact=await openHost(lang,"panel=compact",282,576);let xs=[full,right,compact];
+   const host=(x,key,outcome,extra)=>x.w.__host(Object.assign({},HOST,{draftKey:key,draftOutcome:outcome},extra||{}));
+   const all=(key,outcome,extra)=>xs.forEach(x=>host(x,key,outcome,extra));
+   const clean=x=>!x.$.state.current&&!x.$.state.picked&&!x.$.state.viewed&&!x.w.eval("state.roleManual")&&x.$.state.enemies.length===0;
+   // Draft 1 : début reçu par toutes les pages, « Je joue Vex » dans la fenêtre, puis « Je joue Fizz » dans un panneau.
+   all(K(20),"draft");xs.forEach(x=>x.w.__host({kind:"draftStart",draft:K(20)}));await wait(500);
+   full.$.addEnemy("Ahri");await wait(400);full.$.choosePick("Vex");await wait(500);right.$.choosePick("Fizz");await wait(600);
+   const d1=bySel=>journal().filter(e=>e.selection===bySel);
+   t(d1(K(20)).length===1&&d1(K(20))[0].picked==="Fizz",L+"« Je joue » dans la fenêtre puis dans un panneau, même draft : une entrée, mise à jour ("+d1(K(20)).map(e=>e.picked).join(",")+")");
+   all(K(20),"pending");await wait(200);all(K(20),"game");await wait(300);
+   const first=JSON.stringify(d1(K(20))[0]);
+   // Draft 2 : début reçu par UNE seule page (le panneau droit) ; la fenêtre reste ouverte entre les deux drafts.
+   all(K(21),"draft");right.w.__host({kind:"draftStart",draft:K(21)});await wait(700);
+   t(xs.every(clean),L+"draftStart reçu par une seule page : toutes les pages repartent de zéro ("+xs.map(x=>x.$.state.current?"ancienne entrée":"vide").join(", ")+")");
+   full.$.addEnemy("Ahri");await wait(400);full.$.choosePick("Vex");await wait(600);
+   t(d1(K(21)).length===1&&d1(K(21))[0].picked==="Vex"&&JSON.stringify(d1(K(20))[0])===first,L+"[avant correctif : échec] deux drafts de suite, « Je joue » dans chacune : deux entrées distinctes, la première intacte");
+   // Rôle à la main en draft 2 (compact)…
+   compact.w.eval("switchRole('top','manual')");await wait(600);
+   all(K(21),"pending");await wait(200);all(K(21),"abandoned");await wait(300);
+   // Draft 3 : le message draftStart est PERDU (aucun panneau prêt) ; seule la clé de l'état du programme change.
+   all(K(22),"draft");await wait(700);
+   t(xs.every(clean),L+"[avant correctif : échec] draftStart perdu : la nouvelle clé du programme remet toutes les pages à zéro ("+xs.map(x=>(x.$.state.current?"entrée ":"")+(x.w.eval("state.roleManual")?"rôle à la main":"")||"vide").join(", ")+")");
+   // …puis poste attribué en draft 3 : la bascule automatique se fait dans toutes les pages.
+   all(K(22),"draft",{assignedRole:"mid"});await wait(700);
+   t(xs.every(x=>x.w.eval("myRole()")==="mid"&&!x.w.eval("state.roleManual")),L+"[avant correctif : échec] rôle à la main en draft 2, poste attribué en draft 3 : rôle attribué dans toutes les pages ("+xs.map(x=>x.w.eval("myRole()")+(x.w.eval("state.roleManual")?" à la main":"")).join(", ")+")");
+   // Page ouverte pendant la draft 3 : elle prend la draft en cours, sa confirmation va dans l'entrée de la draft 3.
+   full.$.addEnemy("Ahri");await wait(400);full.$.choosePick("Xerath");await wait(500);
+   const late=await openHost(lang,"panel=right",256,608);late.w.eval("synced=false");host(late,K(22),"draft",{assignedRole:"mid"});late.w.eval("channel.postMessage({kind:'hello'})");await wait(800);
+   t(late.$.state.current===full.$.state.current&&late.$.state.enemies.join()==="Ahri",L+"page ouverte pendant la draft 3 : elle reçoit la draft en cours ("+late.$.state.enemies.join()+")");
+   late.$.choosePick("Fizz");await wait(600);xs.push(late);
+   t(d1(K(22)).length===1&&d1(K(22))[0].picked==="Fizz"&&d1(K(21)).length===1&&d1(K(21))[0].picked==="Vex"&&JSON.stringify(d1(K(20))[0])===first,L+"[avant correctif : échec] « Je joue » dans la page ouverte en retard : entrée de la draft 3 seulement, drafts 1 et 2 intactes");
+   // Double signal sur une draft commencée : rien n'est effacé.
+   xs.forEach(x=>x.w.__host({kind:"draftStart",draft:K(22)}));all(K(22),"draft",{assignedRole:"mid"});await wait(600);
+   t(xs.every(x=>x.$.state.enemies.join()==="Ahri"&&x.$.state.current===full.$.state.current),L+"début de sélection reçu deux fois : la draft commencée n'est pas effacée");
+   t(journal().length===4,L+"aucun doublon : une entrée par draft confirmée, plus l'ancienne ("+journal().length+")");
+   xs.forEach(x=>x.f.remove());show();}
 }
 show();
 })().catch(e=>{res.ko.push("EXC "+e.stack);show();});
