@@ -141,3 +141,39 @@ Si la lecture revient et voit un verrouillage, l'entrée « Je joue » de la mê
 2. Machine de cycle : verrouillage, échange, lancement, abandon. Écriture unique `origin: "lcu"`, tests de cycle.
 3. Panneaux : ligne « Dans League », « Je joue » masqué quand la lecture fonctionne, repli, tests UI et captures.
 4. Correctif indépendant, utile dès maintenant : ne plus proposer comme « Dernière partie » une entrée dont la draft a été abandonnée (il faut distinguer `draftEnd` vers la partie et vers le lobby).
+
+## 7. Suite validée : résultat de la partie (après les PR #39 et #40 et leur essai réel)
+
+**Décision de l'utilisateur (19/11/2026) :** « fais ce qui te paraît cohérent ». La clé de production Riot, avec son serveur, viendra **après la validation du projet par Riot**, comme chantier séparé.
+
+### 7.1 Résultat lu dans le client, à la fin de la partie (PR C, empilée sur #40)
+- **Une troisième adresse LCU**, en lecture seule (GET) : le bilan de fin de partie (`/lol-end-of-game/v1/eog-stats-block`). C'est un **changement de la règle « deux adresses »**, à signaler explicitement dans la PR.
+- **On lit seulement :**
+  - l'identifiant de partie ;
+  - **l'équipe du joueur local** et l'équipe gagnante (`localPlayer.teamId`, `teams[].teamId` et `isWinningTeam`) ;
+  - éventuellement **son propre** K/D/A.
+- **Jamais** la liste ni les statistiques des autres joueurs, qui ne sont ni lues dans le code, ni stockées, ni journalisées. Un test le prouve.
+- **Écriture :** `result: "win" | "loss"` sur l'entrée **de la même partie** (même `gameId`, sinon même clé de sélection), avec `resultSource: "lcu"`.
+  - Un résultat déjà saisi à la main n'est jamais écrasé.
+  - Le joueur peut toujours corriger.
+- **Pas de bilan lu** (DRAFT fermé à la fin, partie interrompue, remake, champs absents) : le résultat reste « en attente ». **Aucun résultat inventé.**
+- Les champs ne sont pas documentés par Riot. On les lit au format réel, on garde un repli manuel, et le diagnostic indique `bilan=lu|absent|illisible`, sans nom.
+
+### 7.2 Rapprochement avec l'historique Riot importé (PR D, sans nouvelle adresse LCU)
+- **Lien :** entrée du journal (`gameId` lu dans le client) ↔ partie de l'historique (`id` = `<plateforme>_<gameId>`, par exemple `EUW1_…`).
+- **Après un import :** l'entrée reçoit les détails officiels (K/D/A, durée, patch, adversaire de voie quand il est connu) et `resultSource: "riot"`.
+- **En cas de désaccord** entre le client et Riot, **Riot fait foi**. Le désaccord est signalé, jamais masqué.
+- **Sans `gameId`** (anciennes entrées), aucun rapprochement approximatif par heure ou champion sans confirmation du joueur.
+
+### 7.3 Plus tard : clé de production
+Elle sera conservée **sur un serveur**, jamais dans l'application distribuée. Le rapprochement 7.2 pourra alors devenir automatique.
+
+### 7.4 Tests prévus
+- **Bilan au format réel :** victoire, défaite, remake, bilan absent ou tronqué ; aucune donnée des autres joueurs lue.
+- **Écriture du résultat :**
+  - une seule fois ;
+  - jamais sur une autre partie ;
+  - jamais par-dessus une saisie manuelle ;
+  - DRAFT fermé avant la fin : rien ;
+  - désordre et doublons.
+- **Rapprochement :** `gameId` présent ou absent ; désaccord client / Riot ; plusieurs comptes.
