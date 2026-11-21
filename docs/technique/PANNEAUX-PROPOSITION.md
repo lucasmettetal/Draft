@@ -33,7 +33,7 @@ Lecture approfondie (« Détails » y mène, « Conseil » ramène en haut, déf
 - **D'où viennent ces informations** : source des adversaires, état du rôle, règle du pick ;
 - « Ouvrir le Simulateur » en dernier recours.
 
-Un seul niveau de sections, pas d'onglets ni de menus imbriqués, aucune animation longue. Le contenu d'une section n'est calculé qu'une fois ouverte.
+Un seul niveau de sections, pas d'onglets ni de menus imbriqués, aucune animation longue. Le contenu d'une section n'est calculé qu'une fois ouverte. Consulter un champion (alternative, liste du pool, autre fenêtre) ramène en haut du panneau : sa carte et « Je joue X » se lisent sans défiler.
 
 ### Compact
 
@@ -178,7 +178,26 @@ Planches (`planches/`) :
 
 ## 6. Tests exécutés
 
-À compléter en fin de campagne (section 6 mise à jour avec les résultats réels).
+En série, un seul lancement lourd à la fois. Exe compilé depuis la branche (`54aa5fb`, sans la référence Meraki absente du dépôt), bureau caché, dossiers de données neufs, clé `Software\DRAFT-Test-Panneaux\Run` retirée à la fin.
+
+| Test | Résultat |
+|---|---|
+| Banc de mise en page FR (`tools/run-layout-tests.ps1`), avec les nouveaux relevés « essentiel visible sans défilement » (conseil, rôle et pool, pourquoi, ban, consulté, adversaires, « Dans League ») et 4 relevés de plus | **TOUT EST BON**, 61 relevés (coche et nom compris) |
+| Banc de mise en page EN | **TOUT EST BON**, 61 relevés ; français visible 0, clés absentes 0. Une première passe avait signalé un défilement de 6 px du panneau gauche 400 x 720 (animation des portraits en cours) : non reproduit sur 3 essais ciblés, puis passe complète propre |
+| Banc de mise en page, pseudo-langue (textes allongés, ne fait pas échouer) | 151 débordements listés contre 128 sur `main` ; clés absentes 0. En plus : à 222 x 511, la menace, le consulté, le conseil ou le ban passent sous la barre dans 13 relevés (textes 30 à 40 % plus longs) ; 4 px de défilement horizontal du compact 222 x 511 (4 relevés) ; onglets de la fenêtre (défaut déjà présent sur `main`) dans les relevés ajoutés. Textes hors crochets : 9 contre 8, le seul en plus est un nom fictif (« Le Maître Des Cartes Du Destin ») repris dans l'infobulle du pool |
+| `draft-choix-tests.html` | **220 réussis, 0 échec** |
+| `draft-beta1-reel-tests.html` | **182 réussis, 0 échec**. Une première passe donnait 176/6 : après « Comparer » (ouvert dans le panneau), la consultation restait sous le pli. Corrigé (consulter ramène en haut du panneau) |
+| Mesures des variantes (`tools/run-panneaux-tests.ps1`) | tableau de la section 3 |
+| Captures WebView2 réelles | 93 images, essentiel relevé dans chaque page (section 5) |
+| selftest FR / EN | **330 / 0** et **330 / 0** |
+| e2e FR | **103 réussis, 1 échec** : Ctrl+Alt+D laissé à la 2.x, raison « instance » (DRAFT de l'utilisateur, pid 32132, non touché). Dans l'e2e, les vraies fenêtres des panneaux mises aux tailles du placement (1366 à 125 % : 222 x 511 ; 1920 à 100 et 125 %) montrent « Je joue », « Détails », « Revenir au conseil », le rôle, le consulté et la menace sans défiler |
+| e2e EN | **101 réussis, 3 échecs**, deux fois (2 lancements) : Ctrl+Alt+D (« instance », comme en FR) ; « panneau collé au client à chaque pas » (11 écarts) ; « Rafales : les panneaux rattrapent la dernière position » (moyenne 7,1 puis 10,1 ms). **Comparaison avec `main`** (même machine, 2 lancements EN) : « collé au client » échoue aussi (11 et 9 écarts), défaut déjà présent ; « Rafales » réussit (6,4 et 6,7 ms). Ce second écart n'est pas expliqué : ni le placement ni le code natif ne changent, mais un panneau plus chargé peut ralentir le suivi des fenêtres. À revérifier avant toute intégration |
+| Catalogues (`check-catalogs.ps1`, FR / EN, longueurs, sécurité ; `-Code`) | 0 erreur ; 0 clé orpheline (alertes de pluriel déjà présentes) |
+| Détecteur de textes en dur (`detect-hardcoded.ps1 -Max 0`) | 0 chaîne |
+| Banc moteur `run-engine-eval.ps1 -AvecEvaluation` | **Banc : OK**, 0 changement contre les deux instantanés (312 et 108 scénarios), 0 inattendu |
+| Fichiers protégés | aucun changement dans le moteur, les données, `src/LcuConnector.cs`, `src/AppUpdater.cs`, `src/DraftMid.cs` (placement compris), la CSP |
+
+Les captures ont été faites avec l'exe `e8ae3ed`. `54aa5fb` n'y ajoute que le retour en haut du panneau après une consultation : aucun rendu statique ne change.
 
 ## 7. Recommandation
 
@@ -191,4 +210,5 @@ Ce qu'il faut valider ensuite, dans cet ordre :
 1. **la hauteur de V2 pour les panneaux à côté du client** (deux panneaux, panneau unique) : aucun recouvrement, +35 % de lecture approfondie visible à 1920 à 125 %. À essayer sur un vrai client : un panneau plus haut que le client (720 contre 576 px) reste-t-il discret ?
 2. **ne pas élargir le panneau étroit** (V2 à 256 px) : +26 px sur la colonne adverse, pour un gain mesuré faible ;
 3. **ne pas activer V3** : 27 % du client masqué pendant la lecture, pour 3 points de lecture visible en plus ;
-4. brancher « Dans League » sur la PR #40 (une ligne, section 1), puis remesurer la barre d'actions : en mode connecté, elle est plus haute d'environ 20 px ; le nom du consulté reste visible à 222 x 511 (relevé dans la vraie page, scénario 9), avec peu de marge.
+4. revérifier le suivi des fenêtres en anglais (« Rafales », section 6) : 2 échecs sur 2 sur la branche, 0 sur 2 sur `main` ;
+5. brancher « Dans League » sur la PR #40 (une ligne, section 1), puis remesurer la barre d'actions : en mode connecté, elle est plus haute d'environ 20 px ; le nom du consulté reste visible à 222 x 511 (relevé dans la vraie page, scénario 9), avec peu de marge.
