@@ -12,7 +12,7 @@
 const q=new URLSearchParams(location.search);
 // Un cas : panneau, taille utile, scénario, langue, variante. ?lot=right:252x567:consulte:fr:v1~compact:222x511:debut:en:v3 enchaîne
 // plusieurs cas dans la même page (mesures seulement) ; sinon, un seul cas d'après les paramètres (mesure et capture).
-const one={panel:q.get("panel")||"right",w:+q.get("w")||252,h:+q.get("h")||567,sc:q.get("sc")||"complete",lang:q.get("lang")||"fr",variante:q.get("variante")||"v1",league:q.get("league"),open:q.get("open"),fixture:q.get("fixture"),rects:q.get("rects")};
+const one={clic:q.get("clic"),panel:q.get("panel")||"right",w:+q.get("w")||252,h:+q.get("h")||567,sc:q.get("sc")||"complete",lang:q.get("lang")||"fr",variante:q.get("variante")||"v1",league:q.get("league"),open:q.get("open"),fixture:q.get("fixture"),rects:q.get("rects")};
 const LOT=q.get("lot")?q.get("lot").split(/[~|]/).map(x=>{const [panel,size,sc,lang,variante,open]=x.split(":");const [w,h]=size.split("x").map(Number);return {panel,w,h,sc,lang:lang||"fr",variante:variante||"v1",open:open||null}}):null;
 const wait=m=>new Promise(r=>setTimeout(r,m));
 const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]},BIG={role:"mid",pool:["TF","Vex","Fizz","Xerath","Ahri","Syndra","Orianna","Viktor","Annie"]};
@@ -57,6 +57,9 @@ async function runCase(c,keep){const P=c.panel,W=c.w,H=c.h,SC=c.sc,LANG=c.lang,V
   const ALL="pool,why,plan,threats,bans,compare,criteria,compo,sources";
   const toOpen=(c.open==="all"?ALL:c.open||S.open||(VAR==="v3"?ALL:"")).split(",").filter(Boolean);
   toOpen.forEach(k=>{const e=d.querySelector('[data-sec="'+k+'"]');if(e)e.open=true;});
+  // ?clic=details : un clic sur « Détails » (la lecture approfondie défile en haut du panneau), relevé dans « defile ».
+  if(c.clic==="details"){const b=d.querySelector('[data-test="open-analysis"]');if(b)b.click();}
+  if(c.clic==="comparer"){const b=d.querySelector('[data-test="open-compare"]');if(b)b.click();}
   await wait(500);
   if(c.fixture!=="0"&&(lg||c.fixture==="1")){const b=d.createElement("div");b.dataset.fixture="1";b.textContent=LANG==="en"?"Test data: “In League” simulated":"Donnée de test : « Dans League » simulé";b.style.cssText="position:fixed;left:0;right:0;top:0;z-index:99;background:#79C6DA;color:#0B1A20;font:600 11px Bahnschrift,Arial;padding:1px 6px;text-align:center";d.body.appendChild(b);}
   const out=measure(w,d,c);if(!keep)f.remove();return out;}
@@ -87,6 +90,7 @@ function measure(w,d,c){const P=c.panel,W=c.w,H=c.h;
     approfondie:deep&&sc?{hauteur:Math.round(deep.getBoundingClientRect().height),fenetre:Math.round(barTop-sc.getBoundingClientRect().top),part:Math.min(1,Math.round(100*(barTop-sc.getBoundingClientRect().top)/Math.max(1,deep.getBoundingClientRect().height))/100)}:null,sectionsVisibles:[...d.querySelectorAll(".p-sec > summary")].filter(s=>{const r=s.getBoundingClientRect();return r.bottom<=barTop+0.5&&r.top>=0}).length,
     police:{min:sizes.length?Math.min(...sizes):null,conseil:fs(d.querySelector(".p-name")),corps:fs(d.querySelector(".p-why p")||d.querySelector(".p-threat p")),bouton:fs(d.querySelector('.p-actions [data-test="choose-pick"]'))},
     bouton:(()=>{const b=d.querySelector('.p-actions [data-test="choose-pick"]');if(!b)return null;const rr=d.createRange();rr.selectNodeContents(b);return {texte:b.textContent.trim(),lignes:new Set([...rr.getClientRects()].map(x=>Math.round(x.top))).size,hauteur:Math.round(b.getBoundingClientRect().height)}})(),
+    defile:(()=>{const s=d.querySelector(".p-scroll")||d.querySelector(".p-body");const dp=d.getElementById("p-deep");return s?{haut:Math.round(s.scrollTop),approfondieEnHaut:dp?Math.round(dp.getBoundingClientRect().top-s.getBoundingClientRect().top):null,sectionsOuvertes:[...d.querySelectorAll(".p-sec[open]")].map(x=>x.dataset.sec)}:null})(),
     rects:c.rects?c.rects.split(",").map(x=>{const e=d.querySelector(x);if(!e)return x+" absent";const r=e.getBoundingClientRect(),cs=w.getComputedStyle(e);return x+" "+Math.round(r.left)+","+Math.round(r.top)+" "+Math.round(r.width)+"x"+Math.round(r.height)+" h="+cs.height+" min="+cs.minHeight+" fs="+cs.fontSize+" lh="+cs.lineHeight+" pos="+cs.position}):undefined,
     debordants:(()=>{const sc2=d.querySelector(".p-scroll")||d.querySelector(".p-body");if(!sc2)return [];const lim=sc2.getBoundingClientRect().left+sc2.clientWidth;return [...sc2.querySelectorAll("*")].filter(e=>e.getBoundingClientRect().right>lim+0.5).slice(0,8).map(e=>(e.className&&e.className.baseVal===undefined?e.className:e.tagName)+" "+Math.round(e.getBoundingClientRect().right-lim))})(),
     cles:w.I18N?w.I18N.missing():[]};

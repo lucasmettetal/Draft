@@ -3292,6 +3292,22 @@ function VerdictPanel({ compact }) {
     sc.addEventListener("scroll", on, { passive:true });
     return () => sc.removeEventListener("scroll", on);
   });
+  // Un champion consulté (alternative, liste du pool, autre fenêtre) : retour en haut du panneau, où sa carte et « Je joue » se lisent
+  // sans défiler. Sa lecture approfondie (« Pourquoi X ») reste à un clic de « Détails ».
+  // Le défilement demandé par « Détails » ou « Comparer » est fait après le rendu de la section ouverte (effet ci-dessous, sans
+  // requestAnimationFrame) : une consultation faite entre-temps l'annule et ramène en haut.
+  const viewedNow = viewedPick(), lastViewed = useRef(viewedNow), pendingScroll = useRef(null);
+  const [, bump] = useReducer(x => x + 1, 0);
+  useEffect(() => {
+    const deep = document.getElementById("p-deep");
+    if (viewedNow && viewedNow !== lastViewed.current) { pendingScroll.current = null; if (deep) scroller(deep).scrollTop = 0; }
+    lastViewed.current = viewedNow;
+    if (pendingScroll.current && deep) {
+      const sc = scroller(deep), id = pendingScroll.current, el = id === "deep" ? deep : deep.querySelector(`[data-sec="${id}"]`) || deep;
+      pendingScroll.current = null;
+      sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 6;
+    }
+  });
   const goDeep = id => {
     const deep = document.getElementById("p-deep");
     if (!deep) return;
@@ -3299,7 +3315,8 @@ function VerdictPanel({ compact }) {
     if (!id && deepIn) { sc.scrollTop = 0; return; }
     const target = id || (open.size ? null : "why");
     if (target) toggle(target, true);
-    requestAnimationFrame(() => { const el = id ? deep.querySelector(`[data-sec="${id}"]`) || deep : deep; sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 6; });
+    pendingScroll.current = id || "deep";
+    bump();
   };
   const entry = state.current && loadJournal().find(x => x.id === state.current);
   const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
