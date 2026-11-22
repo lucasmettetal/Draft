@@ -1254,6 +1254,8 @@
   /* Compact : libellés de rôle sur une ligne (« Support » déborde de 1 à 2 px de sa colonne, comme avant) ; noms adverses tronqués
      proprement, nom complet au survol. */
   .panel .compact-roles .role-icon { white-space:nowrap; overflow-wrap:normal !important; }
+  /* Pas de défilement horizontal dans les panneaux : un libellé qui déborde de 1 à 3 px de sa colonne reste lisible, sans barre. */
+  .panel .p-scroll, .panel-right .p-body { overflow-x:hidden; }
   .panel .compact-roles .role-name, .panel .compact-roles .role.is-mid .role-name { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; overflow-wrap:normal !important; -webkit-line-clamp:unset; }
   .p-risk { flex:none; }
   .p-results { flex:none; }
