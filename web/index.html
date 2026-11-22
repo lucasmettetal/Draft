@@ -1221,11 +1221,10 @@
   .p-openfull { align-self:flex-start; margin:2px 0 4px; }
   /* Barre d'actions : le pick. Ligne « Dans League » (lecture du client), sinon « Je joue X » marqué « À la main ». */
   .panel .p-actions { flex-direction:column; flex-wrap:nowrap; align-items:stretch; gap:4px; }
-  .p-actions-row { display:flex; align-items:center; gap:6px; min-width:0; }
-  .p-actions-row .cta { flex:1 1 auto; min-width:0; }
-  .panel .p-actions-row .details-btn { flex:none; gap:5px; min-height:36px; margin-left:auto; padding-left:7px; padding-right:8px; }
-  .panel .p-actions-row .cta { padding-left:8px; padding-right:8px; }
-  .p-actions.is-league .p-actions-row { align-items:flex-start; }
+  /* « Je joue X » seul sur sa rangée, pleine largeur, sur une ligne (nom tronqué proprement, texte complet au survol) ; dessous,
+     « Détails », « À la main » ou l'annonce « Dans League », et « Revenir au conseil ». */
+  .panel .p-actions > .cta { width:100%; min-width:0; min-height:38px; padding-left:10px; padding-right:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+  .panel .p-actions .details-btn { flex:none; gap:5px; min-height:32px; padding:2px 9px 2px 7px; }
   .details-btn.on { border-color:var(--text); }
   .p-actions-sub { display:flex; flex-wrap:wrap; align-items:center; gap:2px 10px; }
   .p-actions-sub:empty { display:none; }
@@ -1235,8 +1234,14 @@
   .p-league b { color:var(--conn); font-weight:600; }
   .p-league-dot { flex:none; width:9px; height:9px; background:var(--conn); border-radius:50%; }
   .p-league.hover .p-league-dot { background:transparent; box-shadow:inset 0 0 0 2px var(--conn); }
-  .p-auto-note { flex:1 1 100%; min-width:0; margin:0; color:var(--muted); font-size:13px; line-height:1.25; }
-  .p-actions-row .p-league { flex:1 1 auto; min-width:0; min-height:36px; }
+  .p-auto-note { flex:0 1 auto; min-width:0; margin:0; color:var(--muted); font-size:13px; line-height:1.25; }
+  /* Noms sur une ligne, tronqués proprement (nom complet au survol) ; étiquettes sur une ligne ; ailleurs, retour à la ligne entre
+     les mots seulement : un mot n'est jamais coupé en son milieu tant qu'il tient sur une ligne entière. */
+  .panel *, .panel *::before, .panel *::after { overflow-wrap:break-word !important; }
+  .p-nm, .panel .p-name, .panel .viewed-head b, .panel .p-threat b { display:block; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .panel .rank-word, .panel .p-chip, .panel .badge, .panel .p-manual { white-space:nowrap; }
+  .panel .viewed-head .rank-word { flex:none; }
+  .p-risk { flex:none; }
   .p-results { flex:none; }
   /* Panneau gauche : provenance, légende des cadres (plein = placé à la main, pointillé = supposé) et conseil à jour. */
   .p-left-source { margin:-4px 0 6px; color:var(--muted); font-size:13px; }
@@ -1246,11 +1251,8 @@
   .p-left-advice { color:var(--prio); font-weight:600; }
   .p-left-advice::before { content:"·"; margin:0 5px 0 2px; color:var(--muted); font-weight:400; }
   .panel-left .col-left > .effects { margin:0 0 8px; }
-  /* Libellé « Détails » gardé à 222 px : la commande vers la lecture approfondie reste nommée. */
-  @media (max-width:240px) {
-    .panel .p-actions .details-label { display:inline; }
-    .panel .p-actions-row .details-btn { padding-left:7px; padding-right:8px; }
-  }
+  /* Libellé « Détails » toujours affiché : la commande vers la lecture approfondie reste nommée. */
+  @media (max-width:240px) { .panel .p-actions .details-label { display:inline; } }
   /* Le conseil est en haut du panneau : dans la barre, « Revenir au conseil » suffit (le nom est dans son titre). */
   .panel .p-actions [data-test="pick-advice"] > span { display:none; }
   /* Compact (adversaires et conseil dans un seul panneau) jusqu'à 700 px de haut : « Pourquoi », le changement et la comparaison du
@@ -2333,11 +2335,12 @@ function PickAdvice() {
   </p>`;
 }
 // Champion consulté : ses raisons, son risque, son matchup et sa comparaison avec le conseil. Rien n'est noté.
-function compareSummary(a, b) {
+// short : la première phrase seulement (« Avantage net à X. »), pour la carte du champion consulté ; le détail est dans « Pourquoi X ».
+function compareSummary(a, b, short) {
   const cmp = comparePicks(a, b), leader = a.score >= b.score ? a : b, trailer = leader === a ? b : a, lead = leadCriterion(leader, trailer);
   const other = comparePicks(trailer, leader).decisive.find(r => r.diff > 0);
   return [Math.abs(cmp.gap) < 1e-9 ? t("compare.summary.tie") : t(Math.abs(cmp.gap) < HOLD_GAP ? "compare.summary.close" : "compare.summary.clear", { champion: label(leader.pick) }),
-    lead ? t(other ? "compare.summary.leadBoth" : "compare.summary.lead", { champion: label(leader.pick), criterion: lead.label, other: label(trailer.pick), otherCriterion: (other || {}).label }) : ""].filter(Boolean).join(" ");
+    short ? "" : lead ? t(other ? "compare.summary.leadBoth" : "compare.summary.lead", { champion: label(leader.pick), criterion: lead.label, other: label(trailer.pick), otherCriterion: (other || {}).label }) : ""].filter(Boolean).join(" ");
 }
 function ViewedCard({ panel }) {
   const viewed = viewedPick();
@@ -2353,8 +2356,8 @@ function ViewedCard({ panel }) {
     ${reasons.length ? html`<ul className="viewed-reasons">${reasons.map(r => html`<li key=${r}>${r}</li>`)}</ul>` : null}
     ${risk ? html`<p className="viewed-line"><b>${t("advice.risk")}</b> ${risk}</p>` : null}`;
   return html`<section className=${`viewed${panel ? " p-viewed" : ""}`} data-test="viewed" data-pick=${viewed} aria-label=${t("viewed.label")}>
-    <div className="viewed-head"><${Portrait} name=${label(viewed)} size=${panel ? 32 : 36} /><span><small>${t("viewed.label")}</small><b>${label(viewed)}</b></span>${word ? html`<span className=${`rank-word ${tone}`}>${word}</span>` : null}</div>
-    ${ref && ref !== entry ? html`<p className="viewed-cmp" data-test="viewed-compare" title=${panel ? t("viewed.vsAdvice", { summary: compareSummary(entry, ref) }) : undefined}>${t("viewed.vsAdvice", { summary: compareSummary(entry, ref) })}</p>` : null}
+    <div className="viewed-head"><${Portrait} name=${label(viewed)} size=${panel ? 32 : 36} /><span><small>${t("viewed.label")}</small><b title=${label(viewed)}>${label(viewed)}</b></span>${word ? html`<span className=${`rank-word ${tone}`}>${word}</span>` : null}</div>
+    ${ref && ref !== entry ? html`<p className="viewed-cmp" data-test="viewed-compare" title=${panel ? t("viewed.vsAdvice", { summary: compareSummary(entry, ref) }) : undefined}>${t("viewed.vsAdvice", { summary: compareSummary(entry, ref, panel) })}</p>` : null}
     ${details}
   </section>`;
 }
@@ -3130,7 +3133,7 @@ function PanelPool({ open, onToggle }) {
     <ul className="p-pool-list">${V.order.map((p, i) => {
       const [word, tone] = rankWord(p, i), n = label(p.pick), on = picked === p.pick, seen = viewed === p.pick;
       return html`<li key=${p.pick}><button type="button" className=${`p-pool-row${on ? " picked" : ""}${seen ? " viewed" : ""}`} data-test="panel-pool-pick" data-pick=${p.pick} aria-pressed=${on} aria-current=${seen ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(p.pick)}>
-        <${Portrait} name=${n} size=${28} /><span className="p-pool-name">${n}<small className=${`rank-word ${tone}`}>${word}</small><span className="force p-force" aria-hidden="true"><i style=${{ transform:`scaleX(${Math.max(.04, (p.score - lo) / (hi - lo || 1))})` }} /></span></span>
+        <${Portrait} name=${n} size=${28} /><span className="p-pool-name"><span className="p-nm" title=${n}>${n}</span><small className=${`rank-word ${tone}`}>${word}</small><span className="force p-force" aria-hidden="true"><i style=${{ transform:`scaleX(${Math.max(.04, (p.score - lo) / (hi - lo || 1))})` }} /></span></span>
         <span className="p-pool-go">${on ? html`<span aria-hidden="true">✓ </span>${t("panel.pool.noted")}` : seen ? t("viewed.label") : t("panel.pool.view")}</span>
       </button></li>`;
     })}</ul>
@@ -3253,7 +3256,7 @@ function PanelReco({ name }) {
         ${V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? t("advice.badge.clear") : t("advice.badge.close")}</span>` : null}
         ${V.n < 5 ? html`<span data-test="badge" className="badge count">${t("advice.badge.enemies", { count: V.n })}</span>` : null}
       </span>
-      <div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div>
+      <div className=${`p-name${name.length > 14 ? " long" : ""}`} title=${name}>${name}</div>
     <//>
   </section>`;
 }
@@ -3263,12 +3266,10 @@ function PanelReco({ name }) {
 function PanelActions({ cta, deepIn, onDetails }) {
   const lg = leagueNow();
   return html`<div className=${`p-actions${lg ? " is-league" : ""}`} data-test="panel-actions">
-    <div className="p-actions-row">
-      ${lg ? html`<p className=${`p-league ${lg.state}`} data-test="league-line" data-state=${lg.state} title=${t("panel.league.help")}><span className="p-league-dot" aria-hidden="true"></span><span>${tx(lg.state === "locked" ? "panel.league.locked" : "panel.league.hover", { champion: html`<b>${label(lg.champion)}</b>` })}</span></p>`
-        : cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
-      <button type="button" className=${`ghost-btn details-btn${deepIn ? " on" : ""}`} data-test="open-analysis" aria-pressed=${deepIn} title=${t(deepIn ? "panel.detailsBackHelp" : "panel.detailsHelp")} onClick=${onDetails}><${ToolIcon} name=${deepIn ? "up" : "list"} /><span className="details-label">${t(deepIn ? "panel.detailsBack" : "panel.details")}</span></button>
-    </div>
+    ${lg ? html`<p className=${`p-league ${lg.state}`} data-test="league-line" data-state=${lg.state} title=${t("panel.league.help")}><span className="p-league-dot" aria-hidden="true"></span><span>${tx(lg.state === "locked" ? "panel.league.locked" : "panel.league.hover", { champion: html`<b>${label(lg.champion)}</b>` })}</span></p>`
+      : cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.text + " : " + cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
     <div className="p-actions-sub">
+      <button type="button" className=${`ghost-btn details-btn${deepIn ? " on" : ""}`} data-test="open-analysis" aria-pressed=${deepIn} title=${t(deepIn ? "panel.detailsBackHelp" : "panel.detailsHelp")} onClick=${onDetails}><${ToolIcon} name=${deepIn ? "up" : "list"} /><span className="details-label">${t(deepIn ? "panel.detailsBack" : "panel.details")}</span></button>
       ${lg ? html`<span className="p-auto-note" data-test="league-auto" title=${t("panel.league.autoHelp")}>${t("panel.league.auto")}</span>` : null}
       ${!lg && cta ? html`<span className="p-manual" data-test="manual-pick" title=${t("panel.manual.help")}>${t("panel.manual.label")}</span>` : null}
       <${PickCurrent} />
@@ -3333,16 +3334,17 @@ function VerdictPanel({ compact }) {
   // QA-2 et correctif beta.1 : elle reste visible sans défiler à 125 %, au-dessus de la barre d'actions.
   const keyBox = threat ? html`<section className="p-threat" data-test="panel-threat" aria-label=${t("panel.threat.label")}>
       <${Portrait} name=${threat} size=${36} />
-      <div><b>${t("panel.threat.title", { champion: threat })}</b><p title=${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
+      <div><b title=${t("panel.threat.title", { champion: threat })}>${t("panel.threat.title", { champion: threat })}</b><p title=${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
     </section>`
     : !V.n && V.bans[0] ? html`<section className="p-keyban" data-test="panel-keyban" aria-label=${t("panel.ban.title")}>
       <${Portrait} name=${V.bans[0]} size=${36} />
       <div><b>${t("panel.keyban.title", { champion: V.bans[0] })}</b><p>${banReason(V.bans[0]) ? t("panel.ban.reason", { champion: V.bans[0], reason: banReason(V.bans[0]) }) : t("panel.keyban.none")}</p>${V.bans.length > 1 ? html`<p className="p-keyban-more">${t("panel.ban.or", { champions: V.bans.slice(1).join(", ") })}</p>` : null}</div>
-    </section>` : null;
+    </section>`
+    : !V.tied && V.risk ? html`<p className="p-why-con p-risk" data-test="panel-risk"><b>${t("panel.risk.label")}</b> ${V.risk}</p>` : null;
   const altLine = V.rival ? html`<div className=${`p-alt${viewed === V.rival.pick ? " viewed" : ""}`} data-test="alt-line">
       <button type="button" className="p-alt-view" data-test="view-alt" data-pick=${V.rival.pick} aria-current=${viewed === V.rival.pick ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(V.rival.pick)}>
         <${Portrait} name=${label(V.rival.pick)} size=${compact ? 32 : 40} />
-        <span className="p-alt-text"><small>${t(V.tied ? "advice.alt.else" : V.clear ? "advice.rank.alternative" : shownIsFirst() ? "panel.alt.almostTie" : "panel.alt.justAhead")}</small>${label(V.rival.pick)}</span>
+        <span className="p-alt-text"><small>${t(V.tied ? "advice.alt.else" : V.clear ? "advice.rank.alternative" : shownIsFirst() ? "panel.alt.almostTie" : "panel.alt.justAhead")}</small><span className="p-nm" title=${label(V.rival.pick)}>${label(V.rival.pick)}</span></span>
       </button>
       <button type="button" className="p-alt-go" data-test="open-compare" title=${t("panel.compareTitle")} onClick=${() => goDeep("compare")}>${t("panel.compare")}</button>
     </div>` : null;
@@ -3350,13 +3352,12 @@ function VerdictPanel({ compact }) {
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <div className="p-now" data-test="panel-now">
       ${V.tied ? html`<${TieGroup} detailed=${false} panel=${true} />` : html`<${PanelReco} name=${name} />`}
-      ${!compact || why || (!V.tied && V.risk) ? html`<div className="p-why" data-test="panel-why" aria-label=${t("panel.why")}>
+      ${!compact || why ? html`<div className="p-why" data-test="panel-why" aria-label=${t("panel.why")}>
           <p className="p-why-pro"><b>${t("panel.why.label")}</b> ${why || t(V.tied ? "panel.reasons.tieDiffer" : "panel.reasons.none")}</p>
-          ${!V.tied && V.risk ? html`<p className="p-why-con"><b>${t("panel.risk.label")}</b> ${V.risk}</p>` : null}
         </div>` : null}
       ${keyBox}
-      ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>` : null}
       <${ViewedCard} panel=${true} />
+      ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>` : null}
       ${!compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null}
     </div>
     <${PanelDeep} compact=${compact} open=${open} toggle=${toggle} alt=${compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null} />

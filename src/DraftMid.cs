@@ -94,6 +94,11 @@ namespace DraftMid
     public static class Layout
     {
         const int MinW = 230, IdealW = 340, MinH = 520, Gap = 0;
+        // Panneaux primaires, V2 (docs/technique/PANNEAUX-PROPOSITION.md) : le panneau étroit fait 256 px (au lieu de 230) et prend la
+        // hauteur utile de l'écran (900 px au plus) ; les panneaux posés à côté du client font 1,25 fois sa hauteur. La largeur des
+        // panneaux à côté du client ne change pas : ils ne couvrent jamais le client.
+        public const int NarrowW = 256, NarrowMaxH = 900;
+        public const double BesideHeight = 1.25;
 
         // QA-4 : une position enregistrée par l'utilisateur n'est reprise que si le panneau reste utilisable sur un écran présent :
         // au moins la moitié de sa largeur et toute sa barre de titre (40 px à l'échelle de l'écran) visibles. Sinon (écran débranché,
@@ -163,11 +168,13 @@ namespace DraftMid
         }
 
         // Aucune place libre : un seul panneau étroit, au bord de l'écran, couvre le moins possible du client.
+        // V2 : 256 px de large et la hauteur utile de l'écran (900 px au plus), centré sur le client dans l'écran.
         public static Placement Narrowest(Native.RECT client, IList<Monitor> monitors)
         {
             Monitor home = monitors.OrderByDescending(m => OverlapArea(m.Work, client)).First();
-            int y, h, w = Math.Min((int)(MinW * home.Scale), home.Work.W);
-            Vertical(client, home, out y, out h);
+            int w = Math.Min((int)(NarrowW * home.Scale), home.Work.W);
+            int h = Math.Min((int)(NarrowMaxH * home.Scale), home.Work.H);
+            int y = Math.Max(home.Work.Top, Math.Min(client.Top - (h - client.H) / 2, home.Work.Bottom - h));
             return new Placement
             {
                 Mode = "compact",
@@ -176,9 +183,10 @@ namespace DraftMid
             };
         }
 
-        static void Vertical(Native.RECT client, Monitor m, out int y, out int h)
+        // Panneaux à côté du client : V2, 1,25 fois sa hauteur (520 px au moins), dans l'écran. Public pour les essais (e2e).
+        public static void Vertical(Native.RECT client, Monitor m, out int y, out int h)
         {
-            h = Math.Min(Math.Max(client.H, (int)(MinH * m.Scale)), m.Work.H);
+            h = Math.Min(Math.Max((int)Math.Round(client.H * BesideHeight), (int)(MinH * m.Scale)), m.Work.H);
             // Centré sur le client, pour rester aligné même quand le panneau est plus haut que lui.
             y = Math.Max(m.Work.Top, Math.Min(client.Top - (h - client.H) / 2, m.Work.Bottom - h));
         }
@@ -3834,7 +3842,8 @@ public static class Autostart
                 t(app.PanelFor("left").Visible && app.PanelFor("right").Visible, "4. Les deux panneaux sont visibles");
                 Native.RECT c = app.Tracker.Rect, l = rectOfLeft(), r = rectOfRight();
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
-                t(l.Top == c.Top && l.H == c.H, "4. Hauteur et alignement sur le client");
+                int vy, vh; Layout.Vertical(c, main, out vy, out vh);
+                t(l.Top == vy && l.H == vh && r.Top == vy && r.H == vh, "4. Hauteur (1,25 x client, V2) et centrage sur le client (" + l + " | " + c + ")");
                 t(!PanelHasFocus(app), "Aucun vol de focus à l'apparition");
                 // QA-6 : l'échec reste toujours visible, avec sa cause mesurée (code Win32 et autres instances DRAFT de la session).
                 if (o.NoHotkey) t(!app.HotkeyCreated, "Raccourci laissé à l'autre version : aucune tentative");
@@ -3851,7 +3860,8 @@ public static class Autostart
                 for (int i = 1; i <= steps; i++) { fake.Location = new Point(cx + (i % 2 == 0 ? 6 : -6) * i / 4, cy + i); await Task.Delay(8); }
                 await Task.Delay(150);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
-                t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == c.Top, "7. Déplacement : les panneaux suivent (" + c + ")");
+                Layout.Vertical(c, main, out vy, out vh);
+                t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == vy, "7. Déplacement : les panneaux suivent (" + c + ")");
                 s.AppendLine("MESURE : " + (app.Tracker.EventCount - evBefore) + " événements Windows, " + (app.MoveCount - movesBefore) + " déplacements de panneaux sur " + clock.ElapsedMilliseconds + " ms");
                 // Une mise à jour par étape au plus, plus le recalcul à l'arrêt et la dernière mise à jour en attente.
                 t(app.MoveCount - movesBefore <= steps + 3, "7. Déplacements limités à une mise à jour par étape");
@@ -3911,7 +3921,8 @@ public static class Autostart
                 fake.SetBounds(cx - 60, cy - 10, cw - 120, ch - 20);
                 await Task.Delay(200);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
-                t(c.W == cw - 120 && l.H == c.H && r.H == c.H && l.Right <= c.Left && r.Left >= c.Right, "8. Redimensionnement : les panneaux s'adaptent (" + c + ")");
+                Layout.Vertical(c, main, out vy, out vh);
+                t(c.W == cw - 120 && l.H == vh && r.H == vh && l.Right <= c.Left && r.Left >= c.Right, "8. Redimensionnement : les panneaux s'adaptent (" + c + ")");
 
                 // Plus assez de place pour deux panneaux : passage en panneau unique, sans couvrir le client.
                 fake.SetBounds(main.Work.Left, cy, main.Work.W - (int)(300 * main.Scale), ch);
@@ -4550,7 +4561,7 @@ public static class Autostart
                             Native.RECT win = new Native.RECT(left, top, left + size[0], top + size[1]);
                             string label2 = res[0] + "x" + res[1] + "@" + scale + " client " + size[0] + (compact ? " compact" : "") + " ";
                             Placement computed = Layout.Compute(win, one, compact);
-                            int minWidth = (int)(230 * scale);
+                            int minWidth = (int)(230 * scale), narrowWidth = (int)(Layout.NarrowW * scale);
                             List<Native.RECT> boxes = new List<Native.RECT>();
                             if (computed.Mode == "two") { boxes.Add(computed.Left); boxes.Add(computed.Right); }
                             else if (computed.Mode == "compact") boxes.Add(computed.Single);
@@ -4558,7 +4569,7 @@ public static class Autostart
                             {
                                 narrowCases++;
                                 Native.RECT narrow = Layout.Narrowest(win, one).Single;
-                                if (!narrow.Inside(one[0].Work) || narrow.W != Math.Min(minWidth, one[0].Work.W)) layoutProblem += label2 + "panneau étroit hors écran ; ";
+                                if (!narrow.Inside(one[0].Work) || narrow.W != Math.Min(narrowWidth, one[0].Work.W) || narrow.H != Math.Min((int)(Layout.NarrowMaxH * scale), one[0].Work.H)) layoutProblem += label2 + "panneau étroit hors écran ou hors taille ; ";
                                 continue;
                             }
                             foreach (Native.RECT box in boxes)
@@ -4570,6 +4581,20 @@ public static class Autostart
                             if (boxes.Count == 2 && boxes[0].Overlaps(boxes[1])) layoutProblem += label2 + "panneaux superposés ; ";
                         }
             t(layoutProblem == "", "Placement : " + layoutCases + " combinaisons résolution, échelle et client, dont " + narrowCases + " sans place libre " + layoutProblem);
+            // Panneaux primaires, V2 : taille réelle et part du client masquée (client LoL centré, 1024 x 576 et 1280 x 720 physiques).
+            {
+                List<Monitor> l1366 = new List<Monitor> { mon(0, 0, 1366, 718, 1.25) };
+                Native.RECT c1366 = new Native.RECT(171, 71, 1195, 647);
+                Native.RECT n1366 = Layout.Narrowest(c1366, l1366).Single;
+                int cover1366 = Math.Max(0, c1366.Right - n1366.Left);
+                t(Layout.Compute(c1366, l1366, false).Mode == "manual" && n1366.W == 320 && n1366.H == 718 && n1366.Inside(l1366[0].Work) && cover1366 == 149,
+                    "V2, 1366 x 768 à 125 % : panneau étroit 256 x 574 px logiques (" + n1366 + "), couvre " + Math.Round(cover1366 / 1.25) + " px logiques du client sur 819");
+                List<Monitor> l1920 = new List<Monitor> { mon(0, 0, 1920, 1030, 1.25) };
+                Native.RECT c1920 = new Native.RECT(320, 155, 1600, 875);
+                Placement p1920 = Layout.Compute(c1920, l1920, false);
+                t(p1920.Mode == "two" && p1920.Left.W == 320 && p1920.Left.H == 900 && p1920.Right.H == 900 && p1920.Left.Top == 65 && !p1920.Left.Overlaps(c1920) && !p1920.Right.Overlaps(c1920),
+                    "V2, 1920 x 1080 à 125 % : deux panneaux 256 x 720 px logiques centrés sur le client, rien de couvert (" + p1920.Left + " | " + p1920.Right + ")");
+            }
             List<Monitor> mixed = new List<Monitor> { mon(0, 0, 1920, 1040, 1), mon(-2560, 0, 2560, 1400, 1.5) };
             Placement toOther = Layout.Compute(new Native.RECT(0, 0, 1920, 1040), mixed, false);
             t(toOther.Mode == "two" && toOther.Left.W == 510 && toOther.Left.Right <= 0 && toOther.Right.Right <= 0, "Placement : client plein écran à 100 %, panneaux sur l'autre écran à 150 %, à sa propre échelle");
