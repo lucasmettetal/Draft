@@ -40,7 +40,9 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 $Base = 'file:///' + ($Web -replace '\\', '/') + '/draft-layout-tests.html'
 $Common = @('--headless=new', '--disable-gpu', '--force-prefers-reduced-motion', '--no-first-run', '--allow-file-access-from-files', "--user-data-dir=$Out\profil-$PID", '--window-size=1960,1120')
 # MOT-COUPE et BOUTON-DEUX-LIGNES (panneaux primaires) : un mot coupe en son milieu, ou le bouton principal sur deux lignes.
-$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-)'
+# PORTRAITS-ADVERSES : composition adverse dans le panneau droit (le gauche est affiche avec lui). PLACE-JE-JOUE : place gardee pour
+# un bouton Je joue absent en mode Dans League.
+$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-|PORTRAITS-|PLACE-)'
 $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()

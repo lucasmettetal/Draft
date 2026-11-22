@@ -2,6 +2,8 @@
 
 **Statut :** proposition à valider. Branche `feat/panneaux-primaires`, partie de `main` 4fb621f (3.0.0-beta.1 publiée). Ni PR, ni fusion, ni intégration à la beta.2.
 
+**Mise à jour :** l'utilisateur a retenu **V2**. Ce qui a changé depuis : section 8, « Ajustements V2 ».
+
 **Décision produit :** les panneaux sont l'interface principale. Le joueur choisit son champion, comprend les conseils et lit l'essentiel sans ouvrir la grande fenêtre.
 
 **Direction retenue : V1.** Les tailles du placement ne changent pas (`Layout` inchangé). Le contenu des panneaux est réorganisé : en haut, la lecture immédiate, visible sans défiler ; dessous, la lecture approfondie, en sections dépliables, dans le panneau lui-même. V2 (panneaux agrandis) et V3 (vue « Détails » élargie) restent des options de test, mesurées mais non activées.
@@ -212,3 +214,57 @@ Ce qu'il faut valider ensuite, dans cet ordre :
 3. **ne pas activer V3** : 27 % du client masqué pendant la lecture, pour 3 points de lecture visible en plus ;
 4. revérifier le suivi des fenêtres en anglais (« Rafales », section 6) : 2 échecs sur 2 sur la branche, 0 sur 2 sur `main` ;
 5. brancher « Dans League » sur la PR #40 (une ligne, section 1), puis remesurer la barre d'actions : en mode connecté, elle est plus haute d'environ 20 px ; le nom du consulté reste visible à 222 x 511 (relevé dans la vraie page, scénario 9), avec peu de marge.
+
+## 8. Ajustements V2
+
+L'utilisateur a retenu **V2** : panneau étroit de 256 x 574 à 1366 x 768 à 125 %. Les sections 1 à 7 décrivent l'état d'avant ce choix.
+
+| Commit | Ajustement |
+|---|---|
+| 9af52ae | V2 réelle dans `Layout` : panneau étroit de 256 px, hauteur utile de l'écran (900 px au plus) ; panneaux à côté du client à 1,25 fois sa hauteur. « Je joue X » seul sur sa rangée. Ordre de la lecture immédiate (ci-dessous). |
+| c7214f0 | Aucun mot coupé, bouton principal sur une ligne. Relevés MOT-COUPE et BOUTON-DEUX-LIGNES dans le banc. |
+| e6d7aeb | Pas de défilement horizontal dans les panneaux. |
+| point 3 | Rôle de chaque panneau ; relevés PORTRAITS-ADVERSES et PLACE-JE-JOUE. |
+
+### Point 3 : un panneau pour la composition, un pour la décision
+
+**Déjà fait dans 9af52ae, pas refait :**
+- ordre de la lecture immédiate : conseil et « Pourquoi », puis risque principal (menace ; sinon risque du conseil ; avant tout adversaire, ban conseillé), puis champion consulté (verdict d'une phrase), puis changement de conseil et alternative. Le détail des comparaisons est dans les sections dépliables ;
+- mode connecté (« Dans League », `leagueSlot`) : la ligne League prend la place de « Je joue ». Rien n'est réservé.
+
+**Composition adverse.** Le panneau gauche la porte. Le panneau droit ne montre ni les 5 postes adverses ni le profil adverse. C'était déjà le cas : aucun code ne les y affichait. Le compact (panneau unique ou étroit, sans panneau gauche) montre les 5 postes.
+
+**Rappel minimal dans le panneau droit : rien d'ajouté.** Deux éléments existants suffisent :
+- « 3/5 adversaires » sur la carte du conseil, tant qu'il en manque : il dit sur quoi repose le conseil ;
+- le portrait de la menace principale : c'est le risque principal, pas la composition.
+
+Une rangée de 5 portraits ajouterait une ligne à la lecture immédiate, pour une information affichée juste à côté, à la même hauteur, et dans le client.
+
+**Compact.** Les 5 postes restent au-dessus du conseil : c'est là qu'on saisit les adversaires quand le client n'est pas lu. Dans la partie conseil, l'ordre est celui du panneau droit.
+
+### Comment la page sait que le panneau gauche est affiché
+
+- **Par son adresse.** Le panneau droit est chargé avec `panel=right` (`PANEL` dans la page). Le programme ne le crée et ne l'affiche qu'en disposition « two », toujours avec le gauche : `Place` (placement suivi), `Place2` (placement manuel) et `TranslatePanels` (déplacement) montrent et déplacent les deux ensemble. En compact, `panel=compact` est seul.
+- **Ce que l'état du programme transmet** (`HostState`) : `compact` (réglage), `panelsShown` (tous les panneaux), `placement` (une note). Pas la visibilité de chaque panneau.
+- **Ce qui manque.** Le panneau gauche peut être masqué seul : Alt+F4 sur lui (`OnFormClosing`) le cache et laisse le droit, jusqu'au placement suivant (déplacement du client). Un panneau gauche déplacé à la main derrière une autre fenêtre n'est pas su non plus. Rien n'est supposé : dans ces cas, le panneau droit ne montre pas la composition. Pour le faire, le programme devrait envoyer la visibilité de chaque panneau dans son état. Non fait.
+
+### Relevés ajoutés au banc
+
+Dans `web/draft-layout-tests.html`. Ils font échouer `tools/run-layout-tests.ps1`.
+- **PORTRAITS-ADVERSES** (panneau droit) : postes adverses présents ; plus d'un portrait adverse dans la lecture immédiate ; les 5 adversaires visibles, sections ouvertes comprises (menaces et cibles : 2 + 2 au plus).
+- **PLACE-JE-JOUE** (mode « Dans League », donnée de test) : bouton « Je joue » présent, ou espace au-dessus de la ligne League.
+
+Les portraits portent le nom du champion (`data-champ`) pour ce relevé. Contrôle : sur une copie volontairement fautive (postes adverses et place réservée ajoutés au panneau droit), les deux relevés échouent aux 9 tailles.
+
+### Tests
+
+Tests légers seulement, en série, un seul Chrome sans tête à la fois. Ni e2e ni capture WebView2 : un autre agent mesurait le suivi des fenêtres.
+
+| Test | Résultat |
+|---|---|
+| Banc de mise en page FR, avec les relevés précédents (essentiel sans défilement, mots coupés, bouton sur une ligne) et les deux nouveaux | **TOUT EST BON**, 61 relevés |
+| Banc de mise en page EN | **TOUT EST BON**, 61 relevés ; français visible 0, clés absentes 0 |
+| `draft-choix-tests.html` | **220 réussis, 0 échec** |
+| `draft-beta1-reel-tests.html` | **182 réussis, 0 échec** |
+| Catalogues (`check-catalogs.ps1 -Code`) | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) |
+| Détecteur de textes en dur (`detect-hardcoded.ps1 -Only web/ -Max 0`) | 0 chaîne |

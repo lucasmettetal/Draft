@@ -2046,7 +2046,7 @@ function Portrait({ name, size = 40 }) {
   const [done, setDone] = useState({});
   const status = done[name] || "loading";
   const cls = `portrait${status === "loading" ? " loading" : ""}`;
-  return html`<span className=${cls} style=${{ width:size, height:size }}>
+  return html`<span className=${cls} data-champ=${name} style=${{ width:size, height:size }}>
     ${status !== "error" ? html`<img key=${name} src=${iconUrl(name)} alt="" className=${status === "ready" ? "ready" : ""} onLoad=${() => setDone({ [name]:"ready" })} onError=${() => setDone({ [name]:"error" })} />` : null}
     ${status === "error" ? html`<span className="init" aria-hidden="true">${name.slice(0, 2)}</span>` : null}
   </span>`;
@@ -4172,6 +4172,11 @@ function CompactEnemies() {
   </div>`;
 }
 
+// Composition adverse : le panneau gauche la porte ; le panneau droit sert à comprendre et comparer les recommandations. Le programme
+// ne crée et n'affiche le panneau droit (panel=right) qu'en disposition « two », toujours avec le gauche (Place, Place2,
+// TranslatePanels) : il ne montre ni les 5 postes ni le profil adverse. Rappel minimal gardé : « 3/5 adversaires » sur le conseil
+// (tant qu'il en manque) et le portrait de la menace principale. Le compact (panneau unique ou étroit, sans gauche) montre les 5 postes.
+// L'état envoyé par le programme ne dit pas si le gauche est masqué seul (Alt+F4 sur lui, jusqu'au placement suivant) : rien n'est supposé.
 function PanelApp() {
   return html`<div className=${`panel panel-${PANEL}`} data-test="panel">
     <${TitleBar} />
