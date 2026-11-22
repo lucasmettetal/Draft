@@ -1,4 +1,4 @@
-﻿# Verifie le rendu reel des panneaux dans Chrome : debordements, textes coupes ou superposes, cibles trop petites.
+# Verifie le rendu reel des panneaux dans Chrome : debordements, textes coupes ou superposes, cibles trop petites.
 # Tailles en pixels d'interface : 230 et 256 correspondent aux panneaux reels a 125 % d'affichage Windows.
 # Ce test ne remplace pas un controle a l'oeil : -Shots ecrit aussi des captures.
 # -Lang qps : pseudo-langue (tools/i18n/pseudo-localize.ps1), dans la copie de test seulement. Chaque texte du catalogue devient
@@ -39,7 +39,8 @@ if (-not $Chrome) { throw 'Chrome introuvable.' }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Base = 'file:///' + ($Web -replace '\\', '/') + '/draft-layout-tests.html'
 $Common = @('--headless=new', '--disable-gpu', '--force-prefers-reduced-motion', '--no-first-run', '--allow-file-access-from-files', "--user-data-dir=$Out\profil-$PID", '--window-size=1960,1120')
-$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-)'
+# MOT-COUPE et BOUTON-DEUX-LIGNES (panneaux primaires) : un mot coupe en son milieu, ou le bouton principal sur deux lignes.
+$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-)'
 $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
@@ -107,7 +108,9 @@ foreach ($run in $Runs) {
     foreach ($frame in $frames.PSObject.Properties) {
         foreach ($issue in $frame.Value.issues) {
             # Nom fictif de 41 caracteres : ces signaux varient selon les animations. Le rendu a ete controle a l'oeil, sans chevauchement.
-            if ($run[0] -eq 'extreme' -and $issue -match '^(TEXTES-|BOUTON-|DEFILE-X aside)') { continue }
+            if ($run[0] -eq 'extreme' -and $issue -match '^(TEXTES-|BOUTON-SUR|DEFILE-X aside)') { continue }
+            # Mot sans espace de 70 lettres ecrit expres dans la raison fictive : il ne tient sur aucune ligne, il est coupe.
+            if ($run[0] -eq 'extreme' -and $issue -match '^MOT-COUPE .*motSansEspace') { continue }
             if ($issue -match $Hard -and $issue -notmatch 'section\.stage "Illustration') { if (-not $found[$issue]) { $found[$issue] = @() }; $found[$issue] += $frame.Name }
         }
         foreach ($k in '.p-name', '.p-actions .cta', '.champ-name') {

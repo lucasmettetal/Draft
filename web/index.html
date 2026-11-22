@@ -1241,6 +1241,20 @@
   .p-nm, .panel .p-name, .panel .viewed-head b, .panel .p-threat b { display:block; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .panel .rank-word, .panel .p-chip, .panel .badge, .panel .p-manual { white-space:nowrap; }
   .panel .viewed-head .rank-word { flex:none; }
+  /* Étiquettes et puces : une ligne, tronquées proprement si la place manque (jamais un mot coupé en deux lignes). */
+  .panel .p-alt small, .panel .p-pool-name .rank-word { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; align-self:flex-start; }
+  .panel .res { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+  @media (max-width:260px) { .panel .p-alt .portrait { width:32px !important; height:32px !important; } .panel .p-alt { gap:8px; } }
+  /* Panneau gauche sous 240 px : l'icône de rôle seule (nom du rôle au survol, et dans l'étiquette de la ligne pour les lecteurs
+     d'écran) ; la colonne du nom gagne 22 px, assez pour « (probable) » sans le couper. */
+  @media (max-width:240px) {
+    .panel-left .role-icon { width:26px; }
+    .panel-left .role-label { display:none; }
+  }
+  /* Compact : libellés de rôle sur une ligne (« Support » déborde de 1 à 2 px de sa colonne, comme avant) ; noms adverses tronqués
+     proprement, nom complet au survol. */
+  .panel .compact-roles .role-icon { white-space:nowrap; overflow-wrap:normal !important; }
+  .panel .compact-roles .role-name, .panel .compact-roles .role.is-mid .role-name { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; overflow-wrap:normal !important; -webkit-line-clamp:unset; }
   .p-risk { flex:none; }
   .p-results { flex:none; }
   /* Panneau gauche : provenance, légende des cadres (plein = placé à la main, pointillé = supposé) et conseil à jour. */
@@ -2195,7 +2209,7 @@ function RoleRow({ role, name, assumed, info }) {
   return html`<div className=${cls} data-test="enemy-row" data-slot=${role}>
     <button type="button" className="role-hit" aria-label=${label} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
     ${flash ? html`<${motion.span} key=${flash.id} className=${`role-flash ${flash.kind}`} aria-hidden="true" initial=${{ opacity:.45 }} animate=${{ opacity:0 }} transition=${{ duration:.35 }} />` : null}
-    <span className="role-icon"><${RoleIcon} role=${role} />${ROLE_LABEL[role]}</span>
+    <span className="role-icon" title=${ROLE_LABEL[role]}><${RoleIcon} role=${role} /><span className="role-label">${ROLE_LABEL[role]}</span></span>
     ${name ? html`<${motion.span} key=${name} layoutId=${`who-${name}`} initial=${{ scale:.86, opacity:.4 }} animate=${{ scale:1, opacity:1 }} transition=${SNAP} className="who-wrap">
         <${Portrait} name=${name} size=${44} />
         <span className="role-who">

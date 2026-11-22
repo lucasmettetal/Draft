@@ -1,0 +1,111 @@
+OK : 1. Lancé sans client : aucun panneau, phase client fermé
+OK : 1. Sans client : WebView2 n'est pas chargé
+OK : 2. Client sur l'accueil : aucun panneau
+OK : 3. Client dans un lobby : aucun panneau
+OK : Transition incertaine : aucun panneau
+OK : Une seule lecture positive ne suffit pas
+OK : Préversion : autre DRAFT ouverte signalée par une bulle au premier passage en draft (« Another DRAFT is open (DraftMid.exe): its panels may show up next to the pre-release panels. Hide those of one of them, or close the other one yourself. »)
+MESURE : panneaux visibles 12660 ms après la détection
+OK : 4. Début de draft : panneaux affichés
+OK : Mise à jour depuis le menu pendant une draft : bulle « relance après » (A draft or a game is in progress: run the update afterwards.)
+OK : 4. Les deux panneaux sont visibles
+OK : 4. Panneaux juste de chaque côté, sans chevauchement (35,155 425x720 | 460,155 1000x720 | 1460,155 425x720)
+OK : 4. Hauteur et alignement sur le client
+OK : Aucun vol de focus à l'apparition
+ECHEC : Raccourci Ctrl+Alt+D non enregistré : laissé volontairement à la 2.x par la préversion (raison « instance » ; autres instances DRAFT de la session : DRAFT-Portable.exe pid 32132) ; aucune tentative, donc pas de conflit 1409
+OK : Lectures fugitives : pas de clignotement
+OK : 7. Déplacement : les panneaux suivent (520,195 1000x720)
+MESURE : 40 événements Windows, 37 déplacements de panneaux sur 3958 ms
+OK : 7. Déplacements limités à une mise à jour par étape
+MESURE : rafales : du dernier événement au déplacement, moyenne 6,4 ms, maximum 9,0 ms (fenêtre simulée, sans le client réel ni l'affichage)
+OK : 7. Rafales : les panneaux rattrapent toujours la dernière position
+OK : Retour sur le client : les panneaux repassent devant l'autre fenêtre
+OK : Retour sur le client : aucun vol de focus
+OK : Panneaux non épinglés au-dessus des autres applications par défaut
+OK : Déplacement : les panneaux gardent leur taille, sans redessin à chaque pas (0 changement(s))
+ECHEC : Déplacement : le panneau reste collé au client à chaque pas (11 écart(s))
+OK : À l'arrêt : la taille est recalculée et les panneaux restent sur l'écran (0,155 349x720 | 1499,155 421x720)
+OK : 8. Redimensionnement : les panneaux s'adaptent (400,145 880x700)
+OK : Place insuffisante : passage en panneau unique
+OK : Place insuffisante : le panneau ne couvre pas le client ({X=1545,Y=155,Width=375,Height=720})
+OK : Place retrouvée : retour à deux panneaux
+NON TESTE : deux écrans, un seul présent.
+OK : 10. Client réduit : panneaux masqués
+OK : 10. Client restauré pendant la draft : panneaux restaurés
+OK : 12. Raccourci manuel : panneaux masqués pendant la draft
+OK : 12. Le masquage manuel tient tant que la phase ne change pas
+OK : 12. Raccourci manuel : panneaux réaffichés
+OK : 5. Fin de draft : panneaux masqués
+MESURE : panneaux déjà préparés, visibles 53 ms après la détection
+OK : Nouvelle draft : panneaux affichés
+OK : 6. Draft annulée : panneaux masqués
+OK : 12. Affichage manuel hors draft
+OK : 12. L'affichage manuel se termine au changement de phase
+OK : Draft relancée
+OK : Partie en cours : masquage immédiat
+OK : Partie en cours : aucune réapparition
+OK : Activation automatique désactivée : pas d'affichage
+OK : Activation automatique réactivée pendant la draft
+OK : 11. Client fermé : panneaux masqués
+OK : 11. Client relancé : aucun panneau hors draft
+OK : 11. Client relancé puis draft : panneaux replacés
+OK : Aucun vol de focus sur tout le scénario
+OK : LCU simulé : lobby, aucun panneau
+OK : LCU simulé : ChampSelect affiche les panneaux dès la première lecture
+OK : LCU simulé : champions reçus, intention de pick ignorée ("Sett,Vi,Galio")
+OK : LCU simulé : corrections manuelles conservées ("Sett,Vi,Galio,Janna,Aphelios", mid "Sett")
+OK : LCU simulé : un champion détecté puis disparu est retiré ("Sett,Galio,Janna,Aphelios")
+OK : LCU simulé : client injoignable, repli sans masquer la draft
+OK : LCU simulé : draft annulée, panneaux masqués immédiatement
+OK : LCU simulé : partie lancée, panneaux masqués
+OK : LCU simulé : seuls les deux endpoints documentés sont appelés
+OK : Scénario 2. Accueil du client : aucun panneau
+OK : Scénario 3. Lobby : aucun panneau
+OK : Scénario : partie trouvée, aucun panneau avant la sélection
+OK : Scénario 4. Début de sélection : panneaux affichés, composition vide
+OK : Scénario 4. Un ban est conseillé avant les picks
+OK : Scénario 5. Adversaires ajoutés un par un ("Sett,Vi")
+OK : Scénario 7. Mid non confirmé : il reste une supposition
+OK : Scénario 6. Changement de champion ("Sett,Galio")
+OK : Réponse tronquée : composition conservée
+OK : Session absente : composition et panneaux conservés
+OK : Scénario 7. Sett, Galio, Ahri : aucune certitude affichée ("Ahri")
+OK : Scénario 7. Aucune correction manuelle inventée
+OK : Le verdict affiche ses raisons (d'abord "TF")
+OK : Scénario 8. Draft complète
+OK : Scénario 13. Requête bloquée : abandon en 415 ms, panneaux conservés
+OK : Scénario 13. Reprise après blocage, composition conservée
+OK : Scénario 11. Client déconnecté : panneaux conservés, identifiants oubliés
+OK : Scénario 12. Client redémarré : reconnexion, retour au lobby, panneaux masqués
+OK : Nouvelle sélection : la draft précédente est effacée ("Syndra")
+OK : Scénario 10. Sélection annulée : panneaux masqués
+OK : Scénario 9. Fin de sélection : chargement sans panneau
+OK : Scénario : partie en cours, aucun panneau
+OK : Scénario : fin de partie, aucun panneau
+OK : Relevé : une ligne par sélection, colonnes réelles à remplir, rôles prédits en fin de ligne (2 lignes)
+OK : Parcours complet : panneaux visibles seulement en sélection 
+OK : Parcours complet : 3 sélections, 3 apparitions, aucun clignotement (3)
+OK : Scénario 1. Client fermé : veille, identifiants oubliés
+OK : Scénario : seuls les deux endpoints documentés sont appelés
+OK : Client fermé puis rouvert : l'application reste ouverte et recrée ses panneaux
+OK : Réglages et fenêtre principale : frappes, sélection, enregistrement et fermeture ; échelle (page à 1.25, fenêtre à 1.25, barre de titre sombre) 
+OK : Menu de l'icône (8 entrées au plus, rien de perdu), double-clic, bulle de masquage (League client closed | Open DRAFT | Show panels | Simulate a draft | Draft detection | Draft detection > This is a draft: remember this screen | Draft detection > This isn't a draft: remember this screen | Draft detection > League connection diagnostic | Settings | Check for updates | Quit) 
+OK : Langue : menu de l'icône en anglais
+OK : QA-6. Mécanisme du raccourci, essai isolé sur Ctrl+Alt+Maj+F11 : enregistrement, WM_HOTKEY, bascule, conflit 1409 signalé sans plantage (Ctrl+Alt+Maj+F11 enregistré, 2 WM_HOTKEY, panneaux False > True > False, second enregistrement : Win32 1409) 
+OK : Profils par rôle et rôle attribué par LoL, dans la vraie fenêtre 
+OK : Import Riot simulé depuis l'application, sans appel réel, sans trace de clé 
+OK : Analyse détaillée, Comparer et simulateur n'effacent jamais la draft en cours (50 ouvertures (Analyse détaillée / Comparer), 0 perte(s) de draft, 0 perte(s) à la fermeture, 0 fenêtre(s) sans la draft, 0 rechargement(s) de la page ; 20 actions de simulation, 0 changement(s) des panneaux) 
+OK : Choix du champion dans les vraies fenêtres : consulter (fenêtre ou panneau) ne note rien, « Je joue » confirme, « Comparer » ne choisit pas, l'alternative se consulte dans le panneau, synchronisation dans les deux sens, retour au conseil, simulation hors du journal, nouvelle sélection sans choix (right : conseil Fizz, choix Xerath, bouton « Xerath logged », marques draft|true|false|0|true, journal Fizz > Xerath puis Fizz > Xerath après le clic, Fizz > Fizz après le retour au conseil, 1 entrée(s) ajoutée(s), simulation 0 entrée ; compact : conseil Fizz, choix Xerath, bouton « Xerath logged », marques draft|true|false|0|true, journal Fizz > Xerath puis Fizz > Xerath après le clic, Fizz > Fizz après le retour au conseil, 1 entrée(s) ajoutée(s), simulation 0 entrée ; commandes visibles : right 336x567 à 1.25 ; right 1920x1080@100% two 320x720 (zone utile 316x711 à 1.25) ok ; right 1920x1080@125% two 256x576 (zone utile 252x567 à 1.25) ok ; compact 359x567 à 1.25 ; compact 1366x768@125% manual 230x520 (zone utile 222x511 à 1.25) ok ; compact 1920x1080@100% compact 320x720 (zone utile 311x711 à 1.25) ok ; compact 1920x1080@125% compact 256x576 (zone utile 247x567 à 1.25) ok ; ) 
+OK : Protections de la page dans la vraie WebView2 : CSP, eval, réseau, cadres, navigation 
+OK : Mise à jour depuis le menu : bulle « DRAFT est à jour » (DRAFT is up to date (version 3.0.0).)
+OK : Mise à jour depuis le menu, installation refusée : bulle « version disponible » (Version 99.0.0 is available.)
+OK : Mise à jour depuis le menu, réseau absent : bulle d'erreur en clair (GitHub isn't responding. Check your connection, then try again.)
+OK : Préversion 3.0.0-beta.1 : mise à jour à la main, Ctrl+Alt+D laissé à la 2.x et activable dans Réglages > Affichage (mise à jour : bulle « Test pre-release: download new versions manually. », aucune vérification ; Ctrl+Alt+D laissé : instance ; activation explicite : Ctrl+Alt+D enregistré ; puis rendu à la 2.x (instance) ; notice « Another DRAFT is open (DraftMid.exe): it… » affichée puis retirée) 
+OK : Accueil et premier lancement : premier lancement sur l'Accueil, état League réel (LCU simulé), activation et essai des panneaux par la page (premier lancement sur l'Accueil, lecture du client connectée puis failed, 1 essai(s) des panneaux) 
+OK : QA A2. Rôle attribué par League (LCU simulé, de bout en bout) : 5 postes, poste vide ou inconnu, changement entre deux drafts, autoRole, sans LCU ; jamais déduit du champion (5/5 postes (format réel), vide et inconnu sans déduction, changement entre drafts, bascule visible et réversible dans le panneau, correction manuelle jamais écrasée, poste instable sans effet, perte de connexion, suggest/off, sans LCU ; diagnostic ChampSelect/1 poste=jungle ; ChampSelect/1 poste=aucun ; ChampSelect/illisible poste=illisible ; 89 requêtes, toutes autorisées : True) 
+OK : 1a/1c/1d. Rôle automatique : détection Jungle dans toutes les pages ("jungle|Viego/Lee_Sin" left:"jungle|Viego/Lee_Sin" right:"jungle|Viego/Lee_Sin" compact:"jungle|Viego/Lee_Sin"), DRAFT lancé pendant la sélection, draft suivante (1c auto : Jungle et pool Jungle dans 2 pages créées tard + fenêtre ouverte ensuite, notice dans le panneau ; 1d : avant (Mid à la main, consulté, confirmé) 3 pages ; après, Top et pool Top, rien de manuel, consulté ni confirmé ; 1c proposer : Mid gardé, proposition Jungle visible, 2 pages d'accord ; 17 requêtes GET autorisées) 
+OK : QA A1. Langue changée pendant une draft : panneaux gardés jusqu'à la fin, draft suivante dans la nouvelle langue, menu et bulle traduits, valeur hors liste refusée, auto (en > fr pendant la draft (panneaux gardés : "en:3"|"en:3"), 6 rechargement(s) après, bulle « Une draft ou une partie est en cours : relance la mise à jour après. ») 
+OK : Langue : changement sans redémarrage, menu, fenêtre et panneaux (en > fr > en, 6 rechargement(s), panneaux rechargés hors draft) 
+MESURE : recherche de champions : 320 frappes, 0 perdues, 0 séries incorrectes
+OK : Langue en : aucune clé du programme absente pendant le scénario
+2 ECHEC(S)
