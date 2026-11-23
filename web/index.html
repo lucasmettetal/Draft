@@ -417,6 +417,11 @@
   .p-ban .note { margin-top:3px; font-size:12px; }
   .p-actions { position:sticky; bottom:-12px; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:auto -12px -12px; padding:8px 12px 10px; background:var(--bg); border-top:1px solid var(--line); }
   .p-actions .cta { margin:0; min-height:36px; padding:5px 13px; font-size:15px; }
+  /* « Dans League » (beta.2) : pick lu dans le client, à part du champion consulté. */
+  .league-line { flex:1 1 100%; display:flex; flex-direction:column; gap:1px; min-width:0; margin:2px 0; font-size:var(--fs-sm); line-height:1.25; }
+  .league-status { font-weight:600; overflow-wrap:anywhere; }
+  .league-status.done { color:var(--good); }
+  .league-auto { color:var(--muted); font-size:var(--fs-xs); overflow-wrap:anywhere; }
   .p-empty { color:var(--muted); }
   .settings-back { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(10,8,14,.74); }
   .settings { width:min(520px,100%); max-height:100%; overflow:auto; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:8px; }
@@ -1456,9 +1461,111 @@ function updateEntry(id, change) {
   if (entry) { Object.assign(entry, change); saveJournal(list); }
 }
 
+// Issue de la sélection (docs/technique/JOURNAL.md), transmise par le programme : gameStarted (partie lancée) ou abandoned (draft
+// annulée). Sans l'une ni l'autre, l'issue est inconnue : « à confirmer », jamais jouée d'office. Une entrée annulée reste dans le
+// journal, mais n'est ni comptée ni proposée comme « Dernière partie ». Les anciennes entrées ne sont pas réécrites.
+const isAbandoned = x => !!x && x.abandoned === true;
+const countedEntries = list => list.filter(x => !isAbandoned(x));
+// « Dernière partie » à compléter : seulement une partie dont le lancement a été vu.
+const lastGameToComplete = list => [...list].reverse().find(x => x.result === null && x.gameStarted === true && !isAbandoned(x)) || null;
+// Clé de la sélection en cours, donnée par le programme : posée sur l'entrée créée pendant cette sélection, ou juste après sa fin.
+const liveSelection = () => IS_HOST && hostState.draftKey && (hostState.draftOutcome === "draft" || hostState.draftOutcome === "pending") ? String(hostState.draftKey) : null;
+// Notée une seule fois, dans l'entrée de CETTE sélection : messages en double, en retard ou dans le désordre ne changent plus rien,
+// et rien n'est créé. Plusieurs pages peuvent l'appliquer : elles écrivent la même chose.
+const OUTCOME_FIELDS = { game: { gameStarted: true }, abandoned: { abandoned: true } };
+// Entrée d'une sélection : même clé, sinon même partie (gameId, DRAFT redémarré pendant la sélection).
+const selectionEntry = (list, key, gameId) => list.find(x => x.selection === String(key)) || (gameId ? list.find(x => x.gameId === gameId) : null) || null;
+function applyDraftOutcome(key, outcome) {
+  if (!key || !OUTCOME_FIELDS[outcome]) return false;
+  const list = loadJournal();
+  const l = leaguePick && leaguePick.key === String(key) ? leaguePick : null;
+  const entry = selectionEntry(list, key, l && l.gameId);
+  if (!entry || entry.gameStarted === true || isAbandoned(entry)) return false;
+  Object.assign(entry, OUTCOME_FIELDS[outcome]);
+  saveJournal(list);
+  return true;
+}
+
+// ---------- « Dans League » et journal automatique (beta.2, docs/technique/JOURNAL.md) ----------
+// Ton pick lu dans le client (survolé, verrouillé, final), envoyé par le programme à chaque page (hostState.league). Comme le poste
+// attribué, il ne vient jamais d'une autre page. Versionné : une sélection plus récente (clé plus grande), sinon une version plus
+// grande. Indépendant du champion CONSULTÉ dans DRAFT : l'un ne change jamais l'autre, ni le classement.
+let leaguePick = null;
+function takeLeague(next) {
+  if (!next || typeof next.v !== "number" || !next.key) return false;
+  const cur = leaguePick;
+  if (cur && (Number(next.key) < Number(cur.key) || (next.key === cur.key && next.v <= cur.v))) return false;
+  leaguePick = next;
+  return true;
+}
+const leagueNow = () => IS_HOST && leaguePick && hostState.draftKey && leaguePick.key === String(hostState.draftKey) ? leaguePick : null;
+// Journal automatique : lecture du client opérationnelle, draft classique, sélection en cours ou juste finie. Pas de « Je joue » : le
+// pick sera noté au lancement de la partie. Sinon (lecture désactivée ou perdue, autre mode, Simulateur), « Je joue » sert de repli.
+function autoJournal() {
+  const l = leagueNow();
+  return !!l && !simulating && l.readable && l.supported && !l.lost && !!hostState.lcuEnabled
+    && (hostState.draftOutcome === "draft" || hostState.draftOutcome === "pending");
+}
+// Identifiant de champion du client → pick de DRAFT (« TF » pour Twisted Fate), ou null.
+function pickIdOf(id) {
+  const name = id ? toName(CHAMPION_IDS[id]) : "";
+  return name ? Object.keys(FULL).find(k => FULL[k] === name) || name : null;
+}
+// Conseil au moment du verrouillage (suggested, close, tied, tiedWith, recommended) : mémorisé une fois par sélection, par la première
+// page qui voit le verrouillage. Jamais en simulation.
+const LOCK_MEMO_KEY = "draftLockMemo";
+function lockMemo(key) {
+  try { const m = JSON.parse(localStorage.getItem(LOCK_MEMO_KEY)); return m && m.key === String(key) ? m : null; } catch (e) { return null; }
+}
+function memoLock() {
+  const l = leagueNow();
+  if (!l || simulating || !V || V.none || !l.lockedFirst || lockMemo(l.key)) return;
+  try { localStorage.setItem(LOCK_MEMO_KEY, JSON.stringify({ key: l.key, context: pickContextFor(pickIdOf(l.lockedFirst)) })); } catch (e) {}
+}
+// Partie lancée après un verrouillage lu dans le client : UNE entrée, origin "lcu", picked = champion final. Une entrée « Je joue »
+// de la même sélection est complétée, jamais doublée. result reste null : aucun résultat n'est inventé. Lecture perdue au lancement,
+// autre mode ou Simulateur : rien ici (l'entrée « Je joue », s'il y en a une, suit la règle de l'issue).
+function writeLeagueEntry(key) {
+  const l = leaguePick;
+  if (!IS_HOST || simulating || !l || l.key !== String(key) || !l.readable || !l.supported || l.lost || !l.lockedFirst || !l.champion) return false;
+  const picked = pickIdOf(l.champion), first = pickIdOf(l.lockedFirst);
+  if (!picked) return false;
+  const list = loadJournal();
+  const existing = selectionEntry(list, key, l.gameId);
+  if (existing && existing.origin === "lcu") return false;
+  const memo = lockMemo(key);
+  const fields = Object.assign({}, memo ? memo.context : {}, { picked }, first && first !== picked ? { lockedFirst: first } : {},
+    { traded: !!l.traded, origin: "lcu", selection: String(key) }, l.gameId ? { gameId: l.gameId } : {}, { gameStarted: true });
+  let entry = existing;
+  if (entry) { Object.assign(entry, fields); if (!fields.lockedFirst) delete entry.lockedFirst; }
+  else {
+    entry = Object.assign({ id: Date.now(), date: new Date().toISOString() }, fields, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, app: APP_VERSION });
+    list.push(entry);
+  }
+  saveJournal(list);
+  // Résultat à saisir depuis cette draft, comme après « Je joue ».
+  state.current = entry.id;
+  return true;
+}
+// Issue reçue : partie lancée (entrée automatique d'abord), puis gameStarted ou abandoned (une seule fois).
+function settleOutcome(key, outcome) {
+  const wrote = outcome === "game" && writeLeagueEntry(key);
+  return applyDraftOutcome(key, outcome) || wrote;
+}
+
 // L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
 function syncCurrentEntry() {
-  if (state.current) updateEntry(state.current, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+  const entry = currentEntry();
+  if (entry) updateEntry(entry.id, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+}
+// Entrée de la draft affichée, ou null (correctif beta.2). Elle doit appartenir à la sélection en cours (même clé), ou, sans
+// sélection du programme (navigateur, affichage manuel, après le lancement), ne porter aucune clé. Une entrée d'une autre
+// sélection n'est jamais réutilisée ni modifiée : une page restée sur la draft d'avant crée une nouvelle entrée.
+function currentEntry(list) {
+  const entry = state.current ? (list || loadJournal()).find(x => x.id === state.current) : null;
+  if (!entry) return null;
+  const live = liveSelection();
+  return (entry.selection || null) === (live || state.sessionKey || null) || (!entry.selection && !live) ? entry : null;
 }
 
 
@@ -1576,7 +1683,7 @@ ENGINE_PREFS.favorite = PREFS.favorite;
 const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
 // Le choix du joueur (picked, pickContext) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
 // en retard dans une autre fenêtre (autre processus WebView2), et le bouton d'un panneau montrait alors un ancien choix.
-const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
+const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
 // Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
@@ -1595,7 +1702,7 @@ let simulating = false;
 // Un message sans version (page d'une version précédente) est appliqué entièrement, comme avant.
 const PAGE_ID = (PANEL || "full") + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const SYNC_GROUPS = {
-  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive"],
+  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey"],
   pick: ["current", "picked", "pickContext"],
   viewed: ["viewed"],
   // Rôle joué (PROFILES.active) et décisions sur le rôle attribué. Le poste attribué lui-même vient du programme (applyRemote).
@@ -1692,9 +1799,28 @@ function resetRoleSession() { state.roleManual = false; state.roleDismissed = nu
 // survivent à la draft précédente (resetDraft efface aussi viewed, picked et current).
 // Le programme efface le rôle attribué hors sélection : un rôle déjà connu ici vient de cette draft (message draftStart arrivé après
 // la lecture du poste, panneaux créés à ce moment). La bascule, la correction manuelle ou la proposition ignorée sont alors gardées.
-function onDraftStart() { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
-// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : le rôle attribué en attente est traité.
-function afterSync() { if (hostState.available) handleAssignedRole(hostState.assignedRole || null); }
+// key : clé de la sélection (programme), gardée dans l'état partagé (sessionKey) pour que chaque page sache quelle draft elle montre.
+function onDraftStart(key) { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); if (key) state.sessionKey = String(key); dispatchDraft({ type:"session-start" }); }
+// Correctif beta.2 : une nouvelle sélection remet la draft à zéro dans TOUTES les pages, une seule fois par clé. Elle arrive par le
+// message draftStart, ou se voit dans l'état du programme (draftKey) : page ouverte en retard, message perdu, panneau en pause.
+// Une page déjà passée à cette clé, elle-même ou par la synchronisation, ne recommence pas : un double signal n'efface jamais une
+// draft commencée. Une page pas encore synchronisée attend l'état des autres (afterSync).
+let pendingSelection = null;
+function startSelection(key) {
+  if (!key) return false;
+  if (!synced) { pendingSelection = String(key); return false; }
+  const live = simulating ? liveCopy : state;
+  if (live && live.sessionKey === String(key)) return false;
+  onDraftStart(key);
+  return true;
+}
+// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : la sélection en cours, puis le rôle attribué en attente.
+function afterSync() {
+  const key = pendingSelection || (hostState.available && hostState.draftOutcome === "draft" ? hostState.draftKey : null);
+  pendingSelection = null;
+  if (key) startSelection(key);
+  if (hostState.available) handleAssignedRole(hostState.assignedRole || null);
+}
 const roleSuggestion = () => roleDecision() === "suggest" ? state.assignedRole : null;
 
 function savePrefs(change) {
@@ -2005,17 +2131,19 @@ function choosePick(pick) {
   if (!pick) return;
   // Confirmer termine la consultation : le bouton et la coche montrent maintenant le choix confirmé.
   state.viewed = null;
-  if (pick === currentPick() && (state.current || simulating)) { publish(null); return; }
+  if (pick === currentPick() && (currentEntry() || simulating)) { publish(null); return; }
   state.picked = pick;
   state.pickContext = pickContextFor(pick);
   if (!simulating) {
     const list = loadJournal();
     const noted = Object.assign({}, state.pickContext, { picked: pick });
-    const entry = state.current && list.find(x => x.id === state.current);
+    // Correctif beta.2 : seulement l'entrée de CETTE sélection. Une page restée sur la draft d'avant n'y réécrit plus rien.
+    const entry = currentEntry(list);
     if (entry) Object.assign(entry, noted);
     else {
-      const id = Date.now();
-      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }));
+      // « Je joue » de repli (lecture perdue) : la partie lue plus tard complète cette entrée (même clé ou même gameId).
+      const id = Date.now(), selection = liveSelection(), l = selection && leagueNow();
+      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }, selection ? { selection } : {}, l && l.gameId ? { gameId: l.gameId } : {}));
       state.current = id;
     }
     saveJournal(list);
@@ -2361,6 +2489,9 @@ const speakVerdict = name => V.tied ? t("advice.speak.tie", { champions: V.tied.
 // remplace jamais silencieusement un autre choix. Confirmé, il dit « X noté » (« choisi » en simulation, rien dans le journal).
 // À égalité sans consultation ni choix : pas de bouton, chaque ex æquo se consulte d'abord.
 function pickCta() {
+  // Journal automatique (beta.2) : pas de « Je joue », le pick est lu dans League et noté au lancement de la partie (LeagueLine).
+  // leagueSlot : mode connecté FICTIF des pages de mise en page V2 (null dans l'application).
+  if (autoJournal() || leagueSlot) return null;
   const picked = currentPick(), viewed = viewedPick(), target = viewed || picked || (V.tied ? null : V.shown);
   if (!target) return null;
   const name = label(target), done = !!picked && target === picked;
@@ -2371,6 +2502,22 @@ function pickCta() {
     help: simulating ? t("advice.cta.simHelp") : CTA_HELP,
     click: () => choosePick(target)
   };
+}
+// « Dans League : Vex (survolé) », puis « Dans League : Vex verrouillé ✓ » : lu dans le client, à part du champion consulté.
+// Avec le journal automatique, la ligne « Ton pick sera noté automatiquement… » remplace « Je joue ». Lecture perdue ou autre mode :
+// la raison du repli « Je joue ». Rien sans lecture du client, ni en simulation.
+function LeagueLine() {
+  const l = leagueNow();
+  if (!l || simulating || !hostState.lcuEnabled) return null;
+  const line = (state, content) => html`<div className="league-line" data-test="league-line" data-state=${state} role="status">${content}</div>`;
+  if (hostState.draftOutcome === "abandoned") return line("abandoned", html`<span className="league-status">${t("journal.abandoned.note")}</span>`);
+  if (l.lost) return line("lost", html`<span className="league-status">${t("league.lost")}</span>`);
+  if (!l.readable) return null;
+  if (!l.supported) return line("unsupported", html`<span className="league-status">${t("league.unsupported")}</span>`);
+  const pick = pickIdOf(l.champion), name = pick ? label(pick) : "", done = l.state === "locked" || l.state === "final";
+  const text = !name ? t("league.none") : done ? t(l.traded ? "league.lockedTraded" : "league.locked", { champion: name }) : t("league.hover", { champion: name });
+  return line(l.state, html`<span className=${`league-status${done && name ? " done" : ""}`} data-test="league-status">${text}</span>
+    ${autoJournal() ? html`<small className="league-auto" data-test="league-auto">${t("league.auto")}</small>` : null}`);
 }
 // Conseil rappelé à part, toujours identifiable : pendant une consultation, « Revenir au conseil » l'annule (rien n'était noté) ;
 // après la confirmation d'un autre champion, il confirme le conseil à la place.
@@ -2571,6 +2718,7 @@ function Stage() {
         <${ViewedCard} />
         ${V.rival ? html`<div className="alt-line"><em>${t("advice.alt.else")}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
         <div className="stage-notes"><${CoachLine} /><${FamiliarLine} /><${OpponentLine} /></div>
+        <${LeagueLine} />
         ${cta ? html`<button type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} onClick=${cta.click}>${cta.text}</button>` : null}
         <${PickAdvice} />
       </div>
@@ -2609,9 +2757,10 @@ function Stage() {
         </details>` : null}
       <//>
       <${ViewedCard} />
-      <${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
+      <${LeagueLine} />
+      ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
         <${motion.span} key=${cta.target + (cta.picked ? "-done" : "")} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${cta.text}<//>
-      <//>
+      <//>` : null}
       <${PickAdvice} />
     <//>
   </section>`;
@@ -2679,10 +2828,17 @@ function ResultButtons({ id, result, disabled }) {
   </div>`;
 }
 
+// Résultat de l'entrée en cours, ou de la dernière partie lancée. Draft annulée : pas de résultat à saisir, elle n'est pas comptée.
+function EntryResult({ entry, pending }) {
+  if (isAbandoned(entry)) return html`<p className="result-note" data-test="draft-abandoned" role="status">${t("journal.abandoned.note")}</p>`;
+  if (!entry && !pending) return null;
+  return html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />`;
+}
+
 function PlanBlock() {
   const list = loadJournal();
   const entry = state.current && list.find(x => x.id === state.current);
-  const pending = !entry && !state.enemies.length && [...list].reverse().find(x => x.result === null);
+  const pending = !entry && !state.enemies.length && lastGameToComplete(list);
   const c = V.res.counts;
   const playing = playingPick();
   const threats = playing ? threatsFor(playing, c) : [];
@@ -2695,8 +2851,8 @@ function PlanBlock() {
     <div className="plan-row threat"><span>${t("plan.threats")}</span><${Faces} names=${threats} empty=${t("plan.threatsNone")} /></div>
     <div className="plan-row target"><span>${t("plan.targets")}</span><${Faces} names=${targets} empty=${t("plan.targetsNone")} /></div>
     <div className="plan-row ban-row"><span>${t("plan.bans")}</span><${Faces} names=${V.bans} empty=${t("plan.bansNone")} /></div>
-    ${pending ? html`<p className="result-note">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
-    ${entry || pending ? html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />` : null}
+    ${pending ? html`<p className="result-note" data-test="last-game">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
+    <${EntryResult} entry=${entry} pending=${pending} />
   </section>`;
 }
 
@@ -2941,10 +3097,14 @@ function StatsTab() {
   </div>`;
 }
 
+// Statut d'une entrée : draft annulée, résultat saisi, partie lancée en attente du résultat, ou issue inconnue (à confirmer).
+const entryStatus = x => isAbandoned(x) ? t("journal.status.abandoned")
+  : ({ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") })[x.result] || t(x.gameStarted === true ? "journal.status.pending" : "journal.status.unconfirmed");
+
 function JournalTab() {
-  const list = loadJournal();
-  if (!list.length) return html`<p className="small">${t("journal.empty")}</p>`;
-  const played = list.filter(x => x.result === "win" || x.result === "loss");
+  const all = loadJournal();
+  if (!all.length) return html`<p className="small">${t("journal.empty")}</p>`;
+  const played = countedEntries(all).filter(x => x.result === "win" || x.result === "loss");
   const tally = rows => { const w = rows.filter(x => x.result === "win").length; return { wins:w, losses:rows.length - w, games:rows.length }; };
   const followed = tally(played.filter(x => x.picked === x.suggested));
   const other = tally(played.filter(x => x.picked !== x.suggested));
@@ -2959,9 +3119,9 @@ function JournalTab() {
       <ul className="comps">${played.slice(-5).reverse().map(x => html`<li key=${x.id}><span className=${`game ${x.result}`}></span><b>${label(x.picked)}</b><span className="comp-faces">${(x.enemies || []).map(n => html`<${Portrait} key=${n} name=${n} size=${22} />`)}</span></li>`)}</ul>` : null}
     <p className="small">${t("journal.followed", { followed: fmtRecord(followed), other: fmtRecord(other) })}</p>
     <table><thead><tr><th>${t("journal.table.date")}</th><th>${t("journal.table.pick")}</th><th>${t("journal.table.mid")}</th><th>${t("journal.table.advice")}</th><th>${t("journal.table.result")}</th></tr></thead>
-    <tbody>${list.slice(-10).reverse().map(x => html`<tr key=${x.id}>
+    <tbody>${all.slice(-10).reverse().map(x => html`<tr key=${x.id}>
       <td>${fmtDate(x.date)}</td><td>${label(x.picked)}</td><td>${x.mid || "-"}</td><td>${label(x.suggested || "-")}</td>
-      <td>${{ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") }[x.result] || t("journal.status.pending")}</td></tr>`)}</tbody></table>
+      <td>${entryStatus(x)}</td></tr>`)}</tbody></table>
     <p style=${{ marginTop:10 }}><button type="button" className="ghost-btn" onClick=${exportJournal}>${t("journal.download")}</button></p>
   </div>`;
 }
@@ -3040,6 +3200,7 @@ function SidePanel() {
 function MobileBar() {
   if (V.none) return null;
   const cta = pickCta();
+  if (!cta && autoJournal()) return html`<div className="mobile-bar"><${LeagueLine} /></div>`;
   if (!cta) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span><${PickCurrent} /></div>`;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${cta.name} size=${32} />${cta.name}</span>
@@ -3166,12 +3327,19 @@ const shownIsFirst = () => { const first = V.res.ranking[0]; return !first || fi
 // dans le panneau lui-même. « Détails » y mène sans ouvrir la grande fenêtre ; « Ouvrir le Simulateur » reste en dernier recours.
 const pickTitle = () => simulating ? t("advice.cta.simHelp") : CTA_HELP;
 
-// Emplacement « Dans League » : champion survolé ou verrouillé DANS League, à part du champion consulté. Cette branche ne lit pas ce
-// champion (lecture et journal automatique : autre branche, PR #40) : leagueSlot reste null dans l'application, et « Je joue » reste
-// la seule confirmation. Seules les pages et captures de test le remplissent, avec une donnée signalée comme fictive.
-// Forme attendue : { champion, state: "hover" | "locked" }. Branchement prévu : une ligne, depuis l'état envoyé par le programme.
+// Emplacement « Dans League » des panneaux V2 : champion survolé ou verrouillé DANS League, à part du champion consulté. Il vient du
+// pick lu par le programme (leagueNow, journal automatique), seulement quand la lecture est opérationnelle ; sinon LeagueLine dit
+// pourquoi (lecture perdue, mode non noté, draft annulée). leagueSlot est une donnée de TEST, null dans l'application : seules les
+// pages et captures de mise en page le remplissent ({ champion, state: "hover" | "locked" }), avec une donnée signalée comme fictive.
 let leagueSlot = null;
-const leagueNow = () => leagueSlot && leagueSlot.champion && (leagueSlot.state === "hover" || leagueSlot.state === "locked") ? leagueSlot : null;
+function leagueShown() {
+  if (leagueSlot) return leagueSlot.champion && (leagueSlot.state === "hover" || leagueSlot.state === "locked") ? leagueSlot : null;
+  const l = leagueNow();
+  if (!l || simulating || !hostState.lcuEnabled || !l.readable || !l.supported || l.lost || hostState.draftOutcome === "abandoned") return null;
+  const pick = pickIdOf(l.champion);
+  if (!pick || (l.state !== "hover" && l.state !== "locked" && l.state !== "final")) return null;
+  return { champion: pick, state: l.state === "hover" ? "hover" : "locked", real: l.state, traded: !!l.traded };
+}
 
 // Tout le pool classé : un clic consulte (le bouton propose alors « Je joue X »), la coche marque le confirmé. Barre de force : la
 // même échelle que le classement de la fenêtre (écart au premier), sans chiffre.
@@ -3278,7 +3446,7 @@ function PanelDeep({ compact, open, toggle, alt }) {
     <p className="note">${t("enemy.legend")}</p>`;
   const sources = () => html`<p className="note" data-test="panel-source">${t("panel.sources.enemies", { source: t(reading ? "panel.source.client" : "panel.source.manual") })}</p>
     ${rs ? html`<p className="note">${t(rs.title)}</p>` : null}
-    <p className="note">${t(leagueNow() ? "panel.sources.leagueTest" : "panel.sources.pick")}</p>`;
+    <p className="note">${t(leagueSlot && leagueShown() ? "panel.sources.leagueTest" : leagueShown() ? "panel.sources.league" : "panel.sources.pick")}</p>`;
 
   return html`<section className="p-deep" id="p-deep" data-test="panel-details" aria-label=${t("panel.deep.title")}>
     <h2 className="p-deep-title">${t("panel.deep.title")}</h2>
@@ -3314,15 +3482,18 @@ function PanelReco({ name }) {
 
 // Barre d'actions, collée en bas : le pick. Lecture « Dans League » disponible (donnée de test sur cette branche) : la ligne
 // « Dans League » et l'enregistrement automatique, sans « Je joue ». Sinon : « Je joue X », marqué « À la main ».
+// « Je joue » n'est retiré que si le pick est noté tout seul (pickCta nul : journal automatique opérationnel). Si League est lu mais
+// que le journal automatique ne tient pas (simulation, draft non suivie), la ligne League ET « Je joue » restent : rien n'est perdu.
 function PanelActions({ cta, deepIn, onDetails }) {
-  const lg = leagueNow();
+  const lg = leagueShown();
   return html`<div className=${`p-actions${lg ? " is-league" : ""}`} data-test="panel-actions">
-    ${lg ? html`<p className=${`p-league ${lg.state}`} data-test="league-line" data-state=${lg.state} title=${t("panel.league.help")}><span className="p-league-dot" aria-hidden="true"></span><span className="p-league-text">${tx(lg.state === "locked" ? "panel.league.locked" : "panel.league.hover", { champion: html`<b title=${label(lg.champion)}>${label(lg.champion)}</b>` })}</span></p>`
-      : cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.text + " : " + cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
+    ${lg ? html`<p className=${`p-league ${lg.state}`} data-test="league-line" data-state=${lg.real || lg.state} title=${t("panel.league.help")}><span className="p-league-dot" aria-hidden="true"></span><span className="p-league-text" data-test="league-status">${tx(lg.traded ? "panel.league.lockedTraded" : lg.state === "locked" ? "panel.league.locked" : "panel.league.hover", { champion: html`<b title=${label(lg.champion)}>${label(lg.champion)}</b>` })}</span></p>`
+      : html`<${LeagueLine} />`}
+    ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.text + " : " + cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
     <div className="p-actions-sub">
       <button type="button" className=${`ghost-btn details-btn${deepIn ? " on" : ""}`} data-test="open-analysis" aria-pressed=${deepIn} title=${t(deepIn ? "panel.detailsBackHelp" : "panel.detailsHelp")} onClick=${onDetails}><${ToolIcon} name=${deepIn ? "up" : "list"} /><span className="details-label">${t(deepIn ? "panel.detailsBack" : "panel.details")}</span></button>
-      ${lg ? html`<span className="p-auto-note" data-test="league-auto" title=${t("panel.league.autoHelp")}>${t("panel.league.auto")}</span>` : null}
-      ${!lg && cta ? html`<span className="p-manual" data-test="manual-pick" title=${t("panel.manual.help")}>${t("panel.manual.label")}</span>` : null}
+      ${lg && !cta ? html`<span className="p-auto-note" data-test="league-auto" title=${t("panel.league.autoHelp")}>${t("panel.league.auto")}</span>` : null}
+      ${!lg && cta && !leagueNow() ? html`<span className="p-manual" data-test="manual-pick" title=${t("panel.manual.help")}>${t("panel.manual.label")}</span>` : null}
       <${PickCurrent} />
       <${PickAdvice} />
     </div>
@@ -3413,7 +3584,7 @@ function VerdictPanel({ compact }) {
     bump();
   };
   const entry = state.current && loadJournal().find(x => x.id === state.current);
-  const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
+  const pending = !entry && !state.enemies.length && lastGameToComplete(loadJournal());
   if (V.none) return html`<div className="p-body"><p className="p-empty" data-test="no-pick">${noPickText()}</p><button type="button" className="ghost-btn" data-test="choose-profile" onClick=${() => hostSend({ cmd:"openFull", tab:"pool" })}>${t("panel.openPool")}</button></div>`;
   const name = label(V.shown);
   const c = V.res.counts;
@@ -3457,8 +3628,8 @@ function VerdictPanel({ compact }) {
     <${PanelDeep} compact=${compact} open=${open} toggle=${toggle} alt=${compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null} />
     <${PanelActions} cta=${cta} deepIn=${deepIn} onDetails=${() => goDeep(null)} />
     ${entry || pending ? html`<div className="p-results">
-      ${pending ? html`<p className="result-note">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
-      <${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />
+      ${pending ? html`<p className="result-note" data-test="last-game">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
+      <${EntryResult} entry=${entry} pending=${pending} />
     </div>` : null}
   </div>`;
 }
@@ -3786,7 +3957,7 @@ function HomeUpdate() {
 }
 
 function HomeData() {
-  const journal = loadJournal().length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
+  const journal = countedEntries(loadJournal()).length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
   const role = PROFILES.active || "mid", rates = window.ROLE_RATES_LIVE, live = window.MATCHUPS_LIVE;
   const status = nativeText(hostState.historyStatus) || nativeText(hostState.rolesStatus);
   const row = (key, label, value, ok) => html`<div key=${key} className=${`data-row${ok ? " ok" : ""}`} data-test=${`home-data-${key}`}><dt>${label}</dt><dd>${value}</dd></div>`;
@@ -3996,7 +4167,8 @@ const historyRows = () => window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HIS
 const wl = rows => { const w = rows.filter(r => r.win).length; return t("stats.wl", { wins:w, losses:rows.length - w }); };
 
 function StatsKpis() {
-  const list = loadJournal(), played = list.filter(x => x.result === "win" || x.result === "loss");
+  // Draft annulée : gardée dans le journal, jamais comptée.
+  const list = countedEntries(loadJournal()), played = list.filter(x => x.result === "win" || x.result === "loss");
   const wins = played.filter(x => x.result === "win").length, followed = list.filter(x => x.picked === x.suggested).length;
   const rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
   const kpi = (label, value, rest, test, extra) => html`<div data-test=${test}><span>${label}</span><b className="num">${value}</b>${rest ? html` <small>${rest}${extra || null}</small>` : null}</div>`;
@@ -4049,19 +4221,18 @@ function HistoryImportBox({ detailed }) {
 
 function RecentDrafts({ onAll }) {
   const list = loadJournal().slice(-8).reverse();
-  const results = { win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") };
   return html`<section className="box" data-test="stats-recent">
     <header className="box-head-row"><h2 className="box-title">${t("stats.recent.title")} <small>${t("stats.recent.sub")}</small></h2>
       ${list.length ? html`<button type="button" className="ghost-btn" data-test="stats-all-journal" onClick=${onAll}>${t("stats.recent.all")}</button>` : null}</header>
     ${list.length ? html`<table className="stats-table recent"><thead><tr><th scope="col">${t("stats.recent.pick")}</th><th scope="col">${t("stats.recent.opponent")}</th><th scope="col">${t("stats.recent.advice")}</th><th scope="col">${t("stats.recent.result")}</th><th scope="col">${t("stats.recent.date")}</th></tr></thead>
       <tbody>${list.map(x => html`<tr key=${x.id}><th scope="row"><span className="pool-name"><${Portrait} name=${label(x.picked)} size=${28} />${label(x.picked)}</span></th><td>${x.mid || "-"}</td><td>${t(x.picked === x.suggested ? "stats.recent.followed" : "stats.recent.other")}</td>
-        <td><span className=${`result-tag ${x.result || "wait"}`}>${results[x.result] || t("journal.status.pending")}</span></td><td className="num">${fmtDate(x.date)}</td></tr>`)}</tbody></table>`
+        <td><span className=${`result-tag ${isAbandoned(x) ? "wait" : x.result || "wait"}`} data-test="entry-status">${entryStatus(x)}</span></td><td className="num">${fmtDate(x.date)}</td></tr>`)}</tbody></table>`
       : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
   </section>`;
 }
 
 function StatsOverview({ onAll }) {
-  const played = loadJournal().filter(x => x.result === "win" || x.result === "loss");
+  const played = countedEntries(loadJournal()).filter(x => x.result === "win" || x.result === "loss");
   return html`<div className="stats-overview">
     <div className="stats-grid">
       <section className="box box-pad" data-test="stats-journal">
@@ -4288,6 +4459,7 @@ function App() {
       window.chrome.webview.addEventListener("message", e => {
         const m = e.data;
         if (m.kind === "host") {
+          takeLeague(m.league);
           Object.assign(hostState, m, { available:true });
           // Stockage du navigateur vide mais copie dans le dossier de données : les profils reviennent.
           if (!PROFILES.active && m.savedProfiles) {
@@ -4300,14 +4472,24 @@ function App() {
           if (PROFILE && !window.draftProfileSent) { window.draftProfileSent = true; sendProfile(); }
           if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"pool" }); }
           force();
+          // Nouvelle sélection vue dans l'état du programme (message draftStart perdu ou page ouverte en retard) : remise à zéro,
+          // une fois par clé, AVANT le rôle attribué de cette sélection.
+          if (synced && m.draftOutcome === "draft") startSelection(m.draftKey);
           // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
           // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
           if (synced) handleAssignedRole(m.assignedRole || null);
+          // Verrouillage vu dans League : le conseil du moment est mémorisé (une fois par sélection).
+          memoLock();
+          // Page ouverte après la décision : l'issue gardée par le programme est notée (une seule fois).
+          if (settleOutcome(m.draftKey, m.draftOutcome)) force();
         }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") onDraftStart();
+        // Avec sa clé (programme beta.2) : une fois par sélection. Sans clé (ancien programme, essais) : comme avant.
+        if (m.kind === "draftStart") { if (m.draft) startSelection(m.draft); else onDraftStart(); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
+        // Fin de sélection : issue en attente (outcome "pending"), rien n'est écrit. Puis draftOutcome : partie lancée ou draft annulée.
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
+        if (m.kind === "draftOutcome" && settleOutcome(m.draft, m.outcome)) force();
         // Message gardé une version (alias) : ouvre la section Réglages.
         if (m.kind === "openSettings") { goView("settings", m.section); window.__openSettingsSeen = m.token || 0; }
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }

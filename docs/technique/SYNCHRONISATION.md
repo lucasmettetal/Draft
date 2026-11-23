@@ -19,7 +19,7 @@ Les champs synchronisés sont rangés en groupes. Chaque groupe porte une versio
 
 | Groupe | Contenu |
 |---|---|
-| `draft` | Adversaires, vis-à-vis, rôles adverses, sélection, notice, sélection en cours |
+| `draft` | Adversaires, vis-à-vis, rôles adverses, sélection, notice, sélection en cours, clé de la sélection (`sessionKey`, beta.2) |
 | `pick` | Champion confirmé et son entrée de journal (`current`, `picked`, `pickContext`) |
 | `viewed` | Champion consulté |
 | `role` | Rôle joué (`PROFILES.active`), rôle à la main, proposition ignorée, bascule et rôle d'avant |
@@ -31,7 +31,9 @@ Les champs synchronisés sont rangés en groupes. Chaque groupe porte une versio
 - **Réception :** un groupe n'est pris que si sa version est plus récente. Plus récent veut dire un compteur plus grand ; à compteur égal, l'identifiant de page le plus grand, ce qui donne le même gagnant dans toutes les pages.
 - **État de départ** (stockage, page qui s'ouvre) : version 0. Il ne remplace rien de ce qu'une autre page a changé.
 - **Pools et rôle joué** ont chacun leur version. Un panneau qui change de rôle sans avoir encore reçu un pool modifié ailleurs n'impose pas son ancien pool.
+- **Nouvelle sélection** (correctif beta.2) : le programme envoie `draftStart { draft }` à TOUTES les pages, fenêtre comprise, et la clé est aussi dans son état (`draftKey`). Chaque page remet la draft à zéro une seule fois par clé (`startSelection`) : consultation, choix, entrée en cours, rôle à la main. Une page déjà passée à cette clé, par elle-même ou par la synchronisation (`sessionKey`), ne recommence pas. Une page qui ne reçoit pas le message (créée plus tard, message perdu, panneau en pause) voit la nouvelle clé dans l'état du programme. Avant, le message n'allait qu'au premier panneau prêt et se perdait s'il n'y en avait aucun.
 - **Poste attribué par League :** il vient toujours du programme, qui l'envoie à chaque page. L'état d'une autre page ne le remplace jamais.
+- **« Dans League »** (beta.2, ton pick lu dans le client) : même règle. Le programme l'envoie à chaque page (`league`), avec sa propre version `v` : une page ignore un état plus ancien (clé de sélection plus petite, ou même clé et `v` plus petit). Il n'entre dans aucun groupe synchronisé. Le conseil mémorisé au verrouillage est gardé une fois par sélection (`draftLockMemo`).
 - **Compatibilité :** un message sans `v` (page d'une version précédente) est appliqué entièrement, comme avant. Les champs du message ne changent pas ; `v` et `from` s'ajoutent.
 - **Simulation :** la draft en cours suivie à part (`liveCopy`) garde, groupe par groupe, la version la plus récente. Au retour, elle remplace l'état de la simulation.
 

@@ -255,6 +255,25 @@ namespace DraftMid
                 + "\"localPlayerCellId\":" + localCell + ",\"lockedEventIndex\":-1,\"myTeam\":[" + ally + "," + me + "],\"pickOrderSwaps\":[],\"recoveryCounter\":0,\"rerollsRemaining\":0,"
                 + "\"skipChampionSelect\":false,\"theirTeam\":[" + their + "],\"timer\":{\"adjustedTimeLeftInPhase\":29854,\"internalNowInEpochMs\":1763290000000,\"isInfinite\":false,\"phase\":\"BAN_PICK\",\"totalTimeInPhase\":30000},\"trades\":[]}";
         }
+
+        // Sélection classique au format réel avec TON action de pick (beta.2). Un coéquipier a lui aussi survolé, verrouillé et une
+        // intention (allyChampion, allyIntent) : ces valeurs ne doivent jamais se retrouver dans ce qui est lu. position vide : sans poste.
+        // pickAction faux : aucune action de pick (mode à banc, ARAM). gameId 0 : absent.
+        public static string PickSession(string position, int localCell, int actionChampion, bool inProgress, bool completed, int intent, int myChampion, string timerPhase, long gameId, int allyChampion, int allyIntent, bool pickAction, params int[] enemies)
+        {
+            int allyCell = localCell == 5 ? 6 : 5;
+            string member = "\"cellId\":{0},\"championId\":{1},\"championPickIntent\":{2},\"entitledFeatureType\":\"NONE\",\"nameVisibilityType\":\"{3}\",\"obfuscatedPuuid\":\"\",\"obfuscatedSummonerId\":0,\"puuid\":\"{4}\",\"selectedSkinId\":0,\"spell1Id\":11,\"spell2Id\":4,\"summonerId\":{5},\"team\":2,\"wardSkinId\":-1";
+            string ally = "{\"assignedPosition\":\"top\"," + string.Format(member, allyCell, allyChampion, allyIntent, "HIDDEN", "", 0) + "}";
+            string me = "{\"assignedPosition\":\"" + position + "\"," + string.Format(member, localCell, myChampion, intent, "VISIBLE", "00000000-0000-4000-8000-000000000000", 2834567890123L) + "}";
+            string their = string.Join(",", enemies.Select((id, i) => "{\"assignedPosition\":\"\",\"cellId\":" + i + ",\"championId\":" + id + ",\"championPickIntent\":0,\"summonerId\":0,\"team\":1}"));
+            Func<int, int, bool, bool, string, string> action = (actor, champ, done, busy, type) => "{\"actorCellId\":" + actor + ",\"championId\":" + champ + ",\"completed\":" + (done ? "true" : "false") + ",\"id\":" + (actor * 10 + (type == "pick" ? 2 : 1)) + ",\"isAllyAction\":true,\"isInProgress\":" + (busy ? "true" : "false") + ",\"pickTurn\":1,\"type\":\"" + type + "\"}";
+            string actions = "[[" + action(localCell, 0, true, false, "ban") + "," + action(allyCell, 0, true, false, "ban") + "]"
+                + (pickAction ? ",[" + action(allyCell, allyChampion, allyChampion > 0, allyChampion == 0, "pick") + "],[" + action(localCell, actionChampion, completed, inProgress, "pick") + "]" : "") + "]";
+            return "{\"actions\":" + actions + ",\"allowBattleBoost\":false,\"allowRerolling\":false,\"bans\":{\"myTeamBans\":[],\"numBans\":10,\"theirTeamBans\":[]},\"benchChampions\":[],\"benchEnabled\":" + (pickAction ? "false" : "true") + ","
+                + "\"counter\":-1," + (gameId > 0 ? "\"gameId\":" + gameId + "," : "") + "\"hasSimultaneousBans\":true,\"hasSimultaneousPicks\":false,\"isCustomGame\":false,\"isSpectating\":false,"
+                + "\"localPlayerCellId\":" + localCell + ",\"lockedEventIndex\":-1,\"myTeam\":[" + ally + "," + me + "],\"pickOrderSwaps\":[],\"recoveryCounter\":0,\"rerollsRemaining\":0,"
+                + "\"skipChampionSelect\":false,\"theirTeam\":[" + their + "],\"timer\":{\"adjustedTimeLeftInPhase\":29854,\"internalNowInEpochMs\":1763290000000,\"isInfinite\":false,\"phase\":\"" + timerPhase + "\",\"totalTimeInPhase\":30000},\"trades\":[]}";
+        }
     }
 
     public class LcuSnapshot
@@ -267,6 +286,84 @@ namespace DraftMid
         // Seuls les champions verrouillés et visibles de l'équipe adverse sont conservés.
         // Null pendant une draft : session illisible ou expirée, à ne pas confondre avec une équipe vide.
         public List<int> EnemyChampionIds = new List<int>();
+        // Ton pick (beta.2, journal automatique) : ta case seulement. Null hors draft ou session illisible.
+        public LocalPick Pick;
+    }
+
+    // Pick du joueur local, lu dans la session déjà lue (beta.2, journal automatique). Aucune donnée de coéquipier, aucun nom.
+    // Champs non documentés par Riot : au moindre doute, l'état reste « aucun » et « Je joue » sert de repli.
+    public class LocalPick
+    {
+        public const string None = "none", Hover = "hover", Locked = "locked", Final = "final";
+        // Joueur trouvé dans son équipe.
+        public bool Readable;
+        // Draft classique : une action de pick du joueur et un poste attribué. Les autres modes (ARAM, aveugle...) ne sont pas pris
+        // en charge : rien n'est noté seul. Ajouter un mode = élargir cette règle, le reste suit.
+        public bool Supported;
+        public string State = None;
+        // Champion affiché : survolé (action en cours, sinon présélection), verrouillé, ou final après un échange.
+        public int Champion;
+        public int Intent, LockedId, FinalId;
+        public string TimerPhase = "";
+        public long GameId;
+    }
+
+    // « Dans League » pendant une sélection : état du pick local, premier verrouillage, échange, identifiant de partie.
+    // Versionné : V augmente à chaque changement, une page ignore un état plus ancien que le sien. Identifiants de champions seulement.
+    public class LeaguePickTracker
+    {
+        public int V { get; private set; }
+        public string Key { get; private set; }
+        public bool Supported { get; private set; }
+        public bool Readable { get; private set; }
+        public bool Lost { get; private set; }
+        public string State { get; private set; }
+        public int Champion { get; private set; }
+        public int LockedFirst { get; private set; }
+        public bool Traded { get; private set; }
+        public long GameId { get; private set; }
+
+        public LeaguePickTracker() { State = LocalPick.None; }
+
+        // Nouvelle sélection (clé du suivi de l'issue) : tout repart de zéro.
+        public bool Begin(string key)
+        {
+            if (key == Key) return false;
+            Key = key; Supported = Readable = Lost = Traded = false; State = LocalPick.None; Champion = LockedFirst = 0; GameId = 0;
+            V++;
+            return true;
+        }
+
+        // Session lue. Joueur introuvable : le dernier état connu reste.
+        public bool Read(LocalPick p)
+        {
+            string before = Signature();
+            Lost = false;
+            if (p != null && p.Readable)
+            {
+                Readable = true; Supported = p.Supported; State = p.State; Champion = p.Champion;
+                if (p.GameId > 0) GameId = p.GameId;
+                if (LockedFirst == 0 && p.LockedId > 0) LockedFirst = p.LockedId;
+                Traded = LockedFirst > 0 && Champion > 0 && (State == LocalPick.Locked || State == LocalPick.Final) && Champion != LockedFirst;
+            }
+            return Changed(before);
+        }
+
+        // Lecture du client perdue pendant la sélection : « Je joue » revient. Le dernier pick lu reste connu.
+        public bool Lose() { string before = Signature(); Lost = true; return Changed(before); }
+
+        string Signature() { return string.Join("|", Supported, Readable, Lost, State, Champion, LockedFirst, Traded, GameId); }
+        bool Changed(string before) { if (Signature() == before) return false; V++; return true; }
+
+        public Dictionary<string, object> ToState()
+        {
+            return new Dictionary<string, object> { { "v", V }, { "key", Key }, { "supported", Supported }, { "readable", Readable }, { "lost", Lost }, { "state", State },
+                { "champion", Champion }, { "lockedFirst", LockedFirst }, { "traded", Traded }, { "gameId", GameId } };
+        }
+
+        // Diagnostic : l'état seulement, sans nom ni identifiant.
+        public string DiagWord { get { return Word(State); } }
+        public static string Word(string state) { return state == LocalPick.Hover ? "survolé" : state == LocalPick.Locked ? "verrouillé" : state == LocalPick.Final ? "final" : "aucun"; }
     }
 
     public static class LcuParser
@@ -290,7 +387,7 @@ namespace DraftMid
             try { return new JavaScriptSerializer().Deserialize<string>(json) ?? ""; } catch { return ""; }
         }
 
-        // Ne lit volontairement ni nom, ni identifiant de joueur, ni intention de pick, ni sort.
+        // Ne lit volontairement ni nom, ni identifiant de joueur, ni sort, ni rien des coéquipiers. Seul TON pick est lu (ParseLocalPick).
         // Poste du joueur (myTeam[cellId == localPlayerCellId].assignedPosition). Champ non documenté par Riot.
         // Vide en sélection aveugle ou dans les modes sans poste : on renvoie null, rien n'est deviné.
         public static string ParseAssignedRole(string json)
@@ -320,6 +417,79 @@ namespace DraftMid
             }
             catch { }
             return null;
+        }
+
+        // Ton pick (beta.2, journal automatique). Seulement :
+        // - l'action « pick » dont actorCellId == localPlayerCellId : survolée si isInProgress et pas completed, verrouillée si completed ;
+        // - ta case de myTeam (cellId == localPlayerCellId) : championPickIntent (présélection), championId (final, après échange),
+        //   assignedPosition ;
+        // - timer.phase et gameId de la session.
+        // Les autres cases de myTeam ne sont pas ouvertes : seule leur cellId est comparée. Aucun nom, aucun identifiant de joueur.
+        public static LocalPick ParseLocalPick(string json)
+        {
+            LocalPick p = new LocalPick();
+            if (string.IsNullOrWhiteSpace(json)) return p;
+            try
+            {
+                Dictionary<string, object> root = new JavaScriptSerializer { MaxJsonLength = 8 * 1024 * 1024 }.DeserializeObject(json) as Dictionary<string, object>;
+                object cellO, teamO;
+                if (root == null || !root.TryGetValue("localPlayerCellId", out cellO) || !(cellO is int) || !root.TryGetValue("myTeam", out teamO) || !(teamO is object[])) return p;
+                int cell = (int)cellO;
+                Dictionary<string, object> me = null;
+                foreach (object o in (object[])teamO)
+                {
+                    Dictionary<string, object> m = o as Dictionary<string, object>;
+                    object id;
+                    if (m != null && m.TryGetValue("cellId", out id) && id is int && (int)id == cell) { me = m; break; }
+                }
+                if (me == null) return p;
+                p.Readable = true;
+                p.Intent = PositiveInt(me, "championPickIntent");
+                p.FinalId = PositiveInt(me, "championId");
+                object pos;
+                bool position = me.TryGetValue("assignedPosition", out pos) && pos is string && ((string)pos).Trim() != "";
+                bool hasPick = false;
+                int hover = 0;
+                object actionsO;
+                if (root.TryGetValue("actions", out actionsO) && actionsO is object[])
+                    foreach (object group in (object[])actionsO)
+                    {
+                        if (!(group is object[])) continue;
+                        foreach (object a in (object[])group)
+                        {
+                            Dictionary<string, object> m = a as Dictionary<string, object>;
+                            object actor, type, done, busy;
+                            if (m == null || !m.TryGetValue("actorCellId", out actor) || !(actor is int) || (int)actor != cell) continue;
+                            if (!m.TryGetValue("type", out type) || !"pick".Equals(type)) continue;
+                            hasPick = true;
+                            int champion = PositiveInt(m, "championId");
+                            bool completed = m.TryGetValue("completed", out done) && done is bool && (bool)done;
+                            bool inProgress = m.TryGetValue("isInProgress", out busy) && busy is bool && (bool)busy;
+                            if (completed && champion > 0) p.LockedId = champion;
+                            else if (inProgress && champion > 0) hover = champion;
+                        }
+                    }
+                p.Supported = hasPick && position;
+                object timerO, phaseO, gameO;
+                Dictionary<string, object> timer = root.TryGetValue("timer", out timerO) ? timerO as Dictionary<string, object> : null;
+                if (timer != null && timer.TryGetValue("phase", out phaseO) && phaseO is string) p.TimerPhase = (string)phaseO;
+                if (root.TryGetValue("gameId", out gameO)) p.GameId = gameO is int ? (int)gameO : gameO is long ? (long)gameO : 0;
+                if (p.GameId < 0) p.GameId = 0;
+                if (p.LockedId > 0)
+                {
+                    p.State = p.TimerPhase == "FINALIZATION" || p.TimerPhase == "GAME_STARTING" ? LocalPick.Final : LocalPick.Locked;
+                    p.Champion = p.FinalId > 0 ? p.FinalId : p.LockedId;
+                }
+                else if (hover > 0 || p.Intent > 0) { p.State = LocalPick.Hover; p.Champion = hover > 0 ? hover : p.Intent; }
+            }
+            catch { return new LocalPick(); }
+            return p;
+        }
+
+        static int PositiveInt(Dictionary<string, object> m, string key)
+        {
+            object v;
+            return m.TryGetValue(key, out v) && v is int && (int)v > 0 ? (int)v : 0;
         }
 
         public static List<int> ParseEnemies(string json)
@@ -368,7 +538,7 @@ namespace DraftMid
             {
                 string session = await transport.GetAsync(LcuEndpoints.Session);
                 s.EnemyChampionIds = LcuParser.ParseEnemies(session);
-                if (s.EnemyChampionIds != null) s.AssignedRole = LcuParser.ParseAssignedRole(session);
+                if (s.EnemyChampionIds != null) { s.AssignedRole = LcuParser.ParseAssignedRole(session); s.Pick = LcuParser.ParseLocalPick(session); }
             }
             catch { }
             return s;
@@ -521,6 +691,56 @@ namespace DraftMid
             t(LcuParser.ParseAssignedRole(LcuSamples.RealSession("jungle", 7, 8)) == null, "LCU : format réel, joueur absent de myTeam : aucun rôle");
             t(LcuParser.ParseAssignedRole(real("jungle").Substring(0, 700)) == null && LcuParser.ParseEnemies(real("jungle").Substring(0, 700)) == null, "LCU : format réel tronqué : réponse abîmée, rien n'est lu");
             t(string.Join(",", LcuParser.ParseEnemies(real("jungle"))) == "875,254", "LCU : format réel, adversaires lus à côté du poste");
+            // Beta.2 : TON pick seulement (journal automatique). Format réel, valeurs fictives : Ahri 103 et Syndra 134 pour toi,
+            // Zed 238 verrouillé et Lux 99 en intention pour un coéquipier.
+            JavaScriptSerializer ser = new JavaScriptSerializer();
+            Func<int, bool, bool, int, int, string, string> pick = (action, busy, done, intent, mine, timer) => LcuSamples.PickSession("middle", 7, action, busy, done, intent, mine, timer, 7012345678, 238, 99, true, 875);
+            LocalPick hover = LcuParser.ParseLocalPick(pick(103, true, false, 0, 0, "BAN_PICK"));
+            t(hover.Readable && hover.Supported && hover.State == LocalPick.Hover && hover.Champion == 103, "LCU : ton tour, Ahri survolée (action en cours, pas terminée)");
+            LocalPick intentOnly = LcuParser.ParseLocalPick(pick(0, false, false, 103, 0, "BAN_PICK"));
+            t(intentOnly.State == LocalPick.Hover && intentOnly.Champion == 103 && intentOnly.Intent == 103, "LCU : avant ton tour, présélection d'Ahri (championPickIntent)");
+            LocalPick locked = LcuParser.ParseLocalPick(pick(103, false, true, 0, 103, "BAN_PICK"));
+            t(locked.State == LocalPick.Locked && locked.Champion == 103 && locked.LockedId == 103 && locked.GameId == 7012345678 && locked.TimerPhase == "BAN_PICK", "LCU : Ahri verrouillée (action terminée), gameId et timer.phase lus");
+            LocalPick swapped = LcuParser.ParseLocalPick(pick(103, false, true, 0, 134, "FINALIZATION"));
+            t(swapped.State == LocalPick.Final && swapped.Champion == 134 && swapped.LockedId == 103 && swapped.FinalId == 134, "LCU : échange accepté en fin de sélection : champion final Syndra (myTeam[toi].championId), verrouillage Ahri gardé");
+            LocalPick nothing = LcuParser.ParseLocalPick(pick(0, false, false, 0, 0, "PLANNING"));
+            t(nothing.Readable && nothing.Supported && nothing.State == LocalPick.None && nothing.Champion == 0, "LCU : rien survolé, coéquipier verrouillé : aucun pick pour toi");
+            // Test négatif : tout ce que fait le coéquipier (survol, verrouillage, intention) change, ce qui est lu ne change pas.
+            bool sameAllyChange = true;
+            foreach (int[] other in new[] { new[] { 0, 0 }, new[] { 64, 157 }, new[] { 103, 103 } })
+                foreach (string[] c in new[] { new[] { "103", "1", "0", "0", "0", "BAN_PICK" }, new[] { "103", "0", "1", "0", "103", "BAN_PICK" }, new[] { "0", "0", "0", "103", "0", "PLANNING" }, new[] { "103", "0", "1", "0", "134", "FINALIZATION" } })
+                {
+                    Func<int, int, string> s2 = (ac, ai) => LcuSamples.PickSession("middle", 7, int.Parse(c[0]), c[1] == "1", c[2] == "1", int.Parse(c[3]), int.Parse(c[4]), c[5], 7012345678, ac, ai, true, 875);
+                    if (ser.Serialize(LcuParser.ParseLocalPick(s2(238, 99))) != ser.Serialize(LcuParser.ParseLocalPick(s2(other[0], other[1])))) sameAllyChange = false;
+                }
+            string allRead = ser.Serialize(new[] { hover, intentOnly, locked, swapped, nothing });
+            t(sameAllyChange && !allRead.Contains("238") && !allRead.Contains(":99,") && !allRead.Contains("Puuid") && !allRead.Contains("2834567890123"), "LCU : aucune donnée de coéquipier lue (test négatif : son survol, son verrouillage et son intention changent, la lecture non) ; aucun identifiant de joueur");
+            // Modes : seule la draft classique (action de pick ET poste attribué) est prise en charge.
+            LocalPick bench = LcuParser.ParseLocalPick(LcuSamples.PickSession("", 7, 0, false, false, 0, 103, "BAN_PICK", 0, 64, 0, false));
+            t(bench.Readable && !bench.Supported && bench.GameId == 0, "LCU : mode à banc (ARAM), sans action de pick ni poste : non pris en charge, gameId absent");
+            LocalPick blind = LcuParser.ParseLocalPick(LcuSamples.PickSession("", 7, 103, true, false, 0, 0, "BAN_PICK", 0, 0, 0, true));
+            t(blind.Readable && !blind.Supported && blind.State == LocalPick.Hover, "LCU : sélection sans poste (aveugle) : survol lu, mode non pris en charge");
+            t(!LcuParser.ParseLocalPick(LcuSamples.RealSession("middle", 7, 7, 875)).Supported, "LCU : session sans action de pick pour toi : non prise en charge");
+            t(!LcuParser.ParseLocalPick(LcuSamples.RealSession("jungle", 7, 8)).Readable, "LCU : joueur absent de son équipe : rien n'est lu");
+            LocalPick cut = LcuParser.ParseLocalPick(pick(103, false, true, 0, 103, "BAN_PICK").Substring(0, 700));
+            t(!cut.Readable && cut.State == LocalPick.None && !LcuParser.ParseLocalPick("").Readable && !LcuParser.ParseLocalPick("{abîmé").Readable, "LCU : réponse tronquée ou abîmée : rien n'est lu");
+            // « Dans League » : versionné, premier verrouillage, échange, perte et retour, DRAFT lancé après le verrouillage.
+            LeaguePickTracker lt = new LeaguePickTracker();
+            lt.Begin("k1"); int v0 = lt.V;
+            bool c1 = lt.Read(hover), c2 = lt.Read(hover);
+            t(c1 && !c2 && lt.V == v0 + 1 && lt.State == LocalPick.Hover && lt.Champion == 103 && lt.LockedFirst == 0, "Dans League : survol, version augmentée une fois ; même lecture : rien ne change");
+            lt.Read(locked); lt.Read(swapped);
+            t(lt.State == LocalPick.Final && lt.Champion == 134 && lt.LockedFirst == 103 && lt.Traded && lt.GameId == 7012345678, "Dans League : verrouillage puis échange : final Syndra, premier verrouillage Ahri, échange noté");
+            int vLost = lt.V;
+            t(lt.Lose() && lt.Lost && lt.V == vLost + 1 && lt.Champion == 134, "Dans League : lecture perdue : signalée, dernier pick gardé");
+            lt.Read(LcuParser.ParseLocalPick(LcuSamples.RealSession("jungle", 7, 8)));
+            t(!lt.Lost && lt.Champion == 134, "Dans League : retour de la lecture, joueur introuvable : le dernier pick reste");
+            t(lt.Begin("k2") && lt.State == LocalPick.None && lt.LockedFirst == 0 && !lt.Traded && lt.GameId == 0 && !lt.Begin("k2"), "Dans League : nouvelle sélection, tout repart de zéro");
+            LeaguePickTracker late = new LeaguePickTracker();
+            late.Begin("k3"); late.Read(locked);
+            t(late.State == LocalPick.Locked && late.LockedFirst == 103 && !late.Traded, "Dans League : DRAFT lancé après le verrouillage : verrouillage lu tel quel");
+            t(lt.DiagWord == "aucun" && late.DiagWord == "verrouillé", "Dans League : diagnostic par état seulement (aucun, survolé, verrouillé, final), sans nom");
+
             List<int> ids = LcuParser.ParseEnemies(Session);
             t(string.Join(",", ids) == "875,254,3,40", "LCU : seuls les champions adverses verrouillés sont lus");
             t(!ids.Contains(157) && !ids.Contains(222), "LCU : les intentions de pick ne sont jamais lues");

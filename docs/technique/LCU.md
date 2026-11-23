@@ -25,11 +25,13 @@ Liste fermée, contrôlée par `LcuEndpoints.IsAllowed`.
 | Endpoint | Méthode | Usage | Données conservées |
 |---|---|---|---|
 | `/lol-gameflow/v1/gameflow-phase` | GET | Phase de jeu, environ une fois par seconde | Nom de la phase |
-| `/lol-champ-select/v1/session` | GET | Seulement pendant `ChampSelect` | `theirTeam[].championId` supérieur à 0 |
+| `/lol-champ-select/v1/session` | GET | Seulement pendant `ChampSelect` | `theirTeam[].championId` supérieur à 0 ; ton poste ; ton pick (beta.2) |
 
 Depuis la V2.16 bêta, la même réponse de session fournit aussi **ton propre poste** (`assignedPosition` de ta case dans `myTeam`), pour proposer le bon profil. Champ non documenté par Riot, vérifié seulement en simulation : voir [PROFILS.md](PROFILS.md).
 
-Sont volontairement ignorés : noms et identifiants de joueurs, `championPickIntent`, sorts, champions et postes des alliés, bans.
+Depuis la 3.0 beta.2 (journal automatique), la même réponse fournit aussi **ton propre pick** : ton action de pick (survolée, verrouillée), ta présélection (`championPickIntent` de ta case), ton champion final (`championId` de ta case, après échange), `timer.phase` et `gameId`. Seule ta case est ouverte. Voir [JOURNAL.md](JOURNAL.md).
+
+Sont volontairement ignorés : noms et identifiants de joueurs, sorts, champions, intentions, actions et postes des alliés, bans.
 
 ## Garanties techniques
 

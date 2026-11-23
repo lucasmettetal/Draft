@@ -364,6 +364,56 @@ namespace DraftMid
         void Reset() { yes = no = 0; inDraft = 0; }
     }
 
+    // Issue d'une sélection, pour le journal (docs/technique/JOURNAL.md). À la sortie de draft, l'issue est en attente (« pending »).
+    // Elle devient « game » quand la partie est observée (lecture du client ou détection à l'écran), « abandoned » quand le client
+    // revient hors draft sans partie : lobby, file, client fermé. Source incertaine (image, fermeture du client) : l'abandon n'est retenu
+    // qu'après ConfirmSeconds hors draft sans partie, le temps que la partie démarre. Uncertain ne tranche rien et ne compte pas.
+    // Une nouvelle sélection sans partie entre les deux clôt la précédente : annulée. En mémoire seulement : DRAFT fermé ou redémarré
+    // avant la décision, l'issue reste inconnue. Une issue définitive ne change plus.
+    public class DraftOutcomeTracker
+    {
+        public const double ConfirmSeconds = 20;
+        public const string InDraft = "draft", Pending = "pending", Game = "game", Abandoned = "abandoned";
+        // Clé de la sélection suivie (horodatage de son début, en ms) et son état : null avant la première sélection.
+        public string Key { get; private set; }
+        public string State { get; private set; }
+        public Func<long> Clock = () => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+        long lastKey;
+        double outFor;
+
+        // Une observation de phase (à chaque lecture, même sans changement). Renvoie les messages à transmettre aux pages.
+        public List<string> Update(Phase now, bool certain, double seconds)
+        {
+            List<string> messages = new List<string>();
+            if (now == Phase.Draft)
+            {
+                if (State == InDraft) return messages;
+                if (State == Pending) Resolve(Abandoned, messages);
+                lastKey = Math.Max(Clock(), lastKey + 1);
+                Key = lastKey.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                State = InDraft;
+                outFor = 0;
+                return messages;
+            }
+            if (State == InDraft) { State = Pending; outFor = 0; messages.Add(Message("draftEnd", Pending)); }
+            if (State != Pending) return messages;
+            if (now == Phase.InGame) Resolve(Game, messages);
+            else if (now == Phase.OutOfDraft || now == Phase.ClientClosed)
+            {
+                outFor += seconds;
+                if (certain || outFor >= ConfirmSeconds) Resolve(Abandoned, messages);
+            }
+            return messages;
+        }
+
+        void Resolve(string outcome, List<string> messages) { State = outcome; messages.Add(Message("draftOutcome", outcome)); }
+
+        string Message(string kind, string outcome)
+        {
+            return "{\"kind\":\"" + kind + "\",\"draft\":\"" + Key + "\",\"outcome\":\"" + outcome + "\"}";
+        }
+    }
+
     // Règle unique d'affichage, testable sans fenêtre.
     public class PanelVisibilityController
     {
