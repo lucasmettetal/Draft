@@ -3195,6 +3195,34 @@ public static class Autostart
         }
     }
 
+    // Résultat d'une attente bornée (tests seulement) : atteint ou non, et le temps réellement attendu.
+    public sealed class WaitResult
+    {
+        public bool Ok;
+        public double Ms;
+        public int Checks, LimitMs;
+        public string Text { get { return Ok ? "atteint en " + Ms.ToString("0.0") + " ms" : "non atteint après " + Ms.ToString("0") + " ms (limite " + LimitMs + " ms)"; } }
+    }
+
+    // Attente bornée sur un état observable, pour les e2e : la condition est vérifiée tout de suite, puis toutes les 5 ms,
+    // jusqu'à la limite. Une durée fixe ne suffit pas : sous charge, la suite d'un Task.Delay peut passer avant le
+    // déplacement des panneaux, posté dans la même file du fil d'interface. À la limite, l'échec est rendu avec sa durée.
+    static class StateWait
+    {
+        public static async Task<WaitResult> Until(Func<bool> condition, int limitMs, int stepMs = 5)
+        {
+            Stopwatch clock = Stopwatch.StartNew();
+            int checks = 0;
+            while (true)
+            {
+                checks++;
+                bool ok = condition();
+                if (ok || clock.ElapsedMilliseconds >= limitMs) return new WaitResult { Ok = ok, Ms = clock.Elapsed.TotalMilliseconds, Checks = checks, LimitMs = limitMs };
+                await Task.Delay(stepMs);
+            }
+        }
+    }
+
     // ---------- Scénario de bout en bout, avec une fausse fenêtre de client et des phases simulées ----------
     static class EndToEnd
     {
@@ -3857,21 +3885,27 @@ public static class Autostart
                 t(app.MoveCount - movesBefore <= steps + 3, "7. Déplacements limités à une mise à jour par étape");
 
                 // Rafales plus rapides qu'une image : combien de temps les panneaux restent-ils en retard sur la dernière position ?
+                // Attente bornée sur l'état vérifié (déplacement fait, bord du panneau à sa place), pas une durée fixe :
+                // sous charge, la vérification passait avant le déplacement posté dans la même file (faux échec).
                 {
-                    double total = 0, worst = 0;
-                    int missed = 0;
+                    double total = 0, worst = 0, waited = 0, waitedWorst = 0;
+                    int missed = 0, beyondOld = 0;
+                    string firstMiss = "";
                     for (int b = 0; b < 40; b++)
                     {
                         await Task.Delay(30);
                         app.LastFollowLagMs = -1;
                         for (int k = 1; k <= 3; k++) fake.Location = new Point(cx + (b % 7) * 3 + k + 40 * (b % 2), cy + (b % 3));
-                        await Task.Delay(60);
-                        if (app.LastFollowLagMs < 0 || fake.Left - rectOfLeft().Right > 10 || fake.Left < rectOfLeft().Right) { missed++; continue; }
+                        WaitResult caught = await StateWait.Until(() => app.LastFollowLagMs >= 0 && fake.Left - rectOfLeft().Right <= 10 && fake.Left >= rectOfLeft().Right, 1000);
+                        waited += caught.Ms;
+                        waitedWorst = Math.Max(waitedWorst, caught.Ms);
+                        if (caught.Ms > 60) beyondOld++;
+                        if (!caught.Ok) { missed++; if (firstMiss == "") firstMiss = "rafale " + (b + 1) + " " + caught.Text + ", client x " + fake.Left + ", bord du panneau " + rectOfLeft().Right; continue; }
                         total += app.LastFollowLagMs;
                         worst = Math.Max(worst, app.LastFollowLagMs);
                     }
-                    s.AppendLine("MESURE : rafales : du dernier événement au déplacement, moyenne " + (total / Math.Max(1, 40 - missed)).ToString("0.0") + " ms, maximum " + worst.ToString("0.0") + " ms (fenêtre simulée, sans le client réel ni l'affichage)");
-                    t(missed == 0, "7. Rafales : les panneaux rattrapent toujours la dernière position");
+                    s.AppendLine("MESURE : rafales : du dernier événement au déplacement, moyenne " + (total / Math.Max(1, 40 - missed)).ToString("0.0") + " ms, maximum " + worst.ToString("0.0") + " ms (fenêtre simulée, sans le client réel ni l'affichage) ; attente réelle du test, moyenne " + (waited / 40).ToString("0.0") + " ms, maximum " + waitedWorst.ToString("0.0") + " ms (limite 1000 ms ; " + beyondOld + " rafale(s) au-delà de l'ancienne attente fixe de 60 ms)");
+                    t(missed == 0, "7. Rafales : les panneaux rattrapent toujours la dernière position" + (missed == 0 ? "" : " (" + missed + " manquée(s) ; première : " + firstMiss + ")"));
                 }
 
                 // Retour sur le client : les panneaux repassent devant une autre fenêtre, sans prendre le focus.
@@ -3893,15 +3927,21 @@ public static class Autostart
                 fake.SetBounds(wx, cy, wide, ch);
                 await Task.Delay(500);
                 int widthBefore = rectOfLeft().W, widthChanges = 0, gapErrors = 0;
+                double glueWaited = 0, glueWorst = 0;
+                string firstGap = "";
                 for (int i = 1; i <= 12; i++)
                 {
                     fake.Location = new Point(wx - i * 3, cy);
-                    await Task.Delay(30);
+                    // Attente bornée : le suivi a vu la nouvelle position, et le bord du panneau y est collé.
+                    WaitResult glued = await StateWait.Until(() => app.Tracker.Rect.Left == fake.Left && rectOfLeft().Right == fake.Left, 1000);
+                    glueWaited += glued.Ms;
+                    glueWorst = Math.Max(glueWorst, glued.Ms);
                     if (rectOfLeft().W != widthBefore) widthChanges++;
-                    if (rectOfLeft().Right != app.Tracker.Rect.Left) gapErrors++;
+                    if (!glued.Ok || rectOfLeft().Right != app.Tracker.Rect.Left) { gapErrors++; if (firstGap == "") firstGap = " ; premier : pas " + i + " " + glued.Text + ", client x " + fake.Left + ", suivi x " + app.Tracker.Rect.Left + ", bord du panneau " + rectOfLeft().Right; }
                 }
+                s.AppendLine("MESURE : collé au client : attente réelle du test par pas, moyenne " + (glueWaited / 12).ToString("0.0") + " ms, maximum " + glueWorst.ToString("0.0") + " ms (limite 1000 ms)");
                 t(widthChanges == 0, "Déplacement : les panneaux gardent leur taille, sans redessin à chaque pas (" + widthChanges + " changement(s))");
-                t(gapErrors == 0, "Déplacement : le panneau reste collé au client à chaque pas (" + gapErrors + " écart(s))");
+                t(gapErrors == 0, "Déplacement : le panneau reste collé au client à chaque pas (" + gapErrors + " écart(s)" + firstGap + ")");
                 await Task.Delay(400);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
                 t(l.Right == c.Left && r.Left == c.Right && l.Inside(main.Work) && r.Inside(main.Work) && l.W < widthBefore, "À l'arrêt : la taille est recalculée et les panneaux restent sur l'écran (" + l + " | " + r + ")");
@@ -4640,6 +4680,17 @@ public static class Autostart
             t(CompanionApp.IsAppPage("https://draftmid.local/index.html?panel=full") && !CompanionApp.IsAppPage("https://draftmid.local.exemple.test/") && !CompanionApp.IsAppPage("https://draftmid.local@exemple.test/") && !CompanionApp.IsAppPage(null), "Page de confiance : seule l'origine de DRAFT est reconnue");
             t(CompanionApp.AllowedPageLink("https://lolalytics.com/lol/ahri/build/") && !CompanionApp.AllowedPageLink("https://lolalytics.com.exemple.test/") && !CompanionApp.AllowedPageLink("http://lolalytics.com/") && !CompanionApp.AllowedPageLink("https://exemple.test/?q=lolalytics.com") && !CompanionApp.AllowedPageLink("https://user@lolalytics.com/") && !CompanionApp.AllowedPageLink("file:///C:/Windows/"), "Liens de la page : seuls des sites connus, en HTTPS");
             t(CompanionApp.CsvCell("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")" && CompanionApp.CsvCell("+1") == "'+1" && CompanionApp.CsvCell("Ahri") == "Ahri" && CompanionApp.CsvCell("") == "", "Relevé CSV : formules neutralisées");
+
+            // Outil d'attente bornée des e2e (« rafales », « collé au client ») : hors du fil principal, sans contexte d'interface à bloquer.
+            {
+                WaitResult now = Task.Run(() => StateWait.Until(() => true, 1000)).Result;
+                t(now.Ok && now.Checks == 1, "Attente bornée : une condition déjà vraie passe à la première vérification, sans délai fixe (" + now.Text + ")");
+                Stopwatch since = Stopwatch.StartNew();
+                WaitResult late = Task.Run(() => StateWait.Until(() => since.ElapsedMilliseconds >= 60, 1000)).Result;
+                t(late.Ok && late.Checks > 1 && late.Ms < 1000 && since.ElapsedMilliseconds >= 60, "Attente bornée : une condition vraie après 60 ms passe avant la limite, après " + late.Checks + " vérifications (" + late.Text + ")");
+                WaitResult never = Task.Run(() => StateWait.Until(() => false, 200)).Result;
+                t(!never.Ok && never.Ms >= 200 && never.Text.StartsWith("non atteint") && never.Text.Contains("limite 200 ms"), "Attente bornée : une condition jamais vraie échoue à la limite et le dit (" + never.Text + ")");
+            }
 
             ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();
