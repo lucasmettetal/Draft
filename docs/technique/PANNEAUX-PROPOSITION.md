@@ -297,3 +297,18 @@ Dans `web/draft-layout-tests.html` ; ils font échouer `tools/run-layout-tests.p
 | FR | 55 défauts : DETAILS-ABSENT, TEXTES-COLLES « Ajouter », MENACE-COUPEE, LEAGUE-DEUX-LIGNES | **TOUT EST BON** |
 | EN | 90 défauts : les mêmes, plus JAUGE-SOUS-LE-PLI (jusqu'à 36 px sous le pli à 252 x 711, 11 px à 280 x 720) | **TOUT EST BON** ; français visible 0, clés absentes 0 |
 | qps (ne fait pas échouer) | | 488 débordements listés, dont 152 TEXTES-COLLES et 123 JAUGE-SOUS-LE-PLI (nouveaux relevés, textes allongés) et 111 DEFILE-X des onglets de la fenêtre (déjà présents) ; hors crochets 9 ; clés absentes 0 |
+
+### Tests (captures V2)
+
+Tests légers, en série, un seul Chrome sans tête à la fois. Ni e2e ni capture WebView2.
+
+| Test | Résultat |
+|---|---|
+| Banc de mise en page FR, EN, qps | voir le tableau ci-dessus |
+| `draft-choix-tests.html` | **220 réussis, 0 échec** |
+| `draft-beta1-reel-tests.html` | **182 réussis, 0 échec** |
+| Catalogues (`check-catalogs.ps1 -Code`) | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) |
+| Détecteur de textes en dur (`detect-hardcoded.ps1 -Only web/ -Max 0`) | 0 chaîne |
+| Essai du bouton dans la vraie page (droit 252 x 711, compact 248 x 565 et 248 x 711 ; complète, égalité, « Dans League ») | Au départ, « Détails » partout (avant : « Conseil » dans 3 cas sur 5). Un clic défile vers la lecture approfondie (avant : rien). Sous `--dump-dom`, l'événement de défilement arrive en retard : le libellé suit d'un temps, dans les deux versions |
+
+Une passe « avant » EN, relancée avec le banc final, s'est figée (aucune sortie pendant 40 min) : arrêtée. La passe « avant » EN complète a été faite plus tôt, avec le même banc sauf le filtre d'animation figée de TEXTES-COLLES, qui ne touche pas « Ajouter ».
