@@ -379,6 +379,23 @@ Décision de l'utilisateur : « S'il est fermé volontairement, il doit rester f
 
 **Banc de mise en page.** COMPO-ACCES vérifie aussi le lien : présent dans la section dépliée, absent repliée.
 
+**Tests** (en série, un seul lancement lourd à la fois ; bureau caché `DraftPan1`, dossiers de données neufs, clé `Software\DRAFT-Test-Pan1\Run` retirée à la fin) :
+
+| Test | Résultat |
+|---|---|
+| e2e FR | **112 réussis, 1 échec** : Ctrl+Alt+D laissé à la 2.x, raison « instance » (DRAFT de l'utilisateur, pid 32132, non touché), comme avant. Essais de visibilité : gauche et droit visibles, pas d'accès ; gauche fermé seul : `0,1,0` et accès ; accès replié, un clic le déplie ; fermé au suivi du client et à un déplacement ; **fin de draft puis nouvelle draft : le gauche reste fermé**, l'accès revient replié, le menu dit « Afficher les panneaux » ; **« Afficher les panneaux » (menu de l'icône) : le gauche revient**, `1,1,0`, l'accès disparaît, le menu redit « Masquer » ; refermé, **lien « Rouvrir le panneau gauche » : le gauche revient**, l'accès disparaît. « Rafales » et « collé au client » réussissent. Une première passe a trouvé l'entrée du menu en retard (« Masquer » juste après la nouvelle draft) : corrigé, l'entrée suit la disposition à chaque placement |
+| e2e EN | **112 réussis, 1 échec** : le même Ctrl+Alt+D. Mêmes essais réussis (menu « Show panels », puis « Hide panels ») ; aucune clé du programme absente |
+| selftest FR / EN | **332 / 0** et **332 / 0** |
+| Banc de mise en page FR | **TOUT EST BON** |
+| Banc de mise en page EN | **TOUT EST BON** ; français visible 0, clés absentes 0 |
+| `draft-choix-tests.html` | **220 réussis, 0 échec** |
+| `draft-beta1-reel-tests.html` | **182 réussis, 0 échec** |
+| Catalogues (`check-catalogs.ps1 -Code`) | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) |
+| Détecteur de textes en dur (`detect-hardcoded.ps1 -Max 0`, `web/` et `src/`) | 0 chaîne |
+| Banc moteur (`run-engine-eval.ps1 -AvecEvaluation`) | **Banc : OK**, 0 changement contre les deux instantanés (312 et 108 scénarios), 0 inattendu |
+
+**Capture non refaite** (consigne : pas de nouvelle capture avant la campagne complète). `ajust-fr-a1-gauche-ferme-droit-1920-125-deplie.png` montre l'état d'avant, sans le lien. Le script `captures-ajustements.ps1` compte désormais le lien dans l'essentiel visible : à relancer avec `-Only 'a1-gauche-ferme-droit-deplie'`.
+
 ## 9. Hors périmètre / à reprendre
 
 - **Explication d'une égalité entre champions de styles très différents.** Exemple : Cho'Gath, Master Yi et Viego à égalité. L'explication reste générique et identique pour tous, par exemple « 3 tanks ou bruisers : ses dégâts contre les tanks font la différence ». C'est un défaut connu des explications du moteur. À reprendre plus tard ; non traité par les ajustements des panneaux (ni moteur, ni poids, ni classement touchés).
