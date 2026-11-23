@@ -293,6 +293,7 @@ window.DRAFT_I18N_EN = {
 "stats.journal.origin.markSim": "Simulation",
 "stats.journal.origin.simulation": "Simulation, left out",
 "stats.journal.origin.undo": "Undo",
+"stats.journal.abandoned": "Draft cancelled",
 "stats.journal.origin.unknown": "Unknown origin",
 "stats.journal.pending": {"one": "{count} draft is waiting for its result.", "other": "{count} drafts are waiting for their result."},
 "stats.journal.row.advised": "DRAFT advised {champion}",

@@ -148,10 +148,11 @@
     return { role, available: true, games: inRole.length, opponents, withoutOpponent: inRole.length - known.length, played };
   }
 
-  // Origine d'une entrée du journal. Marque de la #33 : origin "draft". Choix du joueur pour une entrée sans marque : userOrigin.
+  // Origine d'une entrée du journal. Marque de la #33 : origin "draft". Journal automatique (beta.2, #40) : origin "lcu", pick lu
+  // dans le client et partie lancée : une vraie draft, comptée comme "draft". Choix du joueur pour une entrée sans marque : userOrigin.
   // Un champ absent est inconnu : rien n'est déduit, rien n'est supprimé.
   function originOf(e) {
-    if (e.origin === "draft") return "draft";
+    if (e.origin === "draft" || e.origin === "lcu") return "draft";
     if (e.userOrigin === "real") return "real";
     if (e.userOrigin === "simulation") return "simulation";
     return UNKNOWN;
@@ -163,18 +164,22 @@
     return e.tied === true && Array.isArray(e.tiedWith) && e.tiedWith.includes(e.picked);
   }
 
-  // Journal DRAFT. Trois compteurs distincts : enregistrées (toutes, rien n'est supprimé), confirmées (origin "draft" ou
-  // userOrigin "real"), à classer (origine inconnue). Les statistiques de performance (V/D, conseil suivi) ne lisent que les confirmées.
+  // Draft annulée (beta.2, #39) : gardée, jamais comptée comme partie (docs/technique/JOURNAL.md).
+  const abandonedOf = e => e.abandoned === true;
+  // Journal DRAFT. Trois compteurs distincts : enregistrées (toutes, rien n'est supprimé), confirmées (origin "draft" ou "lcu", ou
+  // userOrigin "real", hors drafts annulées), à classer (origine inconnue). Les statistiques de performance (V/D, conseil suivi) ne
+  // lisent que les confirmées.
   function journal(entries) {
     const all = (Array.isArray(entries) ? entries : []).filter(e => e && typeof e === "object");
     const finished = e => e.result === "win" || e.result === "loss", won = e => e.result === "win";
-    const confirmed = all.filter(e => { const o = originOf(e); return o === "draft" || o === "real"; });
+    const confirmed = all.filter(e => { const o = originOf(e); return (o === "draft" || o === "real") && !abandonedOf(e); });
     const done = confirmed.filter(finished);
     const dates = all.map(e => Date.parse(e.date)).filter(isFinite).sort((a, b) => a - b);
     const time = e => Date.parse(e.date) || e.id || 0;
     return {
       recorded: all.length, confirmed: confirmed.length,
       toSort: all.filter(e => originOf(e) === UNKNOWN).length, simulations: all.filter(e => originOf(e) === "simulation").length,
+      abandoned: all.filter(abandonedOf).length,
       finished: record(done, won),
       pending: confirmed.filter(e => e.result === null || e.result === undefined).length,
       skipped: confirmed.filter(e => e.result === "skip").length,
@@ -183,7 +188,8 @@
       period: dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null,
       entries: all.slice().sort((a, b) => time(b) - time(a)).map(e => {
         const origin = originOf(e);
-        return { entry: e, origin, counted: origin === "draft" || origin === "real", followed: followedOf(e), tied: e.tied === true, finished: finished(e) };
+        const abandoned = abandonedOf(e);
+        return { entry: e, origin, abandoned, counted: (origin === "draft" || origin === "real") && !abandoned, followed: followedOf(e), tied: e.tied === true, finished: finished(e) };
       })
     };
   }

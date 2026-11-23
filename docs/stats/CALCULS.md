@@ -115,10 +115,13 @@ Format du journal : [`docs/technique/JOURNAL.md`](../technique/JOURNAL.md) (PR #
 | `origin: "draft"`, `app` | #33, entrées nouvelles | entrée écrite pendant une vraie draft, par cette version |
 | `result` | le joueur | `null` (en attente), `win`, `loss` ou `skip` |
 | `userOrigin` | **cette PR**, le joueur | `"real"` ou `"simulation"` : choix du joueur pour une entrée d'origine inconnue |
+| `origin: "lcu"` | journal automatique (beta.2, #40) | pick lu dans le client et partie lancée : une vraie draft |
+| `abandoned` | drafts annulées (beta.2, #39) | `true` : la draft a été annulée. Gardée, jamais comptée |
 
 ### Origine
 
-- **Draft réelle** : `origin === "draft"`.
+- **Draft réelle** : `origin === "draft"`, ou `origin === "lcu"` (journal automatique).
+- **Draft annulée** : `abandoned === true`. Elle compte dans « enregistrées », jamais dans « confirmées ». Elle n'a ni résultat à saisir, ni origine à classer, et n'entre dans aucune statistique de performance, même si elle porte un résultat.
 - **Confirmée réelle** : pas de marque, et le joueur a choisi « Partie réelle » (`userOrigin: "real"`).
 - **Simulation** : pas de marque, et le joueur a choisi « Simulation » (`userOrigin: "simulation"`). L'entrée est gardée, jamais supprimée, et peut être reclassée.
 - **Origine inconnue** : aucune marque, aucun choix. Les anciennes versions écrivaient aussi les drafts du Simulateur dans le journal : rien ne permet de les distinguer.

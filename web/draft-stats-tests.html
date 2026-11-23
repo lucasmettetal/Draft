@@ -79,6 +79,11 @@ t(J.finished.games===3&&J.finished.wins===2&&J.pending===1&&J.skipped===1,"termi
 t(J.followed.games===2&&J.followed.wins===2&&J.other.games===1,"conseil suivi : sur les parties terminées (2 sur 3), jamais sur toutes les drafts");
 const T=C.journal([E(1,{origin:"draft",result:"win",suggested:"Orianna",picked:"Ahri",tied:true,tiedWith:["Orianna","Ahri"]}),E(2,{origin:"draft",result:"win",suggested:"Orianna",picked:"Viktor",tied:true,tiedWith:["Orianna","Ahri"]}),E(3,{origin:"draft",result:"win",suggested:"Orianna",picked:"Ahri",tiedWith:["Ahri"]})]);
 t(T.followed.games===1&&T.ties===2,"égalité : un ex æquo choisi = conseil suivi ; hors du groupe, non ; sans « tied », aucune égalité reconstruite");
+// Journal automatique (#40) et drafts annulées (#39) : origin « lcu » = vraie draft ; draft annulée gardée, jamais comptée.
+const A=C.journal([E(1,{origin:"lcu",app:"3.0.0-beta.2",gameStarted:true,result:"win",picked:"Orianna",suggested:"Orianna",selection:"1"}),E(2,{origin:"lcu",gameStarted:true,result:null,picked:"Ahri",suggested:"Orianna",selection:"2"}),E(3,{origin:"draft",abandoned:true,result:null,picked:"Ahri"}),E(4,{origin:"draft",abandoned:true,result:"win",picked:"Orianna"}),E(5,{origin:"draft",result:"loss"})]);
+t(A.recorded===5&&A.confirmed===3&&A.toSort===0&&A.abandoned===2,"journal automatique : entrées « lcu » confirmées, jamais à classer ; 2 drafts annulées gardées (5 enregistrées), non confirmées");
+t(A.finished.games===2&&A.finished.wins===1&&A.pending===1&&A.followed.games===2&&A.followed.wins===1,"draft annulée : ni partie terminée, ni en attente, ni conseil suivi, même avec un résultat");
+const AR=A.entries.filter(r=>r.abandoned);t(AR.length===2&&AR.every(r=>!r.counted)&&A.entries.filter(r=>r.entry.origin==="lcu").every(r=>r.counted&&r.origin==="draft"),"lignes du journal : annulées hors compte, « lcu » comptées comme drafts réelles");
 t(C.journal([]).confirmed===0&&C.journal(null).recorded===0&&C.journal([null,"x"]).recorded===0,"journal vide ou abîmé : zéro, sans erreur");
 const P=C.progress(read([...Array(22)].map((_,i)=>row(i))).games,J);
 t(P.champion.have===22&&P.champion.need===30&&!P.champion.reached&&P.trend.need===40&&!P.trend.reached&&P.opponent.have===22&&P.opponent.reached&&P.advice.have===1,"« Pas encore » : progression vers 30, 40, 10 et 10 ; seuil atteint marqué");}

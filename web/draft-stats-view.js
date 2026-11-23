@@ -266,6 +266,8 @@
   // Saisie : origine d'abord pour une entrée sans marque ; résultat seulement pour une draft réelle ou confirmée réelle.
   function EntryActions({ row }) {
     const e = row.entry;
+    // Draft annulée (#39) : gardée pour l'historique, jamais une partie : ni résultat à saisir, ni origine à classer.
+    if (row.abandoned) return html`<span className="sd-acts" data-test="journal-abandoned"><span className="badge-origin">${t("stats.journal.abandoned")}</span></span>`;
     if (row.origin === "unknown") return html`<span className="sd-acts" data-test="journal-origin">
       <span className="badge-origin">${t("stats.journal.origin.unknown")}</span>
       <button type="button" className="mini-btn" data-test="origin-real" onClick=${() => changeOrigin(e.id, "real")}>${t("stats.journal.origin.markReal")}</button>
