@@ -440,6 +440,7 @@ window.DRAFT_I18N_FR = {
 "panel.compo.accessHelp": "Panneau gauche fermé : la composition adverse se lit et se complète ici.",
 "panel.compo.open": "Afficher la composition adverse",
 "panel.compo.close": "Replier la composition adverse",
+"panel.compo.reopen": "Rouvrir le panneau gauche",
 "sim.rulesHelp": "Comment DRAFT classe tes picks",
 "sim.coachLevel": "Niveau des conseils : {level}.",
 "sim.coachLevelChange": "Changer dans Réglages",

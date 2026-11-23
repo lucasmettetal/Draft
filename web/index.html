@@ -1350,6 +1350,7 @@
   .p-compo-access { flex:none; display:flex; flex-direction:column; }
   .p-compo-access.open > .p-compo-line { border-color:var(--line-strong); }
   .p-compo-access .p-compact-enemies { padding:6px 0 0; }
+  .p-compo-reopen { display:block; margin:2px 0 0 auto; }
 </style>
 </head>
 <body>
@@ -3596,6 +3597,8 @@ function CompoLine({ open, text, help }) {
 // Panneau droit, gauche non visible : accès compact, replié par défaut (pas de second jeu de 5 portraits à côté du conseil).
 // Déplié : les 5 postes du compact et la recherche tant qu'il en manque (saisie à la main, utile sans lecture du client). Forces,
 // failles et jauges : section « Profil adverse » de la lecture approfondie, comme dans le compact. Gauche visible : rien.
+// Sous les postes, un lien discret « Rouvrir le panneau gauche » : le programme efface l'état « fermé par le joueur » (gardé pour
+// la session) et replace les panneaux (reopenPanels, src/DraftMid.cs). Aussi par « Afficher les panneaux » du menu de l'icône.
 function CompoAccess() {
   if (!leftHidden()) return null;
   const n = state.enemies.length, open = compoIsOpen(false);
@@ -3605,6 +3608,7 @@ function CompoAccess() {
       <${SearchBox} />
       <${UndoNote} />
       <${CompoRows} />
+      <button type="button" className="link-btn p-compo-reopen" data-test="compo-reopen" onClick=${() => hostSend({ cmd:"reopenPanels" })}>${t("panel.compo.reopen")}</button>
     </div>` : html`<${UndoNote} />`}
   </section>`;
 }

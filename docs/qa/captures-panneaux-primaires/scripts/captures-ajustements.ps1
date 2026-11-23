@@ -2,7 +2,8 @@
 # Mêmes principes : VRAIES fenêtres WebView2 de DRAFT sur un bureau caché (bureau-cache.ps1), dossier de données neuf, pools et drafts
 # FICTIFS, état du programme injecté par CDP (fixture), zone utile et échelle imposées par CDP, seule notre instance arrêtée à la fin.
 # Captures :
-#   droit, panneau gauche fermé (1920 x 1080 à 125 %, zone 252 x 711) : accès « Composition adverse 3/5 » replié, puis déplié ;
+#   droit, panneau gauche fermé (1920 x 1080 à 125 %, zone 252 x 711) : accès « Composition adverse 3/5 » replié, puis déplié (avec le
+#   lien « Rouvrir le panneau gauche », compté dans l'essentiel visible sans défilement) ;
 #   compact, composition complète 5/5 (1366 x 768 à 125 %, zone 248 x 565 ; 1920 x 1080 à 125 %, zone 248 x 711) : replié, puis déplié.
 # « Panneau gauche fermé » : visibilité injectée dans la page (hostState.panelVisible.left = false), comme la lecture du client. Le vrai
 # envoi par le programme (Alt+F4 sur le gauche, puis placement suivant) est vérifié par l'e2e (src/DraftMid.cs, EndToEnd.Run).
@@ -76,7 +77,7 @@ function Driver($s) {
 # débordement horizontal.
 $Measure = @'
 (()=>{const d=document,H=innerHeight,W=innerWidth,bar=d.querySelector('.p-actions'),barTop=bar?bar.getBoundingClientRect().top:H;
-const ess=[['roles',d.querySelector('[data-test=role-switch-support]')],['etatRole',d.querySelector('[data-test=panel-role-meta]')],['compo',d.querySelector('[data-test=compo-toggle]')],['conseil',d.querySelector('.p-reco')||d.querySelector('.tie-group')],['pourquoi',d.querySelector('.panel-right .p-why')],['menaceOuBan',d.querySelector('.p-threat')||d.querySelector('.p-keyban')||d.querySelector('.p-risk')],['pick',d.querySelector('.p-actions [data-test=choose-pick]')],['details',d.querySelector('[data-test=open-analysis]')],['adversaires',d.querySelector('.compact-roles')]].filter(x=>x[1]);
+const ess=[['roles',d.querySelector('[data-test=role-switch-support]')],['etatRole',d.querySelector('[data-test=panel-role-meta]')],['compo',d.querySelector('[data-test=compo-toggle]')],['conseil',d.querySelector('.p-reco')||d.querySelector('.tie-group')],['pourquoi',d.querySelector('.panel-right .p-why')],['menaceOuBan',d.querySelector('.p-threat')||d.querySelector('.p-keyban')||d.querySelector('.p-risk')],['pick',d.querySelector('.p-actions [data-test=choose-pick]')],['details',d.querySelector('[data-test=open-analysis]')],['adversaires',d.querySelector('.compact-roles')],['rouvrir',d.querySelector('[data-test=compo-reopen]')]].filter(x=>x[1]);
 const hid=ess.filter(([k,e])=>{const r=e.getBoundingClientRect(),lim=e.closest('.p-actions')?H:barTop;return !(r.width>0&&r.top>=-0.5&&r.bottom<=lim+0.5&&r.left>=-0.5&&r.right<=W+0.5)}).map(x=>x[0]);
 const lines=r=>{const t=[...r.getClientRects()].filter(x=>x.width>0.5).map(x=>x.top);return t.length?Math.max(...t)-Math.min(...t):0};
 const cut=[];const tw=d.createTreeWalker(d.body,NodeFilter.SHOW_TEXT);let tn;

@@ -226,6 +226,8 @@ L'utilisateur a retenu **V2** : panneau étroit de 256 x 574 à 1366 x 768 à 12
 | e6d7aeb | Pas de défilement horizontal dans les panneaux. |
 | 95d4640 | Rôle de chaque panneau ; relevés PORTRAITS-ADVERSES et PLACE-JE-JOUE. |
 | captures V2 | 6 défauts vus sur les captures des vraies fenêtres ; 5 relevés de plus au banc (section « Captures V2 » ci-dessous). |
+| a385b8f | Panneau gauche fermé : visibilité de chaque panneau transmise aux pages, accès « Composition adverse X/5 » ; compact réductible. |
+| session | Panneau fermé par le joueur : gardé fermé pour la session ; « Afficher les panneaux » et lien « Rouvrir le panneau gauche » (section « Panneau fermé : gardé pour la session »). |
 
 ### Point 3 : un panneau pour la composition, un pour la décision
 
@@ -321,7 +323,7 @@ Deux demandes de l'utilisateur. Aucune nouvelle étude graphique : la ligne repl
 - `HostState` porte un champ de plus, `panelVisible = { left, right, compact }`. Chaque valeur est vraie si le panneau est affiché, non réduit, et au moins à moitié sur un écran (zone utile).
 - Il est envoyé à chaque changement : apparition ou masquage d'un panneau (`PanelForm.OnVisibleChanged` : placement, Alt+F4 sur un panneau seul, masquage de tous), fin de placement (`Place`, `Place2`), déplacement à la main (`PanelMovedByUser`, par `RefreshUi`). Un envoi n'a lieu que si la visibilité a changé, et une seule fois pour les changements d'un même placement (envoi différé, comme le suivi du client) ; rien pendant la libération des panneaux. Rien n'est ajouté au suivi du client pendant un déplacement (`TranslatePanels`).
 - Limite : un panneau caché **derrière** une autre fenêtre reste « visible ». Rien ne le mesure.
-- **Correction de placement, constatée en testant.** Contrairement à ce que disait la section « Comment la page sait… », Alt+F4 sur le gauche ne le masquait pas « jusqu'au déplacement du client » : le suivi du client (`OnClientChanged`, toutes les 2 s) relance `Place`, et `MoveTogether` réaffichait tout panneau masqué. Le gauche revenait en 2 s au plus ; l'accès n'aurait fait que clignoter. Désormais, un panneau gauche ou droit fermé seul par le joueur reste fermé jusqu'au prochain affichage des panneaux (draft suivante, raccourci, menu) ou au prochain changement de disposition (compact, place insuffisante). `MoveTogether` et `Place2` ne le réaffichent plus. Le compact, seul panneau, garde le comportement d'avant. **À valider par l'utilisateur** : c'est un changement de comportement du placement, petit, mais visible.
+- **Correction de placement, constatée en testant.** Contrairement à ce que disait la section « Comment la page sait… », Alt+F4 sur le gauche ne le masquait pas « jusqu'au déplacement du client » : le suivi du client (`OnClientChanged`, toutes les 2 s) relance `Place`, et `MoveTogether` réaffichait tout panneau masqué. Le gauche revenait en 2 s au plus ; l'accès n'aurait fait que clignoter. Dans a385b8f, un panneau gauche ou droit fermé seul par le joueur restait fermé jusqu'au prochain affichage des panneaux ou au prochain changement de disposition. `MoveTogether` et `Place2` ne le réaffichent plus. Le compact, seul panneau, garde le comportement d'avant. **Remplacé depuis par la décision de l'utilisateur** : fermé pour toute la session (section « Panneau fermé : gardé pour la session » ci-dessous).
 
 **2. Panneau droit, gauche fermé.** Si le programme dit le gauche non visible (fermé seul, masqué, hors de l'écran), le panneau droit montre, en haut, une ligne « Composition adverse X/5 ». Repliée par défaut : aucun portrait adverse de plus à côté du conseil. Dépliée : les 5 postes du compact, et la recherche tant qu'il en manque. La saisie à la main se fait donc là, avec les composants existants (`SearchBox`, `RoleRow`), quand la lecture du client manque. Forces, failles et jauges passent dans la section « Profil adverse » de la lecture approfondie, comme dans le compact. Gauche visible, ou état inconnu (ancien programme, navigateur) : rien n'est montré.
 
@@ -359,6 +361,40 @@ Deux demandes de l'utilisateur. Aucune nouvelle étude graphique : la ligne repl
 - manifestes `manifeste-ajustements-fr.csv` et `-en.csv`.
 
 Pas de panneau droit à 1366 x 768 à 125 % : la V2 y place un seul panneau étroit (compact).
+
+### Panneau fermé : gardé pour la session
+
+Décision de l'utilisateur : « S'il est fermé volontairement, il doit rester fermé pendant la session, sans réapparition intempestive à chaque actualisation de la draft. La composition adverse doit rester accessible depuis le panneau droit via une section repliable. »
+
+**Comportement** (`src/DraftMid.cs`, `closedByUser`) :
+- **Fermeture.** Alt+F4 sur le panneau gauche (ou droit) seul : il se masque, l'autre reste. Le droit reçoit « gauche masqué » (`panelVisible`, envoi groupé inchangé) et montre « Composition adverse X/5 », repliée.
+- **Pendant la session.** Le panneau reste fermé jusqu'à la fermeture de DRAFT : suivi du client, déplacement du client, fin de draft puis draft suivante (affichage automatique des panneaux), changement de disposition automatique (compact, place insuffisante, puis retour à deux panneaux). Avant, l'affichage suivant ou un changement de disposition le rouvrait.
+- **Réouverture explicite**, qui efface l'état « fermé » :
+  - menu de l'icône : tant qu'un panneau est fermé par le joueur, l'entrée dit « Afficher les panneaux » (et non « Masquer ») ; un clic le rouvre sans rien masquer. Le raccourci Ctrl+Alt+D fait la même chose (c'est la même entrée) ;
+  - lien discret « Rouvrir le panneau gauche » / « Reopen the left panel », sous les 5 postes de la section « Composition adverse » dépliée du panneau droit (commande `reopenPanels`) ;
+  - panneaux masqués puis « Afficher les panneaux » (menu ou raccourci), et « Essayer les panneaux » du premier lancement : affichages demandés par le joueur, ils rouvrent aussi.
+- **Rien n'est enregistré** : l'état vit en mémoire. Au prochain lancement de DRAFT, les deux panneaux reviennent.
+- Le bouton « Masquer » de la barre de titre du panneau masque toujours tout, comme avant.
+- **Compact inchangé** : fermé (Alt+F4), il revient au suivi du client, comme avant a385b8f. Seul panneau affiché, le garder fermé laisserait la draft sans panneau. **À valider par l'utilisateur** s'il le veut aussi fermé pour la session.
+
+**Banc de mise en page.** COMPO-ACCES vérifie aussi le lien : présent dans la section dépliée, absent repliée.
+
+**Tests** (en série, un seul lancement lourd à la fois ; bureau caché `DraftPan1`, dossiers de données neufs, clé `Software\DRAFT-Test-Pan1\Run` retirée à la fin) :
+
+| Test | Résultat |
+|---|---|
+| e2e FR | **112 réussis, 1 échec** : Ctrl+Alt+D laissé à la 2.x, raison « instance » (DRAFT de l'utilisateur, pid 32132, non touché), comme avant. Essais de visibilité : gauche et droit visibles, pas d'accès ; gauche fermé seul : `0,1,0` et accès ; accès replié, un clic le déplie ; fermé au suivi du client et à un déplacement ; **fin de draft puis nouvelle draft : le gauche reste fermé**, l'accès revient replié, le menu dit « Afficher les panneaux » ; **« Afficher les panneaux » (menu de l'icône) : le gauche revient**, `1,1,0`, l'accès disparaît, le menu redit « Masquer » ; refermé, **lien « Rouvrir le panneau gauche » : le gauche revient**, l'accès disparaît. « Rafales » et « collé au client » réussissent. Une première passe a trouvé l'entrée du menu en retard (« Masquer » juste après la nouvelle draft) : corrigé, l'entrée suit la disposition à chaque placement |
+| e2e EN | **112 réussis, 1 échec** : le même Ctrl+Alt+D. Mêmes essais réussis (menu « Show panels », puis « Hide panels ») ; aucune clé du programme absente |
+| selftest FR / EN | **332 / 0** et **332 / 0** |
+| Banc de mise en page FR | **TOUT EST BON** |
+| Banc de mise en page EN | **TOUT EST BON** ; français visible 0, clés absentes 0 |
+| `draft-choix-tests.html` | **220 réussis, 0 échec** |
+| `draft-beta1-reel-tests.html` | **182 réussis, 0 échec** |
+| Catalogues (`check-catalogs.ps1 -Code`) | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) |
+| Détecteur de textes en dur (`detect-hardcoded.ps1 -Max 0`, `web/` et `src/`) | 0 chaîne |
+| Banc moteur (`run-engine-eval.ps1 -AvecEvaluation`) | **Banc : OK**, 0 changement contre les deux instantanés (312 et 108 scénarios), 0 inattendu |
+
+**Capture non refaite** (consigne : pas de nouvelle capture avant la campagne complète). `ajust-fr-a1-gauche-ferme-droit-1920-125-deplie.png` montre l'état d'avant, sans le lien. Le script `captures-ajustements.ps1` compte désormais le lien dans l'essentiel visible : à relancer avec `-Only 'a1-gauche-ferme-droit-deplie'`.
 
 ## 9. Hors périmètre / à reprendre
 
