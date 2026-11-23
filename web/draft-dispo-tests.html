@@ -142,6 +142,35 @@ for(const lang of ["fr","en"])for(const [P,W,H] of [["right",252,711],["compact"
   t(!offRows(x).length&&!q(x,'[data-test="panel-gone"]')&&!q(x,'[data-test="no-pick"]')&&!!cta(x),L0+"lecture désactivée : aucun marquage, conseil normal");
   x.f.remove();show();
 }
+// ---------- 4. Bans conseillés : jamais un champion déjà banni, pris par un allié ou en face ; le suivant prend la place ----------
+for(const lang of ["fr","en"]){
+  const L0=lang.toUpperCase()+" bans : ";prepare(MID);const x=await openHost(lang,"panel=right",252,711);const T=(k,v)=>x.w.I18N.t(k,v);
+  const idOf=n=>Number(x.ev("Object.keys(CHAMPION_IDS).find(k=>toName(CHAMPION_IDS[k])==="+JSON.stringify(n)+")"));
+  const bans=()=>x.ev("V.bans.slice()");
+  live(x,null,null);await settle();
+  live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});1");await settle();
+  const base=bans();
+  // Liste complète de la source, dans son ordre (moteur seul) ; NOT_BANNABLE est rempli de nouveau par le calcul suivant.
+  const full=x.ev("(()=>{const out=[];for(let i=0;i<60;i++){NOT_BANNABLE.length=0;out.forEach(n=>NOT_BANNABLE.push(n));const b=suggestBans();if(!b.length)break;b.forEach(n=>{if(!out.includes(n))out.push(n);});}NOT_BANNABLE.length=0;return out;})()");
+  t(base.length===3&&JSON.stringify(full.slice(0,3))===JSON.stringify(base)&&full.length>4&&q(x,'[data-test="panel-keyban"]'),L0+"liste vide : trois bans, ceux d'avant ("+base.join(", ")+") ; source complète de "+full.length+" candidats");
+  live(x,K(1),U(K(1),2,[[idOf(base[0]),"ban"]]));await settle();
+  const b1=bans();
+  t(JSON.stringify(b1)===JSON.stringify(full.filter(n=>n!==base[0]).slice(0,3))&&!text(q(x,'[data-test="panel-keyban"]')).includes(base[0]),L0+base[0]+" déjà banni : retiré, le suivant prend la place ("+b1.join(", ")+")");
+  live(x,K(1),U(K(1),3,[[idOf(base[0]),"ban"],[idOf(b1[0]),"ally"]]));await settle();
+  const b2=bans();
+  t(JSON.stringify(b2)===JSON.stringify(full.filter(n=>n!==base[0]&&n!==b1[0]).slice(0,3)),L0+b1[0]+" pris par un allié : retiré ("+b2.join(", ")+")");
+  live(x,K(1),U(K(1),4,[[idOf(base[0]),"ban"],[idOf(b1[0]),"ally"],[idOf(b2[0]),"enemy"]]));await settle();
+  const b3=bans();
+  t(JSON.stringify(b3)===JSON.stringify(full.filter(n=>![base[0],b1[0],b2[0]].includes(n)).slice(0,3))&&picks(x).length===4,L0+b2[0]+" pris en face (liste du client) : retiré des bans ; les picks ne changent pas ("+b3.join(", ")+")");
+  // Plus aucun candidat : aucun ban inventé, la section le dit, l'encadré du ban disparaît.
+  live(x,K(1),U(K(1),5,full.map(n=>[idOf(n),"ban"])));await settle();
+  q(x,'[data-test="panel-sec-bans"] summary').click();await settle();
+  t(bans().length===0&&x.ev("V.bansTaken===true")&&!q(x,'[data-test="panel-keyban"]')&&text(q(x,'[data-test="panel-bans-none"]'))===T("panel.bans.allTaken"),L0+"plus aucun candidat : aucun ban, « "+text(q(x,'[data-test="panel-bans-none"]'))+" »");
+  // Sans lecture du client : bans d'origine.
+  live(x,K(1),U(K(1),5,full.map(n=>[idOf(n),"ban"])),{lcuEnabled:false});await settle();
+  t(JSON.stringify(bans())===JSON.stringify(base)&&x.ev("V.bansTaken===false&&NOT_BANNABLE.length===0"),L0+"lecture désactivée : bans d'origine ("+bans().join(", ")+")");
+  x.f.remove();show();
+}
 // Fenêtre (Simulateur affiché pendant la draft) : la même phrase au-dessus du conseil.
 {prepare(MID);const x=await openHost("fr","panel=full",1200,800);const T=(k,v)=>x.w.I18N.t(k,v);
  live(x,null,null);await settle();live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});goView('sim');1");await settle();x.ev("addEnemy('Ahri');1");await settle();
