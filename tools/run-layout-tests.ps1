@@ -42,7 +42,10 @@ $Common = @('--headless=new', '--disable-gpu', '--force-prefers-reduced-motion',
 # MOT-COUPE et BOUTON-DEUX-LIGNES (panneaux primaires) : un mot coupe en son milieu, ou le bouton principal sur deux lignes.
 # PORTRAITS-ADVERSES : composition adverse dans le panneau droit (le gauche est affiche avec lui). PLACE-JE-JOUE : place gardee pour
 # un bouton Je joue absent en mode Dans League.
-$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-|PORTRAITS-|PLACE-)'
+# Ajustements V2 (captures des vraies fenetres) : DETAILS-ABSENT (« Conseil » propose sans defilement), LEAGUE-DEUX-LIGNES,
+# TEXTES-COLLES (« AjouterAjouter » entre colonnes voisines), MENACE-COUPEE (phrase de menace tronquee), JAUGE-SOUS-LE-PLI
+# (panneau gauche de 700 px et plus : une des 5 jauges sous le pli).
+$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-|PORTRAITS-|PLACE-|DETAILS-|LEAGUE-|MENACE-|JAUGE-)'
 $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
@@ -96,7 +99,8 @@ $qpsHard = @{}; $qpsMissing = @{}; $qpsOverflow = 0
 # Depuis I18N-3, l'etat simule du programme (phase, placement) passe par des cles : plus aucune exception.
 $enFixtures = @()
 foreach ($run in $Runs) {
-    $args_ = $Common + @('--virtual-time-budget=120000', '--dump-dom')
+    # 180 s de temps virtuel : l'etat 'extreme' attend 3,6 s par taille ; 34 tailles depassaient 120 s (aucune mesure).
+    $args_ = $Common + @('--virtual-time-budget=180000', '--dump-dom')
     if ($run[2]) { $args_ += $OfflineArg }
     if ($run.Count -gt 3 -and $run[3]) { $args_ += $run[3] }
     $dom = & $Chrome @args_ "$Base`?$($run[1])" 2>$null | Out-String

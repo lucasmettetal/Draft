@@ -224,7 +224,8 @@ L'utilisateur a retenu **V2** : panneau étroit de 256 x 574 à 1366 x 768 à 12
 | 9af52ae | V2 réelle dans `Layout` : panneau étroit de 256 px, hauteur utile de l'écran (900 px au plus) ; panneaux à côté du client à 1,25 fois sa hauteur. « Je joue X » seul sur sa rangée. Ordre de la lecture immédiate (ci-dessous). |
 | c7214f0 | Aucun mot coupé, bouton principal sur une ligne. Relevés MOT-COUPE et BOUTON-DEUX-LIGNES dans le banc. |
 | e6d7aeb | Pas de défilement horizontal dans les panneaux. |
-| point 3 | Rôle de chaque panneau ; relevés PORTRAITS-ADVERSES et PLACE-JE-JOUE. |
+| 95d4640 | Rôle de chaque panneau ; relevés PORTRAITS-ADVERSES et PLACE-JE-JOUE. |
+| captures V2 | 6 défauts vus sur les captures des vraies fenêtres ; 5 relevés de plus au banc (section « Captures V2 » ci-dessous). |
 
 ### Point 3 : un panneau pour la composition, un pour la décision
 
@@ -268,3 +269,31 @@ Tests légers seulement, en série, un seul Chrome sans tête à la fois. Ni e2e
 | `draft-beta1-reel-tests.html` | **182 réussis, 0 échec** |
 | Catalogues (`check-catalogs.ps1 -Code`) | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) |
 | Détecteur de textes en dur (`detect-hardcoded.ps1 -Only web/ -Max 0`) | 0 chaîne |
+
+### Captures V2 : 6 défauts corrigés
+
+Repérés sur les captures des vraies fenêtres V2 : 248 x 565 (compact 1366 à 125 %), 252 x 711 (gauche et droit 1920 à 125 %), 248 x 711 (unique 1920).
+
+| Défaut | Cause | Correction |
+|---|---|---|
+| 1. « ^ Conseil » à la place de « Détails », sans défilement ; clic sans effet | Le bouton basculait dès que la lecture approfondie commençait dans la moitié haute de la zone qui défile. À 711 px de haut, c'est vrai au repos ; le clic remettait `scrollTop` à 0, déjà à 0 | « Conseil » seulement après un vrai défilement (`scrollTop >= 1`). Au repos, « Détails » reste l'entrée |
+| 2. Menace coupée au milieu d'un mot (compact 1366) | Une ligne au plus sous 600 px de haut | Deux lignes au plus : la phrase entière. EN : « Their targeted CC can stop your all-in. » (trois lignes à 222 px avec « point-and-click ») |
+| 3. « AjouterAjouterAjouter » | « Ajouter » remplissait ses 45 px de colonne ; aucun espace entre colonnes | Case vide marquée d'un « + ». « Ajouter le Top » au survol ; l'étiquette de la case reste lue par les lecteurs d'écran |
+| 4. Jauge « Engage » sous le pli (gauche EN, 252 x 711) | « Point-and-click CC » et « Squishy carries » (91 px pour 90) sur deux lignes | « Targeted CC » (même sens que « CC ciblés ») ; colonne des libellés de 100 px ; 4 px entre les jauges |
+| 5. « Dans League : Twisted Fate verrouillé ✓ » sur deux lignes | 39 caractères pour 214 px | « League : {champion} verrouillé ✓ » (et « (survolé) ») ; si la place manque encore, seul le nom se raccourcit, nom complet au survol. À 248 et 252 px, « Twisted Fate » tient en entier, FR et EN |
+| 6. « Presque à ég… » ; « Malp… » | Étiquette de l'alternative : 101 px pour 90. Nom adverse : colonne de 45 px | Étiquette sur deux lignes au plus, coupée entre deux mots. Noms adverses : toujours tronqués (un seul mot plus large que la colonne), nom complet au survol de la case (le titre du nom était sous la zone cliquable) |
+
+### Relevés ajoutés au banc (captures V2)
+
+Dans `web/draft-layout-tests.html` ; ils font échouer `tools/run-layout-tests.ps1`. Taille 248 x 711 ajoutée au compact. Temps virtuel porté à 180 s : avec cette taille, l'état « extreme » dépassait 120 s (aucune mesure).
+- **DETAILS-ABSENT** : zone qui défile en haut, et le bouton propose « Conseil ».
+- **JAUGE-SOUS-LE-PLI** : panneau gauche de 700 px de haut et plus, une des 5 jauges sous le pli.
+- **LEAGUE-DEUX-LIGNES** : ligne « Dans League » sur deux lignes.
+- **TEXTES-COLLES** : deux textes de colonnes voisines (postes adverses du compact, ex æquo) à moins de 3 px sur la même ligne. Un texte en animation figée (`--dump-dom` ne produit aucune image) est ignoré.
+- **MENACE-COUPEE** : phrase de la menace tronquée (une ligne masquée).
+
+| Banc | Code de 95d4640 | Après |
+|---|---|---|
+| FR | 55 défauts : DETAILS-ABSENT, TEXTES-COLLES « Ajouter », MENACE-COUPEE, LEAGUE-DEUX-LIGNES | **TOUT EST BON** |
+| EN | 90 défauts : les mêmes, plus JAUGE-SOUS-LE-PLI (jusqu'à 36 px sous le pli à 252 x 711, 11 px à 280 x 720) | **TOUT EST BON** ; français visible 0, clés absentes 0 |
+| qps (ne fait pas échouer) | | 488 débordements listés, dont 152 TEXTES-COLLES et 123 JAUGE-SOUS-LE-PLI (nouveaux relevés, textes allongés) et 111 DEFILE-X des onglets de la fenêtre (déjà présents) ; hors crochets 9 ; clés absentes 0 |

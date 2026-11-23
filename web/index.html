@@ -1234,6 +1234,10 @@
   .p-league b { color:var(--conn); font-weight:600; }
   .p-league-dot { flex:none; width:9px; height:9px; background:var(--conn); border-radius:50%; }
   .p-league.hover .p-league-dot { background:transparent; box-shadow:inset 0 0 0 2px var(--conn); }
+  /* Ajustements V2 : la ligne tient sur une ligne. Seul le nom se raccourcit (points de suspension, nom complet au survol) ;
+     « Dans League » et l'état (verrouillé, survolé) restent entiers. Espaces gardés autour du nom (white-space:pre). */
+  .p-league-text { display:flex; min-width:0; overflow:hidden; white-space:pre; }
+  .p-league-text b { min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .p-auto-note { flex:0 1 auto; min-width:0; margin:0; color:var(--muted); font-size:13px; line-height:1.25; }
   /* Noms sur une ligne, tronqués proprement (nom complet au survol) ; étiquettes sur une ligne ; ailleurs, retour à la ligne entre
      les mots seulement : un mot n'est jamais coupé en son milieu tant qu'il tient sur une ligne entière. */
@@ -1257,6 +1261,11 @@
   /* Pas de défilement horizontal dans les panneaux : un libellé qui déborde de 1 à 3 px de sa colonne reste lisible, sans barre. */
   .panel .p-scroll, .panel-right .p-body { overflow-x:hidden; }
   .panel .compact-roles .role-name, .panel .compact-roles .role.is-mid .role-name { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; overflow-wrap:normal !important; -webkit-line-clamp:unset; }
+  /* Ajustements V2 : case vide du compact marquée d'un « + » (« Ajouter le Top » au survol ; étiquette de la case pour les lecteurs
+     d'écran). « Ajouter » remplissait ses 45 px de colonne : côte à côte, on lisait « AjouterAjouterAjouter ». */
+  .role-plus { display:none; }
+  .compact-roles .role-add { display:none; }
+  .compact-roles .role-plus { display:block; color:var(--muted); font:600 16px/1 var(--body); pointer-events:none; }
   .p-risk { flex:none; }
   .p-results { flex:none; }
   /* Panneau gauche : provenance, légende des cadres (plein = placé à la main, pointillé = supposé) et conseil à jour. */
@@ -1294,8 +1303,9 @@
     .panel-compact .p-threat .portrait, .panel-compact .p-keyban .portrait { width:32px !important; height:32px !important; }
     .panel-compact .p-reco { min-height:56px; }
     .panel-compact .p-actions { padding-top:6px; padding-bottom:7px; }
-    /* Menace sur une ligne (texte complet au survol et dans « Menaces et cibles ») ; proposition de rôle plus serrée. */
-    .panel-compact .p-threat p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; }
+    /* Menace sur deux lignes au plus : la phrase entière plutôt qu'un mot coupé par les points de suspension (texte complet au
+       survol et dans « Menaces et cibles ») ; proposition de rôle plus serrée. */
+    .panel-compact .p-threat p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
     .panel-compact .role-hint { margin:0 8px 4px; padding:3px 7px; line-height:1.25; }
     .panel .p-viewed .viewed-cmp { -webkit-line-clamp:2; }
     .panel-compact .compact-roles .role-icon { line-height:1.1; }
@@ -1306,6 +1316,14 @@
   .panel-left .search:has(input:disabled), .p-compact-enemies .search:has(input:disabled) { display:none; }
   .panel-left .roles { gap:3px; }
   .panel-left .col-left > .effects { padding:5px 8px; }
+  /* Ajustements V2, panneau gauche (252 x 711) : les 5 jauges tiennent sans défiler, en FR comme en EN. Libellés sur une ligne
+     (colonne de 100 px : « Squishy carries » en demande 91, il passait sur deux lignes à 90) ; 4 px entre les jauges, comme
+     dans les détails du compact. */
+  .panel-left .meters.profile { gap:4px; }
+  .panel-left .meter { grid-template-columns:minmax(0,100px) minmax(0,1fr) 14px; gap:6px; }
+  /* Étiquette de l'alternative : deux lignes au plus, coupées entre deux mots, plutôt que « Presque à ég… » (101 px pour 90 dans
+     le panneau droit de 252 px). Un mot plus large que la colonne n'est jamais coupé en deux (« Alternative » à 222 px). */
+  .panel .p-alt small { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; white-space:normal; overflow-wrap:normal !important; }
 </style>
 </head>
 <body>
@@ -2209,7 +2227,7 @@ function RoleRow({ role, name, assumed, info }) {
     ? t(state.selected && state.selected !== name ? "enemy.row.filledSwap" : "enemy.row.filled", { role: ROLE_LABEL[role], champion: name, selected: state.selected })
     : t(state.selected ? "enemy.row.emptyPlace" : "enemy.row.empty", { role: ROLE_LABEL[role], selected: state.selected });
   return html`<div className=${cls} data-test="enemy-row" data-slot=${role}>
-    <button type="button" className="role-hit" aria-label=${label} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
+    <button type="button" className="role-hit" aria-label=${label} title=${name || (state.targetRole === role ? undefined : t("enemy.row.add", { what: t(ADD_TARGET_KEYS[role]) }))} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
     ${flash ? html`<${motion.span} key=${flash.id} className=${`role-flash ${flash.kind}`} aria-hidden="true" initial=${{ opacity:.45 }} animate=${{ opacity:0 }} transition=${{ duration:.35 }} />` : null}
     <span className="role-icon" title=${ROLE_LABEL[role]}><${RoleIcon} role=${role} /><span className="role-label">${ROLE_LABEL[role]}</span></span>
     ${name ? html`<${motion.span} key=${name} layoutId=${`who-${name}`} initial=${{ scale:.86, opacity:.4 }} animate=${{ scale:1, opacity:1 }} transition=${SNAP} className="who-wrap">
@@ -2223,7 +2241,8 @@ function RoleRow({ role, name, assumed, info }) {
         ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${oppText("toRole", { champion: name })} onClick=${() => setMid(name)}>${oppName()}</button>` : null}
         <button type="button" className="mini x" data-test="enemy-remove" aria-label=${t("enemy.row.remove", { champion: name })} onClick=${() => removeEnemy(name)}>×</button>
       </span>`
-    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? t("enemy.row.typeName") : tx("enemy.row.add", { what: html`<span className="em">${t(ADD_TARGET_KEYS[role])}</span>` })}</span>`}
+    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span>${state.targetRole === role ? html`<span className="role-empty">${t("enemy.row.typeName")}</span>`
+      : html`<span className="role-empty role-add">${tx("enemy.row.add", { what: html`<span className="em">${t(ADD_TARGET_KEYS[role])}</span>` })}</span><span className="role-plus" aria-hidden="true">+</span>`}`}
   </div>`;
 }
 
@@ -3282,7 +3301,7 @@ function PanelReco({ name }) {
 function PanelActions({ cta, deepIn, onDetails }) {
   const lg = leagueNow();
   return html`<div className=${`p-actions${lg ? " is-league" : ""}`} data-test="panel-actions">
-    ${lg ? html`<p className=${`p-league ${lg.state}`} data-test="league-line" data-state=${lg.state} title=${t("panel.league.help")}><span className="p-league-dot" aria-hidden="true"></span><span>${tx(lg.state === "locked" ? "panel.league.locked" : "panel.league.hover", { champion: html`<b>${label(lg.champion)}</b>` })}</span></p>`
+    ${lg ? html`<p className=${`p-league ${lg.state}`} data-test="league-line" data-state=${lg.state} title=${t("panel.league.help")}><span className="p-league-dot" aria-hidden="true"></span><span className="p-league-text">${tx(lg.state === "locked" ? "panel.league.locked" : "panel.league.hover", { champion: html`<b title=${label(lg.champion)}>${label(lg.champion)}</b>` })}</span></p>`
       : cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.text + " : " + cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
     <div className="p-actions-sub">
       <button type="button" className=${`ghost-btn details-btn${deepIn ? " on" : ""}`} data-test="open-analysis" aria-pressed=${deepIn} title=${t(deepIn ? "panel.detailsBackHelp" : "panel.detailsHelp")} onClick=${onDetails}><${ToolIcon} name=${deepIn ? "up" : "list"} /><span className="details-label">${t(deepIn ? "panel.detailsBack" : "panel.details")}</span></button>
@@ -3299,12 +3318,14 @@ function VerdictPanel({ compact }) {
   const [deepIn, setDeepIn] = useState(false);
   const toggle = (id, on) => setOpen(prev => { if (prev.has(id) === !!on) return prev; const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next; });
   // « Détails » mène à la lecture approfondie, et « Conseil » ramène en haut : défilement instantané, aucune animation longue.
+  // « Conseil » seulement après un vrai défilement : à la hauteur V2 (711 px), la lecture approfondie commence déjà dans la moitié
+  // haute sans défiler ; le bouton y proposait « Conseil », et un clic ne faisait rien. Sans défilement, « Détails » reste l'entrée.
   const scroller = deep => deep.closest(".p-scroll") || deep.closest(".p-body");
   useEffect(() => {
     const deep = document.getElementById("p-deep");
     if (!deep) return;
     const sc = scroller(deep);
-    const on = () => { const r = sc.getBoundingClientRect(); setDeepIn(deep.getBoundingClientRect().top < r.top + r.height * .5); };
+    const on = () => { const r = sc.getBoundingClientRect(); setDeepIn(sc.scrollTop >= 1 && deep.getBoundingClientRect().top < r.top + r.height * .5); };
     on();
     sc.addEventListener("scroll", on, { passive:true });
     return () => sc.removeEventListener("scroll", on);
