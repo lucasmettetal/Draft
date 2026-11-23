@@ -97,6 +97,58 @@ for(const lang of ["fr","en"]){
   t(JSON.stringify(ranking(x))===without(base,"TF"),L0+"nouvelle sélection, sa propre liste : TF banni retiré");
   x.f.remove();show();
 }
+
+// ---------- 3. Panneaux V2 : marquage dans « Choisir dans ton pool », « Je joue » impossible, conseil devenu indisponible, pool vide ----------
+// Zones utiles à 125 % (tools\run-panneaux-tests.ps1) : droit 252 x 711 (1920), compact 248 x 565 (1366) ; compact 248 x 463 (1366, 150 %).
+const q=(x,s)=>x.d.querySelector(s),qa=(x,s)=>[...x.d.querySelectorAll(s)];
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const visible=(x,e)=>{if(!e)return false;const r=e.getBoundingClientRect(),W=x.w.innerWidth,H=x.w.innerHeight;return r.width>0&&r.height>0&&r.top>=-0.5&&r.bottom<=H+0.5&&r.left>=-0.5&&r.right<=W+0.5;};
+const cta=x=>q(x,'[data-test="choose-pick"]');
+const offRows=x=>qa(x,'[data-test="panel-pool-off"]').map(e=>[e.dataset.pick,e.dataset.reason,text(e.querySelector(".rank-word"))]);
+for(const lang of ["fr","en"])for(const [P,W,H] of [["right",252,711],["compact",248,565],["compact",248,463]]){
+  const L0=lang.toUpperCase()+" "+P+" "+W+"x"+H+" : ";prepare(MID);const x=await openHost(lang,"panel="+P,W,H);const T=(k,v)=>x.w.I18N.t(k,v);
+  live(x,null,null);await settle();
+  live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});1");await settle();x.ev("addEnemy('Ahri');1");await settle();
+  t(!offRows(x).length&&!q(x,'[data-test="panel-gone"]'),L0+"liste vide : aucun champion marqué, aucune phrase");
+  // Banni et pris par un allié : marqués en fin de liste, inactifs, jamais consultés ni confirmés.
+  live(x,K(1),U(K(1),2,[[FIZZ,"ban"],[XERATH,"ally"]]));await settle();
+  const rows=qa(x,'[data-test="panel-pool-off"]');
+  t(JSON.stringify(offRows(x))===JSON.stringify([["Fizz","ban",T("panel.pool.off.ban")],["Xerath","ally",T("panel.pool.off.ally")]])&&rows.every(e=>e.tagName!=="BUTTON"&&!e.querySelector("button")&&e.getAttribute("aria-disabled")==="true")
+    &&!qa(x,'[data-test="panel-pool-pick"]').some(e=>["Fizz","Xerath"].includes(e.dataset.pick)),L0+"« "+T("panel.pool.off.ban")+" » et « "+T("panel.pool.off.ally")+" » marqués dans le pool, inactifs ("+JSON.stringify(offRows(x))+")");
+  x.ev("consult('Fizz');choosePick('Xerath');1");await settle();
+  t(x.ev("state.viewed===null&&state.picked===null")&&!/Fizz|Xerath/.test(text(cta(x))),L0+"Fizz ne se consulte pas, Xerath ne se confirme pas : « Je joue » ne les propose jamais ("+text(cta(x))+")");
+  x.ev("addEnemy('Vex');1");await settle();
+  t(offRows(x).some(r=>r[0]==="Vex"&&r[1]==="enemy"&&r[2]===T("panel.pool.off.enemy")),L0+"Vex pris en face : « "+T("panel.pool.off.enemy")+" »");
+  x.ev("removeEnemy('Vex');1");await settle();
+  // Choix confirmé, puis banni : le bouton revient au conseil, la phrase le dit, visible sans défiler.
+  x.ev("choosePick('Vex');1");await settle();
+  const noted=text(cta(x))===T("advice.cta.noted",{champion:"Vex"});
+  live(x,K(1),U(K(1),3,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"]]));await settle();
+  const gone=q(x,'[data-test="panel-gone"]');
+  x.ev("choosePick('Vex');1");await settle();
+  t(noted&&text(gone)===T("panel.gone.ban",{champion:"Vex",next:"Twisted Fate"})&&text(cta(x))===T("advice.cta.play",{champion:"Twisted Fate"})&&!q(x,'[data-test="pick-advice"]'),L0+"Vex confirmé puis banni : « "+text(gone)+" », bouton « "+text(cta(x))+" »");
+  t(visible(x,gone)&&visible(x,cta(x)),L0+"phrase et « Je joue » visibles sans défiler");
+  res.notes[lang+"_"+P+"_"+H]=text(gone);
+  // Conseil pris par un allié : même phrase, raison « allié ».
+  live(x,K(1),U(K(1),4,[[FIZZ,"ban"],[VEX,"ban"]]));await settle();
+  const before=x.ev("V.shown");
+  live(x,K(1),U(K(1),5,[[FIZZ,"ban"],[VEX,"ban"],[x.ev("Number(Object.keys(CHAMPION_IDS).find(k=>toName(CHAMPION_IDS[k])===label(V.shown)))"),"ally"]]));await settle();
+  t(text(q(x,'[data-test="panel-gone"]'))===T("panel.gone.ally",{champion:x.ev("label("+JSON.stringify(before)+")"),next:x.ev("label(V.shown)")})&&x.ev("V.shown")!==before,L0+"conseil ("+before+") pris par un allié : « "+text(q(x,'[data-test="panel-gone"]'))+" »");
+  // Tout le pool indisponible : message clair, aucun conseil ni bouton.
+  live(x,K(1),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]));await settle();
+  t(text(q(x,'[data-test="no-pick"]'))===T("panel.empty.allUnavailable")&&!cta(x)&&!q(x,'[data-test="panel-reco"]')&&visible(x,q(x,'[data-test="no-pick"]')),L0+"tout le pool indisponible : « "+text(q(x,'[data-test="no-pick"]'))+" », sans conseil");
+  // Sans lecture du client : rien n'est marqué, rien n'est dit.
+  live(x,K(1),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]),{lcuEnabled:false});await settle();
+  t(!offRows(x).length&&!q(x,'[data-test="panel-gone"]')&&!q(x,'[data-test="no-pick"]')&&!!cta(x),L0+"lecture désactivée : aucun marquage, conseil normal");
+  x.f.remove();show();
+}
+// Fenêtre (Simulateur affiché pendant la draft) : la même phrase au-dessus du conseil.
+{prepare(MID);const x=await openHost("fr","panel=full",1200,800);const T=(k,v)=>x.w.I18N.t(k,v);
+ live(x,null,null);await settle();live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});goView('sim');1");await settle();x.ev("addEnemy('Ahri');1");await settle();
+ const before=x.ev("V.shown");
+ live(x,K(1),U(K(1),2,[[x.ev("Number(Object.keys(CHAMPION_IDS).find(k=>toName(CHAMPION_IDS[k])===label(V.shown)))"),"ban"]]));await settle();
+ t(text(q(x,'[data-test="advice-gone"]'))===T("panel.gone.ban",{champion:x.ev("label("+JSON.stringify(before)+")"),next:x.ev("label(V.shown)")}),"FR fenêtre : conseil banni : « "+text(q(x,'[data-test="advice-gone"]'))+" »");
+ x.f.remove();}
 show();
 })().catch(e=>{res.ko.push("Test interrompu : "+e.message);show();});
 </script></body></html>

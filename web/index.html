@@ -999,6 +999,9 @@
   .p-pool-row { display:flex; align-items:center; gap:8px; width:100%; min-height:36px; padding:3px 8px 3px 3px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); text-align:left; }
   .p-pool-row:hover { border-color:var(--muted); }
   .p-pool-row.picked { border-color:var(--prio); box-shadow:inset 0 0 0 1px var(--prio); }
+/* Disponibilité (beta.2) : champion du pool banni ou déjà pris, marqué et inactif. */
+.p-pool-row.off { opacity:.6; cursor:default; }
+.p-pool-row.off:hover { border-color:var(--line); }
   .p-pool-name { flex:1; min-width:0; display:flex; flex-direction:column; font:15px var(--condensed); overflow-wrap:anywhere; }
   .p-pool-name small { font-family:var(--body); }
   .p-pool-go { flex:none; color:var(--prio); font:600 13px var(--body); }
@@ -1290,6 +1293,8 @@
      Mesuré : à 222 x 567 et 248 x 567, les afficher poussait la menace ou le consulté sous la barre (tools/run-panneaux-tests.ps1). */
   @media (max-height:700px) {
     .panel-compact .p-why, .panel-compact .p-change, .panel-compact .p-viewed .viewed-cmp, .panel-compact .p-keyban p.p-keyban-more, .panel-compact .p-tie > .note { display:none; }
+/* Disponibilité (beta.2) : le conseil devenu indisponible est dit aussi dans le compact, sur une ligne courte. */
+.panel-compact .p-change.p-gone { display:block; }
     .panel-compact .p-keyban p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
     /* Égalité dans le compact : les ex æquo côte à côte (portrait, puis nom), la coche dans le coin, loin du nom. */
     .panel-compact .p-tie .tie-list { flex-direction:row; }
@@ -1525,6 +1530,28 @@ function syncUnavailable() {
   names.forEach(n => { if (!UNAVAILABLE.includes(n)) UNAVAILABLE.push(n); });
   return UNAVAILABLE.join("|") !== before;
 }
+// Champions du pool sortis de la liste candidate parce qu'ils ne sont plus disponibles, à marquer (« Banni », « Pris par un allié »,
+// « Pris en face ») : [{ pick, reason }]. Seulement avec la liste du client pour cette sélection : sinon rien n'est marqué ni déduit.
+function unavailablePool() {
+  if (!availabilityNow() || !V || !V.res) return [];
+  return PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p) && !V.res.ranking.some(x => x.pick === p))
+    .map(p => ({ pick:p, reason:unavailableReason(label(p)) || (state.enemies.includes(label(p)) ? "enemy" : null) })).filter(x => x.reason);
+}
+// Champion indisponible : ni conseillé, ni consultable, ni confirmable avec « Je joue ».
+const isOff = p => !!p && unavailablePool().some(x => x.pick === p);
+const OFF_KEYS = { ban:"panel.pool.off.ban", ally:"panel.pool.off.ally", enemy:"panel.pool.off.enemy" };
+// Conseil, choix confirmé ou champion consulté qui vient d'être banni ou pris par un allié : le panneau le dit et nomme le conseil
+// suivant. La phrase reste tant que ce conseil est affiché (un pick adverse garde son message « pris en face », describeChange).
+function goneAdvice(prevV, shown, tied) {
+  if (prevV && !prevV.none) {
+    const before = prevV.unavailable || [];
+    const lost = [].concat(prevV.tied || [prevV.shown], currentPick() || [], state.viewed || []).find(p => p && UNAVAILABLE.includes(label(p)) && !before.includes(label(p)));
+    const reason = lost ? unavailableReason(label(lost)) : null;
+    if (reason === "ban" || reason === "ally") return { id:Date.now(), pick:lost, reason, shown, next:tied ? tied.map(label).join(", ") : label(shown) };
+  }
+  return prevV && prevV.gone && prevV.gone.shown === shown && UNAVAILABLE.includes(label(prevV.gone.pick)) ? prevV.gone : null;
+}
+const goneText = g => t(g.reason === "ban" ? "panel.gone.ban" : "panel.gone.ally", { champion:label(g.pick), next:g.next });
 // Journal automatique : lecture du client opérationnelle, draft classique, sélection en cours ou juste finie. Pas de « Je joue » : le
 // pick sera noté au lancement de la partie. Sinon (lecture désactivée ou perdue, autre mode, Simulateur), « Je joue » sert de repli.
 function autoJournal() {
@@ -1620,6 +1647,8 @@ function roleTag(info) {
 
 function describeChange(prev, shown, heldEntry, ranking) {
   if (!prev || !prev.n || !prev.shown || prev.shown === shown || !state.lastAction) return null;
+  // Conseil banni ou pris par un allié : la phrase de disponibilité le dit (goneAdvice), pas « pris en face ».
+  if (UNAVAILABLE.includes(label(prev.shown))) return null;
   const oldNow = ranking.find(p => p.pick === prev.shown);
   const oldBefore = prev.order.find(p => p.pick === prev.shown);
   const newBefore = prev.order.find(p => p.pick === shown);
@@ -1646,7 +1675,7 @@ function computeVerdict() {
   if (!res.ranking.length) {
     state.held = null;
     state.shown = null;
-    V = { n, mid, res, none:true, order:[], avoided:[], reasons:[], bans:suggestBans() };
+    V = { n, mid, res, none:true, order:[], avoided:[], reasons:[], bans:suggestBans(), unavailable:UNAVAILABLE.slice() };
     return;
   }
   // Draft complète : le classement fait foi, quel que soit l'ordre de saisie. Le maintien évite seulement de clignoter en cours de draft.
@@ -1679,6 +1708,9 @@ function computeVerdict() {
     personal: personalLine(shown, mid),
     without: without && without.pick !== shown && !(scenarios && scenarios.length > 1) ? without.pick : null,
     bans: suggestBans(),
+    // Disponibilité (beta.2) : liste du moteur à ce calcul, et conseil devenu indisponible (banni, pris par un allié).
+    unavailable: UNAVAILABLE.slice(),
+    gone: goneAdvice(prevV, shown, tied),
     // Passer d'un ex æquo à l'autre n'est pas un changement de conseil.
     change: action && !(tied && prevV && tied.includes(prevV.shown)) && !(prevV && prevV.tied && prevV.tied.includes(shown)) ? describeChange(prevV, shown, heldEntry, res.ranking) : null
   };
@@ -2155,7 +2187,8 @@ const JOURNAL_ORIGIN = "draft";
 // ni au conseil, ni aux scores. Journal : picked = champion choisi, suggested = conseil au moment du choix ; « conseil suivi » si égaux.
 // Simulation : le choix reste dans la simulation. Rien n'est écrit dans le journal, qui ne compte que les vraies drafts.
 function choosePick(pick) {
-  if (!pick) return;
+  // Champion banni ou pris (lecture du client) : jamais confirmé, quel que soit le bouton.
+  if (!pick || isOff(pick)) return;
   // Confirmer termine la consultation : le bouton et la coche montrent maintenant le choix confirmé.
   state.viewed = null;
   if (pick === currentPick() && (currentEntry() || simulating)) { publish(null); return; }
@@ -2519,7 +2552,8 @@ function pickCta() {
   // Journal automatique (beta.2) : pas de « Je joue », le pick est lu dans League et noté au lancement de la partie (LeagueLine).
   // leagueSlot : mode connecté FICTIF des pages de mise en page V2 (null dans l'application).
   if (autoJournal() || leagueSlot) return null;
-  const picked = currentPick(), viewed = viewedPick(), target = viewed || picked || (V.tied ? null : V.shown);
+  // Choix confirmé devenu indisponible (banni, pris) : il n'est plus proposé, le bouton revient au conseil.
+  const picked = isOff(currentPick()) ? null : currentPick(), viewed = viewedPick(), target = viewed || picked || (V.tied ? null : V.shown);
   if (!target) return null;
   const name = label(target), done = !!picked && target === picked;
   return {
@@ -2550,7 +2584,7 @@ function LeagueLine() {
 // après la confirmation d'un autre champion, il confirme le conseil à la place.
 function PickAdvice() {
   if (V.none) return null;
-  const picked = currentPick(), viewed = viewedPick();
+  const picked = isOff(currentPick()) ? null : currentPick(), viewed = viewedPick();
   const advice = V.tied ? V.tied.map(label).join(", ") : label(V.shown);
   if (!viewed && (!picked || V.tied || picked === V.shown)) return null;
   const title = viewed ? t("advice.pick.backViewHelp", { viewed: label(viewed) }) : t("advice.pick.backHelp", { picked: label(picked), champion: advice });
@@ -2589,7 +2623,7 @@ function ViewedCard({ panel }) {
 // À égalité, un choix pris hors des ex æquo (dans Ton pool) est rappelé : aucune case de l'égalité ne le montre.
 function PickCurrent() {
   const picked = currentPick();
-  if (!picked || V.none || !V.tied || V.tied.includes(picked)) return null;
+  if (!picked || V.none || !V.tied || V.tied.includes(picked) || isOff(picked)) return null;
   return html`<p className="pick-advice" data-test="pick-current"><span>${t("advice.pick.current", { champion: label(picked) })}</span></p>`;
 }
 
@@ -2757,7 +2791,7 @@ function Stage() {
     <div className="scrim"></div>
     ${V.change ? html`<${motion.p} key=${V.change.id} className="change" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
       ${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}${V.change.reason ? html`<span>${V.change.reason}</span>` : null}
-    <//>` : null}
+    <//>` : !V.tied && V.gone ? html`<${motion.p} key=${V.gone.id} className="change" data-test="advice-gone" role="status" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>${goneText(V.gone)}<//>` : null}
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <${motion.div} key=${name} className="stage-body" variants=${stagger} initial="hidden" animate="show">
       <${motion.div} className="badges" variants=${item}>
@@ -3248,6 +3282,9 @@ function noPickText() {
   // UX-6 : le pool, les exclusions et le favori sont dans Mon pool, plus dans les réglages.
   if (!PROFILE) return t("panel.empty.noProfile");
   if (!PICKS.length) return t("panel.empty.noPick", { role:ROLE_NAMES[myRole()] });
+  // Lecture du client : tout ce qui reste du pool est banni ou déjà pris. Aucun conseil n'est inventé hors du pool.
+  const active = PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p));
+  if (active.length && unavailablePool().length === active.length) return t("panel.empty.allUnavailable");
   return t("panel.empty.allExcluded");
 }
 
@@ -3370,8 +3407,11 @@ function leagueShown() {
 
 // Tout le pool classé : un clic consulte (le bouton propose alors « Je joue X »), la coche marque le confirmé. Barre de force : la
 // même échelle que le classement de la fenêtre (écart au premier), sans chiffre.
+// Disponibilité (beta.2) : les champions du pool bannis ou déjà pris restent en fin de liste, marqués et inactifs (ni consultés, ni
+// confirmés). Seulement avec la lecture du client ; le titre compte les champions encore jouables.
 function PanelPool({ open, onToggle }) {
-  if (V.none || V.order.length < 2) return null;
+  const off = unavailablePool();
+  if (V.none || V.order.length + off.length < 2) return null;
   const picked = currentPick(), viewed = viewedPick();
   const scores = V.order.map(p => p.score), lo = Math.min(...scores, 0), hi = Math.max(...scores, 1);
   return html`<details className="p-pool p-sec" data-test="panel-pool" data-sec="pool" open=${open} onToggle=${onToggle}>
@@ -3382,7 +3422,9 @@ function PanelPool({ open, onToggle }) {
         <${Portrait} name=${n} size=${28} /><span className="p-pool-name"><span className="p-nm" title=${n}>${n}</span><small className=${`rank-word ${tone}`}>${word}</small><span className="force p-force" aria-hidden="true"><i style=${{ transform:`scaleX(${Math.max(.04, (p.score - lo) / (hi - lo || 1))})` }} /></span></span>
         <span className="p-pool-go">${on ? html`<span aria-hidden="true">✓ </span>${t("panel.pool.noted")}` : seen ? t("viewed.label") : t("panel.pool.view")}</span>
       </button></li>`;
-    })}</ul>
+    })}${off.map(x => html`<li key=${x.pick}><div className="p-pool-row off" data-test="panel-pool-off" data-pick=${x.pick} data-reason=${x.reason} aria-disabled="true" title=${t("panel.pool.offHelp")}>
+        <${Portrait} name=${label(x.pick)} size=${28} /><span className="p-pool-name"><span className="p-nm" title=${label(x.pick)}>${label(x.pick)}</span><small className="rank-word bad">${t(OFF_KEYS[x.reason])}</small></span>
+      </div></li>`)}</ul>
     <${FamiliarLine} />
   </details>`;
 }
@@ -3649,7 +3691,8 @@ function VerdictPanel({ compact }) {
         </div>` : null}
       ${keyBox}
       <${ViewedCard} panel=${true} />
-      ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>` : null}
+      ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>`
+        : V.gone ? html`<${motion.p} key=${V.gone.id} className="p-change p-gone" data-test="panel-gone" role="status" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>${goneText(V.gone)}</${motion.p}>` : null}
       ${!compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null}
     </div>
     <${PanelDeep} compact=${compact} open=${open} toggle=${toggle} alt=${compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null} />

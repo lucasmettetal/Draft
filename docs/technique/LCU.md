@@ -55,11 +55,13 @@ But : DRAFT ne conseille pas un champion qui n'est plus disponible. Lecture dans
 
 **Effet sur le conseil :** un champion banni ou pris par un allié sort de la liste candidate AVANT le classement, comme un pick adverse (`UNAVAILABLE`, `web/draft-engine.js`). Le moteur, ses poids et ses scores ne changent pas. Un pick adverse sort, comme avant, par la composition (`state.enemies`) : une correction à la main de la composition reste respectée.
 
+**Panneaux (V2) :** dans « Choisir dans ton pool », un champion indisponible reste en fin de liste, marqué « Banni », « Pris par un allié » ou « Pris en face », inactif : il ne se consulte pas et « Je joue » ne le propose jamais (un choix confirmé devenu indisponible n'est plus proposé). Si le conseil, le choix confirmé ou le champion consulté est banni ou pris par un allié, une phrase courte le dit et nomme le conseil suivant (« Fizz banni : DRAFT conseille Twisted Fate. »), aussi dans le compact. Tout le pool indisponible : « Tout ton pool est banni ou déjà pris », sans conseil.
+
 **Robustesse :** session tronquée ou abîmée, la dernière liste connue reste. Lecture perdue en pleine sélection, la liste reste aussi : un ban ou un pick déjà vu ne revient pas. Nouvelle sélection : liste vide.
 
 **Sans lecture du client** (option décochée, client fermé, navigateur, Simulateur) : rien ne change, rien n'est déduit. Un marquage manuel (« banni », « pris ») pourrait venir plus tard ; il n'existe pas encore.
 
-**Tests :** selftest au format réel (bans faits, en cours et à venir ; bans dans les actions ou dans `bans` ; pick allié verrouillé ; survol et intentions d'alliés ignorés ; échange ; ton pick ; sans ta case ; réponse abîmée ; test négatif : nom, tag, puuid, summonerId, survol et intention d'un allié changent, la lecture non). Page `web/draft-dispo-tests.html` (moteur et liste candidate). Banc moteur à 0 différence.
+**Tests :** selftest au format réel (bans faits, en cours et à venir ; bans dans les actions ou dans `bans` ; pick allié verrouillé ; survol et intentions d'alliés ignorés ; échange ; ton pick ; sans ta case ; réponse abîmée ; test négatif : nom, tag, puuid, summonerId, survol et intention d'un allié changent, la lecture non). Page `web/draft-dispo-tests.html` (moteur, liste candidate, panneaux droit et compact en FR et EN). Banc moteur à 0 différence. Étape e2e `TestAvailability` : un ban, puis un pick allié, puis l'adversaire, dans les vraies fenêtres.
 
 ## Garanties techniques
 

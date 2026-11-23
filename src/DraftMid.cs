@@ -4167,6 +4167,121 @@ public static class Autostart
             return string.Join(", ", done);
         }
 
+        // Beta.2. Disponibilité de bout en bout (LCU simulé au format réel, vraies fenêtres) : un ban, puis un pick allié, puis l'adversaire.
+        // Chaque fois, le conseil du moment devient indisponible : il sort de la liste candidate dans la fenêtre et les deux panneaux, le
+        // panneau le dit et propose le suivant, « Choisir dans ton pool » le marque, « Je joue » ne le propose jamais. Le survol d'un allié
+        // ne rend rien indisponible. Mode sans action de pick pour toi : « Je joue » reste le moyen de noter (cas où il compte).
+        public static string AvailabilityReport = "non mesuré";
+        static async Task<string> TestAvailability(CompanionApp app)
+        {
+            string p = "";
+            List<string> rep = new List<string>();
+            const int Malphite = 54;
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof syncUnavailable === 'function' && synced && hostState.available") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            Func<string, Task<string>> str = async code => json.Deserialize<string>(await run(code)) ?? "";
+            string saved = await run("localStorage.getItem('draftJournal')");
+            bool lcuBefore = await run("!!hostState.lcuEnabled") == "true";
+            await run("hostSend({ cmd:'setLcu', value:true }); saveMyProfile('mid', ['Twisted Fate','Vex','Fizz','Xerath','Syndra']); switchRole('mid','manual'); goView('sim'); 1");
+            app.TestUseLcu(() => sim);
+            if (!await wait("hostState.lcuEnabled && PICKS.length === 5")) p += "lecture du client ou pool non prêts ; ";
+            // Panneaux droit et compact créés avant la sélection : chacun voit chaque changement.
+            bool compactBefore = app.CompactSetting;
+            await app.TestShowPanel(true); await app.TestShowPanel(false);
+            app.TestEndShowPanel(compactBefore);
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            Func<string, Task> read = async session => { sim.SessionJson = session; await app.PollLcuOnce(); await Task.Delay(400); };
+            int[] none5 = { 0, 0, 0, 0, 0 };
+            Func<string[][], int[], int[], string> sess = (acts, team, enemies) => LcuSamples.DraftSession(2, "BAN_PICK", acts, new int[0], new int[0], team, none5, enemies);
+            string[] banning = { "0:ban:0:busy", "1:ban:0:busy", "2:ban:0:busy", "3:ban:0:busy", "4:ban:0:busy", "5:ban:0:busy", "6:ban:0:busy", "7:ban:0:busy", "8:ban:0:busy", "9:ban:0:busy" };
+            // Conseil affiché dans la fenêtre : [pick, nom, identifiant du client].
+            Func<Task<string[]>> advice = async () => new[] { await str("V.shown || ''"), await str("V.shown ? label(V.shown) : ''"), await run("V.shown ? Number(Object.keys(CHAMPION_IDS).find(k => toName(CHAMPION_IDS[k]) === label(V.shown))) : 0") };
+            // État d'une page : le champion est-il classé, lignes marquées du pool, phrase, bouton « Je joue », conseil.
+            Func<string, string, Task<Dictionary<string, object>>> pageState = async (id, pick) =>
+            {
+                PanelForm pf = app.PanelFor(id);
+                if (pf == null || pf.View.CoreWebView2 == null) return null;
+                string js = "JSON.stringify({ ranked: V.res.ranking.some(x => x.pick === '" + pick + "'), off: [...document.querySelectorAll('[data-test=\"panel-pool-off\"]')].map(e => e.dataset.pick + ':' + e.dataset.reason).join(','), "
+                    + "gone: ((document.querySelector('[data-test=\"panel-gone\"]') || document.querySelector('[data-test=\"advice-gone\"]') || {}).textContent || '').trim(), cta: ((document.querySelector('[data-test=\"choose-pick\"]') || {}).textContent || '').trim(), "
+                    + "shown: V.none ? '' : label(V.shown), change: V.change ? (V.change.reason || '') : '', unavailable: UNAVAILABLE.join(',') })";
+                return json.Deserialize<Dictionary<string, object>>(json.Deserialize<string>(await pf.View.CoreWebView2.ExecuteScriptAsync(js)));
+            };
+            // Contrôle dans la fenêtre et les deux panneaux. goneKey : phrase attendue dans les panneaux (ban, allié) ; vide : pick adverse,
+            // message « pris en face » (vérifié à part). La phrase de la fenêtre est vérifiée par web/draft-dispo-tests.html.
+            Func<string, string, string, string, Task<string>> check = async (step, pick, reason, goneKey) =>
+            {
+                string q = "", pickName = await str("label('" + pick + "')");
+                foreach (string id in new[] { "full", "right", "compact" })
+                {
+                    PanelForm pf = app.PanelFor(id);
+                    if (pf == null || pf.View.CoreWebView2 == null) { q += step + " " + id + " absent ; "; continue; }
+                    Dictionary<string, object> st = null;
+                    string expected = "";
+                    bool good = false, panel = id != "full";
+                    for (int i = 0; i < 20 && !good; i++)
+                    {
+                        if (i > 0) await Task.Delay(250);
+                        st = await pageState(id, pick);
+                        expected = !panel || goneKey == "" ? "" : json.Deserialize<string>(await pf.View.CoreWebView2.ExecuteScriptAsync("I18N.t('" + goneKey + "', { champion: '" + pickName.Replace("'", "\\'") + "', next: V.none ? '' : (V.tied ? V.tied.map(label).join(', ') : label(V.shown)) })"));
+                        good = !(bool)st["ranked"] && (!panel || ((string)st["off"]).Split(',').Contains(pick + ":" + reason)) && (expected == "" || (string)st["gone"] == expected) && !((string)st["cta"]).Contains(pickName);
+                    }
+                    if (!good) q += step + " " + id + " : " + json.Serialize(st) + (expected == "" ? "" : " (attendu « " + expected + " »)") + " ; ";
+                    if (id == "right") rep.Add(step + " : « " + (goneKey == "" ? (string)st["change"] : (string)st["gone"]) + " », pool " + st["off"] + ", bouton « " + st["cta"] + " »");
+                }
+                return q;
+            };            int[] enemies0 = { Malphite, 0, 0, 0, 0 };
+            await phase("Lobby"); await run("onDraftStart(); 1"); await Task.Delay(300);
+            sim.SessionJson = sess(new[] { banning }, none5, enemies0);
+            await phase("ChampSelect"); await app.PollLcuOnce(); await Task.Delay(400);
+            string key = app.Outcome.Key;
+            if (!await wait("availability && availability.key === '" + key + "' && hostState.draftKey === '" + key + "' && V && !V.none && state.enemies.length === 1")) p += "sélection " + key + " : liste ou adversaire non reçus ; ";
+            // 1. Un allié bannit le conseil.
+            string[] a = await advice();
+            string[] banned = (string[])banning.Clone(); banned[0] = "0:ban:" + a[2] + ":done";
+            await read(sess(new[] { banned }, none5, enemies0));
+            p += await check("ban", a[0], "ban", "panel.gone.ban");
+            // Visible sans défiler, panneaux droit et compact au placement réel de 1366 x 768 à 125 % ; captures réelles avec --capture.
+            string shots = await LeaguePanels(app, Strings.Lang + "-apres-dispo-ban", "[data-test=\"panel-gone\"]");
+            if (shots.Contains("cachée") || shots.Contains("absent")) p += "phrase du ban hors écran : " + shots + " ; ";
+            rep.Add("panneaux " + shots);
+            // 2. Un allié verrouille le nouveau conseil ; un autre survole un champion du pool, qui reste disponible.
+            string[] b = await advice();
+            string hovered = await str("(V.res.ranking.map(x => x.pick).filter(x => x !== V.shown).pop()) || ''");
+            string hoveredId = await run("Number(Object.keys(CHAMPION_IDS).find(k => toName(CHAMPION_IDS[k]) === label('" + hovered + "')))");
+            string[] banDone = banned.Select(x => x.Replace(":busy", ":done")).ToArray();
+            int[] team2 = { int.Parse(b[2]), int.Parse(hoveredId), 0, 0, 0 };
+            await read(sess(new[] { banDone, new[] { "0:pick:" + b[2] + ":done", "5:pick:" + Malphite + ":done" }, new[] { "1:pick:" + hoveredId + ":busy" } }, team2, enemies0));
+            p += await check("allié", b[0], "ally", "panel.gone.ally");
+            if (hovered == "" || await run("V.res.ranking.some(x => x.pick === '" + hovered + "') && !UNAVAILABLE.includes(label('" + hovered + "'))") != "true") p += "survol d'un allié (" + hovered + ") : rendu indisponible ; ";
+            // 3. L'adversaire verrouille le nouveau conseil : il sort par la composition, avec « pris en face ».
+            string[] c = await advice();
+            int[] enemies3 = { Malphite, int.Parse(c[2]), 0, 0, 0 };
+            await read(sess(new[] { banDone, new[] { "0:pick:" + b[2] + ":done", "5:pick:" + Malphite + ":done" }, new[] { "1:pick:" + hoveredId + ":busy", "6:pick:" + c[2] + ":done" } }, team2, enemies3));
+            p += await check("adversaire", c[0], "enemy", "");
+            if (!await wait("V.change && V.change.reason === I18N.t('advice.change.taken', { champion: '" + c[1].Replace("'", "\\'") + "' })")) p += "adversaire : message « pris en face » absent dans la fenêtre (" + await str("JSON.stringify(V.change)") + ") ; ";
+            // « Je joue » ne confirme jamais un champion indisponible, quel que soit le chemin.
+            await run("choosePick('" + a[0] + "'); choosePick('" + b[0] + "'); 1"); await Task.Delay(200);
+            string picked = await str("String(state.picked)");
+            if (picked == a[0] || picked == b[0]) p += "« Je joue » a confirmé un champion indisponible (" + picked + ") ; ";
+            string diag = app.LcuDiagLine;
+            if (!diag.Contains("bans=1 allies=1") || diag.Contains(a[1]) || diag.Contains(b[1]) || diag.Contains(a[2] + " ")) p += "diagnostic : « " + diag + " » ; ";
+            if (!sim.Requests.All(LcuEndpoints.IsAllowed)) p += "adresse non autorisée appelée ; ";
+            AvailabilityReport = "ban " + a[1] + ", allié " + b[1] + " (survol de " + hovered + " sans effet), en face " + c[1] + " ; " + string.Join(" ; ", rep) + " ; diagnostic « " + diag + " »";
+            await phase("Lobby");
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); hostSend({ cmd:'setLcu', value:" + (lcuBefore ? "true" : "false") + " }); 1");
+            await Task.Delay(300);
+            f.Hide();
+            return p;
+        }
+
         // 1c. DRAFT lancé alors que la sélection est déjà en cours, poste déjà indiqué : aucune page au départ (comme au démarrage du
         // programme), puis deux lectures du client en ChampSelect. Les pages, créées tard, doivent détecter le poste, basculer (auto) ou
         // proposer (suggest), et rester cohérentes. 1d. Draft suivante : rôle à la main oublié, nouveau poste appliqué, consultation et
@@ -4648,6 +4763,8 @@ public static class Autostart
                 t(outcomeProblem == "", "Beta.2. Issue de la sélection (LCU simulé, vraie fenêtre) : partie lancée notée, draft annulée (lobby, client fermé) jamais proposée ni comptée, Uncertain sans effet, DRAFT redémarré sans déduction, doublons et désordre sans effet, Simulateur sans écriture (" + OutcomeReport + ") " + outcomeProblem);
                 string leagueProblem = await TestLeagueJournal(app);
                 t(leagueProblem == "", "Beta.2. Journal automatique (LCU simulé au format réel, vraies pages) : « Dans League » survolé puis verrouillé, sans « Je joue », consultation indépendante, verrouillage → partie : 1 entrée, → lobby : 0, échange, perte puis retour sans doublon, mode non pris en charge, DRAFT redémarré pendant la sélection et le chargement, lancé après le verrouillage, Simulateur, visible à 1366 et 125 % (" + LeagueReport + ") " + leagueProblem);
+                string availabilityProblem = await TestAvailability(app);
+                t(availabilityProblem == "", "Beta.2. Disponibilité (LCU simulé au format réel, vraies fenêtres) : un ban, puis un pick allié, puis l'adversaire ; chaque conseil devenu indisponible sort de la liste dans la fenêtre et les deux panneaux, phrase et suivant proposés, pool marqué, « Je joue » jamais proposé, survol d'un allié sans effet, visible à 1366 et 125 % (" + AvailabilityReport + ") " + availabilityProblem);
                 string lateProblem = await TestRoleLateStart(app);
                 t(lateProblem == "", "1a/1c/1d. Rôle automatique : détection Jungle dans toutes les pages (" + DetectReport + "), DRAFT lancé pendant la sélection, draft suivante (" + LateStartReport + ") " + lateProblem);
                 string langDraftProblem = await TestLanguageDuringDraft(app);
