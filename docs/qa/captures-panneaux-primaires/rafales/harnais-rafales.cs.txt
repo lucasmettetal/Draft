@@ -1,0 +1,56 @@
+
+                // ---- Banc ciblé « rafales » (copie de travail seulement, jamais dans le dépôt) : DRAFT_RAFALES_ONLY=<tours> ----
+                string rafalesOnly = Environment.GetEnvironmentVariable("DRAFT_RAFALES_ONLY");
+                if (!string.IsNullOrEmpty(rafalesOnly))
+                {
+                    int rounds = int.Parse(rafalesOnly);
+                    string[] ids = { "left", "right" };
+                    Func<string, string, Task<string>> inPanel = async (pid, code) => { PanelForm pf = app.PanelFor(pid); return pf != null && pf.View.CoreWebView2 != null ? await pf.View.CoreWebView2.ExecuteScriptAsync(code) : "absent"; };
+                    foreach (string id in ids) await inPanel(id, "window.__lt=[];try{new PerformanceObserver(l=>l.getEntries().forEach(e=>__lt.push(Math.round(e.duration)))).observe({type:'longtask',buffered:true})}catch(e){};1");
+                    Process me = Process.GetCurrentProcess();
+                    for (int round = 1; round <= rounds; round++)
+                    {
+                        if (round > 1) await Task.Delay(1500);
+                        foreach (string id in ids) await inPanel(id, "window.__ltBefore=(window.__lt||[]).length;1");
+                        me.Refresh(); TimeSpan cpu0 = me.TotalProcessorTime;
+                        double tot = 0, wst = 0, stall = 0; int noFollow = 0, mismatch = 0;
+                        List<string> det = new List<string>();
+                        Stopwatch roundClock = Stopwatch.StartNew();
+                        for (int b = 0; b < 40; b++)
+                        {
+                            await Task.Delay(30);
+                            app.LastFollowLagMs = -1;
+                            for (int k = 1; k <= 3; k++) fake.Location = new Point(cx + (b % 7) * 3 + k + 40 * (b % 2), cy + (b % 3));
+                            Stopwatch w60 = Stopwatch.StartNew();
+                            await Task.Delay(60);
+                            stall = Math.Max(stall, w60.Elapsed.TotalMilliseconds - 60);
+                            int gap = fake.Left - rectOfLeft().Right;
+                            if (app.LastFollowLagMs < 0) { noFollow++; det.Add("-"); continue; }
+                            if (gap > 10 || gap < 0) { mismatch++; det.Add("x" + gap); continue; }
+                            tot += app.LastFollowLagMs; wst = Math.Max(wst, app.LastFollowLagMs); det.Add(app.LastFollowLagMs.ToString("0"));
+                        }
+                        long burstMs = roundClock.ElapsedMilliseconds;
+                        me.Refresh(); double cpuMs = (me.TotalProcessorTime - cpu0).TotalMilliseconds;
+                        string lt = "";
+                        foreach (string id in ids) lt += id + " " + (await inPanel(id, "(()=>{const a=(window.__lt||[]).slice(window.__ltBefore||0);return a.length+'/'+a.reduce((x,y)=>x+y,0)+'ms/max'+Math.max(0,...a)})()")).Trim('"') + " ; ";
+                        // Puis l'étape « collé au client » (client large), mesurée de la même façon.
+                        int ideal2 = (int)(340 * main.Scale), wide2 = main.Work.W - 2 * (ideal2 - 40), wx2 = main.Work.Left + (main.Work.W - wide2) / 2;
+                        fake.SetBounds(wx2, cy, wide2, ch);
+                        await Task.Delay(500);
+                        List<string> gaps = new List<string>(); int gapErr = 0;
+                        for (int i = 1; i <= 12; i++)
+                        {
+                            fake.Location = new Point(wx2 - i * 3, cy);
+                            await Task.Delay(30);
+                            int g = app.Tracker.Rect.Left - rectOfLeft().Right;
+                            if (g != 0) gapErr++;
+                            gaps.Add(g.ToString());
+                        }
+                        fake.SetBounds(cx, cy, cw, ch);
+                        await Task.Delay(400);
+                        s.AppendLine("TOUR " + round + " : rafales manquées " + (noFollow + mismatch) + "/40 (sans déplacement " + noFollow + ", écart " + mismatch + ") ; retard moyen " + (tot / Math.Max(1, 40 - noFollow - mismatch)).ToString("0.0") + " ms, max " + wst.ToString("0.0") + " ms ; attente de 60 ms dépassée de " + stall.ToString("0") + " ms au plus ; tour " + burstMs + " ms, processeur du programme " + cpuMs.ToString("0") + " ms ; tâches longues " + lt + "détail " + string.Join(" ", det)
+                            + " || collé : " + gapErr + "/12 écarts (" + string.Join(" ", gaps) + ")");
+                    }
+                    File.WriteAllText(o.Out, s.ToString());
+                    Environment.Exit(0);
+                }
