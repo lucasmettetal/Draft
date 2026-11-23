@@ -1296,6 +1296,32 @@ function takeLeague(next) {
   return true;
 }
 const leagueNow = () => IS_HOST && leaguePick && hostState.draftKey && leaguePick.key === String(hostState.draftKey) ? leaguePick : null;
+// Disponibilité (beta.2, docs/technique/LCU.md) : champions bannis, pris par un allié ou en face, lus dans le client par le programme
+// (hostState.unavailable). Identifiant de champion et raison seulement, versionnés comme « Dans League ». Bannis et pris par un allié
+// sortent de la liste candidate avant le classement (UNAVAILABLE, draft-engine.js) ; les picks adverses en sortent déjà par la
+// composition (state.enemies), comme avant. Sans lecture du client, en simulation ou pour une autre sélection : rien n'est retiré.
+let availability = null;
+function takeAvailability(next) {
+  if (!next || typeof next.v !== "number" || !next.key || !Array.isArray(next.items)) return false;
+  const cur = availability;
+  if (cur && (Number(next.key) < Number(cur.key) || (next.key === cur.key && next.v <= cur.v))) return false;
+  availability = next;
+  return true;
+}
+const availabilityNow = () => IS_HOST && !simulating && !!hostState.lcuEnabled && availability && hostState.draftKey && availability.key === String(hostState.draftKey) ? availability : null;
+// Raison pour laquelle un champion (nom) n'est plus disponible dans la sélection en cours : "ban", "ally", "enemy", ou null.
+function unavailableReason(name) {
+  const a = availabilityNow(), item = a && a.items.find(x => toName(CHAMPION_IDS[x.id]) === name);
+  return item ? item.reason : null;
+}
+// Recopie les bannis et les pris par un allié dans la liste du moteur, avant chaque calcul. Vrai si elle a changé.
+function syncUnavailable() {
+  const a = availabilityNow(), before = UNAVAILABLE.join("|");
+  const names = a ? a.items.filter(x => x.reason === "ban" || x.reason === "ally").map(x => toName(CHAMPION_IDS[x.id])).filter(n => n && ROSTER[n] !== undefined) : [];
+  UNAVAILABLE.length = 0;
+  names.forEach(n => { if (!UNAVAILABLE.includes(n)) UNAVAILABLE.push(n); });
+  return UNAVAILABLE.join("|") !== before;
+}
 // Journal automatique : lecture du client opérationnelle, draft classique, sélection en cours ou juste finie. Pas de « Je joue » : le
 // pick sera noté au lancement de la partie. Sinon (lecture désactivée ou perdue, autre mode, Simulateur), « Je joue » sert de repli.
 function autoJournal() {
@@ -1404,6 +1430,7 @@ function describeChange(prev, shown, heldEntry, ranking) {
 }
 
 function computeVerdict() {
+  syncUnavailable();
   const prevV = V;
   const action = state.lastAction;
   if (!state.enemies.length) state.held = null;
@@ -4002,7 +4029,10 @@ function App() {
         const m = e.data;
         if (m.kind === "host") {
           takeLeague(m.league);
+          takeAvailability(m.unavailable);
           Object.assign(hostState, m, { available:true });
+          // Champion banni ou pris par un allié (ou fin de la lecture, autre sélection) : la liste candidate change, le calcul est refait.
+          if (syncUnavailable()) computeVerdict();
           // Stockage du navigateur vide mais copie dans le dossier de données : les profils reviennent.
           if (!PROFILES.active && m.savedProfiles) {
             try { const back = normalizeProfiles(JSON.parse(m.savedProfiles)); if (back && back.active) { PROFILES = back; persistProfiles(PROFILES, localStorage); useActiveRole(); computeVerdict(); } } catch (e) {}

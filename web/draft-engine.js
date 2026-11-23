@@ -373,8 +373,13 @@ function markTies(ranking) {
   return groups.filter(g => g.picks.length > 1).map(g => ({ score:g.score, picks:g.picks }));
 }
 
+// Champions indisponibles de la sélection en cours (beta.2) : bannis ou pris par un allié, lus dans le client par le programme
+// (docs/technique/LCU.md). Noms de champions. Comme les picks adverses, ils sortent de la liste candidate AVANT le classement : les
+// notes, poids et scores des autres picks ne changent pas. Vide sans lecture du client : rien n'est déduit. Rempli par la page.
+const UNAVAILABLE = [];
+
 function availablePicks(enemies) {
-  return PICKS.filter(p => !enemies.includes(label(p)) && !ENGINE_PREFS.excluded.includes(p));
+  return PICKS.filter(p => !enemies.includes(label(p)) && !UNAVAILABLE.includes(label(p)) && !ENGINE_PREFS.excluded.includes(p));
 }
 
 // ---------- Mid probable ----------

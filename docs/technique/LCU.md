@@ -25,13 +25,41 @@ Liste fermée, contrôlée par `LcuEndpoints.IsAllowed`.
 | Endpoint | Méthode | Usage | Données conservées |
 |---|---|---|---|
 | `/lol-gameflow/v1/gameflow-phase` | GET | Phase de jeu, environ une fois par seconde | Nom de la phase |
-| `/lol-champ-select/v1/session` | GET | Seulement pendant `ChampSelect` | `theirTeam[].championId` supérieur à 0 ; ton poste ; ton pick (beta.2) |
+| `/lol-champ-select/v1/session` | GET | Seulement pendant `ChampSelect` | `theirTeam[].championId` supérieur à 0 ; ton poste ; ton pick (beta.2) ; champions bannis et champions verrouillés par tes alliés (beta.2) |
 
 Depuis la V2.16 bêta, la même réponse de session fournit aussi **ton propre poste** (`assignedPosition` de ta case dans `myTeam`), pour proposer le bon profil. Champ non documenté par Riot, vérifié seulement en simulation : voir [PROFILS.md](PROFILS.md).
 
 Depuis la 3.0 beta.2 (journal automatique), la même réponse fournit aussi **ton propre pick** : ton action de pick (survolée, verrouillée), ta présélection (`championPickIntent` de ta case), ton champion final (`championId` de ta case, après échange), `timer.phase` et `gameId`. Seule ta case est ouverte. Voir [JOURNAL.md](JOURNAL.md).
 
-Sont volontairement ignorés : noms et identifiants de joueurs, sorts, champions, intentions, actions et postes des alliés, bans.
+Depuis la 3.0 beta.2 (disponibilité), la même réponse fournit aussi les **champions qui ne sont plus disponibles** : bannis, pris par un allié, pris en face. Seuls des identifiants de champions sont lus. Voir [Disponibilité des champions](#disponibilité-des-champions-beta2).
+
+Sont volontairement ignorés : noms, tags et identifiants de joueurs (`gameName`, `tagLine`, `summonerId`, `puuid` et leurs versions masquées), sorts, skins, intentions et survols des alliés, postes des alliés, actions en cours ou à venir.
+
+## Disponibilité des champions (beta.2)
+
+But : DRAFT ne conseille pas un champion qui n'est plus disponible. Lecture dans la session déjà demandée, sans nouvelle adresse ni autre verbe que GET (`LcuParser.ParseUnavailable`, `src/LcuConnector.cs`).
+
+**Champs lus, et seulement ceux-là :**
+
+| Raison | Champs | Condition |
+|---|---|---|
+| Banni | `actions[][]` : `type`, `completed`, `championId` | `type` = `"ban"`, `completed` = `true`, `championId` > 0. Les deux équipes |
+| Banni | `bans.myTeamBans[]`, `bans.theirTeamBans[]` | Identifiant > 0. Lus en plus des actions : l'un ou l'autre suffit |
+| Pris par un allié | `localPlayerCellId` ; `myTeam[].cellId` ; `actions[][]` : `type`, `completed`, `championId`, `actorCellId` | `type` = `"pick"`, `completed` = `true`, `championId` > 0, `actorCellId` = une case de `myTeam` autre que la tienne |
+| Pris par un allié | `myTeam[case de cet allié].championId` | Seulement quand son action de pick est terminée : champion final, à jour après un échange. Sinon, celui de l'action |
+| Pris en face | `theirTeam[].championId` | > 0, comme pour la composition adverse |
+
+**Jamais lu :** nom, tag, `summonerId`, `puuid` (et versions masquées) d'un joueur ; `championPickIntent` d'un allié (présélection) ; un survol (action en cours, `isInProgress`) ; un ban à venir ; le `championId` d'une case alliée dont le pick n'est pas terminé ; poste, sorts, skin d'un allié. Ton propre pick n'est jamais indisponible pour toi. Sans `localPlayerCellId`, aucun pick allié n'est déduit.
+
+**Ce qui est gardé :** une liste d'identifiants de champions avec leur raison (`ban`, `ally`, `enemy`), en mémoire, versionnée (`AvailabilityTracker`) et envoyée à chaque page dans l'état du programme (`unavailable { v, key, items }`). Rien n'est écrit sur le disque. Le journal de diagnostic ajoute seulement des nombres : `bans=N allies=M`.
+
+**Effet sur le conseil :** un champion banni ou pris par un allié sort de la liste candidate AVANT le classement, comme un pick adverse (`UNAVAILABLE`, `web/draft-engine.js`). Le moteur, ses poids et ses scores ne changent pas. Un pick adverse sort, comme avant, par la composition (`state.enemies`) : une correction à la main de la composition reste respectée.
+
+**Robustesse :** session tronquée ou abîmée, la dernière liste connue reste. Lecture perdue en pleine sélection, la liste reste aussi : un ban ou un pick déjà vu ne revient pas. Nouvelle sélection : liste vide.
+
+**Sans lecture du client** (option décochée, client fermé, navigateur, Simulateur) : rien ne change, rien n'est déduit. Un marquage manuel (« banni », « pris ») pourrait venir plus tard ; il n'existe pas encore.
+
+**Tests :** selftest au format réel (bans faits, en cours et à venir ; bans dans les actions ou dans `bans` ; pick allié verrouillé ; survol et intentions d'alliés ignorés ; échange ; ton pick ; sans ta case ; réponse abîmée ; test négatif : nom, tag, puuid, summonerId, survol et intention d'un allié changent, la lecture non). Page `web/draft-dispo-tests.html` (moteur et liste candidate). Banc moteur à 0 différence.
 
 ## Garanties techniques
 
@@ -66,6 +94,6 @@ Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nom
 
 Une demande de précisions a été envoyée à Riot par le propriétaire du projet, sans réponse connue au 4 novembre 2026. Cette note résume ce qu'il faut clarifier, notamment pour un enregistrement sur le portail développeur.
 
-> DRAFT est une application Windows qui conseille un pick mid à partir de la composition adverse visible. Nous souhaitons lire localement, en GET uniquement, `/lol-gameflow/v1/gameflow-phase` et `/lol-champ-select/v1/session`, pour afficher nos fenêtres pendant la sélection et récupérer les champions adverses déjà verrouillés et visibles. Nous n'effectuons aucune écriture ni action automatique, et nous ne lisons ni noms, ni identifiants de joueurs, ni intentions de pick. Le joueur garde chaque décision.
+> DRAFT est une application Windows qui conseille un pick mid à partir de la composition adverse visible. Nous souhaitons lire localement, en GET uniquement, `/lol-gameflow/v1/gameflow-phase` et `/lol-champ-select/v1/session`, pour afficher nos fenêtres pendant la sélection et récupérer les champions adverses déjà verrouillés et visibles, ainsi que les champions déjà bannis ou verrouillés par les alliés du joueur, pour ne pas conseiller un champion indisponible. Nous n'effectuons aucune écriture ni action automatique, et nous ne lisons ni noms, ni identifiants de joueurs, ni intentions de pick. Le joueur garde chaque décision.
 >
 > Ces deux endpoints sont-ils autorisés pour cet usage, y compris pour une distribution publique ? Un conseil de pick pendant la sélection des champions est-il acceptable au regard de vos règles sur les « conclusions pendant le jeu » ?

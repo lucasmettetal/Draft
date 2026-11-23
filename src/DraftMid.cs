@@ -897,15 +897,18 @@ public static class Autostart
                 }
                 // Pendant une sélection, le poste lu est noté aussi (rôle de DRAFT, « aucun » ou « illisible ») : aucune autre donnée de joueur.
                 // Beta.2 : état de ton pick (aucun, survolé, verrouillé, final), sans nom ; « mode=autre » hors draft classique.
+                // Disponibilité (beta.2) : nombre de bans et de picks alliés lus, s'il y en a ; jamais un champion ni un joueur.
                 lcuInfo = s.PhaseName + "/" + (s.EnemyChampionIds == null ? "illisible" : s.EnemyChampionIds.Count.ToString())
                     + (s.Phase == Phase.Draft ? " poste=" + (s.EnemyChampionIds == null ? "illisible" : s.AssignedRole ?? "aucun") : "")
-                    + (s.Phase == Phase.Draft && s.Pick != null && s.Pick.Readable ? " pick=" + LeaguePickTracker.Word(s.Pick.State) + (s.Pick.Supported ? "" : " mode=autre") : "");
+                    + (s.Phase == Phase.Draft && s.Pick != null && s.Pick.Readable ? " pick=" + LeaguePickTracker.Word(s.Pick.State) + (s.Pick.Supported ? "" : " mode=autre") : "")
+                    + (s.Phase == Phase.Draft && s.Unavailable != null && s.Unavailable.Any(u => u.Reason != UnavailableChampion.Enemy) ? " bans=" + s.Unavailable.Count(u => u.Reason == UnavailableChampion.Ban) + " allies=" + s.Unavailable.Count(u => u.Reason == UnavailableChampion.Ally) : "");
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
                 // Phase donnée par le client : un retour au lobby ou à la file tranche tout de suite (draft annulée).
                 AfterPhase(before, machine.Current, true, SampleMs / 1000.0);
                 // « Dans League » : ton pick lu dans la session, transmis à chaque page (état versionné).
-                if (machine.Current == Phase.Draft && s.EnemyChampionIds != null && league.Read(s.Pick)) BroadcastHost();
+                // Disponibilité (beta.2) : champions bannis, pris par un allié ou en face, lus dans la même session (liste versionnée).
+                if (machine.Current == Phase.Draft && s.EnemyChampionIds != null && (league.Read(s.Pick) | availability.Read(s.Unavailable))) BroadcastHost();
                 ApplyVisibility();
                 PostEnemies(s);
                 // Session illisible : on garde la dernière valeur connue. Hors draft : plus de rôle attribué.
@@ -962,8 +965,11 @@ public static class Autostart
         // « Dans League » (beta.2) : ton pick pendant la sélection suivie, en mémoire seulement.
         LeaguePickTracker league = new LeaguePickTracker();
         public LeaguePickTracker League { get { return league; } }
+        // Champions indisponibles (beta.2) de la sélection suivie, en mémoire seulement : identifiants de champions et raison.
+        AvailabilityTracker availability = new AvailabilityTracker();
+        public AvailabilityTracker Availability { get { return availability; } }
         // Essai : DRAFT redémarré, la mémoire de l'issue et du pick est perdue.
-        public void TestForgetOutcome() { outcome = new DraftOutcomeTracker(); league = new LeaguePickTracker(); BroadcastHost(); }
+        public void TestForgetOutcome() { outcome = new DraftOutcomeTracker(); league = new LeaguePickTracker(); availability = new AvailabilityTracker(); BroadcastHost(); }
         // Essai : un message du programme livré de nouveau (double, en retard).
         public void TestSendAll(string json) { SendAll(json); }
         // Captures de l'e2e (--capture) : dossier choisi par l'essai, null sinon.
@@ -993,8 +999,8 @@ public static class Autostart
             // Sortie de draft : draftEnd { outcome: "pending" }, puis draftOutcome { outcome: "game" | "abandoned" }, une seule fois.
             // Le même draftEnd partait avant pour une partie lancée et pour une draft annulée.
             List<string> outcomeMessages = outcome.Update(now, certain, seconds);
-            // Nouvelle sélection : « Dans League » repart de zéro, sous la même clé.
-            bool leagueReset = outcome.State == DraftOutcomeTracker.InDraft && league.Begin(outcome.Key);
+            // Nouvelle sélection : « Dans League » et les champions indisponibles repartent de zéro, sous la même clé.
+            bool leagueReset = outcome.State == DraftOutcomeTracker.InDraft && (league.Begin(outcome.Key) | availability.Begin(outcome.Key));
             if (now == Phase.Draft && before != Phase.Draft) { NotifyDraftStart(); WarnOtherPanels(); }
             else if (now != before && before == Phase.Draft) validationPending = true;
             foreach (string m in outcomeMessages) SendAll(m);
@@ -1705,7 +1711,9 @@ public static class Autostart
                 // Sélection suivie et son issue (draft, pending, game, abandoned) : une page ouverte après la décision la retrouve.
                 { "draftKey", outcome.Key }, { "draftOutcome", outcome.State },
                 // « Dans League » (beta.2) : ton pick, versionné (v). Identifiants de champions seulement, jamais de nom de joueur.
-                { "league", league.ToState() } };
+                { "league", league.ToState() },
+                // Disponibilité (beta.2) : champions bannis, pris par un allié ou en face, versionnés (v). Identifiant et raison seulement.
+                { "unavailable", availability.ToState() } };
         }
 
         void BroadcastHost() { SendAll(HostJson()); }
