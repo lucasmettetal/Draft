@@ -514,8 +514,16 @@ public static class Autostart
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); if (Id == "full") app.OnMainWindowClosed(); return; }
+            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; app.PanelClosedByUser(this); Hide(); if (Id == "full") app.OnMainWindowClosed(); return; }
             base.OnFormClosing(e);
+        }
+
+        // Ajustements V2 : apparition ou masquage d'un panneau (placement, Alt+F4 sur lui seul, masquage de tous). Le programme
+        // renvoie aux pages la visibilité réelle de chaque panneau (HostState, panelVisible).
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Id != "full") app.PanelVisibilityChanged();
         }
 
         public void DisposeForRelease() { app.Quitting = true; try { Close(); } finally { app.Quitting = false; } Dispose(); }
@@ -1498,6 +1506,7 @@ public static class Autostart
             // Pendant un déplacement, les panneaux sont déjà prêts : aucun passage asynchrone qui retarderait le suivi.
             if (!PanelsReady(p.Mode)) await EnsurePanels(p.Mode);
             if (!panelsShown) return;
+            if (p.Mode != shownMode) closedByUser.Clear();
             shownMode = p.Mode;
             if (p.Mode == "two")
             {
@@ -1513,6 +1522,8 @@ public static class Autostart
                 RememberPlacement(new[] { "compact" }, new[] { p.Single });
             }
             MoveCount++;
+            // Fin de placement : un panneau revenu sur l'écran (ou sorti) sans changer de visibilité Windows.
+            PanelVisibilityChanged();
         }
 
         // Retour sur le client depuis une autre application : sans cela, les panneaux restent derrière elle.
@@ -1530,7 +1541,7 @@ public static class Autostart
         {
             IntPtr after = settings.Topmost ? new IntPtr(-1) : new IntPtr(-2);
             uint flags = Native.SWP_NOACTIVATE | (settings.Topmost ? 0 : Native.SWP_NOZORDER) | (keepSize ? Native.SWP_NOSIZE : 0);
-            for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible) { forms[i].Show(); }
+            for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible && !KeepClosed(forms[i])) { forms[i].Show(); }
             IntPtr dwp = NativeHook.BeginDeferWindowPos(forms.Length);
             for (int i = 0; i < forms.Length; i++) dwp = NativeHook.DeferWindowPos(dwp, forms[i].Handle, after, rects[i].Left, rects[i].Top, rects[i].W, rects[i].H, flags);
             NativeHook.EndDeferWindowPos(dwp);
@@ -1546,6 +1557,7 @@ public static class Autostart
         {
             await EnsurePanels(mode);
             if (!panelsShown) return;
+            if (mode != shownMode) closedByUser.Clear();
             shownMode = mode;
             List<Monitor> mons = ClientWindow.Monitors();
             Monitor main = mons.FirstOrDefault(m => m.Primary) ?? mons[0];
@@ -1553,6 +1565,7 @@ public static class Autostart
             foreach (string id in mode == "two" ? new[] { "left", "right" } : new[] { "compact" })
             {
                 PanelForm f = panels[id];
+                if (KeepClosed(f)) continue;
                 Native.RECT r = id == "left" ? new Native.RECT(main.Work.Left, main.Work.Top, main.Work.Left + w, main.Work.Top + h)
                     : new Native.RECT(main.Work.Right - w, main.Work.Top, main.Work.Right, main.Work.Top + h);
                 SavedRect sv;
@@ -1566,6 +1579,7 @@ public static class Autostart
                 f.PlaceNoActivate(r, settings.Topmost);
             }
             if (mode == "two") HideOne("compact"); else { HideOne("left"); HideOne("right"); }
+            PanelVisibilityChanged();
         }
 
         public void PanelMovedByUser(PanelForm f)
@@ -1655,10 +1669,71 @@ public static class Autostart
             return new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } };
+                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning }, { "panelVisible", PanelVisibility() } };
         }
 
-        void BroadcastHost() { SendAll(HostJson()); }
+        void BroadcastHost() { sentPanelVisibility = PanelVisibilityKey(); SendAll(HostJson()); }
+
+        // ---------- Visibilité de chaque panneau (ajustements V2, docs/technique/PANNEAUX-PROPOSITION.md, section 8) ----------
+        // panelsShown dit seulement si les panneaux sont demandés. panelVisible dit, pour chacun (left, right, compact), s'il est
+        // vraiment à l'écran : affiché, non réduit, au moins à moitié sur un écran. Le panneau gauche peut être fermé seul (Alt+F4 :
+        // OnFormClosing le masque, closedByUser ci-dessous), sorti de l'écran à la main, ou absent (disposition compacte). Le panneau
+        // droit montre alors l'accès « Composition adverse X/5 ». Envoyé à chaque changement : apparition ou masquage (OnVisibleChanged),
+        // fin de placement (Place, Place2), déplacement à la main (PanelMovedByUser, par RefreshUi). Un panneau caché DERRIÈRE une
+        // autre fenêtre reste « visible » : rien ne le mesure.
+        static readonly string[] SidePanels = { "left", "right", "compact" };
+        string sentPanelVisibility = "";
+
+        // Panneau gauche ou droit fermé seul par le joueur (Alt+F4). Avant, le suivi du client (OnClientChanged toutes les 2 s, puis
+        // Place) le réaffichait aussitôt : l'accès « Composition adverse » n'aurait fait que clignoter. Il reste fermé jusqu'au prochain
+        // affichage des panneaux (draft suivante, raccourci, menu) ou au prochain changement de disposition (compact, place insuffisante).
+        // Le compact, seul panneau affiché, garde le comportement d'avant.
+        readonly HashSet<string> closedByUser = new HashSet<string>();
+        public void PanelClosedByUser(PanelForm f) { if (f.Id == "left" || f.Id == "right") closedByUser.Add(f.Id); }
+        bool KeepClosed(PanelForm f) { return closedByUser.Contains(f.Id); }
+
+        bool PanelOnScreen(string id, List<Monitor> mons)
+        {
+            PanelForm f;
+            if (!panels.TryGetValue(id, out f) || f.IsDisposed || !f.Visible || f.WindowState == FormWindowState.Minimized) return false;
+            Rectangle b = f.Bounds;
+            long area = (long)b.Width * b.Height, seen = 0;
+            if (area <= 0) return false;
+            foreach (Monitor m in mons)
+            {
+                Rectangle part = Rectangle.Intersect(b, new Rectangle(m.Work.Left, m.Work.Top, m.Work.W, m.Work.H));
+                if (!part.IsEmpty) seen += (long)part.Width * part.Height;
+            }
+            return seen * 2 >= area;
+        }
+
+        Dictionary<string, object> PanelVisibility()
+        {
+            List<Monitor> mons = ClientWindow.Monitors();
+            Dictionary<string, object> d = new Dictionary<string, object>();
+            foreach (string id in SidePanels) d[id] = PanelOnScreen(id, mons);
+            return d;
+        }
+
+        string PanelVisibilityKey() { List<Monitor> mons = ClientWindow.Monitors(); return string.Join(",", SidePanels.Select(id => PanelOnScreen(id, mons) ? "1" : "0")); }
+
+        // Envoie l'état aux pages seulement si la visibilité a changé depuis le dernier envoi. Plusieurs changements d'un même
+        // placement (gauche, droit, compact) : un seul envoi, après eux ; aucun si l'état complet vient d'être envoyé (HidePanels).
+        // Rien pendant la libération des panneaux.
+        bool visibilityPosted;
+        public void PanelVisibilityChanged()
+        {
+            if (Quitting || visibilityPosted) return;
+            SynchronizationContext ui = SynchronizationContext.Current;
+            if (ui == null) { SendVisibilityIfChanged(); return; }
+            visibilityPosted = true;
+            ui.Post(_ => { visibilityPosted = false; SendVisibilityIfChanged(); }, null);
+        }
+
+        void SendVisibilityIfChanged() { if (!Quitting && PanelVisibilityKey() != sentPanelVisibility) BroadcastHost(); }
+
+        // Essai (e2e) : visibilité telle qu'envoyée aux pages.
+        public string PanelVisibilityReport { get { return PanelVisibilityKey(); } }
 
         void SendAll(string json)
         {
@@ -3897,6 +3972,42 @@ public static class Autostart
                 t(!PanelHasFocus(app), "Retour sur le client : aucun vol de focus");
                 t((NativeHook.GetWindowLong(app.PanelFor("left").Handle, -20) & 0x8) == 0, "Panneaux non épinglés au-dessus des autres applications par défaut");
                 otherApp.Close(); otherApp.Dispose();
+
+                // Ajustements V2 : visibilité de chaque panneau transmise aux pages (panelVisible). Panneau gauche fermé seul (Alt+F4 :
+                // Close, raison UserClosing, OnFormClosing le masque) : il reste fermé au suivi du client (2 s) et à un déplacement du
+                // client, puis revient quand les panneaux sont réaffichés (masqués au raccourci, puis rendus à l'affichage automatique).
+                // Le panneau droit montre l'accès « Composition adverse X/5 » seulement pendant que le gauche n'est pas visible.
+                {
+                    await Task.Delay(400);
+                    PanelForm lp = app.PanelFor("left"), rpv = app.PanelFor("right");
+                    Func<string, Task<string>> rjs = async code => await rpv.View.CoreWebView2.ExecuteScriptAsync(code);
+                    const string seen = "JSON.stringify([hostState.panelVisible ? hostState.panelVisible.left : null, !!document.querySelector('[data-test=\"compo-access\"]')])";
+                    await Until(async () => await rjs("typeof V !== 'undefined' && !!document.querySelector('[data-test=\"panel\"]')") == "true", 5000);
+                    await Until(async () => await rjs(seen) == "\"[true,false]\"", 3000);
+                    string before = await rjs(seen), sentBefore = app.PanelVisibilityReport;
+                    t(before == "\"[true,false]\"" && sentBefore == "1,1,0", "Visibilité transmise : gauche et droit visibles, aucun accès « Composition adverse » dans le droit (" + before + ", " + sentBefore + ")");
+                    lp.Close();
+                    await Until(async () => await rjs(seen) == "\"[false,true]\"", 3000);
+                    string closed = await rjs(seen), sentClosed = app.PanelVisibilityReport;
+                    t(!lp.IsDisposed && !lp.Visible && rpv.Visible && app.PanelsShown && closed == "\"[false,true]\"" && sentClosed == "0,1,0", "Panneau gauche fermé seul : le droit reçoit « gauche masqué » et montre l'accès « Composition adverse » (" + closed + ", " + sentClosed + ")");
+                    string access = await rjs("(() => { const b = document.querySelector('[data-test=\"compo-access\"] [data-test=\"compo-toggle\"]'); const folded = !document.querySelector('[data-test=\"compo-access\"] .compact-roles'); if (b) b.click(); return JSON.stringify([b ? b.textContent.trim() : '', folded]); })()");
+                    bool opened = await Until(async () => await rjs("!!document.querySelector('[data-test=\"compo-access\"] .compact-roles')") == "true", 2000);
+                    t(access.Contains("/5") && access.Contains("true") && opened, "Gauche fermé : accès replié par défaut, un clic montre la composition (" + access + ")");
+                    await Task.Delay(2600);
+                    fake.Location = new Point(fake.Left + 4, fake.Top);
+                    await Task.Delay(600);
+                    fake.Location = new Point(fake.Left - 4, fake.Top);
+                    await Task.Delay(600);
+                    string kept = await rjs(seen), sentKept = app.PanelVisibilityReport;
+                    t(!lp.Visible && rpv.Visible && kept == "\"[false,true]\"" && sentKept == "0,1,0", "Panneau gauche fermé seul : il reste fermé au suivi du client (2 s) et à un déplacement du client (" + kept + ", " + sentKept + ")");
+                    app.ToggleManual();
+                    await Until(() => Task.FromResult(!app.PanelsShown), 2000);
+                    app.SetAutoDraft(true);
+                    await Until(async () => lp.Visible && await rjs(seen) == "\"[true,false]\"", 4000);
+                    string back = await rjs(seen), sentBack = app.PanelVisibilityReport;
+                    t(lp.Visible && rpv.Visible && back == "\"[true,false]\"" && sentBack == "1,1,0", "Panneau gauche réaffiché avec les panneaux : le droit retire l'accès (" + back + ", " + sentBack + ")");
+                    await Task.Delay(300);
+                }
 
                 // Client large, comme un 1280 sur 1920 : la place disponible change à chaque pas.
                 int ideal = (int)(340 * main.Scale), wide = main.Work.W - 2 * (ideal - 40), wx = main.Work.Left + (main.Work.W - wide) / 2;

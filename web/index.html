@@ -1324,6 +1324,22 @@
   /* Étiquette de l'alternative : deux lignes au plus, coupées entre deux mots, plutôt que « Presque à ég… » (101 px pour 90 dans
      le panneau droit de 252 px). Un mot plus large que la colonne n'est jamais coupé en deux (« Alternative » à 222 px). */
   .panel .p-alt small { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; white-space:normal; overflow-wrap:normal !important; }
+  /* Ajustements V2 : composition repliable (compact) et accès « Composition adverse X/5 » du panneau droit quand le gauche est fermé.
+     Même ligne que les sections dépliables : chevron vers la droite replié, vers le bas ouvert. Bouton de repli à droite de la recherche
+     (chevron vers le haut) : la rangée ouverte et incomplète ne prend aucune ligne de plus. */
+  .p-compo-line { display:flex; align-items:center; gap:8px; width:100%; min-height:32px; margin:0; padding:4px 8px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); font:15px var(--condensed); text-align:left; cursor:pointer; }
+  .p-compo-line::before, .p-compo-fold::before { content:""; flex:none; width:7px; height:7px; margin:0 2px; border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted); transform:rotate(-45deg); }
+  .p-compo-line[aria-expanded="true"]::before { transform:rotate(45deg); }
+  .p-compo-line > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .p-compo-line:hover { background:var(--raised); }
+  .p-compact-enemies > .p-compo-line { margin-bottom:6px; }
+  .p-compo-search { display:flex; align-items:stretch; gap:4px; }
+  .p-compo-search .search { flex:1; min-width:0; }
+  .panel .p-compo-fold { flex:none; width:30px; height:auto; margin-bottom:6px; border:1px solid var(--line); border-radius:6px; }
+  .p-compo-fold::before { margin:3px 0 0; transform:rotate(-135deg); }
+  .p-compo-access { flex:none; display:flex; flex-direction:column; }
+  .p-compo-access.open > .p-compo-line { border-color:var(--line-strong); }
+  .p-compo-access .p-compact-enemies { padding:6px 0 0; }
 </style>
 </head>
 <body>
@@ -3274,7 +3290,7 @@ function PanelDeep({ compact, open, toggle, alt }) {
     ${sec("bans", t("panel.sec.bans"), bans, V.bans.length ? V.bans.join(", ") : "")}
     ${pair && pair.every(Boolean) && pair[0] !== pair[1] ? sec("compare", t("panel.sec.compare", { a: label(pair[0].pick), b: label(pair[1].pick) }), compare) : null}
     ${subject ? sec("criteria", t("panel.sec.criteria"), criteria) : null}
-    ${compact ? sec("compo", t("panel.sec.compo"), compo) : null}
+    ${compact || leftHidden() ? sec("compo", t("panel.sec.compo"), compo) : null}
     ${sec("sources", t("panel.sec.sources"), sources)}
     <button type="button" className="link-btn p-openfull" data-test="open-full" title=${t("panel.openFullHelp")} onClick=${() => openDetail("analyse")}>${t("panel.openFull")}</button>
   </section>`;
@@ -3311,6 +3327,46 @@ function PanelActions({ cta, deepIn, onDetails }) {
       <${PickAdvice} />
     </div>
   </div>`;
+}
+
+// ---------- Ajustements V2 : composition adverse repliable (compact) et accès depuis le panneau droit (gauche fermé) ----------
+// Choix du joueur (ouvert ou fermé), propre à chaque panneau : null = comportement par défaut. Il tient jusqu'à la draft suivante :
+// phase « draft » reçue du programme (chaque page la reçoit), ou composition vidée (début de sélection, Nouvelle draft).
+let compoChoice = null, compoSeenN = 0, compoSeenPhase = "";
+function compoDraftCheck() {
+  const n = state.enemies.length, ph = (hostState.phase && hostState.phase.key) || "";
+  if ((compoSeenN > 0 && n === 0) || (ph === "native.phase.draft" && compoSeenPhase !== ph)) compoChoice = null;
+  compoSeenN = n; compoSeenPhase = ph;
+}
+const compoIsOpen = byDefault => compoChoice ? compoChoice === "open" : byDefault;
+const setCompo = open => { compoChoice = open ? "open" : "closed"; rerender(); };
+// Panneau gauche ni affiché ni lisible : fermé seul (Alt+F4), masqué, hors de l'écran, ou absent. Seul le programme le sait
+// (hostState.panelVisible, src/DraftMid.cs). Sans cette information (ancien programme, navigateur), rien n'est supposé.
+const leftHidden = () => PANEL === "right" && !!hostState.available && !!hostState.panelVisible && hostState.panelVisible.left === false;
+const CompoRows = () => {
+  const likely = likelyRoles(), slots = likely.slots;
+  return html`<div className="roles compact-roles">
+    ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
+  </div>`;
+};
+// Ligne repliée ou en-tête : « Composition 5/5 » (compact), « Composition adverse 3/5 » (panneau droit). Un clic ouvre ou replie.
+function CompoLine({ open, text, help }) {
+  return html`<button type="button" className="p-compo-line" data-test="compo-toggle" aria-expanded=${open} title=${open ? t("panel.compo.close") : help || t("panel.compo.open")} onClick=${() => setCompo(!open)}><span>${text}</span></button>`;
+}
+// Panneau droit, gauche non visible : accès compact, replié par défaut (pas de second jeu de 5 portraits à côté du conseil).
+// Déplié : les 5 postes du compact et la recherche tant qu'il en manque (saisie à la main, utile sans lecture du client). Forces,
+// failles et jauges : section « Profil adverse » de la lecture approfondie, comme dans le compact. Gauche visible : rien.
+function CompoAccess() {
+  if (!leftHidden()) return null;
+  const n = state.enemies.length, open = compoIsOpen(false);
+  return html`<section className=${`p-compo-access${open ? " open" : ""}`} data-test="compo-access" aria-label=${t("enemy.title")}>
+    <${CompoLine} open=${open} text=${t("panel.compo.access", { count: n })} help=${t("panel.compo.accessHelp")} />
+    ${open ? html`<div className="p-compact-enemies">
+      <${SearchBox} />
+      <${UndoNote} />
+      <${CompoRows} />
+    </div>` : html`<${UndoNote} />`}
+  </section>`;
 }
 
 function VerdictPanel({ compact }) {
@@ -3387,6 +3443,7 @@ function VerdictPanel({ compact }) {
     </div>` : null;
   return html`<div className="p-body">
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
+    ${compact ? null : html`<${CompoAccess} />`}
     <div className="p-now" data-test="panel-now">
       ${V.tied ? html`<${TieGroup} detailed=${false} panel=${true} />` : html`<${PanelReco} name=${name} />`}
       ${!compact || why ? html`<div className="p-why" data-test="panel-why" aria-label=${t("panel.why")}>
@@ -4182,23 +4239,26 @@ function SimView() {
   </div>`;
 }
 
+// Ajustements V2 : la rangée des 5 adversaires (saisie, consultation) se replie d'elle-même quand la composition est complète (5/5),
+// pour laisser la place au conseil ; reste la ligne « Composition 5/5 », qui la rouvre en un clic. Repliable et dépliable à la main
+// (choix gardé jusqu'à la draft suivante). Ouverte et incomplète : le bouton qui replie est à droite de la recherche, sans ligne de plus.
 function CompactEnemies() {
-  const likely = likelyRoles(), slots = likely.slots;
-  return html`<div className="p-compact-enemies">
-    <${SearchBox} />
+  const n = state.enemies.length, open = compoIsOpen(n < 5);
+  return html`<div className=${`p-compact-enemies${open ? "" : " folded"}`}>
+    ${!open || n >= 5 ? html`<${CompoLine} open=${open} text=${t("panel.compo.line", { count: n })} />`
+      : html`<div className="p-compo-search"><${SearchBox} /><button type="button" className="p-btn p-compo-fold" data-test="compo-toggle" aria-expanded="true" title=${t("panel.compo.close")} aria-label=${t("panel.compo.close")} onClick=${() => setCompo(false)}></button></div>`}
     <${UndoNote} />
-    <div className="roles compact-roles">
-      ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
-    </div>
+    ${open ? html`<${CompoRows} />` : null}
   </div>`;
 }
 
 // Composition adverse : le panneau gauche la porte ; le panneau droit sert à comprendre et comparer les recommandations. Le programme
-// ne crée et n'affiche le panneau droit (panel=right) qu'en disposition « two », toujours avec le gauche (Place, Place2,
-// TranslatePanels) : il ne montre ni les 5 postes ni le profil adverse. Rappel minimal gardé : « 3/5 adversaires » sur le conseil
-// (tant qu'il en manque) et le portrait de la menace principale. Le compact (panneau unique ou étroit, sans gauche) montre les 5 postes.
-// L'état envoyé par le programme ne dit pas si le gauche est masqué seul (Alt+F4 sur lui, jusqu'au placement suivant) : rien n'est supposé.
+// ne crée et n'affiche le panneau droit (panel=right) qu'en disposition « two », avec le gauche (Place, Place2, TranslatePanels).
+// Rappel minimal gardé : « 3/5 adversaires » sur le conseil (tant qu'il en manque) et le portrait de la menace principale. Le compact
+// (panneau unique ou étroit, sans gauche) montre les 5 postes. Ajustements V2 : le programme envoie la visibilité réelle de chaque
+// panneau (hostState.panelVisible) ; gauche fermé seul, masqué ou hors de l'écran, le droit montre l'accès « Composition adverse X/5 ».
 function PanelApp() {
+  compoDraftCheck();
   return html`<div className=${`panel panel-${PANEL}`} data-test="panel">
     <${TitleBar} />
     ${PANEL !== "left" ? html`<${RoleSwitch} />` : null}

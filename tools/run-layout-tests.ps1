@@ -45,7 +45,10 @@ $Common = @('--headless=new', '--disable-gpu', '--force-prefers-reduced-motion',
 # Ajustements V2 (captures des vraies fenetres) : DETAILS-ABSENT (« Conseil » propose sans defilement), LEAGUE-DEUX-LIGNES,
 # TEXTES-COLLES (« AjouterAjouter » entre colonnes voisines), MENACE-COUPEE (phrase de menace tronquee), JAUGE-SOUS-LE-PLI
 # (panneau gauche de 700 px et plus : une des 5 jauges sous le pli).
-$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-|PORTRAITS-|PLACE-|DETAILS-|LEAGUE-|MENACE-|JAUGE-)'
+# Ajustements V2 (panneau gauche ferme, compact reductible) : COMPO-ACCES (acces « Composition adverse X/5 » du panneau droit present si et
+# seulement si le gauche n'est pas visible, replie par defaut) ; COMPACT-REPLIE (rangee des 5 adversaires repliee a 5/5, choix du joueur
+# respecte, conseil au-dessus de la barre).
+$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-|PORTRAITS-|PLACE-|DETAILS-|LEAGUE-|MENACE-|JAUGE-|COMPO-|COMPACT-)'
 $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
@@ -60,6 +63,16 @@ $Runs += , @('dans league survole (donnee de test)', 'state=league&frozen=1', $f
 $Runs += , @('dans league verrouille (donnee de test)', 'state=leaguelocked&frozen=1', $false)
 $Runs += , @('egalite sans lecture du client', 'state=tie&profile=jungle&host=off&frozen=1', $false)
 $Runs += , @('egalite jungle, choix hors egalite', 'state=tieother&profile=jungle&frozen=1', $false)
+# Ajustements V2 : visibilite du panneau gauche envoyee par le programme (left=hidden|shown) ; choix du joueur sur la composition (compo=open|closed).
+$Runs += , @('gauche visible : aucun acces composition', 'state=partial&left=shown&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces replie', 'state=partial&left=hidden&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces replie, consultation', 'state=viewed&left=hidden&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces deplie, sans lecture', 'state=partial&left=hidden&host=off&compo=open&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces deplie, 5/5', 'state=full&left=hidden&compo=open&set=right&frozen=1', $false)
+$Runs += , @('compact 5/5 deplie a la main', 'state=full&compo=open&set=compact&frozen=1', $false)
+# Sans 222 x 511 (taille V1, que le placement V2 ne produit plus) : rouverte a la main a 5/5, la carte du consulte y passe 20 px sous la barre.
+$Runs += , @('compact consultation 5/5 deplie a la main', 'state=viewed&compo=open&set=compact&dims=252x576,282x576,248x565,248x711,280x720,320x720,360x720,400x720,360x1030,320x420&frozen=1', $false)
+$Runs += , @('compact partielle repliee a la main', 'state=partial&compo=closed&set=compact&frozen=1', $false)
 $Runs += , @('analyse, vue comparer', 'state=history&set=full&tabclick=analyse&view=compare&frozen=1', $false)
 $Runs += , @('analyse, vue regles', 'state=history&set=full&tabclick=analyse&view=rules&frozen=1', $false)
 $Runs += , @('analyse, comparer sur egalite', 'state=tie&profile=jungle&set=full&tabclick=analyse&view=compare&frozen=1', $false)

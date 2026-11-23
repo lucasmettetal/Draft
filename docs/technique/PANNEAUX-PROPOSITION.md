@@ -2,7 +2,7 @@
 
 **Statut :** proposition à valider. Branche `feat/panneaux-primaires`, partie de `main` 4fb621f (3.0.0-beta.1 publiée). Ni PR, ni fusion, ni intégration à la beta.2.
 
-**Mise à jour :** l'utilisateur a retenu **V2**. Ce qui a changé depuis : section 8, « Ajustements V2 ».
+**Mise à jour :** l'utilisateur a retenu **V2**. Ce qui a changé depuis : section 8, « Ajustements V2 », dont « Ajustements : panneau gauche fermé, compact réductible ». Hors périmètre et à reprendre : section 9.
 
 **Décision produit :** les panneaux sont l'interface principale. Le joueur choisit son champion, comprend les conseils et lit l'essentiel sans ouvrir la grande fenêtre.
 
@@ -239,7 +239,7 @@ L'utilisateur a retenu **V2** : panneau étroit de 256 x 574 à 1366 x 768 à 12
 - « 3/5 adversaires » sur la carte du conseil, tant qu'il en manque : il dit sur quoi repose le conseil ;
 - le portrait de la menace principale : c'est le risque principal, pas la composition.
 
-Une rangée de 5 portraits ajouterait une ligne à la lecture immédiate, pour une information affichée juste à côté, à la même hauteur, et dans le client.
+Une rangée de 5 portraits ajouterait une ligne à la lecture immédiate, pour une information affichée juste à côté, à la même hauteur, et dans le client. Exception depuis les ajustements (plus bas) : panneau gauche fermé, une ligne repliée « Composition adverse X/5 ».
 
 **Compact.** Les 5 postes restent au-dessus du conseil : c'est là qu'on saisit les adversaires quand le client n'est pas lu. Dans la partie conseil, l'ordre est celui du panneau droit.
 
@@ -247,7 +247,7 @@ Une rangée de 5 portraits ajouterait une ligne à la lecture immédiate, pour u
 
 - **Par son adresse.** Le panneau droit est chargé avec `panel=right` (`PANEL` dans la page). Le programme ne le crée et ne l'affiche qu'en disposition « two », toujours avec le gauche : `Place` (placement suivi), `Place2` (placement manuel) et `TranslatePanels` (déplacement) montrent et déplacent les deux ensemble. En compact, `panel=compact` est seul.
 - **Ce que l'état du programme transmet** (`HostState`) : `compact` (réglage), `panelsShown` (tous les panneaux), `placement` (une note). Pas la visibilité de chaque panneau.
-- **Ce qui manque.** Le panneau gauche peut être masqué seul : Alt+F4 sur lui (`OnFormClosing`) le cache et laisse le droit, jusqu'au placement suivant (déplacement du client). Un panneau gauche déplacé à la main derrière une autre fenêtre n'est pas su non plus. Rien n'est supposé : dans ces cas, le panneau droit ne montre pas la composition. Pour le faire, le programme devrait envoyer la visibilité de chaque panneau dans son état. Non fait.
+- **Ce qui manquait.** Le panneau gauche peut être masqué seul : Alt+F4 sur lui (`OnFormClosing`) le cache et laisse le droit, jusqu'au placement suivant (en fait, le suivi du client toutes les 2 s : voir « Ajustements »). Un panneau gauche déplacé à la main derrière une autre fenêtre n'est pas su non plus. Rien n'était supposé : le panneau droit ne montrait pas la composition. **Depuis les ajustements ci-dessous**, le programme envoie la visibilité réelle de chaque panneau (`panelVisible`).
 
 ### Relevés ajoutés au banc
 
@@ -312,3 +312,55 @@ Tests légers, en série, un seul Chrome sans tête à la fois. Ni e2e ni captur
 | Essai du bouton dans la vraie page (droit 252 x 711, compact 248 x 565 et 248 x 711 ; complète, égalité, « Dans League ») | Au départ, « Détails » partout (avant : « Conseil » dans 3 cas sur 5). Un clic défile vers la lecture approfondie (avant : rien). Sous `--dump-dom`, l'événement de défilement arrive en retard : le libellé suit d'un temps, dans les deux versions |
 
 Une passe « avant » EN, relancée avec le banc final, s'est figée (aucune sortie pendant 40 min) : arrêtée. La passe « avant » EN complète a été faite plus tôt, avec le même banc sauf le filtre d'animation figée de TEXTES-COLLES, qui ne touche pas « Ajouter ».
+
+### Ajustements : panneau gauche fermé, compact réductible
+
+Deux demandes de l'utilisateur. Aucune nouvelle étude graphique : la ligne repliable reprend celle des sections dépliables.
+
+**1. Ce que le programme transmet** (`src/DraftMid.cs`, partie placement et état envoyé aux pages). Changement minimal : ni LCU, ni moteur, ni sécurité.
+- `HostState` porte un champ de plus, `panelVisible = { left, right, compact }`. Chaque valeur est vraie si le panneau est affiché, non réduit, et au moins à moitié sur un écran (zone utile).
+- Il est envoyé à chaque changement : apparition ou masquage d'un panneau (`PanelForm.OnVisibleChanged` : placement, Alt+F4 sur un panneau seul, masquage de tous), fin de placement (`Place`, `Place2`), déplacement à la main (`PanelMovedByUser`, par `RefreshUi`). Un envoi n'a lieu que si la visibilité a changé, et une seule fois pour les changements d'un même placement (envoi différé, comme le suivi du client) ; rien pendant la libération des panneaux. Rien n'est ajouté au suivi du client pendant un déplacement (`TranslatePanels`).
+- Limite : un panneau caché **derrière** une autre fenêtre reste « visible ». Rien ne le mesure.
+- **Correction de placement, constatée en testant.** Contrairement à ce que disait la section « Comment la page sait… », Alt+F4 sur le gauche ne le masquait pas « jusqu'au déplacement du client » : le suivi du client (`OnClientChanged`, toutes les 2 s) relance `Place`, et `MoveTogether` réaffichait tout panneau masqué. Le gauche revenait en 2 s au plus ; l'accès n'aurait fait que clignoter. Désormais, un panneau gauche ou droit fermé seul par le joueur reste fermé jusqu'au prochain affichage des panneaux (draft suivante, raccourci, menu) ou au prochain changement de disposition (compact, place insuffisante). `MoveTogether` et `Place2` ne le réaffichent plus. Le compact, seul panneau, garde le comportement d'avant. **À valider par l'utilisateur** : c'est un changement de comportement du placement, petit, mais visible.
+
+**2. Panneau droit, gauche fermé.** Si le programme dit le gauche non visible (fermé seul, masqué, hors de l'écran), le panneau droit montre, en haut, une ligne « Composition adverse X/5 ». Repliée par défaut : aucun portrait adverse de plus à côté du conseil. Dépliée : les 5 postes du compact, et la recherche tant qu'il en manque. La saisie à la main se fait donc là, avec les composants existants (`SearchBox`, `RoleRow`), quand la lecture du client manque. Forces, failles et jauges passent dans la section « Profil adverse » de la lecture approfondie, comme dans le compact. Gauche visible, ou état inconnu (ancien programme, navigateur) : rien n'est montré.
+
+**3. Compact réductible.** La rangée des 5 adversaires reste. Elle se replie d'elle-même à 5/5 ; reste la ligne « Composition 5/5 », qu'un clic rouvre. Ouverte et incomplète, un bouton à droite de la recherche la replie, sans ligne de plus. Le choix du joueur (ouvert ou fermé) tient jusqu'à la draft suivante : phase « draft » reçue du programme, ou composition vidée. Repliée, le conseil remonte d'environ 110 px.
+
+**Relevés ajoutés au banc** (`web/draft-layout-tests.html`, ils font échouer `tools/run-layout-tests.ps1`) :
+- **COMPO-ACCES** (droit) : l'accès est présent si et seulement si le programme dit le gauche non visible ; replié sans choix du joueur, déplié s'il l'a ouvert ; sa ligne porte « X/5 » et reste au-dessus de la barre d'actions.
+- **COMPACT-REPLIE** (compact) : à 5/5 sans choix, rangée repliée et ligne « Composition 5/5 » ; incomplète, rangée ouverte ; choix du joueur respecté ; repliée, conseil entier au-dessus de la barre, à toutes les tailles.
+- **PORTRAITS-ADVERSES** ignore désormais l'accès (seule exception, gardée par COMPO-ACCES).
+- Paramètres : `left=hidden|shown` (visibilité envoyée par le programme), `compo=open|closed` (choix du joueur). 8 passes de plus.
+
+**Limite mesurée.** À 222 x 511 (taille V1, que le placement V2 ne produit plus), rangée rouverte à la main à 5/5 avec un champion consulté : la carte du consulté passe 20 px sous la barre. Cette passe exclut donc 222 x 511. À 248 x 565 (V2 réelle), tout tient.
+
+**Tests** (en série ; un seul lancement lourd à la fois ; bureau caché, dossiers de données neufs, clé `Software\DRAFT-Test-PanA\Run` retirée à la fin) :
+
+| Test | Résultat |
+|---|---|
+| e2e FR, exe final | **110 réussis, 1 échec** : Ctrl+Alt+D laissé à la 2.x, raison « instance » (DRAFT de l'utilisateur, pid 32132, non touché), comme avant. Les 5 essais ajoutés passent : gauche et droit visibles, pas d'accès ; gauche fermé seul (Alt+F4) : le droit reçoit « gauche masqué » (`0,1,0`) et montre l'accès ; accès replié, un clic montre la composition ; le gauche reste fermé après le suivi du client (2 s) et un déplacement du client ; réaffiché avec les panneaux, l'accès disparaît (`1,1,0`). « Rafales » (moyenne 0,8 ms) et « collé au client » réussissent |
+| e2e FR, exe de base 5e07ce7 (même machine) | 105 réussis, 1 échec (Ctrl+Alt+D) |
+| e2e FR, versions intermédiaires | envoi immédiat à chaque apparition : « QA A2 » a échoué une fois (le panneau droit, lu sans attente, n'avait pas encore basculé de rôle) ; d'où l'envoi regroupé. Gauche réaffiché par le suivi du client : l'essai du clic a échoué une fois ; d'où la correction de placement |
+| selftest FR / EN | **332 / 0** et **332 / 0** |
+| Banc de mise en page FR | **TOUT EST BON** |
+| Banc de mise en page EN | **TOUT EST BON** ; français visible 0, clés absentes 0 |
+| Banc de mise en page qps (ne fait pas échouer) | 425 débordements listés (488 avant : la rangée repliée en retire) ; hors crochets 9 (noms et raisons fictifs, comme avant) ; clés absentes 0 |
+| `draft-choix-tests.html` | **220 réussis, 0 échec**. Une première passe, lancée pendant une capture WebView2, donnait 212/8 (synchronisation entre fenêtres en retard, « 0/0/0 ») ; relancée seule : 220/0 |
+| `draft-beta1-reel-tests.html` | **182 réussis, 0 échec**. Même cause pour une première passe à 176/6 |
+| Catalogues (`check-catalogs.ps1 -Code`) | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) |
+| Détecteur de textes en dur (`detect-hardcoded.ps1 -Only web/ -Max 0`) | 0 chaîne |
+| Banc moteur (`run-engine-eval.ps1 -AvecEvaluation`) | **Banc : OK**, 0 changement contre les deux instantanés (312 et 108 scénarios), 0 inattendu |
+
+**Captures** (`docs/qa/captures-panneaux-primaires/v2-ajustements/`, script `scripts/captures-ajustements.ps1`, copie minimale de `captures-panneaux.ps1`) : vraies fenêtres WebView2 de l'exe final, bureau caché, données fictives. « Panneau gauche fermé » y est injecté dans la page (le vrai envoi est vérifié par l'e2e).
+- FR, droit 1920 à 125 % (252 x 711), gauche fermé, 3/5, sans lecture du client : `ajust-fr-a1-gauche-ferme-droit-1920-125-replie.png` (essentiel 8/8), `…-deplie.png` (9/9, recherche et 5 postes) ;
+- FR, compact 5/5 : `ajust-fr-a2-compact-complet-compact-1366-125-replie.png` et `…-deplie.png` (248 x 565), `…-compact-1920-125-replie.png` et `…-deplie.png` (248 x 711) ; essentiel 7/7 replié, 8/8 déplié ;
+- EN : `ajust-en-a2-compact-complet-compact-1366-125-replie.png` (« Enemy comp 5/5 », 7/7) ;
+- manifestes `manifeste-ajustements-fr.csv` et `-en.csv`.
+
+Pas de panneau droit à 1366 x 768 à 125 % : la V2 y place un seul panneau étroit (compact).
+
+## 9. Hors périmètre / à reprendre
+
+- **Explication d'une égalité entre champions de styles très différents.** Exemple : Cho'Gath, Master Yi et Viego à égalité. L'explication reste générique et identique pour tous, par exemple « 3 tanks ou bruisers : ses dégâts contre les tanks font la différence ». C'est un défaut connu des explications du moteur. À reprendre plus tard ; non traité par les ajustements des panneaux (ni moteur, ni poids, ni classement touchés).
+- **Panneau caché derrière une autre fenêtre.** Le programme ne le mesure pas : le panneau droit ne montre pas l'accès « Composition adverse » dans ce cas.
