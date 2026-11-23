@@ -42,7 +42,7 @@
   "portees": [
     {
       "nom": "test",
-      "classe": "(Tests|^Sim|^SimRiot|^SimFetcher|^FakeClient|^EndToEnd|^SelfTest|^CloseProbe|^SimulatedLcuTransport)$",
+      "classe": "(Tests|^Sim|^SimRiot|^SimFetcher|^FakeClient|^EndToEnd|^SelfTest|^CloseProbe|^StateWait|^WaitResult|^SimulatedLcuTransport)$",
       "raison": "autotests et simulateurs natifs (--selftest, --e2e) : jamais montrés au joueur"
     },
     {

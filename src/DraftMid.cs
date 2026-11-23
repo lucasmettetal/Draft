@@ -94,6 +94,11 @@ namespace DraftMid
     public static class Layout
     {
         const int MinW = 230, IdealW = 340, MinH = 520, Gap = 0;
+        // Panneaux primaires, V2 (docs/technique/PANNEAUX-PROPOSITION.md) : le panneau étroit fait 256 px (au lieu de 230) et prend la
+        // hauteur utile de l'écran (900 px au plus) ; les panneaux posés à côté du client font 1,25 fois sa hauteur. La largeur des
+        // panneaux à côté du client ne change pas : ils ne couvrent jamais le client.
+        public const int NarrowW = 256, NarrowMaxH = 900;
+        public const double BesideHeight = 1.25;
 
         // QA-4 : une position enregistrée par l'utilisateur n'est reprise que si le panneau reste utilisable sur un écran présent :
         // au moins la moitié de sa largeur et toute sa barre de titre (40 px à l'échelle de l'écran) visibles. Sinon (écran débranché,
@@ -163,11 +168,13 @@ namespace DraftMid
         }
 
         // Aucune place libre : un seul panneau étroit, au bord de l'écran, couvre le moins possible du client.
+        // V2 : 256 px de large et la hauteur utile de l'écran (900 px au plus), centré sur le client dans l'écran.
         public static Placement Narrowest(Native.RECT client, IList<Monitor> monitors)
         {
             Monitor home = monitors.OrderByDescending(m => OverlapArea(m.Work, client)).First();
-            int y, h, w = Math.Min((int)(MinW * home.Scale), home.Work.W);
-            Vertical(client, home, out y, out h);
+            int w = Math.Min((int)(NarrowW * home.Scale), home.Work.W);
+            int h = Math.Min((int)(NarrowMaxH * home.Scale), home.Work.H);
+            int y = Math.Max(home.Work.Top, Math.Min(client.Top - (h - client.H) / 2, home.Work.Bottom - h));
             return new Placement
             {
                 Mode = "compact",
@@ -176,9 +183,10 @@ namespace DraftMid
             };
         }
 
-        static void Vertical(Native.RECT client, Monitor m, out int y, out int h)
+        // Panneaux à côté du client : V2, 1,25 fois sa hauteur (520 px au moins), dans l'écran. Public pour les essais (e2e).
+        public static void Vertical(Native.RECT client, Monitor m, out int y, out int h)
         {
-            h = Math.Min(Math.Max(client.H, (int)(MinH * m.Scale)), m.Work.H);
+            h = Math.Min(Math.Max((int)Math.Round(client.H * BesideHeight), (int)(MinH * m.Scale)), m.Work.H);
             // Centré sur le client, pour rester aligné même quand le panneau est plus haut que lui.
             y = Math.Max(m.Work.Top, Math.Min(client.Top - (h - client.H) / 2, m.Work.Bottom - h));
         }
@@ -506,8 +514,16 @@ public static class Autostart
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); if (Id == "full") app.OnMainWindowClosed(); return; }
+            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; app.PanelClosedByUser(this); Hide(); if (Id == "full") app.OnMainWindowClosed(); return; }
             base.OnFormClosing(e);
+        }
+
+        // Ajustements V2 : apparition ou masquage d'un panneau (placement, Alt+F4 sur lui seul, masquage de tous). Le programme
+        // renvoie aux pages la visibilité réelle de chaque panneau (HostState, panelVisible).
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Id != "full") app.PanelVisibilityChanged();
         }
 
         public void DisposeForRelease() { app.Quitting = true; try { Close(); } finally { app.Quitting = false; } Dispose(); }
@@ -1550,6 +1566,7 @@ public static class Autostart
             // Pendant un déplacement, les panneaux sont déjà prêts : aucun passage asynchrone qui retarderait le suivi.
             if (!PanelsReady(p.Mode)) await EnsurePanels(p.Mode);
             if (!panelsShown) return;
+            if (p.Mode != shownMode) closedByUser.Clear();
             shownMode = p.Mode;
             if (p.Mode == "two")
             {
@@ -1565,6 +1582,8 @@ public static class Autostart
                 RememberPlacement(new[] { "compact" }, new[] { p.Single });
             }
             MoveCount++;
+            // Fin de placement : un panneau revenu sur l'écran (ou sorti) sans changer de visibilité Windows.
+            PanelVisibilityChanged();
         }
 
         // Retour sur le client depuis une autre application : sans cela, les panneaux restent derrière elle.
@@ -1582,7 +1601,7 @@ public static class Autostart
         {
             IntPtr after = settings.Topmost ? new IntPtr(-1) : new IntPtr(-2);
             uint flags = Native.SWP_NOACTIVATE | (settings.Topmost ? 0 : Native.SWP_NOZORDER) | (keepSize ? Native.SWP_NOSIZE : 0);
-            for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible) { forms[i].Show(); }
+            for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible && !KeepClosed(forms[i])) { forms[i].Show(); }
             IntPtr dwp = NativeHook.BeginDeferWindowPos(forms.Length);
             for (int i = 0; i < forms.Length; i++) dwp = NativeHook.DeferWindowPos(dwp, forms[i].Handle, after, rects[i].Left, rects[i].Top, rects[i].W, rects[i].H, flags);
             NativeHook.EndDeferWindowPos(dwp);
@@ -1598,6 +1617,7 @@ public static class Autostart
         {
             await EnsurePanels(mode);
             if (!panelsShown) return;
+            if (mode != shownMode) closedByUser.Clear();
             shownMode = mode;
             List<Monitor> mons = ClientWindow.Monitors();
             Monitor main = mons.FirstOrDefault(m => m.Primary) ?? mons[0];
@@ -1605,6 +1625,7 @@ public static class Autostart
             foreach (string id in mode == "two" ? new[] { "left", "right" } : new[] { "compact" })
             {
                 PanelForm f = panels[id];
+                if (KeepClosed(f)) continue;
                 Native.RECT r = id == "left" ? new Native.RECT(main.Work.Left, main.Work.Top, main.Work.Left + w, main.Work.Top + h)
                     : new Native.RECT(main.Work.Right - w, main.Work.Top, main.Work.Right, main.Work.Top + h);
                 SavedRect sv;
@@ -1618,6 +1639,7 @@ public static class Autostart
                 f.PlaceNoActivate(r, settings.Topmost);
             }
             if (mode == "two") HideOne("compact"); else { HideOne("left"); HideOne("right"); }
+            PanelVisibilityChanged();
         }
 
         public void PanelMovedByUser(PanelForm f)
@@ -1707,7 +1729,7 @@ public static class Autostart
             return new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning },
+                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning }, { "panelVisible", PanelVisibility() },
                 // Sélection suivie et son issue (draft, pending, game, abandoned) : une page ouverte après la décision la retrouve.
                 { "draftKey", outcome.Key }, { "draftOutcome", outcome.State },
                 // « Dans League » (beta.2) : ton pick, versionné (v). Identifiants de champions seulement, jamais de nom de joueur.
@@ -1716,7 +1738,68 @@ public static class Autostart
                 { "unavailable", availability.ToState() } };
         }
 
-        void BroadcastHost() { SendAll(HostJson()); }
+        void BroadcastHost() { sentPanelVisibility = PanelVisibilityKey(); SendAll(HostJson()); }
+
+        // ---------- Visibilité de chaque panneau (ajustements V2, docs/technique/PANNEAUX-PROPOSITION.md, section 8) ----------
+        // panelsShown dit seulement si les panneaux sont demandés. panelVisible dit, pour chacun (left, right, compact), s'il est
+        // vraiment à l'écran : affiché, non réduit, au moins à moitié sur un écran. Le panneau gauche peut être fermé seul (Alt+F4 :
+        // OnFormClosing le masque, closedByUser ci-dessous), sorti de l'écran à la main, ou absent (disposition compacte). Le panneau
+        // droit montre alors l'accès « Composition adverse X/5 ». Envoyé à chaque changement : apparition ou masquage (OnVisibleChanged),
+        // fin de placement (Place, Place2), déplacement à la main (PanelMovedByUser, par RefreshUi). Un panneau caché DERRIÈRE une
+        // autre fenêtre reste « visible » : rien ne le mesure.
+        static readonly string[] SidePanels = { "left", "right", "compact" };
+        string sentPanelVisibility = "";
+
+        // Panneau gauche ou droit fermé seul par le joueur (Alt+F4). Avant, le suivi du client (OnClientChanged toutes les 2 s, puis
+        // Place) le réaffichait aussitôt : l'accès « Composition adverse » n'aurait fait que clignoter. Il reste fermé jusqu'au prochain
+        // affichage des panneaux (draft suivante, raccourci, menu) ou au prochain changement de disposition (compact, place insuffisante).
+        // Le compact, seul panneau affiché, garde le comportement d'avant.
+        readonly HashSet<string> closedByUser = new HashSet<string>();
+        public void PanelClosedByUser(PanelForm f) { if (f.Id == "left" || f.Id == "right") closedByUser.Add(f.Id); }
+        bool KeepClosed(PanelForm f) { return closedByUser.Contains(f.Id); }
+
+        bool PanelOnScreen(string id, List<Monitor> mons)
+        {
+            PanelForm f;
+            if (!panels.TryGetValue(id, out f) || f.IsDisposed || !f.Visible || f.WindowState == FormWindowState.Minimized) return false;
+            Rectangle b = f.Bounds;
+            long area = (long)b.Width * b.Height, seen = 0;
+            if (area <= 0) return false;
+            foreach (Monitor m in mons)
+            {
+                Rectangle part = Rectangle.Intersect(b, new Rectangle(m.Work.Left, m.Work.Top, m.Work.W, m.Work.H));
+                if (!part.IsEmpty) seen += (long)part.Width * part.Height;
+            }
+            return seen * 2 >= area;
+        }
+
+        Dictionary<string, object> PanelVisibility()
+        {
+            List<Monitor> mons = ClientWindow.Monitors();
+            Dictionary<string, object> d = new Dictionary<string, object>();
+            foreach (string id in SidePanels) d[id] = PanelOnScreen(id, mons);
+            return d;
+        }
+
+        string PanelVisibilityKey() { List<Monitor> mons = ClientWindow.Monitors(); return string.Join(",", SidePanels.Select(id => PanelOnScreen(id, mons) ? "1" : "0")); }
+
+        // Envoie l'état aux pages seulement si la visibilité a changé depuis le dernier envoi. Plusieurs changements d'un même
+        // placement (gauche, droit, compact) : un seul envoi, après eux ; aucun si l'état complet vient d'être envoyé (HidePanels).
+        // Rien pendant la libération des panneaux.
+        bool visibilityPosted;
+        public void PanelVisibilityChanged()
+        {
+            if (Quitting || visibilityPosted) return;
+            SynchronizationContext ui = SynchronizationContext.Current;
+            if (ui == null) { SendVisibilityIfChanged(); return; }
+            visibilityPosted = true;
+            ui.Post(_ => { visibilityPosted = false; SendVisibilityIfChanged(); }, null);
+        }
+
+        void SendVisibilityIfChanged() { if (!Quitting && PanelVisibilityKey() != sentPanelVisibility) BroadcastHost(); }
+
+        // Essai (e2e) : visibilité telle qu'envoyée aux pages.
+        public string PanelVisibilityReport { get { return PanelVisibilityKey(); } }
 
         void SendAll(string json)
         {
@@ -3261,6 +3344,34 @@ public static class Autostart
         }
     }
 
+    // Résultat d'une attente bornée (tests seulement) : atteint ou non, et le temps réellement attendu.
+    public sealed class WaitResult
+    {
+        public bool Ok;
+        public double Ms;
+        public int Checks, LimitMs;
+        public string Text { get { return Ok ? "atteint en " + Ms.ToString("0.0") + " ms" : "non atteint après " + Ms.ToString("0") + " ms (limite " + LimitMs + " ms)"; } }
+    }
+
+    // Attente bornée sur un état observable, pour les e2e : la condition est vérifiée tout de suite, puis toutes les 5 ms,
+    // jusqu'à la limite. Une durée fixe ne suffit pas : sous charge, la suite d'un Task.Delay peut passer avant le
+    // déplacement des panneaux, posté dans la même file du fil d'interface. À la limite, l'échec est rendu avec sa durée.
+    static class StateWait
+    {
+        public static async Task<WaitResult> Until(Func<bool> condition, int limitMs, int stepMs = 5)
+        {
+            Stopwatch clock = Stopwatch.StartNew();
+            int checks = 0;
+            while (true)
+            {
+                checks++;
+                bool ok = condition();
+                if (ok || clock.ElapsedMilliseconds >= limitMs) return new WaitResult { Ok = ok, Ms = clock.Elapsed.TotalMilliseconds, Checks = checks, LimitMs = limitMs };
+                await Task.Delay(stepMs);
+            }
+        }
+    }
+
     // ---------- Scénario de bout en bout, avec une fausse fenêtre de client et des phases simulées ----------
     static class EndToEnd
     {
@@ -4258,7 +4369,8 @@ public static class Autostart
                 t(app.PanelFor("left").Visible && app.PanelFor("right").Visible, "4. Les deux panneaux sont visibles");
                 Native.RECT c = app.Tracker.Rect, l = rectOfLeft(), r = rectOfRight();
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
-                t(l.Top == c.Top && l.H == c.H, "4. Hauteur et alignement sur le client");
+                int vy, vh; Layout.Vertical(c, main, out vy, out vh);
+                t(l.Top == vy && l.H == vh && r.Top == vy && r.H == vh, "4. Hauteur (1,25 x client, V2) et centrage sur le client (" + l + " | " + c + ")");
                 t(!PanelHasFocus(app), "Aucun vol de focus à l'apparition");
                 // QA-6 : l'échec reste toujours visible, avec sa cause mesurée (code Win32 et autres instances DRAFT de la session).
                 if (o.NoHotkey) t(!app.HotkeyCreated, "Raccourci laissé à l'autre version : aucune tentative");
@@ -4275,27 +4387,34 @@ public static class Autostart
                 for (int i = 1; i <= steps; i++) { fake.Location = new Point(cx + (i % 2 == 0 ? 6 : -6) * i / 4, cy + i); await Task.Delay(8); }
                 await Task.Delay(150);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
-                t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == c.Top, "7. Déplacement : les panneaux suivent (" + c + ")");
+                Layout.Vertical(c, main, out vy, out vh);
+                t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == vy, "7. Déplacement : les panneaux suivent (" + c + ")");
                 s.AppendLine("MESURE : " + (app.Tracker.EventCount - evBefore) + " événements Windows, " + (app.MoveCount - movesBefore) + " déplacements de panneaux sur " + clock.ElapsedMilliseconds + " ms");
                 // Une mise à jour par étape au plus, plus le recalcul à l'arrêt et la dernière mise à jour en attente.
                 t(app.MoveCount - movesBefore <= steps + 3, "7. Déplacements limités à une mise à jour par étape");
 
                 // Rafales plus rapides qu'une image : combien de temps les panneaux restent-ils en retard sur la dernière position ?
+                // Attente bornée sur l'état vérifié (déplacement fait, bord du panneau à sa place), pas une durée fixe :
+                // sous charge, la vérification passait avant le déplacement posté dans la même file (faux échec).
                 {
-                    double total = 0, worst = 0;
-                    int missed = 0;
+                    double total = 0, worst = 0, waited = 0, waitedWorst = 0;
+                    int missed = 0, beyondOld = 0;
+                    string firstMiss = "";
                     for (int b = 0; b < 40; b++)
                     {
                         await Task.Delay(30);
                         app.LastFollowLagMs = -1;
                         for (int k = 1; k <= 3; k++) fake.Location = new Point(cx + (b % 7) * 3 + k + 40 * (b % 2), cy + (b % 3));
-                        await Task.Delay(60);
-                        if (app.LastFollowLagMs < 0 || fake.Left - rectOfLeft().Right > 10 || fake.Left < rectOfLeft().Right) { missed++; continue; }
+                        WaitResult caught = await StateWait.Until(() => app.LastFollowLagMs >= 0 && fake.Left - rectOfLeft().Right <= 10 && fake.Left >= rectOfLeft().Right, 1000);
+                        waited += caught.Ms;
+                        waitedWorst = Math.Max(waitedWorst, caught.Ms);
+                        if (caught.Ms > 60) beyondOld++;
+                        if (!caught.Ok) { missed++; if (firstMiss == "") firstMiss = "rafale " + (b + 1) + " " + caught.Text + ", client x " + fake.Left + ", bord du panneau " + rectOfLeft().Right; continue; }
                         total += app.LastFollowLagMs;
                         worst = Math.Max(worst, app.LastFollowLagMs);
                     }
-                    s.AppendLine("MESURE : rafales : du dernier événement au déplacement, moyenne " + (total / Math.Max(1, 40 - missed)).ToString("0.0") + " ms, maximum " + worst.ToString("0.0") + " ms (fenêtre simulée, sans le client réel ni l'affichage)");
-                    t(missed == 0, "7. Rafales : les panneaux rattrapent toujours la dernière position");
+                    s.AppendLine("MESURE : rafales : du dernier événement au déplacement, moyenne " + (total / Math.Max(1, 40 - missed)).ToString("0.0") + " ms, maximum " + worst.ToString("0.0") + " ms (fenêtre simulée, sans le client réel ni l'affichage) ; attente réelle du test, moyenne " + (waited / 40).ToString("0.0") + " ms, maximum " + waitedWorst.ToString("0.0") + " ms (limite 1000 ms ; " + beyondOld + " rafale(s) au-delà de l'ancienne attente fixe de 60 ms)");
+                    t(missed == 0, "7. Rafales : les panneaux rattrapent toujours la dernière position" + (missed == 0 ? "" : " (" + missed + " manquée(s) ; première : " + firstMiss + ")"));
                 }
 
                 // Retour sur le client : les panneaux repassent devant une autre fenêtre, sans prendre le focus.
@@ -4312,20 +4431,62 @@ public static class Autostart
                 t((NativeHook.GetWindowLong(app.PanelFor("left").Handle, -20) & 0x8) == 0, "Panneaux non épinglés au-dessus des autres applications par défaut");
                 otherApp.Close(); otherApp.Dispose();
 
+                // Ajustements V2 : visibilité de chaque panneau transmise aux pages (panelVisible). Panneau gauche fermé seul (Alt+F4 :
+                // Close, raison UserClosing, OnFormClosing le masque) : il reste fermé au suivi du client (2 s) et à un déplacement du
+                // client, puis revient quand les panneaux sont réaffichés (masqués au raccourci, puis rendus à l'affichage automatique).
+                // Le panneau droit montre l'accès « Composition adverse X/5 » seulement pendant que le gauche n'est pas visible.
+                {
+                    await Task.Delay(400);
+                    PanelForm lp = app.PanelFor("left"), rpv = app.PanelFor("right");
+                    Func<string, Task<string>> rjs = async code => await rpv.View.CoreWebView2.ExecuteScriptAsync(code);
+                    const string seen = "JSON.stringify([hostState.panelVisible ? hostState.panelVisible.left : null, !!document.querySelector('[data-test=\"compo-access\"]')])";
+                    await Until(async () => await rjs("typeof V !== 'undefined' && !!document.querySelector('[data-test=\"panel\"]')") == "true", 5000);
+                    await Until(async () => await rjs(seen) == "\"[true,false]\"", 3000);
+                    string before = await rjs(seen), sentBefore = app.PanelVisibilityReport;
+                    t(before == "\"[true,false]\"" && sentBefore == "1,1,0", "Visibilité transmise : gauche et droit visibles, aucun accès « Composition adverse » dans le droit (" + before + ", " + sentBefore + ")");
+                    lp.Close();
+                    await Until(async () => await rjs(seen) == "\"[false,true]\"", 3000);
+                    string closed = await rjs(seen), sentClosed = app.PanelVisibilityReport;
+                    t(!lp.IsDisposed && !lp.Visible && rpv.Visible && app.PanelsShown && closed == "\"[false,true]\"" && sentClosed == "0,1,0", "Panneau gauche fermé seul : le droit reçoit « gauche masqué » et montre l'accès « Composition adverse » (" + closed + ", " + sentClosed + ")");
+                    string access = await rjs("(() => { const b = document.querySelector('[data-test=\"compo-access\"] [data-test=\"compo-toggle\"]'); const folded = !document.querySelector('[data-test=\"compo-access\"] .compact-roles'); if (b) b.click(); return JSON.stringify([b ? b.textContent.trim() : '', folded]); })()");
+                    bool opened = await Until(async () => await rjs("!!document.querySelector('[data-test=\"compo-access\"] .compact-roles')") == "true", 2000);
+                    t(access.Contains("/5") && access.Contains("true") && opened, "Gauche fermé : accès replié par défaut, un clic montre la composition (" + access + ")");
+                    await Task.Delay(2600);
+                    fake.Location = new Point(fake.Left + 4, fake.Top);
+                    await Task.Delay(600);
+                    fake.Location = new Point(fake.Left - 4, fake.Top);
+                    await Task.Delay(600);
+                    string kept = await rjs(seen), sentKept = app.PanelVisibilityReport;
+                    t(!lp.Visible && rpv.Visible && kept == "\"[false,true]\"" && sentKept == "0,1,0", "Panneau gauche fermé seul : il reste fermé au suivi du client (2 s) et à un déplacement du client (" + kept + ", " + sentKept + ")");
+                    app.ToggleManual();
+                    await Until(() => Task.FromResult(!app.PanelsShown), 2000);
+                    app.SetAutoDraft(true);
+                    await Until(async () => lp.Visible && await rjs(seen) == "\"[true,false]\"", 4000);
+                    string back = await rjs(seen), sentBack = app.PanelVisibilityReport;
+                    t(lp.Visible && rpv.Visible && back == "\"[true,false]\"" && sentBack == "1,1,0", "Panneau gauche réaffiché avec les panneaux : le droit retire l'accès (" + back + ", " + sentBack + ")");
+                    await Task.Delay(300);
+                }
+
                 // Client large, comme un 1280 sur 1920 : la place disponible change à chaque pas.
                 int ideal = (int)(340 * main.Scale), wide = main.Work.W - 2 * (ideal - 40), wx = main.Work.Left + (main.Work.W - wide) / 2;
                 fake.SetBounds(wx, cy, wide, ch);
                 await Task.Delay(500);
                 int widthBefore = rectOfLeft().W, widthChanges = 0, gapErrors = 0;
+                double glueWaited = 0, glueWorst = 0;
+                string firstGap = "";
                 for (int i = 1; i <= 12; i++)
                 {
                     fake.Location = new Point(wx - i * 3, cy);
-                    await Task.Delay(30);
+                    // Attente bornée : le suivi a vu la nouvelle position, et le bord du panneau y est collé.
+                    WaitResult glued = await StateWait.Until(() => app.Tracker.Rect.Left == fake.Left && rectOfLeft().Right == fake.Left, 1000);
+                    glueWaited += glued.Ms;
+                    glueWorst = Math.Max(glueWorst, glued.Ms);
                     if (rectOfLeft().W != widthBefore) widthChanges++;
-                    if (rectOfLeft().Right != app.Tracker.Rect.Left) gapErrors++;
+                    if (!glued.Ok || rectOfLeft().Right != app.Tracker.Rect.Left) { gapErrors++; if (firstGap == "") firstGap = " ; premier : pas " + i + " " + glued.Text + ", client x " + fake.Left + ", suivi x " + app.Tracker.Rect.Left + ", bord du panneau " + rectOfLeft().Right; }
                 }
+                s.AppendLine("MESURE : collé au client : attente réelle du test par pas, moyenne " + (glueWaited / 12).ToString("0.0") + " ms, maximum " + glueWorst.ToString("0.0") + " ms (limite 1000 ms)");
                 t(widthChanges == 0, "Déplacement : les panneaux gardent leur taille, sans redessin à chaque pas (" + widthChanges + " changement(s))");
-                t(gapErrors == 0, "Déplacement : le panneau reste collé au client à chaque pas (" + gapErrors + " écart(s))");
+                t(gapErrors == 0, "Déplacement : le panneau reste collé au client à chaque pas (" + gapErrors + " écart(s)" + firstGap + ")");
                 await Task.Delay(400);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
                 t(l.Right == c.Left && r.Left == c.Right && l.Inside(main.Work) && r.Inside(main.Work) && l.W < widthBefore, "À l'arrêt : la taille est recalculée et les panneaux restent sur l'écran (" + l + " | " + r + ")");
@@ -4335,7 +4496,8 @@ public static class Autostart
                 fake.SetBounds(cx - 60, cy - 10, cw - 120, ch - 20);
                 await Task.Delay(200);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
-                t(c.W == cw - 120 && l.H == c.H && r.H == c.H && l.Right <= c.Left && r.Left >= c.Right, "8. Redimensionnement : les panneaux s'adaptent (" + c + ")");
+                Layout.Vertical(c, main, out vy, out vh);
+                t(c.W == cw - 120 && l.H == vh && r.H == vh && l.Right <= c.Left && r.Left >= c.Right, "8. Redimensionnement : les panneaux s'adaptent (" + c + ")");
 
                 // Plus assez de place pour deux panneaux : passage en panneau unique, sans couvrir le client.
                 fake.SetBounds(main.Work.Left, cy, main.Work.W - (int)(300 * main.Scale), ch);
@@ -5036,7 +5198,7 @@ public static class Autostart
                             Native.RECT win = new Native.RECT(left, top, left + size[0], top + size[1]);
                             string label2 = res[0] + "x" + res[1] + "@" + scale + " client " + size[0] + (compact ? " compact" : "") + " ";
                             Placement computed = Layout.Compute(win, one, compact);
-                            int minWidth = (int)(230 * scale);
+                            int minWidth = (int)(230 * scale), narrowWidth = (int)(Layout.NarrowW * scale);
                             List<Native.RECT> boxes = new List<Native.RECT>();
                             if (computed.Mode == "two") { boxes.Add(computed.Left); boxes.Add(computed.Right); }
                             else if (computed.Mode == "compact") boxes.Add(computed.Single);
@@ -5044,7 +5206,7 @@ public static class Autostart
                             {
                                 narrowCases++;
                                 Native.RECT narrow = Layout.Narrowest(win, one).Single;
-                                if (!narrow.Inside(one[0].Work) || narrow.W != Math.Min(minWidth, one[0].Work.W)) layoutProblem += label2 + "panneau étroit hors écran ; ";
+                                if (!narrow.Inside(one[0].Work) || narrow.W != Math.Min(narrowWidth, one[0].Work.W) || narrow.H != Math.Min((int)(Layout.NarrowMaxH * scale), one[0].Work.H)) layoutProblem += label2 + "panneau étroit hors écran ou hors taille ; ";
                                 continue;
                             }
                             foreach (Native.RECT box in boxes)
@@ -5056,6 +5218,20 @@ public static class Autostart
                             if (boxes.Count == 2 && boxes[0].Overlaps(boxes[1])) layoutProblem += label2 + "panneaux superposés ; ";
                         }
             t(layoutProblem == "", "Placement : " + layoutCases + " combinaisons résolution, échelle et client, dont " + narrowCases + " sans place libre " + layoutProblem);
+            // Panneaux primaires, V2 : taille réelle et part du client masquée (client LoL centré, 1024 x 576 et 1280 x 720 physiques).
+            {
+                List<Monitor> l1366 = new List<Monitor> { mon(0, 0, 1366, 718, 1.25) };
+                Native.RECT c1366 = new Native.RECT(171, 71, 1195, 647);
+                Native.RECT n1366 = Layout.Narrowest(c1366, l1366).Single;
+                int cover1366 = Math.Max(0, c1366.Right - n1366.Left);
+                t(Layout.Compute(c1366, l1366, false).Mode == "manual" && n1366.W == 320 && n1366.H == 718 && n1366.Inside(l1366[0].Work) && cover1366 == 149,
+                    "V2, 1366 x 768 à 125 % : panneau étroit 256 x 574 px logiques (" + n1366 + "), couvre " + Math.Round(cover1366 / 1.25) + " px logiques du client sur 819");
+                List<Monitor> l1920 = new List<Monitor> { mon(0, 0, 1920, 1030, 1.25) };
+                Native.RECT c1920 = new Native.RECT(320, 155, 1600, 875);
+                Placement p1920 = Layout.Compute(c1920, l1920, false);
+                t(p1920.Mode == "two" && p1920.Left.W == 320 && p1920.Left.H == 900 && p1920.Right.H == 900 && p1920.Left.Top == 65 && !p1920.Left.Overlaps(c1920) && !p1920.Right.Overlaps(c1920),
+                    "V2, 1920 x 1080 à 125 % : deux panneaux 256 x 720 px logiques centrés sur le client, rien de couvert (" + p1920.Left + " | " + p1920.Right + ")");
+            }
             List<Monitor> mixed = new List<Monitor> { mon(0, 0, 1920, 1040, 1), mon(-2560, 0, 2560, 1400, 1.5) };
             Placement toOther = Layout.Compute(new Native.RECT(0, 0, 1920, 1040), mixed, false);
             t(toOther.Mode == "two" && toOther.Left.W == 510 && toOther.Left.Right <= 0 && toOther.Right.Right <= 0, "Placement : client plein écran à 100 %, panneaux sur l'autre écran à 150 %, à sa propre échelle");
@@ -5126,6 +5302,17 @@ public static class Autostart
             t(CompanionApp.IsAppPage("https://draftmid.local/index.html?panel=full") && !CompanionApp.IsAppPage("https://draftmid.local.exemple.test/") && !CompanionApp.IsAppPage("https://draftmid.local@exemple.test/") && !CompanionApp.IsAppPage(null), "Page de confiance : seule l'origine de DRAFT est reconnue");
             t(CompanionApp.AllowedPageLink("https://lolalytics.com/lol/ahri/build/") && !CompanionApp.AllowedPageLink("https://lolalytics.com.exemple.test/") && !CompanionApp.AllowedPageLink("http://lolalytics.com/") && !CompanionApp.AllowedPageLink("https://exemple.test/?q=lolalytics.com") && !CompanionApp.AllowedPageLink("https://user@lolalytics.com/") && !CompanionApp.AllowedPageLink("file:///C:/Windows/"), "Liens de la page : seuls des sites connus, en HTTPS");
             t(CompanionApp.CsvCell("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")" && CompanionApp.CsvCell("+1") == "'+1" && CompanionApp.CsvCell("Ahri") == "Ahri" && CompanionApp.CsvCell("") == "", "Relevé CSV : formules neutralisées");
+
+            // Outil d'attente bornée des e2e (« rafales », « collé au client ») : hors du fil principal, sans contexte d'interface à bloquer.
+            {
+                WaitResult now = Task.Run(() => StateWait.Until(() => true, 1000)).Result;
+                t(now.Ok && now.Checks == 1, "Attente bornée : une condition déjà vraie passe à la première vérification, sans délai fixe (" + now.Text + ")");
+                Stopwatch since = Stopwatch.StartNew();
+                WaitResult late = Task.Run(() => StateWait.Until(() => since.ElapsedMilliseconds >= 60, 1000)).Result;
+                t(late.Ok && late.Checks > 1 && late.Ms < 1000 && since.ElapsedMilliseconds >= 60, "Attente bornée : une condition vraie après 60 ms passe avant la limite, après " + late.Checks + " vérifications (" + late.Text + ")");
+                WaitResult never = Task.Run(() => StateWait.Until(() => false, 200)).Result;
+                t(!never.Ok && never.Ms >= 200 && never.Text.StartsWith("non atteint") && never.Text.Contains("limite 200 ms"), "Attente bornée : une condition jamais vraie échoue à la limite et le dit (" + never.Text + ")");
+            }
 
             ClientWindowTracker tr = new ClientWindowTracker(ClientWindowTracker.IsRealClient, false);
             Stopwatch clock = Stopwatch.StartNew();

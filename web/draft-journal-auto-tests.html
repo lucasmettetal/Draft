@@ -31,6 +31,8 @@ const journal=()=>JSON.parse(localStorage.getItem("draftJournal")||"[]");
 const bySel=key=>journal().filter(e=>e.selection===key);
 const cta=x=>q(x,'[data-test="choose-pick"]');
 const status=x=>text(q(x,'[data-test="league-status"]'));
+// Panneaux V2 : libellés courts (panel.league.*) ; fenêtre principale : libellés league.* (journal automatique).
+const LT=(x,key,vars)=>x.T((/[?&]panel=/.test(x.w.location.search)?"panel.":"")+key,vars);
 const visible=(x,e)=>{if(!e)return false;const r=e.getBoundingClientRect(),W=x.w.innerWidth,H=x.w.innerHeight;return r.width>0&&r.height>0&&r.top>=-0.5&&r.bottom<=H+0.5&&r.left>=-0.5&&r.right<=W+0.5;};
 const snap=x=>JSON.stringify({shown:x.$.V.shown,order:x.$.V.order.map(p=>p.pick),scores:x.$.V.res.ranking.map(p=>[p.pick,p.score])});
 async function start(x,key,league){live(x,key,"draft",league);x.$.dispatchDraft({type:"session-start"});await settle();x.$.addEnemy("Ahri");await settle();}
@@ -48,21 +50,21 @@ for(const lang of ["fr","en"]){
    t(status(x)===x.T("league.none"),L0+"[avant : échec] aucun survol : « "+x.T("league.none")+" » (lu « "+status(x)+" »)");
    const before=snap(x);
    live(x,K(1),"draft",L(K(1),2,{state:"hover",champion:VEX}));await settle();
-   t(status(x)===x.T("league.hover",{champion:"Vex"})&&journal().length===n0&&snap(x)===before,L0+"[avant : échec] survol dans League : « "+x.T("league.hover",{champion:"Vex"})+" », rien n'est noté, classement inchangé (lu « "+status(x)+" »)");
+   t(status(x)===LT(x,"league.hover",{champion:"Vex"})&&journal().length===n0&&snap(x)===before,L0+"[avant : échec] survol dans League : « "+LT(x,"league.hover",{champion:"Vex"})+" », rien n'est noté, classement inchangé (lu « "+status(x)+" »)");
    // Consultation indépendante du survol, dans les deux sens.
    const other=x.$.V.order.map(p=>p.pick).find(p=>p!==x.$.V.shown&&p!=="Xerath");x.$.consult(other);await settle();const viewed1=x.$.state.viewed;
    live(x,K(1),"draft",L(K(1),3,{state:"hover",champion:XERATH}));await settle();
-   t(viewed1===other&&x.$.state.viewed===other&&status(x)===x.T("league.hover",{champion:"Xerath"})&&!!q(x,'[data-test="viewed"]'),L0+"[avant : échec] consulter "+other+" ne change pas « Dans League », un nouveau survol (Xerath) ne change pas le champion consulté (consulté "+x.$.state.viewed+", « "+status(x)+" »)");
+   t(viewed1===other&&x.$.state.viewed===other&&status(x)===LT(x,"league.hover",{champion:"Xerath"})&&!!q(x,'[data-test="viewed"]'),L0+"[avant : échec] consulter "+other+" ne change pas « Dans League », un nouveau survol (Xerath) ne change pas le champion consulté (consulté "+x.$.state.viewed+", « "+status(x)+" »)");
    x.$.consult(null);await settle();
    live(x,K(1),"draft",L(K(1),4,{state:"locked",champion:VEX,lockedFirst:VEX}));await settle();
    const memo=JSON.parse(localStorage.getItem("draftLockMemo")||"null");
-   t(status(x)===x.T("league.locked",{champion:"Vex"})&&journal().length===n0,L0+"[avant : échec] verrouillage : « "+x.T("league.locked",{champion:"Vex"})+" », toujours rien de noté avant la partie (lu « "+status(x)+" »)");
+   t(status(x)===LT(x,"league.locked",{champion:"Vex"})&&journal().length===n0,L0+"[avant : échec] verrouillage : « "+LT(x,"league.locked",{champion:"Vex"})+" », toujours rien de noté avant la partie (lu « "+status(x)+" »)");
    t(!!memo&&memo.key===K(1)&&memo.context&&memo.context.suggested===x.$.V.shown&&Array.isArray(memo.context.tiedWith)&&"recommended" in memo.context,L0+"[avant : échec] conseil mémorisé au verrouillage (suggested="+(memo&&memo.context&&memo.context.suggested)+")");
    const line=q(x,'[data-test="league-line"]');res.notes[lang+"_panneau_droit"]=text(line);
    t(visible(x,line)&&visible(x,q(x,'[data-test="league-auto"]')),L0+"[avant : échec] 256 x 608 (1366 à 125 %) : « Dans League » et la ligne du journal automatique visibles sans défiler");
    // Désordre et doublons : un état plus ancien ou rejoué ne remplace jamais le verrouillage.
    live(x,K(1),"draft",L(K(1),2,{state:"hover",champion:XERATH}));live(x,K(1),"draft",L(K(1),4,{state:"locked",champion:VEX,lockedFirst:VEX}));await settle();
-   t(status(x)===x.T("league.locked",{champion:"Vex"}),L0+"[avant : échec] état ancien (survol Xerath, v2) puis rejoué : le verrouillage reste");
+   t(status(x)===LT(x,"league.locked",{champion:"Vex"}),L0+"[avant : échec] état ancien (survol Xerath, v2) puis rejoué : le verrouillage reste");
    await end(x,K(1),"game",L(K(1),4,{state:"locked",champion:VEX,lockedFirst:VEX}));
    const e1=bySel(K(1));
    t(e1.length===1&&e1[0].origin==="lcu"&&e1[0].picked==="Vex"&&e1[0].gameStarted===true&&e1[0].result===null&&e1[0].traded===false&&e1[0].lockedFirst===undefined&&e1[0].gameId===GAME+1&&e1[0].suggested===memo.context.suggested,L0+"[avant : échec] verrouillage → partie : UNE entrée, origin lcu, picked Vex, gameStarted, résultat vide ("+fmt(e1[0])+")");
@@ -85,7 +87,7 @@ for(const lang of ["fr","en"]){
    t(visible(x,q(x,'[data-test="league-line"]'))&&visible(x,q(x,'[data-test="league-auto"]'))&&!cta(x),L0+"[avant : échec] 282 x 576 (1366 à 125 %) : « Dans League » visible sans défiler, pas de « Je joue »");
    res.notes[lang+"_compact"]=text(q(x,'[data-test="league-line"]'));
    live(x,K(3),"draft",L(K(3),2,{state:"final",champion:XERATH,lockedFirst:VEX,traded:true}));await settle();
-   t(status(x)===x.T("league.lockedTraded",{champion:"Xerath"}),L0+"[avant : échec] échange accepté : « "+x.T("league.lockedTraded",{champion:"Xerath"})+" »");
+   t(status(x)===LT(x,"league.lockedTraded",{champion:"Xerath"}),L0+"[avant : échec] échange accepté : « "+LT(x,"league.lockedTraded",{champion:"Xerath"})+" »");
    await end(x,K(3),"game",L(K(3),2,{state:"final",champion:XERATH,lockedFirst:VEX,traded:true}));
    const e3=bySel(K(3))[0];
    t(!!e3&&e3.picked==="Xerath"&&e3.lockedFirst==="Vex"&&e3.traded===true&&e3.origin==="lcu",L0+"[avant : échec] échange : champion final retenu (picked Xerath, lockedFirst Vex, traded) ("+fmt(e3)+")");
@@ -95,7 +97,7 @@ for(const lang of ["fr","en"]){
    t(!!cta(x)&&text(q(x,'[data-test="league-line"]'))===x.T("league.lost"),L0+"[avant : échec] lecture perdue : « Je joue » revient, avec « "+x.T("league.lost")+" »");
    x.$.choosePick("Fizz");await settle();const fallback=bySel(K(4));
    live(x,K(4),"draft",L(K(4),5,{state:"locked",champion:FIZZ,lockedFirst:FIZZ}));await settle();
-   t(!cta(x)&&status(x)===x.T("league.locked",{champion:"Fizz"}),L0+"[avant : échec] lecture revenue : plus de « Je joue », « Dans League : Fizz verrouillé ✓ »");
+   t(!cta(x)&&status(x)===LT(x,"league.locked",{champion:"Fizz"}),L0+"[avant : échec] lecture revenue : plus de « Je joue », « Dans League : Fizz verrouillé ✓ »");
    await end(x,K(4),"game",L(K(4),5,{state:"locked",champion:FIZZ,lockedFirst:FIZZ}));
    const e4=bySel(K(4));
    t(fallback.length===1&&fallback[0].origin==="draft"&&fallback[0].gameId===GAME+4&&e4.length===1&&e4[0].id===fallback[0].id&&e4[0].origin==="lcu"&&e4[0].gameStarted===true,L0+"[avant : échec] perte de lecture puis retour : l'entrée « Je joue » est complétée, pas doublée ("+fmt(e4[0])+")");
@@ -136,7 +138,7 @@ for(const lang of ["fr","en"]){
   {const L0=LG+" fenêtre : ";prepare(MID,[OLD]);const x=await openHost(lang,"view=sim",1366,768);live(x,null,null,null);await settle();
    await start(x,K(11),L(K(11),1,{state:"hover",champion:VEX}));
    const line=q(x,'[data-test="stage"] [data-test="league-line"]');res.notes[lang+"_fenetre"]=text(line);
-   t(!q(x,'[data-test="stage"] [data-test="choose-pick"]')&&visible(x,line)&&status(x)===x.T("league.hover",{champion:"Vex"}),L0+"[avant : échec] 1366 x 768 : « Dans League » visible sans défiler, pas de « Je joue »");
+   t(!q(x,'[data-test="stage"] [data-test="choose-pick"]')&&visible(x,line)&&status(x)===LT(x,"league.hover",{champion:"Vex"}),L0+"[avant : échec] 1366 x 768 : « Dans League » visible sans défiler, pas de « Je joue »");
    // Simulateur : « Je joue » présent, aucune ligne « Dans League », rien n'est écrit (même à l'issue « game »).
    const before=localStorage.getItem("draftJournal");
    x.w.eval("startSimulation()");await settle();x.$.addEnemy("Ornn");await settle();
