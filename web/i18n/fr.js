@@ -372,6 +372,7 @@ window.DRAFT_I18N_FR = {
 "panel.empty.noPick": "Aucun champion pour le rôle {role}. Ajoute-les dans Mon pool, ou change de rôle.",
 "panel.empty.allExcluded": "Tous tes picks sont exclus ou déjà pris en face. Change tes exclusions dans Mon pool.",
 "panel.empty.allUnavailable": "Tout ton pool est banni ou déjà pris : DRAFT n'a aucun conseil dans ton pool.",
+"panel.bans.allTaken": "Déjà bannis ou pris : plus aucun ban à conseiller.",
 "panel.compact.two": "Deux panneaux",
 "panel.compact.one": "Panneau unique",
 "panel.compact.toTwo": "Passer à deux panneaux",

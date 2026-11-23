@@ -1522,13 +1522,22 @@ function unavailableReason(name) {
   const a = availabilityNow(), item = a && a.items.find(x => toName(CHAMPION_IDS[x.id]) === name);
   return item ? item.reason : null;
 }
-// Recopie les bannis et les pris par un allié dans la liste du moteur, avant chaque calcul. Vrai si elle a changé.
+// Recopie les listes du moteur avant chaque calcul : bannis et pris par un allié pour les picks (UNAVAILABLE) ; bannis, pris par un
+// allié et pris en face pour les bans conseillés (NOT_BANNABLE). Vrai si l'une a changé.
 function syncUnavailable() {
-  const a = availabilityNow(), before = UNAVAILABLE.join("|");
-  const names = a ? a.items.filter(x => x.reason === "ban" || x.reason === "ally").map(x => toName(CHAMPION_IDS[x.id])).filter(n => n && ROSTER[n] !== undefined) : [];
-  UNAVAILABLE.length = 0;
-  names.forEach(n => { if (!UNAVAILABLE.includes(n)) UNAVAILABLE.push(n); });
-  return UNAVAILABLE.join("|") !== before;
+  const a = availabilityNow(), before = UNAVAILABLE.join("|") + "#" + NOT_BANNABLE.join("|");
+  const names = reasons => a ? a.items.filter(x => reasons.includes(x.reason)).map(x => toName(CHAMPION_IDS[x.id])).filter(n => n && ROSTER[n] !== undefined) : [];
+  const fill = (list, values) => { list.length = 0; values.forEach(n => { if (!list.includes(n)) list.push(n); }); };
+  fill(UNAVAILABLE, names(["ban", "ally"]));
+  fill(NOT_BANNABLE, names(["ban", "ally", "enemy"]));
+  return UNAVAILABLE.join("|") + "#" + NOT_BANNABLE.join("|") !== before;
+}
+// Bans conseillés tous déjà faits ou pris (lecture du client) : la section le dit, sans en inventer d'autre.
+function bansAllTaken(bans) {
+  if (bans.length || !NOT_BANNABLE.length) return false;
+  const keep = NOT_BANNABLE.splice(0), all = suggestBans();
+  keep.forEach(n => NOT_BANNABLE.push(n));
+  return all.length > 0;
 }
 // Champions du pool sortis de la liste candidate parce qu'ils ne sont plus disponibles, à marquer (« Banni », « Pris par un allié »,
 // « Pris en face ») : [{ pick, reason }]. Seulement avec la liste du client pour cette sélection : sinon rien n'est marqué ni déduit.
@@ -1675,7 +1684,8 @@ function computeVerdict() {
   if (!res.ranking.length) {
     state.held = null;
     state.shown = null;
-    V = { n, mid, res, none:true, order:[], avoided:[], reasons:[], bans:suggestBans(), unavailable:UNAVAILABLE.slice() };
+    const bans = suggestBans();
+    V = { n, mid, res, none:true, order:[], avoided:[], reasons:[], bans, bansTaken:bansAllTaken(bans), unavailable:UNAVAILABLE.slice() };
     return;
   }
   // Draft complète : le classement fait foi, quel que soit l'ordre de saisie. Le maintien évite seulement de clignoter en cours de draft.
@@ -1696,6 +1706,7 @@ function computeVerdict() {
   state.clear = clear;
   const without = n && PREFS.assumeFront ? analyze(state.enemies, mid, false).ranking[0] : null;
   const order = (tied ? tiedEntries : [heldEntry]).concat(rival ? [rival] : [], others.filter(p => p !== rival));
+  const bans = suggestBans();
   V = {
     n, mid, res, shown, rival, clear, avoided:tied ? avoided.filter(p => !tied.includes(p)) : avoided, order, tied,
     commonReasons: tied ? tiedEntries.map(positiveReasons).reduce((a, b) => a.filter(t => b.includes(t))) : [],
@@ -1707,7 +1718,8 @@ function computeVerdict() {
     provisional: !!belief && n > 0 && (belief.confidence === "low" || !!(scenarios && scenarios.length > 1 && scenarios.some(sc => analyze(state.enemies, sc.mid, PREFS.assumeFront).ranking[0].pick !== res.ranking[0].pick))),
     personal: personalLine(shown, mid),
     without: without && without.pick !== shown && !(scenarios && scenarios.length > 1) ? without.pick : null,
-    bans: suggestBans(),
+    // Bans conseillés : déjà bannis, pris par un allié ou en face retirés (le suivant prend la place) ; aucun restant : dit à part.
+    bans, bansTaken: bansAllTaken(bans),
     // Disponibilité (beta.2) : liste du moteur à ce calcul, et conseil devenu indisponible (banni, pris par un allié).
     unavailable: UNAVAILABLE.slice(),
     gone: goneAdvice(prevV, shown, tied),
@@ -2911,7 +2923,7 @@ function PlanBlock() {
     <//>
     <div className="plan-row threat"><span>${t("plan.threats")}</span><${Faces} names=${threats} empty=${t("plan.threatsNone")} /></div>
     <div className="plan-row target"><span>${t("plan.targets")}</span><${Faces} names=${targets} empty=${t("plan.targetsNone")} /></div>
-    <div className="plan-row ban-row"><span>${t("plan.bans")}</span><${Faces} names=${V.bans} empty=${t("plan.bansNone")} /></div>
+    <div className="plan-row ban-row"><span>${t("plan.bans")}</span><${Faces} names=${V.bans} empty=${t(V.bansTaken ? "panel.bans.allTaken" : "plan.bansNone")} /></div>
     ${pending ? html`<p className="result-note" data-test="last-game">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
     <${EntryResult} entry=${entry} pending=${pending} />
   </section>`;
@@ -2984,6 +2996,7 @@ function CriteriaView() {
       </details>`;
     })}
     <h3>${t("analysis.bans.title")}</h3>
+    ${V.bansTaken ? html`<p className="small" data-test="bans-taken">${t("panel.bans.allTaken")}</p>` : null}
     <ul className="plain">${V.bans.map(n => html`<li key=${n}>${tx("analysis.bans.line", { champion: html`<b>${n}</b>`, reason: banReason(n) })}</li>`)}</ul>
   </div>`;
 }
@@ -3488,7 +3501,7 @@ function PanelDeep({ compact, open, toggle, alt }) {
   };
   const bans = () => V.bans.length
     ? html`<${FaceList} names=${V.bans} cls="ban" text=${n => banReason(n) ? t("panel.ban.reason", { champion: n, reason: banReason(n) }) : ""} />`
-    : html`<p className="note">${t("plan.bansNone")}</p>`;
+    : html`<p className="note" data-test="panel-bans-none">${t(V.bansTaken ? "panel.bans.allTaken" : "plan.bansNone")}</p>`;
   const compare = () => {
     const [a, b] = pair, cmp = comparePicks(a, b), max = Math.max(1, ...cmp.rows.flatMap(r => [Math.abs(r.a), Math.abs(r.b)]));
     return html`<p className="p-sec-lead">${compareSummary(a, b)}</p>

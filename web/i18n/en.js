@@ -372,6 +372,7 @@ window.DRAFT_I18N_EN = {
 "panel.empty.noPick": "No champions for the {role} role. Add them in My pool, or switch roles.",
 "panel.empty.allExcluded": "All your picks are excluded or taken by the enemy. Change your exclusions in My pool.",
 "panel.empty.allUnavailable": "Your whole pool is banned or already taken: DRAFT has no suggestion from your pool.",
+"panel.bans.allTaken": "Already banned or taken: no ban left to suggest.",
 "panel.compact.two": "Two panels",
 "panel.compact.one": "Single panel",
 "panel.compact.toTwo": "Switch to two panels",

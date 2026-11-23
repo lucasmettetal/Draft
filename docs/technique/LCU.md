@@ -57,6 +57,8 @@ But : DRAFT ne conseille pas un champion qui n'est plus disponible. Lecture dans
 
 **Panneaux (V2) :** dans « Choisir dans ton pool », un champion indisponible reste en fin de liste, marqué « Banni », « Pris par un allié » ou « Pris en face », inactif : il ne se consulte pas et « Je joue » ne le propose jamais (un choix confirmé devenu indisponible n'est plus proposé). Si le conseil, le choix confirmé ou le champion consulté est banni ou pris par un allié, une phrase courte le dit et nomme le conseil suivant (« Fizz banni : DRAFT conseille Twisted Fate. »), aussi dans le compact. Tout le pool indisponible : « Tout ton pool est banni ou déjà pris », sans conseil.
 
+**Bans conseillés :** avec la même liste, un champion déjà banni, pris par un allié ou pris en face n'est jamais conseillé comme ban (`NOT_BANNABLE`, `suggestBans` dans `web/draft-engine.js`). Il sort des candidats avant le choix des trois : le suivant prend la place. La source (bilans, tableau, profils), l'ordre et le calcul ne changent pas. S'il ne reste aucun candidat, la section dit « Déjà bannis ou pris : plus aucun ban à conseiller. » et l'encadré du ban disparaît.
+
 **Robustesse :** session tronquée ou abîmée, la dernière liste connue reste. Lecture perdue en pleine sélection, la liste reste aussi : un ban ou un pick déjà vu ne revient pas. Nouvelle sélection : liste vide.
 
 **Sans lecture du client** (option décochée, client fermé, navigateur, Simulateur) : rien ne change, rien n'est déduit. Un marquage manuel (« banni », « pris ») pourrait venir plus tard ; il n'existe pas encore.

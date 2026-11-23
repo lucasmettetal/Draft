@@ -411,9 +411,17 @@ function holdPick(ranking, held) {
   return ranking[0].score - heldEntry.score >= HOLD_GAP ? ranking[0].pick : held;
 }
 
+// Champions qu'on ne peut plus bannir utilement dans la sélection en cours (beta.2) : déjà bannis, pris par un allié ou par
+// l'adversaire, lus dans le client par le programme. Noms de champions. Ils sortent des candidats au ban AVANT le choix des trois :
+// le suivant prend la place. La source (bilans, tableau, profils), l'ordre et le calcul ne changent pas. Vide sans lecture du client.
+const NOT_BANNABLE = [];
+
+// Trois bans au plus. La source est choisie sur la liste complète, comme sans lecture du client : un ban déjà fait ne fait jamais
+// passer à une autre source. S'il ne reste aucun candidat, aucun ban n'est conseillé.
 function suggestBans() {
+  const bannable = list => list.filter(n => !NOT_BANNABLE.includes(n)).slice(0, 3);
   const measured = bansFromLive();
-  if (measured.length) return measured;
+  if (measured.length) return bannable(measured);
   const own = PICKS.map(label);
   const active = p => !ENGINE_PREFS.excluded.includes(p) && PICKS.includes(p);
   const written = myRole() === "mid" ? MATCHUPS
@@ -425,9 +433,8 @@ function suggestBans() {
     }))
     .filter(x => x.harm > 0)
     .sort((x, y) => y.harm - x.harm || y.threat - x.threat)
-    .slice(0, 3)
     .map(x => x.n) : [];
-  return written.length ? written : bansFromTraits();
+  return bannable(written.length ? written : bansFromTraits());
 }
 
 // Dès que de vrais bilans existent, ils désignent les adversaires qui gênent le plus le pool.
@@ -438,7 +445,7 @@ function bansFromLive() {
   return NAMES.filter(n => !own.includes(n)).map(n => {
     const bad = active.map(p => liveMatchup(p, n)).filter(x => x && x.gap <= MATCHUP_AVOID_GAP);
     return { n, harm: bad.length, worst: Math.min(0, ...bad.map(x => x.gap)) };
-  }).filter(x => x.harm > 0).sort((x, y) => y.harm - x.harm || x.worst - y.worst).slice(0, 3).map(x => x.n);
+  }).filter(x => x.harm > 0).sort((x, y) => y.harm - x.harm || x.worst - y.worst).map(x => x.n);
 }
 
 // Pool sans tableau écrit : on vise les adversaires directs courants qui gênent le plus ses champions.
@@ -455,7 +462,6 @@ function bansFromTraits() {
     .map(n => ({ n, harm: harmFromTraits(n).length, share: roleShares(n)[index] }))
     .filter(x => x.harm > 0)
     .sort((x, y) => y.harm - x.harm || y.share - x.share)
-    .slice(0, 3)
     .map(x => x.n);
 }
 
