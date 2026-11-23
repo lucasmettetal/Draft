@@ -375,7 +375,8 @@ Décision de l'utilisateur : « S'il est fermé volontairement, il doit rester f
   - panneaux masqués puis « Afficher les panneaux » (menu ou raccourci), et « Essayer les panneaux » du premier lancement : affichages demandés par le joueur, ils rouvrent aussi.
 - **Rien n'est enregistré** : l'état vit en mémoire. Au prochain lancement de DRAFT, les deux panneaux reviennent.
 - Le bouton « Masquer » de la barre de titre du panneau masque toujours tout, comme avant.
-- **Compact inchangé** : fermé (Alt+F4), il revient au suivi du client, comme avant a385b8f. Seul panneau affiché, le garder fermé laisserait la draft sans panneau. **À valider par l'utilisateur** s'il le veut aussi fermé pour la session.
+- **Compact : même règle** (décision de l'utilisateur, après 855aab6 : « si je le ferme manuellement, il doit rester fermé pendant toute la session, sans réapparaître deux secondes après »). Fermé à la main (Alt+F4), il ne revient ni au bout de 2 s (suivi du client), ni à la draft suivante, ni à l'affichage automatique. L'entrée du menu de l'icône dit alors « Afficher les panneaux » et le rouvre (Ctrl+Alt+D : même action). Non fermé volontairement : inchangé, une nouvelle draft l'affiche. Chaque panneau garde son propre état : compact fermé puis place retrouvée, les panneaux gauche et droit s'affichent, car ils n'ont pas été fermés.
+- **« Essayer les panneaux » et premier lancement** : inchangés. « Essayer les panneaux » n'agit que panneaux masqués, efface l'état « fermé » et attend le panneau droit ou le compact visible, comme avant.
 
 **Banc de mise en page.** COMPO-ACCES vérifie aussi le lien : présent dans la section dépliée, absent repliée.
 
@@ -393,6 +394,19 @@ Décision de l'utilisateur : « S'il est fermé volontairement, il doit rester f
 | Catalogues (`check-catalogs.ps1 -Code`) | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) |
 | Détecteur de textes en dur (`detect-hardcoded.ps1 -Max 0`, `web/` et `src/`) | 0 chaîne |
 | Banc moteur (`run-engine-eval.ps1 -AvecEvaluation`) | **Banc : OK**, 0 changement contre les deux instantanés (312 et 108 scénarios), 0 inattendu |
+
+**Tests après la règle du compact** (un seul e2e, en FR : l'utilisateur jouait de vraies drafts ; ni EN, ni capture) : voir le tableau ci-dessous.
+
+| Test | Résultat |
+|---|---|
+| e2e FR | **114 réussis, 1 échec** : Ctrl+Alt+D laissé à la 2.x (DRAFT de l'utilisateur, pid 32132, non touché), comme avant. Nouveaux essais : compact fermé à la main, toujours fermé après 3 s et après une nouvelle draft, menu « Afficher les panneaux » ; un clic sur le menu le rouvre (`0,0,1`, menu « Masquer »). Les essais du gauche fermé et « Place retrouvée : retour à deux panneaux » réussissent |
+| selftest FR | **332 / 0** |
+| Banc de mise en page FR | **TOUT EST BON** |
+| `draft-v215-tests.html` (6 relevés mis à jour pour la V2, mêmes fonctions vérifiées) | **145 réussis, 0 échec** (139/145 avant) |
+| `draft-choix-tests.html` | **220 réussis, 0 échec** |
+| Catalogues ; détecteur `-Max 0` | 0 erreur, 0 clé orpheline (20 alertes de pluriel déjà présentes) ; 0 chaîne |
+
+Les 6 relevés de `draft-v215-tests.html` (tests seulement, application inchangée) : égalité annoncée au premier niveau (groupe d'égalité du panneau) ; ordre alphabétique dit dans la section « Pourquoi » ouverte ; « ne les départage pas » dans la section « Plan » ouverte, champion choisi ; menace avant le conseil dans l'ordre du document, section « Plan » ouverte ; conseil de 110 signes au plus dans cette section ; bouton « Comparer » de l'alternative : la section « compare » s'ouvre avec son contenu (`goDeep("compare")`).
 
 **Capture non refaite** (consigne : pas de nouvelle capture avant la campagne complète). `ajust-fr-a1-gauche-ferme-droit-1920-125-deplie.png` montre l'état d'avant, sans le lien. Le script `captures-ajustements.ps1` compte désormais le lien dans l'essentiel visible : à relancer avec `-Only 'a1-gauche-ferme-droit-deplie'`.
 

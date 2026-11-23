@@ -1615,7 +1615,8 @@ public static class Autostart
             if (ReopenPending) ReopenClosedPanels(); else ToggleManual();
         }
 
-        bool ReopenPending { get { return panelsShown && shownMode == "two" && closedByUser.Count > 0; } }
+        // Un panneau de la disposition affichée est fermé par le joueur : gauche ou droit (deux panneaux), compact (panneau unique).
+        bool ReopenPending { get { return panelsShown && (shownMode == "two" ? closedByUser.Contains("left") || closedByUser.Contains("right") : shownMode == "compact" && closedByUser.Contains("compact")); } }
 
         // Réouverture explicite : menu de l'icône, raccourci, ou lien « Rouvrir le panneau gauche » du panneau droit. Efface l'état
         // « fermé par le joueur » et replace les panneaux.
@@ -1712,14 +1713,16 @@ public static class Autostart
         static readonly string[] SidePanels = { "left", "right", "compact" };
         string sentPanelVisibility = "";
 
-        // Panneau gauche ou droit fermé seul par le joueur (Alt+F4). Décision de l'utilisateur : il reste fermé pendant toute la session
+        // Panneau gauche, droit ou compact fermé par le joueur (Alt+F4). Décision de l'utilisateur : il reste fermé pendant toute la session
         // de DRAFT (jusqu'à sa fermeture), sans réapparaître au suivi du client (OnClientChanged toutes les 2 s, puis Place), à la draft
         // suivante, au prochain affichage automatique des panneaux ni à un changement de disposition automatique (compact, place
         // insuffisante). Seule une demande explicite le rouvre : « Afficher les panneaux » (menu de l'icône, raccourci : ToggleManual,
         // ShowOrHidePanels), « Essayer les panneaux » (TryPanels), lien « Rouvrir le panneau gauche » du panneau droit (reopenPanels).
-        // En mémoire seulement : rien n'est enregistré. Le compact, seul panneau affiché, garde le comportement d'avant.
+        // En mémoire seulement : rien n'est enregistré. Compact aussi (décision de l'utilisateur) : fermé à la main, il ne revient ni au bout
+        // de 2 s, ni à la draft suivante ; rouvert par « Afficher les panneaux » (menu de l'icône, Ctrl+Alt+D). Non fermé : inchangé.
+        // Chaque panneau a son état : compact fermé puis place retrouvée, les panneaux gauche et droit s'affichent (ils n'ont pas été fermés).
         readonly HashSet<string> closedByUser = new HashSet<string>();
-        public void PanelClosedByUser(PanelForm f) { if (f.Id == "left" || f.Id == "right") { closedByUser.Add(f.Id); UpdateShowMenu(); } }
+        public void PanelClosedByUser(PanelForm f) { if (f.Id == "left" || f.Id == "right" || f.Id == "compact") { closedByUser.Add(f.Id); UpdateShowMenu(); } }
         bool KeepClosed(PanelForm f) { return closedByUser.Contains(f.Id); }
 
         bool PanelOnScreen(string id, List<Monitor> mons)
@@ -4097,6 +4100,29 @@ public static class Autostart
                 t(app.ShownMode == "compact" && app.PanelFor("compact") != null && app.PanelFor("compact").Visible && !app.PanelFor("left").Visible, "Place insuffisante : passage en panneau unique");
                 Rectangle cb = app.PanelFor("compact").Bounds;
                 t(cb.Left >= app.Tracker.Rect.Right, "Place insuffisante : le panneau ne couvre pas le client (" + cb + ")");
+                // Compact fermé à la main (Alt+F4) : il reste fermé au suivi du client (3 s) et à la draft suivante (affichage
+                // automatique) ; le menu de l'icône propose « Afficher les panneaux » et le rouvre.
+                {
+                    PanelForm cp = app.PanelFor("compact");
+                    cp.Close();
+                    await Task.Delay(3000);
+                    bool kept3s = !cp.IsDisposed && !cp.Visible && app.PanelsShown && app.ShownMode == "compact" && app.PanelVisibilityReport == "0,0,0";
+                    string menu3s = app.ShowMenuText;
+                    feed(Evidence.NotDraft, 3);
+                    await Until(() => Task.FromResult(!app.PanelsShown), 2000);
+                    feed(Evidence.Draft, 2);
+                    await Until(() => Task.FromResult(app.PanelsShown && app.ShownMode == "compact"), 5000);
+                    await Task.Delay(2600);
+                    bool keptDraft = app.PanelsShown && app.CurrentPhase == Phase.Draft && app.ShownMode == "compact" && !cp.Visible && app.PanelVisibilityReport == "0,0,0";
+                    string menuDraft = app.ShowMenuText;
+                    t(kept3s && keptDraft && menu3s.StartsWith(Strings.T("native.menu.showPanels")) && menuDraft.StartsWith(Strings.T("native.menu.showPanels")),
+                        "Compact fermé à la main : il reste fermé après 3 s et après une nouvelle draft, le menu propose « Afficher les panneaux » (3 s " + kept3s + ", draft " + keptDraft + ", « " + menuDraft + " »)");
+                    app.TestClickShowMenu();
+                    await Until(() => Task.FromResult(cp.Visible), 4000);
+                    await Task.Delay(300);
+                    t(cp.Visible && app.PanelsShown && app.PanelVisibilityReport == "0,0,1" && app.ShowMenuText.StartsWith(Strings.T("native.menu.hidePanels")),
+                        "Compact fermé : « Afficher les panneaux » (menu de l'icône) le rouvre (" + app.PanelVisibilityReport + ", « " + app.ShowMenuText + " »)");
+                }
                 fake.SetBounds(cx, cy, cw, ch);
                 await Task.Delay(800);
                 t(app.ShownMode == "two" && app.PanelFor("left").Visible, "Place retrouvée : retour à deux panneaux");
