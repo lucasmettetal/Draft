@@ -431,6 +431,7 @@ window.DRAFT_I18N_EN = {
 "panel.compo.accessHelp": "Left panel closed: read and fill in the enemy comp here.",
 "panel.compo.open": "Show the enemy comp",
 "panel.compo.close": "Collapse the enemy comp",
+"panel.compo.reopen": "Reopen the left panel",
 "sim.rulesHelp": "How DRAFT ranks your picks",
 "sim.coachLevel": "Advice level: {level}.",
 "sim.coachLevelChange": "Change in Settings",

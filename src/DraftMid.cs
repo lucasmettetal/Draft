@@ -629,7 +629,7 @@ public static class Autostart
             if (hotkeyLeft == null && hotkey == null)
             {
                 hotkey = new HotkeyWindow();
-                hotkey.Pressed += ToggleManual;
+                hotkey.Pressed += ShowOrHidePanels;
             }
             else if (hotkeyLeft != null && hotkey != null) { hotkey.Dispose(); hotkey = null; }
         }
@@ -708,7 +708,7 @@ public static class Autostart
             miPhase = new ToolStripMenuItem("") { Enabled = false };
             miOpen = new ToolStripMenuItem(MenuText.Open, null, (s, e) => OpenFull("home"));
             miOpen.Font = new Font(miOpen.Font, FontStyle.Bold);
-            miShow = new ToolStripMenuItem(Strings.T("native.menu.showPanelsHotkey"), null, (s, e) => ToggleManual());
+            miShow = new ToolStripMenuItem(Strings.T("native.menu.showPanelsHotkey"), null, (s, e) => ShowOrHidePanels());
             miSimulate = new ToolStripMenuItem(MenuText.Simulate, null, (s, e) => OpenFull("simulate"));
             miDetection = new ToolStripMenuItem(MenuText.Detection);
             miTeachDraft = new ToolStripMenuItem(MenuText.TeachDraft, null, (s, e) => Teach(true));
@@ -1506,8 +1506,8 @@ public static class Autostart
             // Pendant un déplacement, les panneaux sont déjà prêts : aucun passage asynchrone qui retarderait le suivi.
             if (!PanelsReady(p.Mode)) await EnsurePanels(p.Mode);
             if (!panelsShown) return;
-            if (p.Mode != shownMode) closedByUser.Clear();
-            shownMode = p.Mode;
+            // Disposition connue : l'entrée du menu de l'icône dit « Afficher les panneaux » si un panneau fermé par le joueur en fait partie.
+            if (p.Mode != shownMode) { shownMode = p.Mode; UpdateShowMenu(); }
             if (p.Mode == "two")
             {
                 PanelForm l = panels["left"], r = panels["right"];
@@ -1557,8 +1557,7 @@ public static class Autostart
         {
             await EnsurePanels(mode);
             if (!panelsShown) return;
-            if (mode != shownMode) closedByUser.Clear();
-            shownMode = mode;
+            if (mode != shownMode) { shownMode = mode; UpdateShowMenu(); }
             List<Monitor> mons = ClientWindow.Monitors();
             Monitor main = mons.FirstOrDefault(m => m.Primary) ?? mons[0];
             int w = (int)(340 * main.Scale), h = Math.Min(main.Work.H, (int)(860 * main.Scale));
@@ -1602,10 +1601,40 @@ public static class Autostart
             // Afficher les panneaux apprend cet écran. Les masquer n'apprend rien : on peut vouloir les cacher en pleine draft.
             // Pour une fausse détection, le menu propose « Ce n'est pas une draft ».
             if (target && frameValid && machine.Current != Phase.InGame && machine.Current != Phase.Draft && detector.Teach(frame, true)) Persist();
+            // Affichage demandé par le joueur : il rouvre aussi un panneau qu'il avait fermé (closedByUser).
+            if (target) closedByUser.Clear();
             visibility.Manual = target;
             ApplyVisibility();
             RefreshUi();
         }
+
+        // Menu de l'icône et raccourci. Panneau gauche ou droit fermé par le joueur (panneaux affichés) : l'entrée dit « Afficher les
+        // panneaux » et le rouvre, sans rien masquer. Sinon, bascule comme avant.
+        public void ShowOrHidePanels()
+        {
+            if (ReopenPending) ReopenClosedPanels(); else ToggleManual();
+        }
+
+        bool ReopenPending { get { return panelsShown && shownMode == "two" && closedByUser.Count > 0; } }
+
+        // Réouverture explicite : menu de l'icône, raccourci, ou lien « Rouvrir le panneau gauche » du panneau droit. Efface l'état
+        // « fermé par le joueur » et replace les panneaux.
+        public void ReopenClosedPanels()
+        {
+            closedByUser.Clear();
+            if (panelsShown) UpdatePlacement(true);
+            RefreshUi();
+        }
+
+        void UpdateShowMenu()
+        {
+            bool withHotkey = hotkey != null && hotkey.Registered, show = !panelsShown || ReopenPending;
+            miShow.Text = Strings.T(show ? (withHotkey ? "native.menu.showPanelsHotkey" : "native.menu.showPanels") : (withHotkey ? "native.menu.hidePanelsHotkey" : "native.menu.hidePanels"));
+        }
+
+        // Essais (e2e) : entrée « Afficher / Masquer les panneaux » du menu de l'icône, telle que le joueur la voit et la clique.
+        public string ShowMenuText { get { return miShow.Text; } }
+        public void TestClickShowMenu() { miShow.PerformClick(); }
 
         void Teach(bool isDraft)
         {
@@ -1641,8 +1670,7 @@ public static class Autostart
             miUpdate.Enabled = updateCts == null;
             miUpdate.Text = updateCts != null ? Strings.T("native.menu.updating") : MenuText.CheckUpdate;
 
-            bool withHotkey = hotkey != null && hotkey.Registered;
-            miShow.Text = Strings.T(panelsShown ? (withHotkey ? "native.menu.hidePanelsHotkey" : "native.menu.hidePanels") : (withHotkey ? "native.menu.showPanelsHotkey" : "native.menu.showPanels"));
+            UpdateShowMenu();
 
             string tip = Strings.T("native.tray.tip", "phase", phase);
             tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
@@ -1684,12 +1712,14 @@ public static class Autostart
         static readonly string[] SidePanels = { "left", "right", "compact" };
         string sentPanelVisibility = "";
 
-        // Panneau gauche ou droit fermé seul par le joueur (Alt+F4). Avant, le suivi du client (OnClientChanged toutes les 2 s, puis
-        // Place) le réaffichait aussitôt : l'accès « Composition adverse » n'aurait fait que clignoter. Il reste fermé jusqu'au prochain
-        // affichage des panneaux (draft suivante, raccourci, menu) ou au prochain changement de disposition (compact, place insuffisante).
-        // Le compact, seul panneau affiché, garde le comportement d'avant.
+        // Panneau gauche ou droit fermé seul par le joueur (Alt+F4). Décision de l'utilisateur : il reste fermé pendant toute la session
+        // de DRAFT (jusqu'à sa fermeture), sans réapparaître au suivi du client (OnClientChanged toutes les 2 s, puis Place), à la draft
+        // suivante, au prochain affichage automatique des panneaux ni à un changement de disposition automatique (compact, place
+        // insuffisante). Seule une demande explicite le rouvre : « Afficher les panneaux » (menu de l'icône, raccourci : ToggleManual,
+        // ShowOrHidePanels), « Essayer les panneaux » (TryPanels), lien « Rouvrir le panneau gauche » du panneau droit (reopenPanels).
+        // En mémoire seulement : rien n'est enregistré. Le compact, seul panneau affiché, garde le comportement d'avant.
         readonly HashSet<string> closedByUser = new HashSet<string>();
-        public void PanelClosedByUser(PanelForm f) { if (f.Id == "left" || f.Id == "right") closedByUser.Add(f.Id); }
+        public void PanelClosedByUser(PanelForm f) { if (f.Id == "left" || f.Id == "right") { closedByUser.Add(f.Id); UpdateShowMenu(); } }
         bool KeepClosed(PanelForm f) { return closedByUser.Contains(f.Id); }
 
         bool PanelOnScreen(string id, List<Monitor> mons)
@@ -2669,6 +2699,7 @@ public static class Autostart
                 case "setHotkeyBeta": SetBetaHotkey(val); break;
                 case "importHistory": ToggleHistoryImport(); break;
                 case "tryPanels": TryPanels(); break;
+                case "reopenPanels": ReopenClosedPanels(); break;
                 case "setLanguage": SetLanguage(m.ContainsKey("value") ? m["value"] as string : null); break;
                 case "setProfile":
                 {
@@ -2763,6 +2794,7 @@ public static class Autostart
         {
             if (demoRunning || panelsShown || machine.Current == Phase.Draft || machine.Current == Phase.InGame) return;
             demoRunning = true;
+            closedByUser.Clear();
             try
             {
                 visibility.Manual = true;
@@ -2827,7 +2859,7 @@ public static class Autostart
             IntPtr lParam = (IntPtr)(int)((key << 16) | (mods & 0x7));
             HotkeyWindow probe = new HotkeyWindow(mods, key, 0x5151);
             if (!probe.Registered) { probe.Dispose(); HotkeyReport = "Ctrl+Alt+Maj+F11 refusé (Win32 " + probe.Error + ")"; return "combinaison d'essai non enregistrée (Win32 " + probe.Error + ") ; "; }
-            probe.Pressed += ToggleManual;
+            probe.Pressed += ShowOrHidePanels;
             bool? manualBefore = visibility.Manual;
             bool before = panelsShown;
             CloseProbe.SendMessage(probe.Handle, HotkeyWindow.WM_HOTKEY, (IntPtr)0x5151, lParam);
@@ -3974,9 +4006,9 @@ public static class Autostart
                 otherApp.Close(); otherApp.Dispose();
 
                 // Ajustements V2 : visibilité de chaque panneau transmise aux pages (panelVisible). Panneau gauche fermé seul (Alt+F4 :
-                // Close, raison UserClosing, OnFormClosing le masque) : il reste fermé au suivi du client (2 s) et à un déplacement du
-                // client, puis revient quand les panneaux sont réaffichés (masqués au raccourci, puis rendus à l'affichage automatique).
-                // Le panneau droit montre l'accès « Composition adverse X/5 » seulement pendant que le gauche n'est pas visible.
+                // Close, raison UserClosing, OnFormClosing le masque) : il reste fermé pendant la session (suivi du client, déplacement du
+                // client, draft suivante) ; il revient par « Afficher les panneaux » (menu de l'icône) ou par le lien « Rouvrir le panneau
+                // gauche » du panneau droit. Le droit montre l'accès « Composition adverse X/5 » seulement pendant que le gauche n'est pas visible.
                 {
                     await Task.Delay(400);
                     PanelForm lp = app.PanelFor("left"), rpv = app.PanelFor("right");
@@ -4000,12 +4032,36 @@ public static class Autostart
                     await Task.Delay(600);
                     string kept = await rjs(seen), sentKept = app.PanelVisibilityReport;
                     t(!lp.Visible && rpv.Visible && kept == "\"[false,true]\"" && sentKept == "0,1,0", "Panneau gauche fermé seul : il reste fermé au suivi du client (2 s) et à un déplacement du client (" + kept + ", " + sentKept + ")");
-                    app.ToggleManual();
+                    // Session : fin de draft puis nouvelle sélection, affichage automatique des panneaux et suivi du client : le gauche
+                    // fermé par le joueur ne revient pas. L'accès revient, replié (choix du joueur oublié à la draft suivante), et le
+                    // menu de l'icône propose « Afficher les panneaux ».
+                    feed(Evidence.NotDraft, 3);
                     await Until(() => Task.FromResult(!app.PanelsShown), 2000);
-                    app.SetAutoDraft(true);
+                    bool endHidden = !app.PanelsShown && app.CurrentPhase == Phase.OutOfDraft;
+                    feed(Evidence.Draft, 2);
+                    await Until(async () => app.PanelsShown && rpv.Visible && await rjs(seen) == "\"[false,true]\"", 5000);
+                    await Task.Delay(2600);
+                    string next = await rjs(seen), sentNext = app.PanelVisibilityReport, menuNext = app.ShowMenuText;
+                    string nextFolded = await rjs("!document.querySelector('[data-test=\"compo-access\"] .compact-roles')");
+                    t(endHidden && app.PanelsShown && app.CurrentPhase == Phase.Draft && !lp.Visible && rpv.Visible && next == "\"[false,true]\"" && sentNext == "0,1,0" && nextFolded == "true" && menuNext.StartsWith(Strings.T("native.menu.showPanels")),
+                        "Nouvelle draft (fin de draft, nouvelle sélection) : le gauche fermé par le joueur reste fermé, l'accès revient replié, le menu propose « Afficher les panneaux » (" + next + ", " + sentNext + ", replié " + nextFolded + ", « " + menuNext + " »)");
+                    // « Afficher les panneaux », menu de l'icône : le gauche revient, l'accès disparaît.
+                    app.TestClickShowMenu();
                     await Until(async () => lp.Visible && await rjs(seen) == "\"[true,false]\"", 4000);
-                    string back = await rjs(seen), sentBack = app.PanelVisibilityReport;
-                    t(lp.Visible && rpv.Visible && back == "\"[true,false]\"" && sentBack == "1,1,0", "Panneau gauche réaffiché avec les panneaux : le droit retire l'accès (" + back + ", " + sentBack + ")");
+                    string back = await rjs(seen), sentBack = app.PanelVisibilityReport, menuBack = app.ShowMenuText;
+                    t(app.PanelsShown && lp.Visible && rpv.Visible && back == "\"[true,false]\"" && sentBack == "1,1,0" && menuBack.StartsWith(Strings.T("native.menu.hidePanels")),
+                        "« Afficher les panneaux » (menu de l'icône) : le gauche revient, l'accès disparaît, le menu repropose « Masquer » (" + back + ", " + sentBack + ", « " + menuBack + " »)");
+                    // Fermé de nouveau : lien « Rouvrir le panneau gauche », dans la section « Composition adverse » dépliée du panneau droit.
+                    await Task.Delay(300);
+                    lp.Close();
+                    await Until(async () => await rjs(seen) == "\"[false,true]\"", 3000);
+                    await rjs("(() => { const a = document.querySelector('[data-test=\"compo-access\"]'); if (a && !a.querySelector('[data-test=\"compo-reopen\"]')) a.querySelector('[data-test=\"compo-toggle\"]').click(); return 1; })()");
+                    await Until(async () => await rjs("!!document.querySelector('[data-test=\"compo-access\"] [data-test=\"compo-reopen\"]')") == "true", 2000);
+                    string link = await rjs("(() => { const b = document.querySelector('[data-test=\"compo-access\"] [data-test=\"compo-reopen\"]'); if (!b) return 'absent'; const ok = b.textContent.trim() === I18N.t('panel.compo.reopen'); b.click(); return ok ? 'ok' : b.textContent.trim(); })()");
+                    await Until(async () => lp.Visible && await rjs(seen) == "\"[true,false]\"", 4000);
+                    string relinked = await rjs(seen), sentLinked = app.PanelVisibilityReport;
+                    t(link == "\"ok\"" && app.PanelsShown && lp.Visible && rpv.Visible && relinked == "\"[true,false]\"" && sentLinked == "1,1,0" && app.ShowMenuText.StartsWith(Strings.T("native.menu.hidePanels")),
+                        "Lien « Rouvrir le panneau gauche » du panneau droit : le gauche revient, l'accès disparaît (" + link + ", " + relinked + ", " + sentLinked + ")");
                     await Task.Delay(300);
                 }
 
