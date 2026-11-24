@@ -164,6 +164,38 @@ Entrée créée par la branche du correctif : DRAFT conseille Twisted Fate, le j
 
 À égalité (Cho'Gath, Master Yi et Viego ex æquo, Master Yi choisi) : `"suggested": "Master Yi"`, `"tied": true`, `"tiedWith": ["Cho'Gath", "Master Yi", "Viego"]`, `"recommended": "Cho'Gath"`.
 
+## Champ riot (beta.3)
+
+**Rapprochement avec l'historique Riot importé** (étude `docs/etudes/JOURNAL-AUTOMATIQUE.md`, § 7.2). Calcul : `journal()` de `web/draft-stats-calc.js` ; règles : [`docs/stats/CALCULS.md`](../stats/CALCULS.md), § 13.
+
+**Calculé, jamais écrit.** `riot` n'est pas stocké dans `draftJournal` : il est recalculé à chaque affichage de Mes statistiques, à partir de l'entrée et de `window.DRAFT_HISTORY`. Raisons :
+- aucune écriture concurrente avec le résultat (`result`, `resultSource`), qui reste la seule saisie du joueur ou du client ;
+- toujours à jour après un nouvel import, et rien à effacer si l'historique change ;
+- aucune modification de `web/index.html` (pas de hook après l'import).
+
+Conséquence : l'export du journal ne contient pas ces détails ; ils restent dans l'historique importé.
+
+**Forme** (ligne du journal rendue par `journal()`, `row.riot`) :
+
+```json
+{ "id": "EUW1_7012345678", "result": "loss", "k": 4, "d": 6, "a": 3, "durationSec": 1860, "patch": "16.22", "opponent": "Syndra" }
+```
+
+| Champ | Sens |
+|---|---|
+| `id` | Identifiant Riot de la partie, `<plateforme>_<gameId>` |
+| `result` | `"win"` ou `"loss"` selon Riot. **Riot fait foi** dans Mes statistiques |
+| `k`, `d`, `a` | K/D/A du joueur ; `null` si la ligne ne les a pas |
+| `durationSec` | Durée en secondes ; `null` si absente |
+| `patch` | `"16.22"` ; `null` si absent |
+| `opponent` | Adversaire de voie, seulement en mid (champ `mid` de l'import). Absent sinon |
+
+**Lien :** `gameId` de l'entrée = partie numérique de l'`id` Riot, égalité exacte, quelle que soit la plateforme. Sans `gameId`, rien : aucun rapprochement par l'heure ou par le champion. Drafts annulées, simulations et origines inconnues : jamais rapprochées. Même `gameId` sur deux plateformes, ou sur deux entrées : ambigu, rien.
+
+**Désaccord :** si `result` vaut `win` ou `loss` et diffère de `riot.result`, la ligne montre le résultat de Riot et « Désaccord : tu avais noté Victoire » (ou « le client indiquait… » si `resultSource` vaut `"lcu"`). Le résultat stocké reste tel quel ; rien n'est effacé.
+
+**Affichage :** marque discrète « Confirmé par Riot · K/D/A 4/6/3 · 31 min · patch 16.22 · contre Syndra » sous la ligne ; plus de saisie du résultat pour cette entrée.
+
 ## Anciennes entrées
 
 Une entrée sans `origin` vient d'une version antérieure : origine inconnue. Elle peut venir d'une vraie draft ou d'une simulation (avant la 3.0, la simulation écrivait dans le journal). Sans `tied`, on ne sait pas si le conseil était une égalité. Rien n'est reconstruit, rien n'est migré : ces entrées restent telles quelles.

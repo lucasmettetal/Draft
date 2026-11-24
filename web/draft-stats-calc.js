@@ -166,13 +166,70 @@
 
   // Draft annulée (beta.2, #39) : gardée, jamais comptée comme partie (docs/technique/JOURNAL.md).
   const abandonedOf = e => e.abandoned === true;
+  const countedOf = e => { const o = originOf(e); return (o === "draft" || o === "real") && !abandonedOf(e); };
+
+  // ---------- Rapprochement avec l'historique Riot importé (beta.3, docs/technique/JOURNAL.md, « Champ riot ») ----------
+  // Lien unique : le gameId lu dans le client (entrée) = la partie numérique de l'id Riot « <plateforme>_<gameId> » (EUW1_7012345678).
+  // Sans gameId, rien : aucun rapprochement approximatif par heure ou par champion. Calculé à l'affichage, jamais écrit dans le journal.
+  const GAME_ID = /^[1-9]\d{0,18}$/;
+  function gameIdOf(e) {
+    const v = typeof e.gameId === "number" ? (Number.isSafeInteger(e.gameId) ? String(e.gameId) : "") : text(e.gameId);
+    return GAME_ID.test(v) ? v : null;
+  }
+  const riotGameId = id => { const m = /^[A-Za-z0-9]+_([1-9]\d{0,18})$/.exec(text(id)); return m ? m[1] : null; };
+  // Détails officiels, seulement ceux de la ligne Riot : un champ absent reste null. Adversaire de voie : connu seulement en mid
+  // (champ « mid » de l'import, premier adversaire placé MIDDLE), jamais déduit ailleurs.
+  function riotDetails(g) {
+    const o = { id: g.id, result: g.win ? "win" : "loss", k: g.k, d: g.d, a: g.a, durationSec: g.sec, patch: g.patch };
+    if (g.role === "mid" && g.mid) o.opponent = g.mid;
+    return o;
+  }
+  const sameGame = (x, y) => x.id === y.id && x.win === y.win && x.k === y.k && x.d === y.d && x.a === y.a && x.sec === y.sec;
+  // Parties Riot par gameId. Même gameId sur deux plateformes, ou deux lignes différentes : ambigu, aucun rapprochement.
+  function riotIndex(games) {
+    const map = new Map();
+    (Array.isArray(games) ? games : []).forEach(g => {
+      const n = g && riotGameId(g.id);
+      if (!n) return;
+      if (!map.has(n)) map.set(n, g);
+      else if (map.get(n) && !sameGame(map.get(n), g)) map.set(n, null);
+    });
+    return map;
+  }
+  // Entrées comptées (hors drafts annulées) -> détails Riot. Une partie Riot ne confirme qu'UNE entrée : deux entrées du même
+  // gameId restent sans rapprochement (ambigu). Aucune entrée n'est modifiée.
+  function riotLinks(all, games) {
+    const index = riotIndex(games), links = new Map(), byId = new Map();
+    const stats = { matched: 0, disagreements: 0, ambiguous: 0, notFound: 0, withoutGameId: 0 };
+    all.filter(countedOf).forEach(e => {
+      const n = gameIdOf(e);
+      if (!n) { stats.withoutGameId++; return; }
+      if (!byId.has(n)) byId.set(n, []);
+      byId.get(n).push(e);
+    });
+    byId.forEach((list, n) => {
+      if (!index.has(n)) { stats.notFound += list.length; return; }
+      const g = index.get(n);
+      if (!g || list.length > 1) { stats.ambiguous += list.length; return; }
+      const riot = riotDetails(g), e = list[0];
+      links.set(e, riot);
+      stats.matched++;
+      if ((e.result === "win" || e.result === "loss") && e.result !== riot.result) stats.disagreements++;
+    });
+    return { links, stats };
+  }
+
   // Journal DRAFT. Trois compteurs distincts : enregistrées (toutes, rien n'est supprimé), confirmées (origin "draft" ou "lcu", ou
   // userOrigin "real", hors drafts annulées), à classer (origine inconnue). Les statistiques de performance (V/D, conseil suivi) ne
-  // lisent que les confirmées.
-  function journal(entries) {
+  // lisent que les confirmées. games (facultatif) : parties lues par readHistory. Riot fait foi : le résultat d'une entrée rapprochée
+  // est celui de Riot, même si le résultat stocké (saisi ou lu dans le client) diffère ; le désaccord est rendu, jamais masqué.
+  function journal(entries, games) {
     const all = (Array.isArray(entries) ? entries : []).filter(e => e && typeof e === "object");
-    const finished = e => e.result === "win" || e.result === "loss", won = e => e.result === "win";
-    const confirmed = all.filter(e => { const o = originOf(e); return (o === "draft" || o === "real") && !abandonedOf(e); });
+    const riot = riotLinks(all, games);
+    const stored = e => e.result === "win" || e.result === "loss" ? e.result : null;
+    const official = e => riot.links.has(e) ? riot.links.get(e).result : stored(e);
+    const finished = e => official(e) !== null, won = e => official(e) === "win";
+    const confirmed = all.filter(countedOf);
     const done = confirmed.filter(finished);
     const dates = all.map(e => Date.parse(e.date)).filter(isFinite).sort((a, b) => a - b);
     const time = e => Date.parse(e.date) || e.id || 0;
@@ -181,15 +238,19 @@
       toSort: all.filter(e => originOf(e) === UNKNOWN).length, simulations: all.filter(e => originOf(e) === "simulation").length,
       abandoned: all.filter(abandonedOf).length,
       finished: record(done, won),
-      pending: confirmed.filter(e => e.result === null || e.result === undefined).length,
-      skipped: confirmed.filter(e => e.result === "skip").length,
+      pending: confirmed.filter(e => !riot.links.has(e) && (e.result === null || e.result === undefined)).length,
+      skipped: confirmed.filter(e => !riot.links.has(e) && e.result === "skip").length,
       followed: record(done.filter(followedOf), won), other: record(done.filter(e => !followedOf(e)), won),
       ties: confirmed.filter(e => e.tied === true).length,
       period: dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null,
+      riot: riot.stats,
       entries: all.slice().sort((a, b) => time(b) - time(a)).map(e => {
         const origin = originOf(e);
         const abandoned = abandonedOf(e);
-        return { entry: e, origin, abandoned, counted: (origin === "draft" || origin === "real") && !abandoned, followed: followedOf(e), tied: e.tied === true, finished: finished(e) };
+        const r = riot.links.get(e) || null, s = stored(e);
+        return { entry: e, origin, abandoned, counted: countedOf(e), followed: followedOf(e), tied: e.tied === true, finished: finished(e),
+          result: official(e), riot: r, disagree: !!r && s !== null && s !== r.result,
+          storedSource: s === null ? null : e.resultSource === "lcu" ? "lcu" : "manual" };
       })
     };
   }
@@ -271,5 +332,5 @@
   }
   const C_ROLES = ROLES;
   root.STATS_CALC = Object.freeze({ MIN_GAMES, SLICE, MS_FROM, REMAKE_SEC, POSITIONS, ROLE_OF, ROLES, UNKNOWN,
-    THRESHOLDS, pickSource, readHistory, record, kda, summary, byRole, byChampion, timeline, matchups, journal, originOf, followedOf, progress, observations, wilson, halves, mainRole });
+    THRESHOLDS, pickSource, readHistory, record, kda, summary, byRole, byChampion, timeline, matchups, journal, originOf, followedOf, gameIdOf, riotGameId, progress, observations, wilson, halves, mainRole });
 })(typeof window !== "undefined" ? window : this);
