@@ -60,7 +60,7 @@ const OLD=[
 let plural=0;
 for(const [key,vars,old] of OLD)for(const n of [0,1,2,3,5,21]){const got=R.tp(key,n,vars),want=old(n);plural++;t0(got===want,`pluriel ${key} (${n}) : « ${got} » au lieu de « ${want} »`);}
 // Écart de score en décimal : l'ancien code mettait « s » à partir de 2 (Math.abs(gap) >= 2), comme la règle française.
-for(const g of [0,0.5,1,1.5,1.99,2,2.5,-3]){const dec=g.toFixed(1).replace(".",",");const got=R.tp("mastery.compromise.gap.l3",Math.abs(g),{gap:dec,champions:"A",threshold:2});const want=`Écart de score de ${dec} point${Math.abs(g)>=2?"s":""} en faveur de A (seuil de 2 pour un choix net). Aucune conversion entre parties jouées et points : c'est à toi de trancher.`;plural++;t0(got===want,`pluriel décimal (${g}) : « ${got} »`);}
+for(const g of [0,0.5,1,1.5,1.99,2,2.5,-3]){const dec=g.toFixed(1).replace(".",",");const got=R.tp("mastery.compromise.gap.l3",Math.abs(g),{gap:dec,champions:"A",threshold:2});const want=`Écart de ${dec} point${Math.abs(g)>=2?"s":""} en faveur de A (choix net dès 2). Parties jouées et points ne se comparent pas : à toi de trancher.`;plural++;t0(got===want,`pluriel décimal (${g}) : « ${got} »`);}
 res.notes.pluriels=plural;
 // Repli : une clé absente reste visible ([clé]) ; une variable absente reste {nom} ; tout est relevé en mode test.
 t0(R.t("cle.inconnue.test")==="[cle.inconnue.test]"&&R.missing().some(m=>m.includes("cle.inconnue.test")),"vraie page : clé absente visible et relevée en mode test");

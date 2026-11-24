@@ -16,7 +16,7 @@ const LIVE=["Ornn","Sion","Ahri"];
 {const x=await open();LIVE.forEach(x.$.addEnemy);await settle();
  t(!!q(x,"source-live")&&!!q(x,"source-sim"),"bascule de source « Draft en cours / Simulation » présente");
  t(await click(x,"source-sim")&&x.$.sim&&x.$.state.enemies.length===0,"Simulation : part d'une draft vide");
- const band=q(x,"simulation");t(!!band&&/Simulation : ta draft en cours n'est pas modifiée\./.test(text(band)),"bandeau Simulation explicite ("+text(band)+")");
+ const band=q(x,"simulation");t(!!band&&/Simulation : rien n'est noté, ta draft en cours ne change pas\./.test(text(band)),"bandeau Simulation explicite ("+text(band)+")");
  t(/Nouvelle simulation/.test(text(q(x,"new-draft"))),"le bouton dit « Nouvelle simulation » pendant une simulation");
  await click(x,"random-draft");t(x.$.sim&&x.$.state.enemies.length===5,"Draft aléatoire reste dans la simulation");
  const r=q(x,"resume-live");t(!!r&&!r.disabled,"« Reprendre la draft en cours » disponible");
