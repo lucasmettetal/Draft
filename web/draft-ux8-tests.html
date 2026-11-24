@@ -78,7 +78,7 @@ await host(x,{lcuEnabled:true,lcuStatus:"waiting"});
 t(!q(x,"guide-step-lcu"),"lecture activée : l'étape 2 disparaît");
 q(x,"guide-panels").click();await settle();
 t(!q(x,"home-guide")&&!!q(x,"home-hero"),"essai lancé : le guide disparaît, la bannière d'état revient");
-t(/Tout est prêt pour ta prochaine draft/.test(text(q(x,"home-hero")))&&/Lance League of Legends/.test(text(q(x,"home-hero"))),"LoL fermé : « Tout est prêt », et dit de lancer League of Legends");
+t(/^Tout est prêt$/.test(text(q(x,"home-hero").querySelector(".home-title")))&&/Lance League of Legends/.test(text(q(x,"home-hero"))),"LoL fermé : « Tout est prêt », et dit de lancer League of Legends");
 x.f.remove();
 x=await load({keep:true,host:{lcuEnabled:true,lcuStatus:"waiting"}});
 t(!q(x,"home-guide"),"guide terminé : il ne revient pas");
