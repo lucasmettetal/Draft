@@ -94,8 +94,8 @@
     },
     {
       "nom": "journal-diagnostic",
-      "motif": "LastOpenError\\s*=|return \"port \" \\+ Port|InvalidOperationException\\(\\s*$",
-      "raison": "I18N-3 : journal de diagnostic interne (draftmid.log) et garde-fou interne de l'adresse LCU : jamais montrés au joueur"
+      "motif": "LastOpenError\\s*=|return \"port \" \\+ Port|InvalidOperationException\\(\\s*$|static string Word\\(string state\\)",
+      "raison": "I18N-3 : journal de diagnostic interne (draftmid.log) et garde-fou interne de l'adresse LCU : jamais montrés au joueur. Beta.2 : état du pick dans le diagnostic (aucun, survolé, verrouillé, final)"
     },
     {
       "nom": "donnee-region",

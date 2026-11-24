@@ -39,7 +39,16 @@ if (-not $Chrome) { throw 'Chrome introuvable.' }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Base = 'file:///' + ($Web -replace '\\', '/') + '/draft-layout-tests.html'
 $Common = @('--headless=new', '--disable-gpu', '--force-prefers-reduced-motion', '--no-first-run', '--allow-file-access-from-files', "--user-data-dir=$Out\profil-$PID", '--window-size=1960,1120')
-$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-)'
+# MOT-COUPE et BOUTON-DEUX-LIGNES (panneaux primaires) : un mot coupe en son milieu, ou le bouton principal sur deux lignes.
+# PORTRAITS-ADVERSES : composition adverse dans le panneau droit (le gauche est affiche avec lui). PLACE-JE-JOUE : place gardee pour
+# un bouton Je joue absent en mode Dans League.
+# Ajustements V2 (captures des vraies fenetres) : DETAILS-ABSENT (« Conseil » propose sans defilement), LEAGUE-DEUX-LIGNES,
+# TEXTES-COLLES (« AjouterAjouter » entre colonnes voisines), MENACE-COUPEE (phrase de menace tronquee), JAUGE-SOUS-LE-PLI
+# (panneau gauche de 700 px et plus : une des 5 jauges sous le pli).
+# Ajustements V2 (panneau gauche ferme, compact reductible) : COMPO-ACCES (acces « Composition adverse X/5 » du panneau droit present si et
+# seulement si le gauche n'est pas visible, replie par defaut) ; COMPACT-REPLIE (rangee des 5 adversaires repliee a 5/5, choix du joueur
+# respecte, conseil au-dessus de la barre).
+$Hard = '^(PAGE-X|TEXTE-|BOITE-|COUPE-X|DEFILE-X|CIBLE|TEXTES-|BOUTON-|PETIT-TEXTE|ACTION-|CROIX-|COCHE-|MOT-|PORTRAITS-|PLACE-|DETAILS-|LEAGUE-|MENACE-|JAUGE-|COMPO-|COMPACT-)'
 $OfflineArg = '--host-resolver-rules=MAP * ~NOTFOUND'
 
 $Runs = @()
@@ -48,7 +57,22 @@ foreach ($s in 'empty', 'one', 'full', 'midunknown', 'close', 'excluded', 'none'
 $Runs += , @('consultation', 'state=viewed&frozen=1', $false)
 $Runs += , @('bascule de role', 'state=roleauto&frozen=1', $false)
 $Runs += , @('role a la main sans lecture', 'state=full&host=off&frozen=1', $false)
+# Panneaux primaires : lecture approfondie ouverte (toutes les sections), ligne Dans League (donnee de test), sans lecture du client.
+$Runs += , @('lecture approfondie ouverte', 'state=viewed&open=1&frozen=1', $false)
+$Runs += , @('dans league survole (donnee de test)', 'state=league&frozen=1', $false)
+$Runs += , @('dans league verrouille (donnee de test)', 'state=leaguelocked&frozen=1', $false)
+$Runs += , @('egalite sans lecture du client', 'state=tie&profile=jungle&host=off&frozen=1', $false)
 $Runs += , @('egalite jungle, choix hors egalite', 'state=tieother&profile=jungle&frozen=1', $false)
+# Ajustements V2 : visibilite du panneau gauche envoyee par le programme (left=hidden|shown) ; choix du joueur sur la composition (compo=open|closed).
+$Runs += , @('gauche visible : aucun acces composition', 'state=partial&left=shown&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces replie', 'state=partial&left=hidden&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces replie, consultation', 'state=viewed&left=hidden&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces deplie, sans lecture', 'state=partial&left=hidden&host=off&compo=open&set=right&frozen=1', $false)
+$Runs += , @('gauche ferme : acces deplie, 5/5', 'state=full&left=hidden&compo=open&set=right&frozen=1', $false)
+$Runs += , @('compact 5/5 deplie a la main', 'state=full&compo=open&set=compact&frozen=1', $false)
+# Sans 222 x 511 (taille V1, que le placement V2 ne produit plus) : rouverte a la main a 5/5, la carte du consulte y passe 20 px sous la barre.
+$Runs += , @('compact consultation 5/5 deplie a la main', 'state=viewed&compo=open&set=compact&dims=252x576,282x576,248x565,248x711,280x720,320x720,360x720,400x720,360x1030,320x420&frozen=1', $false)
+$Runs += , @('compact partielle repliee a la main', 'state=partial&compo=closed&set=compact&frozen=1', $false)
 $Runs += , @('analyse, vue comparer', 'state=history&set=full&tabclick=analyse&view=compare&frozen=1', $false)
 $Runs += , @('analyse, vue regles', 'state=history&set=full&tabclick=analyse&view=rules&frozen=1', $false)
 $Runs += , @('analyse, comparer sur egalite', 'state=tie&profile=jungle&set=full&tabclick=analyse&view=compare&frozen=1', $false)
@@ -67,6 +91,10 @@ $Runs += , @('partial', 'state=partial&frozen=1', $false)
 $Runs += , @('sans profil', 'state=full&set=full&profile=none&frozen=1', $false)
 $Runs += , @('sources de donnees ouvertes', 'state=full&set=full&page=settings&section=data&host=on&open=1', $false)
 # UX-3 : chaque section de la fenetre principale, et chaque rubrique des reglages, dans l'application et hors application.
+# Mes statistiques (tableau de bord) : historiques fictifs de 93 et 400 parties, données incomplètes, onglets Journal et Historique Riot.
+foreach ($st in 'stats93', 'statsrich', 'statsincomplete') { $Runs += , @("statistiques $st", "state=$st&set=full&page=stats&host=on", $false) }
+$Runs += , @('statistiques journal', 'state=statsrich&set=full&page=stats&section=journal&host=on', $false)
+$Runs += , @('statistiques historique riot', 'state=statsrich&set=full&page=stats&section=history', $false)
 foreach ($v in 'home', 'pool', 'stats') { $Runs += , @("section $v", "state=history&set=full&page=$v&host=on", $false); $Runs += , @("section $v hors application", "state=empty&set=full&page=$v", $false) }
 foreach ($s in 'general', 'league', 'display', 'data', 'updates', 'diag') { $Runs += , @("reglages $s", "state=full&set=full&page=settings&section=$s&host=on", $false) }
 $Runs += , @('mon pool sans profil', 'state=full&set=full&page=pool&profile=none', $false)
@@ -78,6 +106,7 @@ $Runs += , @('accueil configure connecte', 'state=empty&set=full&page=home&host=
 $Runs += , @('accueil configure lecture desactivee', 'state=empty&set=full&page=home&host=off', $false)
 $Runs += , @('accueil erreur de connexion', 'state=empty&set=full&page=home&host=failed', $false)
 $Runs += , @('accueil draft en cours', 'state=live&set=full&page=home&host=on', $false)
+$Runs += , @('accueil derniere partie a completer', 'state=lastgame&set=full&page=home&host=on', $false)
 $Runs += , @('sans reseau', 'state=full', $true)
 # Coche et nom : Simulateur 1366, 1536 et 1920 a 125 % (et panneaux), noms longs, chaque champion coche tour a tour. Echoue dans toutes les langues.
 $Runs += , @('coche et nom, noms longs, 125 %', 'coches=1', $false, '--force-device-scale-factor=1.25')
@@ -88,7 +117,8 @@ $qpsHard = @{}; $qpsMissing = @{}; $qpsOverflow = 0
 # Depuis I18N-3, l'etat simule du programme (phase, placement) passe par des cles : plus aucune exception.
 $enFixtures = @()
 foreach ($run in $Runs) {
-    $args_ = $Common + @('--virtual-time-budget=120000', '--dump-dom')
+    # 180 s de temps virtuel : l'etat 'extreme' attend 3,6 s par taille ; 34 tailles depassaient 120 s (aucune mesure).
+    $args_ = $Common + @('--virtual-time-budget=180000', '--dump-dom')
     if ($run[2]) { $args_ += $OfflineArg }
     if ($run.Count -gt 3 -and $run[3]) { $args_ += $run[3] }
     $dom = & $Chrome @args_ "$Base`?$($run[1])" 2>$null | Out-String
@@ -102,7 +132,9 @@ foreach ($run in $Runs) {
     foreach ($frame in $frames.PSObject.Properties) {
         foreach ($issue in $frame.Value.issues) {
             # Nom fictif de 41 caracteres : ces signaux varient selon les animations. Le rendu a ete controle a l'oeil, sans chevauchement.
-            if ($run[0] -eq 'extreme' -and $issue -match '^(TEXTES-|BOUTON-|DEFILE-X aside)') { continue }
+            if ($run[0] -eq 'extreme' -and $issue -match '^(TEXTES-|BOUTON-SUR|DEFILE-X aside)') { continue }
+            # Mot sans espace de 70 lettres ecrit expres dans la raison fictive : il ne tient sur aucune ligne, il est coupe.
+            if ($run[0] -eq 'extreme' -and $issue -match '^MOT-COUPE .*motSansEspace') { continue }
             if ($issue -match $Hard -and $issue -notmatch 'section\.stage "Illustration') { if (-not $found[$issue]) { $found[$issue] = @() }; $found[$issue] += $frame.Name }
         }
         foreach ($k in '.p-name', '.p-actions .cta', '.champ-name') {

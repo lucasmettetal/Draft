@@ -1,0 +1,150 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests de l'issue de la sélection (draft annulée)</title></head><body><pre id="out"></pre>
+<!-- Correctif de la beta.2 : une draft annulée (dodge, retour au lobby, client fermé) ne passe jamais pour une partie jouée.
+     Le programme envoie draftEnd { outcome: "pending" }, puis draftOutcome { outcome: "game" | "abandoned" }, et garde l'issue dans son
+     état (draftKey, draftOutcome). Ici, ces messages sont rejoués par un hôte WebView2 simulé, sur la vraie page, en français et en anglais.
+     « [avant : échec] » : échoue sur main 4fb621f. Pools, journaux et clés FICTIFS. Page de test : exclue de la compilation.
+     Lancement : tools\run-v215-tests.ps1 -Page draft-abandon-tests.html -Work <dossier>. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const show=()=>{document.getElementById("out").textContent=JSON.stringify(res);};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));const settle=()=>wait(250);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]};
+// Entrée d'une version précédente : sans issue, jamais réécrite.
+const OLD={id:1,date:"2026-10-01T10:00:00Z",suggested:"TF",close:false,picked:"Fizz",enemies:["Ahri"],mid:"Ahri",result:null,engine:"x"};
+const K=n=>String(1763290000000+n);
+const EXPOSE="window.$={get V(){return V},get state(){return state},get simulating(){return simulating},addEnemy,choosePick,loadJournal,resetDraft,dispatchDraft,label}";
+let SRC="";{const x=new XMLHttpRequest();x.open("GET","index.html",false);x.send();SRC=x.responseText;}
+function prepare(profile,journal){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(profile));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));}
+async function ready(f){for(let i=0;i<120;i++){try{if(f.contentWindow.I18N&&f.contentWindow.eval("typeof V!=='undefined'&&!!V")&&f.contentDocument.querySelector('[data-test="panel"],[data-test="app"],.app'))break;}catch(e){}await wait(50);}
+  await wait(300);const w=f.contentWindow;w.eval(EXPOSE);w.open=()=>null;return {f,w,d:f.contentDocument,$:w.$,T:(k,v)=>w.I18N.t(k,v)};}
+// Page « dans l'application » : hôte WebView2 simulé. Les messages du programme sont rejoués par __host(m) ; rien n'est envoyé ailleurs.
+async function openHost(lang,where,W,H){const host='<script>window.__sent=[];window.chrome=window.chrome||{};window.chrome.webview={postMessage(m){window.__sent.push(m)},addEventListener(k,fn){if(k==="message")window.__hostFn=fn},removeEventListener(){}};window.__host=m=>window.__hostFn&&window.__hostFn({data:m});<\/script>';
+  window.history.replaceState(null,"",location.pathname+"?"+where+"&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=W;f.height=H;document.body.appendChild(f);const d0=f.contentDocument;d0.open();d0.write(SRC.replace('<script src="draft-stats.js"><\/script>',host));d0.close();const x=await ready(f);window.history.replaceState(null,"",location.pathname);x.w.eval("synced=true");return x;}
+const HOST={kind:"host",available:true,lcuConfirmed:true,lcuEnabled:true,lcuStatus:"connected",hotkey:true,autoDraft:true,follow:true,phase:{key:"native.phase.outOfDraft",vars:{}},placement:{key:"native.placement.two",vars:{}}};
+const hostMsg=(x,extra)=>x.w.__host(Object.assign({},HOST,extra));
+const q=(x,s)=>x.d.querySelector(s);
+const journal=()=>JSON.parse(localStorage.getItem("draftJournal")||"[]");
+const ent=key=>journal().find(e=>e.selection===key)||null;
+const flags=e=>e?"gameStarted="+e.gameStarted+", abandoned="+e.abandoned+", result="+e.result:"aucune entrée avec cette clé";
+// Une sélection vue par la page : le programme annonce la clé (état « draft »), nouvelle draft, un adversaire, puis « Je joue ».
+async function select(x,key,pick){hostMsg(x,{draftKey:key,draftOutcome:"draft"});x.$.dispatchDraft({type:"session-start"});await settle();x.$.addEnemy("Ahri");await settle();x.$.choosePick(pick);await settle();}
+// Fin de sélection : issue en attente, puis (si donnée) issue définitive. Message, puis état du programme, comme dans l'application.
+async function finish(xs,key,outcome){for(const x of xs){x.w.__host({kind:"draftEnd",draft:key,outcome:"pending"});hostMsg(x,{draftKey:key,draftOutcome:"pending"});}await settle();
+  if(outcome){for(const x of xs){x.w.__host({kind:"draftOutcome",draft:key,outcome});hostMsg(x,{draftKey:key,draftOutcome:outcome});}await settle();}}
+const lastGame=x=>[...x.d.querySelectorAll(".result-note")].map(text).find(s=>s.startsWith(x.T("plan.lastGame",{pick:""}).trim()))||"";
+
+(async()=>{
+for(const lang of ["fr","en"]){
+  const LG=lang.toUpperCase();
+  // ---------- Panneau droit (125 % : 256 x 608) : partie, annulation, Dernière partie ----------
+  {const L=LG+" panneau : ";prepare(MID,[OLD]);let x=await openHost(lang,"panel=right",256,608);hostMsg(x,{});await settle();
+   // 1. Draft → partie.
+   await select(x,K(1),"Vex");const e1=ent(K(1));
+   t(!!e1&&e1.picked==="Vex"&&e1.origin==="draft",L+"[avant : échec] « Je joue » : l'entrée porte la clé de la sélection ("+(e1?"selection="+e1.selection:"aucune")+")");
+   await finish([x],K(1),null);
+   t(!!ent(K(1))&&ent(K(1)).gameStarted===undefined&&ent(K(1)).abandoned===undefined&&!!q(x,'[data-test="result-buttons"]'),L+"[avant : échec] fin de sélection : issue en attente, rien de noté, résultat toujours saisissable ("+flags(ent(K(1)))+")");
+   await finish([x],K(1),"game");
+   t(!!ent(K(1))&&ent(K(1)).gameStarted===true&&ent(K(1)).result===null&&!ent(K(1)).abandoned,L+"[avant : échec] draft → partie : gameStarted, résultat toujours vide, rien d'inventé ("+flags(ent(K(1)))+")");
+   // 2. Draft → lobby (dodge) : annulée, dite dans le panneau, sans boutons de résultat.
+   await select(x,K(2),"Xerath");await finish([x],K(2),"abandoned");const e2=ent(K(2));
+   t(!!e2&&e2.abandoned===true&&!e2.gameStarted&&e2.result===null,L+"[avant : échec] draft → lobby : abandoned, l'entrée reste dans le journal ("+flags(e2)+")");
+   const note=q(x,'[data-test="draft-abandoned"]');
+   t(text(note)===x.T("journal.abandoned.note")&&!q(x,'[data-test="result-buttons"]'),L+"[avant : échec] la page dit « "+x.T("journal.abandoned.note")+" », sans boutons de résultat (lu « "+text(note)+" »)");
+   res.notes[lang+"_annulee"]=text(note);
+   // Draft suivante, sans adversaire : « Dernière partie » propose la partie lancée, jamais la draft annulée ni l'ancienne entrée.
+   x.$.dispatchDraft({type:"session-start"});await settle();
+   const lg=lastGame(x);res.notes[lang+"_derniere_partie"]=lg;
+   t(lg.includes(x.$.label("Vex"))&&!lg.includes("Xerath")&&!lg.includes("Fizz"),L+"[avant : échec] « Dernière partie » : la partie lancée (Vex), jamais la draft annulée (Xerath) ni l'entrée sans issue (lu « "+lg+" »)");
+   // 3. DRAFT redémarré pendant le chargement : la page repart, le programme n'a plus d'issue. Rien n'est déduit.
+   await select(x,K(3),"TF");await finish([x],K(3),null);x.f.remove();
+   x=await openHost(lang,"panel=right",256,608);hostMsg(x,{draftKey:null,draftOutcome:null});await settle();x.$.dispatchDraft({type:"session-start"});await settle();
+   const e3=ent(K(3)),lg3=lastGame(x);
+   t(!!e3&&e3.gameStarted===undefined&&e3.abandoned===undefined&&lg3.includes(x.$.label("Vex"))&&!lg3.includes(x.$.label("TF")),L+"[avant : échec] DRAFT redémarré pendant le chargement : issue inconnue, jamais proposée ("+flags(e3)+", « "+lg3+" »)");
+   // 4. Signaux en double, en retard, dans le désordre, clé inconnue, état du programme rejoué : rien ne change, rien n'est créé.
+   const before=localStorage.getItem("draftJournal");
+   for(const m of [{kind:"draftOutcome",draft:K(1),outcome:"game"},{kind:"draftOutcome",draft:K(1),outcome:"game"},{kind:"draftEnd",draft:K(1),outcome:"pending"},{kind:"draftOutcome",draft:K(1),outcome:"abandoned"},{kind:"draftOutcome",draft:K(2),outcome:"game"},{kind:"draftOutcome",draft:K(9),outcome:"game"},{kind:"draftOutcome",draft:K(3),outcome:"bizarre"}])x.w.__host(m);
+   hostMsg(x,{draftKey:K(2),draftOutcome:"game"});hostMsg(x,{draftKey:K(1),draftOutcome:"abandoned"});await settle();
+   t(localStorage.getItem("draftJournal")===before,L+"signaux en double, en retard ou contradictoires, clé inconnue : journal inchangé");
+   // 5. Page ouverte après la décision (panneaux recréés) : l'issue gardée par le programme est notée.
+   await select(x,K(4),"Fizz");await finish([x],K(4),null);x.f.remove();
+   x=await openHost(lang,"panel=compact",282,576);hostMsg(x,{draftKey:K(4),draftOutcome:"abandoned"});await settle();
+   t(!!ent(K(4))&&ent(K(4)).abandoned===true,L+"[avant : échec] page ouverte après la décision : l'issue gardée par le programme est notée ("+flags(ent(K(4)))+")");
+   // Aucun doublon, ancienne entrée intacte.
+   const all=journal();
+   t(all.length===5&&JSON.stringify(all.find(e=>e.id===1))===JSON.stringify(OLD),L+"une entrée par « Je joue » (5 au total), l'ancienne entrée n'est pas réécrite ("+all.length+")");
+   t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+   x.f.remove();show();}
+  // ---------- Trois vraies pages synchronisées : l'issue reçue partout, notée une fois ----------
+  {const L=LG+" trois pages : ";prepare(MID,[OLD]);const full=await openHost(lang,"view=sim",1366,900),right=await openHost(lang,"panel=right",256,608),compact=await openHost(lang,"panel=compact",282,576);const xs=[full,right,compact];
+   xs.forEach(x=>hostMsg(x,{draftKey:K(5),draftOutcome:"draft"}));await settle();
+   full.$.dispatchDraft({type:"session-start"});await wait(400);full.$.addEnemy("Ahri");await wait(400);full.$.choosePick("Vex");await wait(600);
+   const id=full.$.state.current;
+   t(!!id&&right.$.state.current===id&&compact.$.state.current===id,L+"le choix de la fenêtre arrive dans les panneaux");
+   await finish(xs,K(5),"game");
+   const mine=journal().filter(e=>e.selection===K(5));
+   t(mine.length===1&&mine[0].gameStarted===true&&journal().length===2,L+"[avant : échec] trois pages reçoivent l'issue : une seule entrée, notée une fois ("+mine.length+" entrée, "+flags(mine[0])+")");
+   // Simulateur : rien n'est écrit, même quand une issue arrive pendant la simulation.
+   const before=localStorage.getItem("draftJournal");
+   full.w.eval("startSimulation()");await settle();full.$.addEnemy("Ornn");full.$.choosePick("TF");await settle();
+   xs.forEach(x=>{x.w.__host({kind:"draftOutcome",draft:K(6),outcome:"game"});hostMsg(x,{draftKey:K(6),draftOutcome:"game"});});await settle();
+   t(full.$.simulating&&localStorage.getItem("draftJournal")===before,L+"Simulateur : « Je joue » et une issue reçue n'écrivent rien");
+   full.w.eval("leaveSimulation()");xs.forEach(x=>x.f.remove());show();}
+  // ---------- Mes statistiques : la draft annulée reste visible, jamais comptée ----------
+  {const L=LG+" statistiques : ";const base={suggested:"TF",close:false,enemies:["Ahri"],mid:"Ahri",engine:"x",origin:"draft",app:"3.0.0"};
+   prepare(MID,[OLD,Object.assign({id:2,date:"2026-11-02T10:00:00Z",picked:"TF",result:"win",gameStarted:true,selection:K(10)},base),Object.assign({id:3,date:"2026-11-03T10:00:00Z",picked:"Vex",result:"win",abandoned:true,selection:K(11)},base),Object.assign({id:4,date:"2026-11-04T10:00:00Z",picked:"TF",result:null,gameStarted:true,selection:K(12)},base)]);
+   const x=await openHost(lang,"view=stats",1366,900);hostMsg(x,{});await settle();
+   // Mes statistiques (#35) : compteurs du journal (enregistrées, confirmées, parties terminées) et statut visible de chaque entrée.
+   const num=id=>text(q(x,`[data-test="${id}"] .num`));
+   const rec=num("kpi-recorded"),conf=num("kpi-confirmed"),fin=num("kpi-finished");res.notes[lang+"_kpi"]=rec+" | "+conf+" | "+fin;
+   t(rec==="4"&&conf==="2"&&fin==="1",L+"[avant : échec] la draft annulée n'est pas comptée : 4 enregistrées, 2 confirmées (ni l'annulée, ni l'ancienne entrée sans marque), 1 partie terminée ("+rec+" | "+conf+" | "+fin+")");
+   const status=[...x.d.querySelectorAll('[data-test="stats-recent"] [data-test="entry-status"]')].map(text);res.notes[lang+"_statuts"]=status.join(", ");
+   t(status.join("|")===[x.T("journal.status.pending"),x.T("journal.status.abandoned"),x.T("journal.result.win")].join("|")&&!!q(x,'[data-test="stats-recent"] [data-test="journal-origin"]'),L+"[avant : échec] statuts : en attente (partie lancée), annulée, victoire ; l'ancienne entrée sans marque reste à classer (lu "+status.join(", ")+")");
+   t(x.w.eval('entryStatus({result:null,origin:"draft"})')===x.T("journal.status.unconfirmed")&&x.w.eval('entryStatus({result:null,gameStarted:true})')===x.T("journal.status.pending"),L+"issue inconnue : « "+x.T("journal.status.unconfirmed")+" » ; partie lancée : « "+x.T("journal.status.pending")+" »");
+   t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+   x.f.remove();show();}
+  // ---------- Draft suivante (défaut de la candidate 4 : « DRAFT garde la draft d'avant et n'enregistre pas la suivante ») ----------
+  // Avant ce correctif (e980dc7), une page qui ne recevait pas draftStart gardait current, picked, viewed et le rôle à la main de la
+  // draft précédente ; « Je joue » y réécrivait l'entrée d'avant. « [avant correctif : échec] » : échoue sur e980dc7.
+  {const L=LG+" draft suivante : ";prepare(MID,[OLD]);
+   const full=await openHost(lang,"view=sim",1366,900),right=await openHost(lang,"panel=right",256,608),compact=await openHost(lang,"panel=compact",282,576);let xs=[full,right,compact];
+   const host=(x,key,outcome,extra)=>x.w.__host(Object.assign({},HOST,{draftKey:key,draftOutcome:outcome},extra||{}));
+   const all=(key,outcome,extra)=>xs.forEach(x=>host(x,key,outcome,extra));
+   const clean=x=>!x.$.state.current&&!x.$.state.picked&&!x.$.state.viewed&&!x.w.eval("state.roleManual")&&x.$.state.enemies.length===0;
+   // Draft 1 : début reçu par toutes les pages, « Je joue Vex » dans la fenêtre, puis « Je joue Fizz » dans un panneau.
+   all(K(20),"draft");xs.forEach(x=>x.w.__host({kind:"draftStart",draft:K(20)}));await wait(500);
+   full.$.addEnemy("Ahri");await wait(400);full.$.choosePick("Vex");await wait(500);right.$.choosePick("Fizz");await wait(600);
+   const d1=bySel=>journal().filter(e=>e.selection===bySel);
+   t(d1(K(20)).length===1&&d1(K(20))[0].picked==="Fizz",L+"« Je joue » dans la fenêtre puis dans un panneau, même draft : une entrée, mise à jour ("+d1(K(20)).map(e=>e.picked).join(",")+")");
+   all(K(20),"pending");await wait(200);all(K(20),"game");await wait(300);
+   const first=JSON.stringify(d1(K(20))[0]);
+   // Draft 2 : début reçu par UNE seule page (le panneau droit) ; la fenêtre reste ouverte entre les deux drafts.
+   all(K(21),"draft");right.w.__host({kind:"draftStart",draft:K(21)});await wait(700);
+   t(xs.every(clean),L+"draftStart reçu par une seule page : toutes les pages repartent de zéro ("+xs.map(x=>x.$.state.current?"ancienne entrée":"vide").join(", ")+")");
+   full.$.addEnemy("Ahri");await wait(400);full.$.choosePick("Vex");await wait(600);
+   t(d1(K(21)).length===1&&d1(K(21))[0].picked==="Vex"&&JSON.stringify(d1(K(20))[0])===first,L+"[avant correctif : échec] deux drafts de suite, « Je joue » dans chacune : deux entrées distinctes, la première intacte");
+   // Rôle à la main en draft 2 (compact)…
+   compact.w.eval("switchRole('top','manual')");await wait(600);
+   all(K(21),"pending");await wait(200);all(K(21),"abandoned");await wait(300);
+   // Draft 3 : le message draftStart est PERDU (aucun panneau prêt) ; seule la clé de l'état du programme change.
+   all(K(22),"draft");await wait(700);
+   t(xs.every(clean),L+"[avant correctif : échec] draftStart perdu : la nouvelle clé du programme remet toutes les pages à zéro ("+xs.map(x=>(x.$.state.current?"entrée ":"")+(x.w.eval("state.roleManual")?"rôle à la main":"")||"vide").join(", ")+")");
+   // …puis poste attribué en draft 3 : la bascule automatique se fait dans toutes les pages.
+   all(K(22),"draft",{assignedRole:"mid"});await wait(700);
+   t(xs.every(x=>x.w.eval("myRole()")==="mid"&&!x.w.eval("state.roleManual")),L+"[avant correctif : échec] rôle à la main en draft 2, poste attribué en draft 3 : rôle attribué dans toutes les pages ("+xs.map(x=>x.w.eval("myRole()")+(x.w.eval("state.roleManual")?" à la main":"")).join(", ")+")");
+   // Page ouverte pendant la draft 3 : elle prend la draft en cours, sa confirmation va dans l'entrée de la draft 3.
+   full.$.addEnemy("Ahri");await wait(400);full.$.choosePick("Xerath");await wait(500);
+   const late=await openHost(lang,"panel=right",256,608);late.w.eval("synced=false");host(late,K(22),"draft",{assignedRole:"mid"});late.w.eval("channel.postMessage({kind:'hello'})");await wait(800);
+   t(late.$.state.current===full.$.state.current&&late.$.state.enemies.join()==="Ahri",L+"page ouverte pendant la draft 3 : elle reçoit la draft en cours ("+late.$.state.enemies.join()+")");
+   late.$.choosePick("Fizz");await wait(600);xs.push(late);
+   t(d1(K(22)).length===1&&d1(K(22))[0].picked==="Fizz"&&d1(K(21)).length===1&&d1(K(21))[0].picked==="Vex"&&JSON.stringify(d1(K(20))[0])===first,L+"[avant correctif : échec] « Je joue » dans la page ouverte en retard : entrée de la draft 3 seulement, drafts 1 et 2 intactes");
+   // Double signal sur une draft commencée : rien n'est effacé.
+   xs.forEach(x=>x.w.__host({kind:"draftStart",draft:K(22)}));all(K(22),"draft",{assignedRole:"mid"});await wait(600);
+   t(xs.every(x=>x.$.state.enemies.join()==="Ahri"&&x.$.state.current===full.$.state.current),L+"début de sélection reçu deux fois : la draft commencée n'est pas effacée");
+   t(journal().length===4,L+"aucun doublon : une entrée par draft confirmée, plus l'ancienne ("+journal().length+")");
+   xs.forEach(x=>x.f.remove());show();}
+}
+show();
+})().catch(e=>{res.ko.push("EXC "+e.stack);show();});
+</script></body></html>

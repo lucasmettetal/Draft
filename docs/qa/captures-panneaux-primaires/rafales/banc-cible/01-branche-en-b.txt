@@ -1,0 +1,26 @@
+OK : 1. Lancé sans client : aucun panneau, phase client fermé
+OK : 1. Sans client : WebView2 n'est pas chargé
+OK : 2. Client sur l'accueil : aucun panneau
+OK : 3. Client dans un lobby : aucun panneau
+OK : Transition incertaine : aucun panneau
+OK : Une seule lecture positive ne suffit pas
+OK : Préversion : autre DRAFT ouverte signalée par une bulle au premier passage en draft (« Another DRAFT is open (DraftMid.exe): its panels may show up next to the pre-release panels. Hide those of one of them, or close the other one yourself. »)
+MESURE : panneaux visibles 5094 ms après la détection
+OK : 4. Début de draft : panneaux affichés
+OK : Mise à jour depuis le menu pendant une draft : bulle « relance après » (A draft or a game is in progress: run the update afterwards.)
+OK : 4. Les deux panneaux sont visibles
+OK : 4. Panneaux juste de chaque côté, sans chevauchement (35,155 425x720 | 460,155 1000x720 | 1460,155 425x720)
+OK : 4. Hauteur et alignement sur le client
+OK : Aucun vol de focus à l'apparition
+ECHEC : Raccourci Ctrl+Alt+D non enregistré : laissé volontairement à la 2.x par la préversion (raison « instance » ; autres instances DRAFT de la session : DRAFT-Portable.exe pid 32132) ; aucune tentative, donc pas de conflit 1409
+OK : Lectures fugitives : pas de clignotement
+OK : 7. Déplacement : les panneaux suivent (520,195 1000x720)
+MESURE : 40 événements Windows, 41 déplacements de panneaux sur 868 ms
+OK : 7. Déplacements limités à une mise à jour par étape
+MESURE : rafales : du dernier événement au déplacement, moyenne 1,3 ms, maximum 2,5 ms (fenêtre simulée, sans le client réel ni l'affichage)
+OK : 7. Rafales : les panneaux rattrapent toujours la dernière position
+TOUR 1 : rafales manquées 0/40 (sans déplacement 0, écart 0) ; retard moyen 1,6 ms, max 16,5 ms ; attente de 60 ms dépassée de 25 ms au plus ; tour 4319 ms, processeur du programme 156 ms ; tâches longues left 0/0ms/max0 ; right 0/0ms/max0 ; détail 16 1 1 1 1 1 1 1 2 1 1 1 2 1 2 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 1 1 2 1 || collé : 0/12 écarts (0 0 0 0 0 0 0 0 0 0 0 0)
+TOUR 2 : rafales manquées 0/40 (sans déplacement 0, écart 0) ; retard moyen 3,0 ms, max 8,3 ms ; attente de 60 ms dépassée de 29 ms au plus ; tour 4460 ms, processeur du programme 234 ms ; tâches longues left 0/0ms/max0 ; right 0/0ms/max0 ; détail 2 1 5 1 8 1 7 1 5 1 4 1 4 1 4 1 4 1 7 1 4 1 5 2 5 1 5 1 6 1 4 2 4 1 4 1 4 1 4 1 || collé : 0/12 écarts (0 0 0 0 0 0 0 0 0 0 0 0)
+TOUR 3 : rafales manquées 0/40 (sans déplacement 0, écart 0) ; retard moyen 3,3 ms, max 9,2 ms ; attente de 60 ms dépassée de 18 ms au plus ; tour 4327 ms, processeur du programme 188 ms ; tâches longues left 0/0ms/max0 ; right 0/0ms/max0 ; détail 1 1 5 2 5 2 4 2 4 1 5 1 8 1 5 1 7 2 5 1 5 1 6 1 5 2 9 1 4 0 6 1 6 1 6 1 4 1 4 1 || collé : 0/12 écarts (0 0 0 0 0 0 0 0 0 0 0 0)
+TOUR 4 : rafales manquées 0/40 (sans déplacement 0, écart 0) ; retard moyen 2,8 ms, max 7,4 ms ; attente de 60 ms dépassée de 22 ms au plus ; tour 4313 ms, processeur du programme 125 ms ; tâches longues left 0/0ms/max0 ; right 0/0ms/max0 ; détail 1 1 5 1 3 1 3 1 4 1 6 1 6 1 7 1 6 1 5 1 4 2 4 1 4 1 5 1 3 1 3 1 3 0 5 1 7 1 6 1 || collé : 0/12 écarts (0 0 0 0 0 0 0 0 0 0 0 0)
+TOUR 5 : rafales manquées 0/40 (sans déplacement 0, écart 0) ; retard moyen 3,1 ms, max 8,3 ms ; attente de 60 ms dépassée de 23 ms au plus ; tour 4379 ms, processeur du programme 125 ms ; tâches longues left 0/0ms/max0 ; right 0/0ms/max0 ; détail 1 2 5 1 5 2 5 1 5 1 8 1 5 1 4 1 8 1 6 2 5 1 6 1 3 1 3 1 4 1 3 1 5 1 5 2 4 1 8 1 || collé : 0/12 écarts (0 0 0 0 0 0 0 0 0 0 0 0)

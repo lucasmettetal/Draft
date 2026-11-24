@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests de la disponibilité des champions (bans et picks)</title></head><body><pre id="out"></pre>
+<!-- Beta.2 : champions bannis, pris par un allié ou en face, lus dans le client par le programme (hostState.unavailable, versionné).
+     Ils sortent de la liste CANDIDATE avant le classement : le moteur, ses poids et ses scores ne changent pas. Ici : 1) moteur seul,
+     même classement que sans le champion indisponible, sur des drafts au hasard ; 2) vraie page, hôte WebView2 simulé, en français
+     et en anglais. Pools et identifiants FICTIFS. Page de test : exclue de la compilation.
+     Lancement : tools\run-v215-tests.ps1 -Page draft-dispo-tests.html -Work <dossier>. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const show=()=>{document.getElementById("out").textContent=JSON.stringify(res);};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));const settle=()=>wait(250);
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]};
+const WIDE={role:"mid",pool:["TF","Vex","Fizz","Xerath","Syndra","Ahri","Kog'Maw","Galio"]};
+// Identifiants du client (Data Dragon) : TF 4, Vex 711, Fizz 105, Xerath 101.
+const TF=4,VEX=711,FIZZ=105,XERATH=101;
+const K=n=>String(1763290000000+n);
+let SRC="";{const x=new XMLHttpRequest();x.open("GET","index.html",false);x.send();SRC=x.responseText;}
+function prepare(profile){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(profile));localStorage.setItem("draftPatch","16.22");}
+async function ready(f){for(let i=0;i<120;i++){try{if(f.contentWindow.I18N&&f.contentWindow.eval("typeof V!=='undefined'&&!!V")&&f.contentDocument.querySelector('[data-test="panel"],[data-test="app"],.app'))break;}catch(e){}await wait(50);}
+  await wait(300);const w=f.contentWindow;w.open=()=>null;return {f,w,d:f.contentDocument,ev:c=>w.eval(c)};}
+async function openHost(lang,where,W,H){const host='<script>window.__sent=[];window.chrome=window.chrome||{};window.chrome.webview={postMessage(m){window.__sent.push(m)},addEventListener(k,fn){if(k==="message")window.__hostFn=fn},removeEventListener(){}};window.__host=m=>window.__hostFn&&window.__hostFn({data:m});<\/script>';
+  window.history.replaceState(null,"",location.pathname+"?"+where+"&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=W;f.height=H;document.body.appendChild(f);const d0=f.contentDocument;d0.open();d0.write(SRC.replace('<script src="draft-stats.js"><\/script>',host));d0.close();const x=await ready(f);window.history.replaceState(null,"",location.pathname);x.ev("synced=true");return x;}
+const HOST={kind:"host",available:true,lcuConfirmed:true,lcuEnabled:true,lcuStatus:"connected",hotkey:true,autoDraft:true,follow:true,phase:{key:"native.phase.draft",vars:{}},placement:{key:"native.placement.two",vars:{}}};
+// Liste du programme : version, clé de la sélection, identifiant de champion et raison seulement.
+const U=(key,v,items)=>({v,key,items:items.map(([id,reason])=>({id,reason}))});
+const live=(x,key,unavailable,extra)=>x.w.__host(Object.assign({},HOST,{draftKey:key,draftOutcome:"draft",unavailable},extra||{}));
+// Classement complet : pick, score et critères (notes, poids, textes). tiedWith n'y est pas : il dépend des autres candidats.
+const RANK="V.res.ranking.map(p=>[p.pick,p.score,JSON.stringify(p.criteria)])";
+const ranking=x=>x.ev(RANK);
+const picks=x=>x.ev("V.res.ranking.map(p=>p.pick)");
+const without=(base,...out)=>JSON.stringify(base.filter(r=>!out.includes(r[0])));
+
+(async()=>{
+// ---------- 1. Moteur seul : retirer un champion de la liste candidate ne change rien aux autres ----------
+{prepare(WIDE);const x=await openHost("fr","panel=full",1200,800);
+ const names=x.ev("NAMES");let seed=4242;const rnd=n=>{seed=(seed*1103515245+12345)%2147483648;return seed%n;};
+ // Même calcul que la page (computeVerdict) : adversaire identifié, hypothèses pesées quand il est incertain.
+ const run=en=>{x.w.__en=en;return x.ev("(()=>{const b=__en.length?opponentBelief(__en,{}):null;const sc=b&&__en.length?beliefScenarios(b):null;return analyze(__en,identifiedOpponent(__en,{}),true,sc).ranking.map(p=>[p.pick,p.score,JSON.stringify(p.criteria)]);})()");};
+ const setU=list=>x.ev("UNAVAILABLE.length=0;"+list.map(p=>"UNAVAILABLE.push(label("+JSON.stringify(p)+"));").join("")+"1");
+ let cases=0,pairs=0;const diffs=[];
+ for(let i=0;i<150;i++){
+   const n=i%6,en=[];while(en.length<n){const c=names[rnd(names.length)];if(!en.includes(c))en.push(c);}
+   setU([]);const base=run(en);
+   for(const [p] of base){setU([p]);cases++;if(JSON.stringify(run(en))!==without(base,p))diffs.push(en.join("+")+" sans "+p);}
+   if(base.length>=3){const a=base[0][0],b=base[2][0];setU([a,b]);pairs++;if(JSON.stringify(run(en))!==without(base,a,b))diffs.push(en.join("+")+" sans "+a+" et "+b);}
+   setU([]);if(JSON.stringify(run(en))!==JSON.stringify(base))diffs.push(en.join("+")+" : liste vide, classement différent");
+ }
+ t(!diffs.length&&cases>500,"Moteur : 150 drafts (0 à 5 adversaires, hypothèses pesées), "+cases+" retraits d'un champion et "+pairs+" de deux : même classement, mêmes scores et mêmes critères que sans le champion indisponible ("+diffs.slice(0,3).join(" ; ")+")");
+ res.notes.moteur=cases+" retraits simples, "+pairs+" doubles, "+diffs.length+" différence(s)";
+ // Le favori et les exclusions gardent leur effet ; un champion indisponible n'est jamais classé, même favori.
+ x.ev("ENGINE_PREFS.favorite='Fizz';1");setU(["Fizz"]);const fav=run([]);x.ev("ENGINE_PREFS.favorite=null;1");setU([]);
+ t(!fav.some(r=>r[0]==="Fizz")&&fav.length===WIDE.pool.length-1,"Moteur : un favori indisponible n'est pas classé, les autres le sont tous");
+ x.f.remove();show();}
+
+// ---------- 2. Vraie page, hôte simulé : liste du programme, versions, sélection, simulation ----------
+for(const lang of ["fr","en"]){
+  const L0=lang.toUpperCase()+" : ";prepare(MID);const x=await openHost(lang,"panel=right",256,608);
+  live(x,null,null);await settle();
+  live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});1");await settle();x.ev("addEnemy('Ahri');1");await settle();
+  const base=ranking(x);
+  t(base.length===4&&x.ev("UNAVAILABLE.length")===0,L0+"liste vide : tout le pool est classé ("+picks(x).join(", ")+")");
+  // Ban.
+  live(x,K(1),U(K(1),2,[[FIZZ,"ban"]]));await settle();
+  t(JSON.stringify(ranking(x))===without(base,"Fizz")&&x.ev("unavailableReason('Fizz')")==="ban",L0+"Fizz banni : retiré de la liste candidate ; classement, scores et critères des autres inchangés ("+picks(x).join(", ")+")");
+  // Pick allié.
+  live(x,K(1),U(K(1),3,[[FIZZ,"ban"],[XERATH,"ally"]]));await settle();
+  t(JSON.stringify(ranking(x))===without(base,"Fizz","Xerath")&&x.ev("unavailableReason('Xerath')")==="ally",L0+"Xerath pris par un allié : retiré, les autres inchangés ("+picks(x).join(", ")+")");
+  // Message en retard ou rejoué : une version plus ancienne ne remplace rien.
+  live(x,K(1),U(K(1),2,[[FIZZ,"ban"]]));live(x,K(1),U(K(1),1,[]));await settle();
+  t(JSON.stringify(picks(x))===JSON.stringify(base.map(r=>r[0]).filter(p=>p!=="Fizz"&&p!=="Xerath")),L0+"versions 2 puis 1 reçues après la 3 : ignorées, Xerath reste retiré");
+  // Pick adverse : il sort par la composition, comme avant. La raison seule ne retire rien (une correction à la main reste possible).
+  live(x,K(1),U(K(1),4,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"enemy"]]));await settle();
+  const vexListed=picks(x).includes("Vex")&&x.ev("unavailableReason('Vex')")==="enemy";
+  x.ev("addEnemy('Vex');1");await settle();
+  t(vexListed&&!picks(x).includes("Vex")&&picks(x).length===1,L0+"Vex pris en face : retiré par la composition (adversaire ajouté), comme avant ; la raison « en face » est transmise");
+  x.ev("removeEnemy('Vex');1");await settle();
+  // Conseil devenu indisponible : le suivant est conseillé, rien d'autre ne bouge.
+  const before=ranking(x),shown=x.ev("V.shown");
+  live(x,K(1),U(K(1),5,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"enemy"],[x.ev("Number(Object.keys(CHAMPION_IDS).find(k=>toName(CHAMPION_IDS[k])===label(V.shown)))"),"ban"]]));await settle();
+  t(!picks(x).includes(shown)&&x.ev("V.shown")!==shown&&x.ev("V.shown")===before.filter(r=>r[0]!==shown)[0][0]&&JSON.stringify(ranking(x))===without(before,shown),L0+"conseil ("+shown+") banni : le suivant ("+x.ev("V.shown")+") est conseillé, le reste inchangé");
+  // Tout le pool indisponible : aucun conseil inventé.
+  live(x,K(1),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]));await settle();
+  t(x.ev("V.none===true&&!V.shown&&!state.shown&&V.res.ranking.length===0"),L0+"tout le pool banni ou pris : aucun conseil, aucun champion hors du pool");
+  // Lecture désactivée : rien n'est retiré (pas de déduction).
+  live(x,K(1),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]),{lcuEnabled:false});await settle();
+  t(JSON.stringify(ranking(x))===JSON.stringify(base)&&x.ev("UNAVAILABLE.length")===0&&x.ev("unavailableReason('Fizz')")===null,L0+"lecture du client désactivée : rien n'est retiré, classement d'origine");
+  live(x,K(1),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]));await settle();
+  // Simulation : la draft simulée ne reçoit rien du client ; au retour, la sélection en cours retrouve sa liste.
+  x.ev("startSimulation();1");await settle();x.ev("addEnemy('Ahri');1");await settle();
+  const sim=x.ev("UNAVAILABLE.length===0&&V.res.ranking.length===4");
+  x.ev("leaveSimulation();1");await settle();
+  t(sim&&x.ev("V.none===true&&UNAVAILABLE.length===4"),L0+"Simulateur : rien n'est retiré ; retour à la draft en cours : la liste revient");
+  // Nouvelle sélection : la liste de la précédente ne vaut plus.
+  live(x,K(2),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]));await settle();x.ev("addEnemy('Ahri');1");await settle();
+  t(x.ev("UNAVAILABLE.length")===0&&JSON.stringify(ranking(x))===JSON.stringify(base),L0+"nouvelle sélection, liste de la précédente : ignorée");
+  live(x,K(2),U(K(2),1,[[TF,"ban"]]));await settle();
+  t(JSON.stringify(ranking(x))===without(base,"TF"),L0+"nouvelle sélection, sa propre liste : TF banni retiré");
+  x.f.remove();show();
+}
+
+// ---------- 3. Panneaux V2 : marquage dans « Choisir dans ton pool », « Je joue » impossible, conseil devenu indisponible, pool vide ----------
+// Zones utiles à 125 % (tools\run-panneaux-tests.ps1) : droit 252 x 711 (1920), compact 248 x 565 (1366) ; compact 248 x 463 (1366, 150 %).
+const q=(x,s)=>x.d.querySelector(s),qa=(x,s)=>[...x.d.querySelectorAll(s)];
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const visible=(x,e)=>{if(!e)return false;const r=e.getBoundingClientRect(),W=x.w.innerWidth,H=x.w.innerHeight;return r.width>0&&r.height>0&&r.top>=-0.5&&r.bottom<=H+0.5&&r.left>=-0.5&&r.right<=W+0.5;};
+const cta=x=>q(x,'[data-test="choose-pick"]');
+const offRows=x=>qa(x,'[data-test="panel-pool-off"]').map(e=>[e.dataset.pick,e.dataset.reason,text(e.querySelector(".rank-word"))]);
+for(const lang of ["fr","en"])for(const [P,W,H] of [["right",252,711],["compact",248,565],["compact",248,463]]){
+  const L0=lang.toUpperCase()+" "+P+" "+W+"x"+H+" : ";prepare(MID);const x=await openHost(lang,"panel="+P,W,H);const T=(k,v)=>x.w.I18N.t(k,v);
+  live(x,null,null);await settle();
+  live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});1");await settle();x.ev("addEnemy('Ahri');1");await settle();
+  t(!offRows(x).length&&!q(x,'[data-test="panel-gone"]'),L0+"liste vide : aucun champion marqué, aucune phrase");
+  // Banni et pris par un allié : marqués en fin de liste, inactifs, jamais consultés ni confirmés.
+  live(x,K(1),U(K(1),2,[[FIZZ,"ban"],[XERATH,"ally"]]));await settle();
+  const rows=qa(x,'[data-test="panel-pool-off"]');
+  t(JSON.stringify(offRows(x))===JSON.stringify([["Fizz","ban",T("panel.pool.off.ban")],["Xerath","ally",T("panel.pool.off.ally")]])&&rows.every(e=>e.tagName!=="BUTTON"&&!e.querySelector("button")&&e.getAttribute("aria-disabled")==="true")
+    &&!qa(x,'[data-test="panel-pool-pick"]').some(e=>["Fizz","Xerath"].includes(e.dataset.pick)),L0+"« "+T("panel.pool.off.ban")+" » et « "+T("panel.pool.off.ally")+" » marqués dans le pool, inactifs ("+JSON.stringify(offRows(x))+")");
+  x.ev("consult('Fizz');choosePick('Xerath');1");await settle();
+  t(x.ev("state.viewed===null&&state.picked===null")&&!/Fizz|Xerath/.test(text(cta(x))),L0+"Fizz ne se consulte pas, Xerath ne se confirme pas : « Je joue » ne les propose jamais ("+text(cta(x))+")");
+  x.ev("addEnemy('Vex');1");await settle();
+  t(offRows(x).some(r=>r[0]==="Vex"&&r[1]==="enemy"&&r[2]===T("panel.pool.off.enemy")),L0+"Vex pris en face : « "+T("panel.pool.off.enemy")+" »");
+  x.ev("removeEnemy('Vex');1");await settle();
+  // Choix confirmé, puis banni : le bouton revient au conseil, la phrase le dit, visible sans défiler.
+  x.ev("choosePick('Vex');1");await settle();
+  const noted=text(cta(x))===T("advice.cta.noted",{champion:"Vex"});
+  live(x,K(1),U(K(1),3,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"]]));await settle();
+  const gone=q(x,'[data-test="panel-gone"]');
+  x.ev("choosePick('Vex');1");await settle();
+  t(noted&&text(gone)===T("panel.gone.ban",{champion:"Vex",next:"Twisted Fate"})&&text(cta(x))===T("advice.cta.play",{champion:"Twisted Fate"})&&!q(x,'[data-test="pick-advice"]'),L0+"Vex confirmé puis banni : « "+text(gone)+" », bouton « "+text(cta(x))+" »");
+  t(visible(x,gone)&&visible(x,cta(x)),L0+"phrase et « Je joue » visibles sans défiler");
+  res.notes[lang+"_"+P+"_"+H]=text(gone);
+  // Conseil pris par un allié : même phrase, raison « allié ».
+  live(x,K(1),U(K(1),4,[[FIZZ,"ban"],[VEX,"ban"]]));await settle();
+  const before=x.ev("V.shown");
+  live(x,K(1),U(K(1),5,[[FIZZ,"ban"],[VEX,"ban"],[x.ev("Number(Object.keys(CHAMPION_IDS).find(k=>toName(CHAMPION_IDS[k])===label(V.shown)))"),"ally"]]));await settle();
+  t(text(q(x,'[data-test="panel-gone"]'))===T("panel.gone.ally",{champion:x.ev("label("+JSON.stringify(before)+")"),next:x.ev("label(V.shown)")})&&x.ev("V.shown")!==before,L0+"conseil ("+before+") pris par un allié : « "+text(q(x,'[data-test="panel-gone"]'))+" »");
+  // Tout le pool indisponible : message clair, aucun conseil ni bouton.
+  live(x,K(1),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]));await settle();
+  t(text(q(x,'[data-test="no-pick"]'))===T("panel.empty.allUnavailable")&&!cta(x)&&!q(x,'[data-test="panel-reco"]')&&visible(x,q(x,'[data-test="no-pick"]')),L0+"tout le pool indisponible : « "+text(q(x,'[data-test="no-pick"]'))+" », sans conseil");
+  // Sans lecture du client : rien n'est marqué, rien n'est dit.
+  live(x,K(1),U(K(1),6,[[FIZZ,"ban"],[XERATH,"ally"],[VEX,"ban"],[TF,"ally"]]),{lcuEnabled:false});await settle();
+  t(!offRows(x).length&&!q(x,'[data-test="panel-gone"]')&&!q(x,'[data-test="no-pick"]')&&!!cta(x),L0+"lecture désactivée : aucun marquage, conseil normal");
+  x.f.remove();show();
+}
+// ---------- 4. Bans conseillés : jamais un champion déjà banni, pris par un allié ou en face ; le suivant prend la place ----------
+for(const lang of ["fr","en"]){
+  const L0=lang.toUpperCase()+" bans : ";prepare(MID);const x=await openHost(lang,"panel=right",252,711);const T=(k,v)=>x.w.I18N.t(k,v);
+  const idOf=n=>Number(x.ev("Object.keys(CHAMPION_IDS).find(k=>toName(CHAMPION_IDS[k])==="+JSON.stringify(n)+")"));
+  const bans=()=>x.ev("V.bans.slice()");
+  live(x,null,null);await settle();
+  live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});1");await settle();
+  const base=bans();
+  // Liste complète de la source, dans son ordre (moteur seul) ; NOT_BANNABLE est rempli de nouveau par le calcul suivant.
+  const full=x.ev("(()=>{const out=[];for(let i=0;i<60;i++){NOT_BANNABLE.length=0;out.forEach(n=>NOT_BANNABLE.push(n));const b=suggestBans();if(!b.length)break;b.forEach(n=>{if(!out.includes(n))out.push(n);});}NOT_BANNABLE.length=0;return out;})()");
+  t(base.length===3&&JSON.stringify(full.slice(0,3))===JSON.stringify(base)&&full.length>4&&q(x,'[data-test="panel-keyban"]'),L0+"liste vide : trois bans, ceux d'avant ("+base.join(", ")+") ; source complète de "+full.length+" candidats");
+  live(x,K(1),U(K(1),2,[[idOf(base[0]),"ban"]]));await settle();
+  const b1=bans();
+  t(JSON.stringify(b1)===JSON.stringify(full.filter(n=>n!==base[0]).slice(0,3))&&!text(q(x,'[data-test="panel-keyban"]')).includes(base[0]),L0+base[0]+" déjà banni : retiré, le suivant prend la place ("+b1.join(", ")+")");
+  live(x,K(1),U(K(1),3,[[idOf(base[0]),"ban"],[idOf(b1[0]),"ally"]]));await settle();
+  const b2=bans();
+  t(JSON.stringify(b2)===JSON.stringify(full.filter(n=>n!==base[0]&&n!==b1[0]).slice(0,3)),L0+b1[0]+" pris par un allié : retiré ("+b2.join(", ")+")");
+  live(x,K(1),U(K(1),4,[[idOf(base[0]),"ban"],[idOf(b1[0]),"ally"],[idOf(b2[0]),"enemy"]]));await settle();
+  const b3=bans();
+  t(JSON.stringify(b3)===JSON.stringify(full.filter(n=>![base[0],b1[0],b2[0]].includes(n)).slice(0,3))&&picks(x).length===4,L0+b2[0]+" pris en face (liste du client) : retiré des bans ; les picks ne changent pas ("+b3.join(", ")+")");
+  // Plus aucun candidat : aucun ban inventé, la section le dit, l'encadré du ban disparaît.
+  live(x,K(1),U(K(1),5,full.map(n=>[idOf(n),"ban"])));await settle();
+  q(x,'[data-test="panel-sec-bans"] summary').click();await settle();
+  t(bans().length===0&&x.ev("V.bansTaken===true")&&!q(x,'[data-test="panel-keyban"]')&&text(q(x,'[data-test="panel-bans-none"]'))===T("panel.bans.allTaken"),L0+"plus aucun candidat : aucun ban, « "+text(q(x,'[data-test="panel-bans-none"]'))+" »");
+  // Sans lecture du client : bans d'origine.
+  live(x,K(1),U(K(1),5,full.map(n=>[idOf(n),"ban"])),{lcuEnabled:false});await settle();
+  t(JSON.stringify(bans())===JSON.stringify(base)&&x.ev("V.bansTaken===false&&NOT_BANNABLE.length===0"),L0+"lecture désactivée : bans d'origine ("+bans().join(", ")+")");
+  x.f.remove();show();
+}
+// Fenêtre (Simulateur affiché pendant la draft) : la même phrase au-dessus du conseil.
+{prepare(MID);const x=await openHost("fr","panel=full",1200,800);const T=(k,v)=>x.w.I18N.t(k,v);
+ live(x,null,null);await settle();live(x,K(1),U(K(1),1,[]));x.ev("dispatchDraft({type:'session-start'});goView('sim');1");await settle();x.ev("addEnemy('Ahri');1");await settle();
+ const before=x.ev("V.shown");
+ live(x,K(1),U(K(1),2,[[x.ev("Number(Object.keys(CHAMPION_IDS).find(k=>toName(CHAMPION_IDS[k])===label(V.shown)))"),"ban"]]));await settle();
+ t(text(q(x,'[data-test="advice-gone"]'))===T("panel.gone.ban",{champion:x.ev("label("+JSON.stringify(before)+")"),next:x.ev("label(V.shown)")}),"FR fenêtre : conseil banni : « "+text(q(x,'[data-test="advice-gone"]'))+" »");
+ x.f.remove();}
+show();
+})().catch(e=>{res.ko.push("Test interrompu : "+e.message);show();});
+</script></body></html>

@@ -25,7 +25,7 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyVersion("3.0.0.0")]
 [assembly: AssemblyFileVersion("3.0.0.0")]
 // Seule donnée qui fixe l'édition (classe Edition) : un « - » signifie préversion. Doit être égale à APP_VERSION (web/index.html).
-[assembly: AssemblyInformationalVersion("3.0.0-beta.1")]
+[assembly: AssemblyInformationalVersion("3.0.0-beta.2")]
 
 namespace DraftMid
 {
@@ -94,6 +94,11 @@ namespace DraftMid
     public static class Layout
     {
         const int MinW = 230, IdealW = 340, MinH = 520, Gap = 0;
+        // Panneaux primaires, V2 (docs/technique/PANNEAUX-PROPOSITION.md) : le panneau étroit fait 256 px (au lieu de 230) et prend la
+        // hauteur utile de l'écran (900 px au plus) ; les panneaux posés à côté du client font 1,25 fois sa hauteur. La largeur des
+        // panneaux à côté du client ne change pas : ils ne couvrent jamais le client.
+        public const int NarrowW = 256, NarrowMaxH = 900;
+        public const double BesideHeight = 1.25;
 
         // QA-4 : une position enregistrée par l'utilisateur n'est reprise que si le panneau reste utilisable sur un écran présent :
         // au moins la moitié de sa largeur et toute sa barre de titre (40 px à l'échelle de l'écran) visibles. Sinon (écran débranché,
@@ -163,11 +168,13 @@ namespace DraftMid
         }
 
         // Aucune place libre : un seul panneau étroit, au bord de l'écran, couvre le moins possible du client.
+        // V2 : 256 px de large et la hauteur utile de l'écran (900 px au plus), centré sur le client dans l'écran.
         public static Placement Narrowest(Native.RECT client, IList<Monitor> monitors)
         {
             Monitor home = monitors.OrderByDescending(m => OverlapArea(m.Work, client)).First();
-            int y, h, w = Math.Min((int)(MinW * home.Scale), home.Work.W);
-            Vertical(client, home, out y, out h);
+            int w = Math.Min((int)(NarrowW * home.Scale), home.Work.W);
+            int h = Math.Min((int)(NarrowMaxH * home.Scale), home.Work.H);
+            int y = Math.Max(home.Work.Top, Math.Min(client.Top - (h - client.H) / 2, home.Work.Bottom - h));
             return new Placement
             {
                 Mode = "compact",
@@ -176,9 +183,10 @@ namespace DraftMid
             };
         }
 
-        static void Vertical(Native.RECT client, Monitor m, out int y, out int h)
+        // Panneaux à côté du client : V2, 1,25 fois sa hauteur (520 px au moins), dans l'écran. Public pour les essais (e2e).
+        public static void Vertical(Native.RECT client, Monitor m, out int y, out int h)
         {
-            h = Math.Min(Math.Max(client.H, (int)(MinH * m.Scale)), m.Work.H);
+            h = Math.Min(Math.Max((int)Math.Round(client.H * BesideHeight), (int)(MinH * m.Scale)), m.Work.H);
             // Centré sur le client, pour rester aligné même quand le panneau est plus haut que lui.
             y = Math.Max(m.Work.Top, Math.Min(client.Top - (h - client.H) / 2, m.Work.Bottom - h));
         }
@@ -506,8 +514,16 @@ public static class Autostart
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); if (Id == "full") app.OnMainWindowClosed(); return; }
+            if (!app.Quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; app.PanelClosedByUser(this); Hide(); if (Id == "full") app.OnMainWindowClosed(); return; }
             base.OnFormClosing(e);
+        }
+
+        // Ajustements V2 : apparition ou masquage d'un panneau (placement, Alt+F4 sur lui seul, masquage de tous). Le programme
+        // renvoie aux pages la visibilité réelle de chaque panneau (HostState, panelVisible).
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Id != "full") app.PanelVisibilityChanged();
         }
 
         public void DisposeForRelease() { app.Quitting = true; try { Close(); } finally { app.Quitting = false; } Dispose(); }
@@ -613,7 +629,7 @@ public static class Autostart
             if (hotkeyLeft == null && hotkey == null)
             {
                 hotkey = new HotkeyWindow();
-                hotkey.Pressed += ToggleManual;
+                hotkey.Pressed += ShowOrHidePanels;
             }
             else if (hotkeyLeft != null && hotkey != null) { hotkey.Dispose(); hotkey = null; }
         }
@@ -692,7 +708,7 @@ public static class Autostart
             miPhase = new ToolStripMenuItem("") { Enabled = false };
             miOpen = new ToolStripMenuItem(MenuText.Open, null, (s, e) => OpenFull("home"));
             miOpen.Font = new Font(miOpen.Font, FontStyle.Bold);
-            miShow = new ToolStripMenuItem(Strings.T("native.menu.showPanelsHotkey"), null, (s, e) => ToggleManual());
+            miShow = new ToolStripMenuItem(Strings.T("native.menu.showPanelsHotkey"), null, (s, e) => ShowOrHidePanels());
             miSimulate = new ToolStripMenuItem(MenuText.Simulate, null, (s, e) => OpenFull("simulate"));
             miDetection = new ToolStripMenuItem(MenuText.Detection);
             miTeachDraft = new ToolStripMenuItem(MenuText.TeachDraft, null, (s, e) => Teach(true));
@@ -888,13 +904,28 @@ public static class Autostart
             try
             {
                 LcuSnapshot s = await lcu.PollAsync();
-                if (!s.Available) { roleCandidate = null; roleReads = 0; UpdateAssignedRole(null); return false; }
+                if (!s.Available)
+                {
+                    roleCandidate = null; roleReads = 0; UpdateAssignedRole(null);
+                    // Lecture perdue en pleine sélection : « Je joue » revient (journal automatique impossible).
+                    if (machine.Current == Phase.Draft && league.Lose()) BroadcastHost();
+                    return false;
+                }
                 // Pendant une sélection, le poste lu est noté aussi (rôle de DRAFT, « aucun » ou « illisible ») : aucune autre donnée de joueur.
+                // Beta.2 : état de ton pick (aucun, survolé, verrouillé, final), sans nom ; « mode=autre » hors draft classique.
+                // Disponibilité (beta.2) : nombre de bans et de picks alliés lus, s'il y en a ; jamais un champion ni un joueur.
                 lcuInfo = s.PhaseName + "/" + (s.EnemyChampionIds == null ? "illisible" : s.EnemyChampionIds.Count.ToString())
-                    + (s.Phase == Phase.Draft ? " poste=" + (s.EnemyChampionIds == null ? "illisible" : s.AssignedRole ?? "aucun") : "");
+                    + (s.Phase == Phase.Draft ? " poste=" + (s.EnemyChampionIds == null ? "illisible" : s.AssignedRole ?? "aucun") : "")
+                    + (s.Phase == Phase.Draft && s.Pick != null && s.Pick.Readable ? " pick=" + LeaguePickTracker.Word(s.Pick.State) + (s.Pick.Supported ? "" : " mode=autre") : "")
+                    + (s.Phase == Phase.Draft && s.Unavailable != null && s.Unavailable.Any(u => u.Reason != UnavailableChampion.Enemy) ? " bans=" + s.Unavailable.Count(u => u.Reason == UnavailableChampion.Ban) + " allies=" + s.Unavailable.Count(u => u.Reason == UnavailableChampion.Ally) : "");
                 Phase before = machine.Current;
                 machine.Force(s.Phase == Phase.Uncertain && before == Phase.Draft ? Phase.Draft : s.Phase);
-                AfterPhase(before, machine.Current);
+                // Phase donnée par le client : un retour au lobby ou à la file tranche tout de suite (draft annulée).
+                AfterPhase(before, machine.Current, true, SampleMs / 1000.0);
+                UpdateEndGame(s.PhaseName);
+                // « Dans League » : ton pick lu dans la session, transmis à chaque page (état versionné).
+                // Disponibilité (beta.2) : champions bannis, pris par un allié ou en face, lus dans la même session (liste versionnée).
+                if (machine.Current == Phase.Draft && s.EnemyChampionIds != null && (league.Read(s.Pick) | availability.Read(s.Unavailable))) BroadcastHost();
                 ApplyVisibility();
                 PostEnemies(s);
                 // Session illisible : on garde la dernière valeur connue. Hors draft : plus de rôle attribué.
@@ -941,16 +972,58 @@ public static class Autostart
         {
             Phase before = machine.Current;
             Phase now = machine.Step(open, game, ev, seconds);
-            AfterPhase(before, now);
+            AfterPhase(before, now, false, seconds);
             ApplyVisibility();
         }
 
-        void AfterPhase(Phase before, Phase now)
+        // Issue de la sélection pour le journal : en mémoire seulement (docs/technique/JOURNAL.md).
+        DraftOutcomeTracker outcome = new DraftOutcomeTracker();
+        public DraftOutcomeTracker Outcome { get { return outcome; } }
+        // « Dans League » (beta.2) : ton pick pendant la sélection suivie, en mémoire seulement.
+        LeaguePickTracker league = new LeaguePickTracker();
+        public LeaguePickTracker League { get { return league; } }
+        // Champions indisponibles (beta.2) de la sélection suivie, en mémoire seulement : identifiants de champions et raison.
+        AvailabilityTracker availability = new AvailabilityTracker();
+        public AvailabilityTracker Availability { get { return availability; } }
+        // Essai : DRAFT redémarré, la mémoire de l'issue et du pick est perdue.
+        public void TestForgetOutcome() { outcome = new DraftOutcomeTracker(); league = new LeaguePickTracker(); availability = new AvailabilityTracker(); BroadcastHost(); }
+        // Essai : un message du programme livré de nouveau (double, en retard).
+        public void TestSendAll(string json) { SendAll(json); }
+        // Captures de l'e2e (--capture) : dossier choisi par l'essai, null sinon.
+        public string CaptureDir { get { return opts.CaptureDir; } }
+        // Essai : panneau droit (deux panneaux) ou compact affiché, comme avec le raccourci manuel, le temps d'une mesure ou d'une capture.
+        public async Task<PanelForm> TestShowPanel(bool compact)
         {
+            if (settings.Compact != compact) SetCompact(compact);
+            visibility.Manual = true;
+            ApplyVisibility();
+            string id = compact ? "compact" : "right";
+            for (int i = 0; i < 200; i++)
+            {
+                PanelForm p = PanelFor(id);
+                if (panelsShown && p != null && !p.IsDisposed && p.Visible && p.Ready.IsCompleted && p.View.CoreWebView2 != null) return p;
+                await Task.Delay(50);
+            }
+            return null;
+        }
+        public void TestEndShowPanel(bool compact) { if (settings.Compact != compact) SetCompact(compact); visibility.Manual = null; ApplyVisibility(); }
+        public bool CompactSetting { get { return settings.Compact; } }
+        public string TestPanelInfo(string id) { PanelForm p = PanelFor(id); return id + " : affichés " + panelsShown + ", existe " + (p != null && !p.IsDisposed) + ", visible " + (p != null && !p.IsDisposed && p.Visible) + ", phase " + machine.Current + ", client visible " + ClientVisible + ", manuel " + visibility.Manual; }
+
+        // certain : phase lue dans le client (sinon image ou fermeture du client) ; seconds : durée de l'observation.
+        void AfterPhase(Phase before, Phase now, bool certain, double seconds)
+        {
+            // Sortie de draft : draftEnd { outcome: "pending" }, puis draftOutcome { outcome: "game" | "abandoned" }, une seule fois.
+            // Le même draftEnd partait avant pour une partie lancée et pour une draft annulée.
+            List<string> outcomeMessages = outcome.Update(now, certain, seconds);
+            // Nouvelle sélection : « Dans League » et les champions indisponibles repartent de zéro, sous la même clé.
+            bool leagueReset = outcome.State == DraftOutcomeTracker.InDraft && (league.Begin(outcome.Key) | availability.Begin(outcome.Key));
+            if (now == Phase.Draft && before != Phase.Draft) { NotifyDraftStart(); WarnOtherPanels(); }
+            else if (now != before && before == Phase.Draft) validationPending = true;
+            foreach (string m in outcomeMessages) SendAll(m);
+            if (now == before && (outcomeMessages.Count > 0 || leagueReset)) BroadcastHost();
             if (now != before)
             {
-                if (now == Phase.Draft && before != Phase.Draft) { NotifyDraftStart(); WarnOtherPanels(); }
-                else if (before == Phase.Draft) { validationPending = true; SendAll("{\"kind\":\"draftEnd\"}"); }
                 if (env == null && now != Phase.ClientClosed) Prewarm();
                 // Le mot de passe change à chaque lancement du client : il est oublié dès sa fermeture.
                 if (now == Phase.ClientClosed && lcu != null) lcu.Forget();
@@ -959,7 +1032,10 @@ public static class Autostart
             }
         }
 
-        void NotifyDraftStart() { pendingStart = true; if (panelsShown) { pendingStart = false; PostStart(); } }
+        // Début de sélection : envoyé tout de suite à TOUTES les pages créées (fenêtre comprise), puis de nouveau quand les panneaux
+        // s'affichent (pages créées entre-temps). Les pages ne remettent la draft à zéro qu'une fois par clé de sélection ; une page
+        // qui ne reçoit pas le message (créée plus tard, message perdu) voit la nouvelle clé dans l'état du programme (draftKey).
+        void NotifyDraftStart() { pendingStart = true; PostStart(); if (panelsShown) pendingStart = false; }
         bool pendingStart;
 
         void OnClientChanged()
@@ -971,7 +1047,8 @@ public static class Autostart
 
         void ApplyVisibility()
         {
-            bool show = visibility.ShouldShow(machine.Current, ClientVisible, settings.AutoDraft);
+            // Écran de fin de partie : le panneau habituel s'affiche aussi hors draft, client visible, affichage automatique activé.
+            bool show = visibility.ShouldShow(machine.Current, ClientVisible, settings.AutoDraft) || (endGameKey != null && settings.AutoDraft && ClientVisible);
             if (show == panelsShown) return;
             if (show) ShowPanels(); else HidePanels();
         }
@@ -1017,10 +1094,11 @@ public static class Autostart
             if (pendingStart) { pendingStart = false; PostStart(); }
         }
 
+        // Avant (beta.1) : au premier panneau prêt seulement, et perdu si aucun ne l'était. Les autres pages gardaient la draft
+        // précédente : « Je joue » y réécrivait l'entrée de la draft d'avant.
         void PostStart()
         {
-            foreach (PanelForm f in panels.Values)
-                if (f.Id != "full" && f.View.CoreWebView2 != null) { f.View.CoreWebView2.PostWebMessageAsJson("{\"kind\":\"draftStart\"}"); break; }
+            SendAll("{\"kind\":\"draftStart\",\"draft\":\"" + (outcome.Key ?? "") + "\"}");
         }
 
         // ---------- Mise à jour des rôles, en arrière-plan ----------
@@ -1490,7 +1568,8 @@ public static class Autostart
             // Pendant un déplacement, les panneaux sont déjà prêts : aucun passage asynchrone qui retarderait le suivi.
             if (!PanelsReady(p.Mode)) await EnsurePanels(p.Mode);
             if (!panelsShown) return;
-            shownMode = p.Mode;
+            // Disposition connue : l'entrée du menu de l'icône dit « Afficher les panneaux » si un panneau fermé par le joueur en fait partie.
+            if (p.Mode != shownMode) { shownMode = p.Mode; UpdateShowMenu(); }
             if (p.Mode == "two")
             {
                 PanelForm l = panels["left"], r = panels["right"];
@@ -1505,6 +1584,8 @@ public static class Autostart
                 RememberPlacement(new[] { "compact" }, new[] { p.Single });
             }
             MoveCount++;
+            // Fin de placement : un panneau revenu sur l'écran (ou sorti) sans changer de visibilité Windows.
+            PanelVisibilityChanged();
         }
 
         // Retour sur le client depuis une autre application : sans cela, les panneaux restent derrière elle.
@@ -1522,7 +1603,7 @@ public static class Autostart
         {
             IntPtr after = settings.Topmost ? new IntPtr(-1) : new IntPtr(-2);
             uint flags = Native.SWP_NOACTIVATE | (settings.Topmost ? 0 : Native.SWP_NOZORDER) | (keepSize ? Native.SWP_NOSIZE : 0);
-            for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible) { forms[i].Show(); }
+            for (int i = 0; i < forms.Length; i++) if (!forms[i].Visible && !KeepClosed(forms[i])) { forms[i].Show(); }
             IntPtr dwp = NativeHook.BeginDeferWindowPos(forms.Length);
             for (int i = 0; i < forms.Length; i++) dwp = NativeHook.DeferWindowPos(dwp, forms[i].Handle, after, rects[i].Left, rects[i].Top, rects[i].W, rects[i].H, flags);
             NativeHook.EndDeferWindowPos(dwp);
@@ -1538,13 +1619,14 @@ public static class Autostart
         {
             await EnsurePanels(mode);
             if (!panelsShown) return;
-            shownMode = mode;
+            if (mode != shownMode) { shownMode = mode; UpdateShowMenu(); }
             List<Monitor> mons = ClientWindow.Monitors();
             Monitor main = mons.FirstOrDefault(m => m.Primary) ?? mons[0];
             int w = (int)(340 * main.Scale), h = Math.Min(main.Work.H, (int)(860 * main.Scale));
             foreach (string id in mode == "two" ? new[] { "left", "right" } : new[] { "compact" })
             {
                 PanelForm f = panels[id];
+                if (KeepClosed(f)) continue;
                 Native.RECT r = id == "left" ? new Native.RECT(main.Work.Left, main.Work.Top, main.Work.Left + w, main.Work.Top + h)
                     : new Native.RECT(main.Work.Right - w, main.Work.Top, main.Work.Right, main.Work.Top + h);
                 SavedRect sv;
@@ -1558,6 +1640,7 @@ public static class Autostart
                 f.PlaceNoActivate(r, settings.Topmost);
             }
             if (mode == "two") HideOne("compact"); else { HideOne("left"); HideOne("right"); }
+            PanelVisibilityChanged();
         }
 
         public void PanelMovedByUser(PanelForm f)
@@ -1580,10 +1663,41 @@ public static class Autostart
             // Afficher les panneaux apprend cet écran. Les masquer n'apprend rien : on peut vouloir les cacher en pleine draft.
             // Pour une fausse détection, le menu propose « Ce n'est pas une draft ».
             if (target && frameValid && machine.Current != Phase.InGame && machine.Current != Phase.Draft && detector.Teach(frame, true)) Persist();
+            // Affichage demandé par le joueur : il rouvre aussi un panneau qu'il avait fermé (closedByUser).
+            if (target) closedByUser.Clear();
             visibility.Manual = target;
             ApplyVisibility();
             RefreshUi();
         }
+
+        // Menu de l'icône et raccourci. Panneau gauche ou droit fermé par le joueur (panneaux affichés) : l'entrée dit « Afficher les
+        // panneaux » et le rouvre, sans rien masquer. Sinon, bascule comme avant.
+        public void ShowOrHidePanels()
+        {
+            if (ReopenPending) ReopenClosedPanels(); else ToggleManual();
+        }
+
+        // Un panneau de la disposition affichée est fermé par le joueur : gauche ou droit (deux panneaux), compact (panneau unique).
+        bool ReopenPending { get { return panelsShown && (shownMode == "two" ? closedByUser.Contains("left") || closedByUser.Contains("right") : shownMode == "compact" && closedByUser.Contains("compact")); } }
+
+        // Réouverture explicite : menu de l'icône, raccourci, ou lien « Rouvrir le panneau gauche » du panneau droit. Efface l'état
+        // « fermé par le joueur » et replace les panneaux.
+        public void ReopenClosedPanels()
+        {
+            closedByUser.Clear();
+            if (panelsShown) UpdatePlacement(true);
+            RefreshUi();
+        }
+
+        void UpdateShowMenu()
+        {
+            bool withHotkey = hotkey != null && hotkey.Registered, show = !panelsShown || ReopenPending;
+            miShow.Text = Strings.T(show ? (withHotkey ? "native.menu.showPanelsHotkey" : "native.menu.showPanels") : (withHotkey ? "native.menu.hidePanelsHotkey" : "native.menu.hidePanels"));
+        }
+
+        // Essais (e2e) : entrée « Afficher / Masquer les panneaux » du menu de l'icône, telle que le joueur la voit et la clique.
+        public string ShowMenuText { get { return miShow.Text; } }
+        public void TestClickShowMenu() { miShow.PerformClick(); }
 
         void Teach(bool isDraft)
         {
@@ -1619,8 +1733,7 @@ public static class Autostart
             miUpdate.Enabled = updateCts == null;
             miUpdate.Text = updateCts != null ? Strings.T("native.menu.updating") : MenuText.CheckUpdate;
 
-            bool withHotkey = hotkey != null && hotkey.Registered;
-            miShow.Text = Strings.T(panelsShown ? (withHotkey ? "native.menu.hidePanelsHotkey" : "native.menu.hidePanels") : (withHotkey ? "native.menu.showPanelsHotkey" : "native.menu.showPanels"));
+            UpdateShowMenu();
 
             string tip = Strings.T("native.tray.tip", "phase", phase);
             tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
@@ -1647,10 +1760,121 @@ public static class Autostart
             return new Dictionary<string, object> {
                 { "kind", "host" }, { "autostart", Autostart.IsOn() }, { "follow", settings.Follow }, { "autoDraft", settings.AutoDraft },
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
-                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning } };
+                { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning }, { "panelVisible", PanelVisibility() },
+                // Sélection suivie et son issue (draft, pending, game, abandoned) : une page ouverte après la décision la retrouve.
+                { "draftKey", outcome.Key }, { "draftOutcome", outcome.State }, { "endGame", endGameKey ?? "" },
+                // « Dans League » (beta.2) : ton pick, versionné (v). Identifiants de champions seulement, jamais de nom de joueur.
+                { "league", league.ToState() },
+                // Disponibilité (beta.2) : champions bannis, pris par un allié ou en face, versionnés (v). Identifiant et raison seulement.
+                { "unavailable", availability.ToState() } };
         }
 
-        void BroadcastHost() { SendAll(HostJson()); }
+        void BroadcastHost() { sentPanelVisibility = PanelVisibilityKey(); SendAll(HostJson()); }
+
+        // ---------- Visibilité de chaque panneau (ajustements V2, docs/technique/PANNEAUX-PROPOSITION.md, section 8) ----------
+        // panelsShown dit seulement si les panneaux sont demandés. panelVisible dit, pour chacun (left, right, compact), s'il est
+        // vraiment à l'écran : affiché, non réduit, au moins à moitié sur un écran. Le panneau gauche peut être fermé seul (Alt+F4 :
+        // OnFormClosing le masque, closedByUser ci-dessous), sorti de l'écran à la main, ou absent (disposition compacte). Le panneau
+        // droit montre alors l'accès « Composition adverse X/5 ». Envoyé à chaque changement : apparition ou masquage (OnVisibleChanged),
+        // fin de placement (Place, Place2), déplacement à la main (PanelMovedByUser, par RefreshUi). Un panneau caché DERRIÈRE une
+        // autre fenêtre reste « visible » : rien ne le mesure.
+        static readonly string[] SidePanels = { "left", "right", "compact" };
+        string sentPanelVisibility = "";
+
+        // Panneau gauche, droit ou compact fermé par le joueur (Alt+F4). Décision de l'utilisateur : il reste fermé pendant toute la session
+        // de DRAFT (jusqu'à sa fermeture), sans réapparaître au suivi du client (OnClientChanged toutes les 2 s, puis Place), à la draft
+        // suivante, au prochain affichage automatique des panneaux ni à un changement de disposition automatique (compact, place
+        // insuffisante). Seule une demande explicite le rouvre : « Afficher les panneaux » (menu de l'icône, raccourci : ToggleManual,
+        // ShowOrHidePanels), « Essayer les panneaux » (TryPanels), lien « Rouvrir le panneau gauche » du panneau droit (reopenPanels).
+        // En mémoire seulement : rien n'est enregistré. Compact aussi (décision de l'utilisateur) : fermé à la main, il ne revient ni au bout
+        // de 2 s, ni à la draft suivante ; rouvert par « Afficher les panneaux » (menu de l'icône, Ctrl+Alt+D). Non fermé : inchangé.
+        // Chaque panneau a son état : compact fermé puis place retrouvée, les panneaux gauche et droit s'affichent (ils n'ont pas été fermés).
+        readonly HashSet<string> closedByUser = new HashSet<string>();
+        public void PanelClosedByUser(PanelForm f) { if (f.Id == "left" || f.Id == "right" || f.Id == "compact") { closedByUser.Add(f.Id); UpdateShowMenu(); } }
+        // Écran de fin de partie (hors draft) : seul le panneau droit ou le compact ; le gauche reste masqué.
+        bool KeepClosed(PanelForm f) { return closedByUser.Contains(f.Id) || (f.Id == "left" && endGameKey != null && machine.Current != Phase.Draft); }
+
+        // ---------- Écran de fin de partie (beta.2, retour de l'utilisateur) ----------
+        // Une page qui note une partie lancée (entrée de la sélection, gameStarted) le dit par la commande gameNoted : seulement la clé
+        // de la sélection, acceptée si c'est celle de l'issue suivie et que la partie a été observée (outcome « game »). Aucun texte.
+        // Quand le client passe en EndOfGame (lecture du client), le programme affiche le panneau habituel (droit ou compact) et
+        // transmet endGame = clé : la page montre le champion joué, Victoire, Défaite, Ignorer. Une seule apparition par partie.
+        // Retiré après la saisie (endGameDone), au retour au lobby ou à toute autre phase. Un panneau fermé par le joueur reste fermé
+        // (KeepClosed) : l'Accueil sert alors de rattrapage. Rien en simulation ni pour une draft annulée : l'issue n'y est jamais « game ».
+        // En mémoire seulement.
+        string gameNotedKey, endGameKey, endGameShownKey;
+        public int EndGameShownCount;
+        public string EndGameKey { get { return endGameKey; } }
+
+        void GameNoted(string key)
+        {
+            if (key != null && key == outcome.Key && outcome.State == DraftOutcomeTracker.Game) gameNotedKey = key;
+        }
+
+        void UpdateEndGame(string lcuPhase)
+        {
+            if (lcuPhase == "EndOfGame")
+            {
+                if (endGameKey != null || gameNotedKey == null || gameNotedKey != outcome.Key || outcome.State != DraftOutcomeTracker.Game || endGameShownKey == gameNotedKey) return;
+                endGameKey = endGameShownKey = gameNotedKey;
+                EndGameShownCount++;
+            }
+            else if (endGameKey != null) endGameKey = null;
+            else return;
+            BroadcastHost();
+            ApplyVisibility();
+        }
+
+        void EndGameDone(string key)
+        {
+            if (key == null || key != endGameKey) return;
+            endGameKey = null;
+            BroadcastHost();
+            ApplyVisibility();
+        }
+
+        bool PanelOnScreen(string id, List<Monitor> mons)
+        {
+            PanelForm f;
+            if (!panels.TryGetValue(id, out f) || f.IsDisposed || !f.Visible || f.WindowState == FormWindowState.Minimized) return false;
+            Rectangle b = f.Bounds;
+            long area = (long)b.Width * b.Height, seen = 0;
+            if (area <= 0) return false;
+            foreach (Monitor m in mons)
+            {
+                Rectangle part = Rectangle.Intersect(b, new Rectangle(m.Work.Left, m.Work.Top, m.Work.W, m.Work.H));
+                if (!part.IsEmpty) seen += (long)part.Width * part.Height;
+            }
+            return seen * 2 >= area;
+        }
+
+        Dictionary<string, object> PanelVisibility()
+        {
+            List<Monitor> mons = ClientWindow.Monitors();
+            Dictionary<string, object> d = new Dictionary<string, object>();
+            foreach (string id in SidePanels) d[id] = PanelOnScreen(id, mons);
+            return d;
+        }
+
+        string PanelVisibilityKey() { List<Monitor> mons = ClientWindow.Monitors(); return string.Join(",", SidePanels.Select(id => PanelOnScreen(id, mons) ? "1" : "0")); }
+
+        // Envoie l'état aux pages seulement si la visibilité a changé depuis le dernier envoi. Plusieurs changements d'un même
+        // placement (gauche, droit, compact) : un seul envoi, après eux ; aucun si l'état complet vient d'être envoyé (HidePanels).
+        // Rien pendant la libération des panneaux.
+        bool visibilityPosted;
+        public void PanelVisibilityChanged()
+        {
+            if (Quitting || visibilityPosted) return;
+            SynchronizationContext ui = SynchronizationContext.Current;
+            if (ui == null) { SendVisibilityIfChanged(); return; }
+            visibilityPosted = true;
+            ui.Post(_ => { visibilityPosted = false; SendVisibilityIfChanged(); }, null);
+        }
+
+        void SendVisibilityIfChanged() { if (!Quitting && PanelVisibilityKey() != sentPanelVisibility) BroadcastHost(); }
+
+        // Essai (e2e) : visibilité telle qu'envoyée aux pages.
+        public string PanelVisibilityReport { get { return PanelVisibilityKey(); } }
 
         void SendAll(string json)
         {
@@ -2586,6 +2810,9 @@ public static class Autostart
                 case "setHotkeyBeta": SetBetaHotkey(val); break;
                 case "importHistory": ToggleHistoryImport(); break;
                 case "tryPanels": TryPanels(); break;
+                case "gameNoted": GameNoted(m.ContainsKey("draft") ? m["draft"] as string : null); break;
+                case "endGameDone": EndGameDone(m.ContainsKey("draft") ? m["draft"] as string : null); break;
+                case "reopenPanels": ReopenClosedPanels(); break;
                 case "setLanguage": SetLanguage(m.ContainsKey("value") ? m["value"] as string : null); break;
                 case "setProfile":
                 {
@@ -2680,6 +2907,7 @@ public static class Autostart
         {
             if (demoRunning || panelsShown || machine.Current == Phase.Draft || machine.Current == Phase.InGame) return;
             demoRunning = true;
+            closedByUser.Clear();
             try
             {
                 visibility.Manual = true;
@@ -2744,7 +2972,7 @@ public static class Autostart
             IntPtr lParam = (IntPtr)(int)((key << 16) | (mods & 0x7));
             HotkeyWindow probe = new HotkeyWindow(mods, key, 0x5151);
             if (!probe.Registered) { probe.Dispose(); HotkeyReport = "Ctrl+Alt+Maj+F11 refusé (Win32 " + probe.Error + ")"; return "combinaison d'essai non enregistrée (Win32 " + probe.Error + ") ; "; }
-            probe.Pressed += ToggleManual;
+            probe.Pressed += ShowOrHidePanels;
             bool? manualBefore = visibility.Manual;
             bool before = panelsShown;
             CloseProbe.SendMessage(probe.Handle, HotkeyWindow.WM_HOTKEY, (IntPtr)0x5151, lParam);
@@ -3625,7 +3853,7 @@ public static class Autostart
             sim.SessionJson = "{\"theirTeam\":[{\"champ"; await app.PollLcuOnce();
             string diagBad = app.LcuDiagLine;
             string menuReport = await app.LcuDiagnosticText();
-            if (diagJungle != "ChampSelect/1 poste=jungle" || diagNone != "ChampSelect/1 poste=aucun" || diagBad != "ChampSelect/illisible poste=illisible" || !menuReport.Contains("poste=illisible")) p += "diagnostic du poste : « " + diagJungle + " », « " + diagNone + " », « " + diagBad + " », menu " + menuReport.Contains("poste=") + " ; ";
+            if (diagJungle != "ChampSelect/1 poste=jungle pick=survolé mode=autre" || diagNone != "ChampSelect/1 poste=aucun pick=survolé mode=autre" || diagBad != "ChampSelect/illisible poste=illisible" || !menuReport.Contains("poste=illisible")) p += "diagnostic du poste : « " + diagJungle + " », « " + diagNone + " », « " + diagBad + " », menu " + menuReport.Contains("poste=") + " ; ";
             DiagReport = diagJungle + " ; " + diagNone + " ; " + diagBad;
             // Réglage autoRole : « suggest » propose sans changer, « off » ne fait rien.
             sim.PhaseJson = "\"Lobby\""; sim.SessionJson = ""; await app.PollLcuOnce(); await Task.Delay(150);
@@ -3656,6 +3884,550 @@ public static class Autostart
             bool getOnly = sim.Requests.All(LcuEndpoints.IsAllowed);
             if (!getOnly) p += "endpoint non autorisé appelé ; ";
             RoleReport = ok + "/5 postes (format réel), vide et inconnu sans déduction, changement entre drafts, bascule visible et réversible dans le panneau, correction manuelle jamais écrasée, poste instable sans effet, perte de connexion, suggest/off, sans LCU ; diagnostic " + DiagReport + " ; " + sim.Requests.Count + " requêtes, toutes autorisées : " + getOnly;
+            f.Hide();
+            return p;
+        }
+
+        // Correctif beta.2 : issue de la sélection, de bout en bout (LCU simulé > programme > vraie fenêtre WebView2). Partie lancée :
+        // gameStarted. Draft annulée : abandoned, jamais proposée comme « Dernière partie ». Issue inconnue : rien. Journal fictif.
+        // Écran de fin de partie (beta.2, retour de l'utilisateur), LCU simulé, vraies fenêtres. Partie lancée et notée (« Je joue »,
+        // puis GameStart) : en EndOfGame, le panneau droit (ou le compact) s'affiche en mode fin de partie, une seule fois ; Victoire
+        // y écrit « win » ; retiré au lobby. Draft annulée : rien.
+        public static string EndGameReport = "non mesuré";
+        static async Task<string> TestEndOfGame(CompanionApp app)
+        {
+            string p = "";
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof applyDraftOutcome === 'function'") == "true"; }, 10000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            Func<string, string> entry = key => "loadJournal().find(x => x.selection === '" + key + "')";
+            string saved = await run("localStorage.getItem('draftJournal')");
+            await run("localStorage.setItem('draftJournal', '[]'); goView('sim'); 1");
+            Func<Task<string>> select = async () =>
+            {
+                sim.SessionJson = TheirTeam(103); await phase("ChampSelect"); await Task.Delay(400);
+                string key = app.Outcome.Key;
+                if (!await wait("hostState.draftKey === '" + key + "' && hostState.draftOutcome === 'draft'")) p += "clé " + key + " non reçue ; ";
+                await run("onDraftStart(); 1"); await Task.Delay(300);
+                await run("choosePick(PICKS[0]); 1");
+                if (!await wait(entry(key) + " && state.current === " + entry(key) + ".id")) p += "« Je joue » : entrée absente pour " + key + " ; ";
+                return key;
+            };
+            int shown0 = app.EndGameShownCount;
+            // 1. Partie lancée et notée, puis fin de partie.
+            string k1 = await select();
+            await phase("GameStart");
+            if (!await wait(entry(k1) + ".gameStarted === true")) p += "partie lancée non notée ; ";
+            await phase("InProgress"); await Task.Delay(300);
+            await phase("PreEndOfGame");
+            bool notBefore = app.EndGameKey == null && !app.PanelsShown;
+            await phase("EndOfGame");
+            PanelForm panel = null;
+            bool shown = await Until(async () => { panel = new[] { "right", "compact" }.Select(app.PanelFor).FirstOrDefault(x => x != null && !x.IsDisposed && x.Visible); return app.EndGameKey == k1 && app.PanelsShown && panel != null && panel.View.CoreWebView2 != null && await panel.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"end-game\"] .gr-btn.win') && !!document.querySelector('[data-test=\"end-game\"] .p-name')") == "true"; }, 6000);
+            bool leftHidden = app.PanelFor("left") == null || !app.PanelFor("left").Visible;
+            await phase("EndOfGame"); await phase("EndOfGame");
+            int count = app.EndGameShownCount - shown0;
+            if (!notBefore || !shown || !leftHidden || count != 1) p += "fin de partie : avant " + notBefore + ", affiché " + shown + " (" + (panel == null ? "aucun panneau" : panel.Id) + "), gauche masqué " + leftHidden + ", apparitions " + count + " ; ";
+            bool win = false, confirm = false;
+            if (shown)
+            {
+                await panel.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-test=\"end-game\"] .gr-btn.win').click(); 1");
+                win = await wait(entry(k1) + ".result === 'win'");
+                confirm = await Until(async () => await panel.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"end-game-done\"]')") == "true", 2000);
+                if (!win || !confirm) p += "clic Victoire : entrée win " + win + ", confirmation " + confirm + " ; ";
+            }
+            await phase("Lobby");
+            bool gone = await Until(() => Task.FromResult(app.EndGameKey == null && !app.PanelsShown), 4000);
+            if (!gone) p += "écran non retiré au lobby ; ";
+            // 2. Draft annulée : ni écran, ni panneau, même en EndOfGame.
+            int c2 = app.EndGameShownCount;
+            string k2 = await select();
+            await phase("Lobby");
+            await phase("EndOfGame");
+            bool none = app.EndGameShownCount == c2 && app.EndGameKey == null && !app.PanelsShown;
+            if (!none) p += "draft annulée : écran ou panneau (" + (app.EndGameShownCount - c2) + " apparition(s)) ; ";
+            await phase("Lobby");
+            EndGameReport = "partie : affiché " + shown + " (" + (panel == null ? "-" : panel.Id) + "), " + count + " apparition(s), Victoire écrite " + win + ", confirmation " + confirm + ", retiré au lobby " + gone + " ; draft annulée : rien " + none;
+            app.TestForgetOutcome();
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); 1");
+            f.Hide();
+            return p;
+        }
+
+        public static string OutcomeReport = "non mesuré";
+        static async Task<string> TestDraftOutcome(CompanionApp app)
+        {
+            string p = "";
+            List<string> rep = new List<string>();
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof applyDraftOutcome === 'function' && synced && hostState.available && PICKS.length > 0") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            string saved = await run("localStorage.getItem('draftJournal')");
+            // Une ancienne entrée sans issue (avant la beta.2) : jamais réécrite, jamais proposée.
+            const string Old = "{\"id\":1,\"date\":\"2026-10-01T10:00:00Z\",\"suggested\":\"Fizz\",\"picked\":\"Fizz\",\"enemies\":[\"Ahri\"],\"mid\":\"Ahri\",\"result\":null,\"engine\":\"x\"}";
+            await run("localStorage.setItem('draftJournal', " + json.Serialize("[" + Old + "]") + "); goView('sim'); 1");
+            Func<string, string> entry = key => "loadJournal().find(x => x.selection === '" + key + "')";
+            Func<string, Task<string>> flags = async key => json.Deserialize<string>(await run("(() => { const e = " + entry(key) + "; return e ? 'g=' + (e.gameStarted === true) + ' a=' + (e.abandoned === true) + ' r=' + e.result : 'aucune'; })()")) ?? "";
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            // Une sélection : ChampSelect, nouvelle draft dans la page, puis « Je joue » (vraie confirmation, une entrée).
+            Func<Task<string>> select = async () =>
+            {
+                sim.SessionJson = TheirTeam(103); await phase("ChampSelect"); await Task.Delay(400);
+                string key = app.Outcome.Key;
+                if (!await wait("hostState.draftKey === '" + key + "' && hostState.draftOutcome === 'draft'")) p += "clé " + key + " non reçue par la page (" + await run("hostState.draftKey + '/' + hostState.draftOutcome") + ") ; ";
+                await run("onDraftStart(); 1"); await Task.Delay(300);
+                await run("choosePick(PICKS[0]); 1");
+                if (!await wait(entry(key) + " && state.current === " + entry(key) + ".id")) p += "« Je joue » : entrée sans la clé " + key + " (" + await run("JSON.stringify(loadJournal().slice(-1))") + ") ; ";
+                return key;
+            };
+            int n0 = int.Parse(await run("loadJournal().length"));
+            // 1. Draft → partie (GameStart, InProgress), fin de partie, lobby : partie lancée, résultat à saisir.
+            string k1 = await select();
+            await phase("GameStart");
+            bool game = await wait(entry(k1) + ".gameStarted === true");
+            await phase("InProgress"); await phase("EndOfGame"); await phase("Lobby");
+            string f1 = await flags(k1);
+            if (!game || f1 != "g=true a=false r=null") p += "draft → partie : " + f1 + " ; ";
+            rep.Add("partie " + f1);
+            // 2. Draft → lobby (dodge) : annulée, dite dans la page, sans boutons de résultat.
+            string k2 = await select();
+            await phase("Lobby");
+            bool cancelled = await wait(entry(k2) + ".abandoned === true");
+            bool note = await wait("(() => { const n = document.querySelector('[data-test=\"draft-abandoned\"]'); return n && n.textContent.trim() === I18N.t('journal.abandoned.note') && !document.querySelector('[data-test=\"result-buttons\"]'); })()");
+            string f2 = await flags(k2);
+            if (!cancelled || f2 != "g=false a=true r=null" || !note) p += "draft → lobby : " + f2 + ", note " + note + " ; ";
+            rep.Add("lobby " + f2 + (note ? " (note affichée)" : ""));
+            // « Dernière partie » : la partie lancée, jamais la draft annulée ni l'ancienne entrée.
+            await run("resetDraft(); 1");
+            bool last = await wait("lastGameToComplete(loadJournal()) && lastGameToComplete(loadJournal()).selection === '" + k1 + "' && document.querySelector('[data-test=\"last-game\"]') && document.querySelector('[data-test=\"last-game\"]').textContent.includes(label(PICKS[0]))");
+            if (!last) p += "« Dernière partie » : " + await run("JSON.stringify(lastGameToComplete(loadJournal()))") + " ; ";
+            // 3. Draft → image hors draft → Uncertain (40 s) → partie : Uncertain ne tranche rien.
+            string k3 = await select();
+            for (int i = 0; i < 3; i++) app.StepPhase(true, false, Evidence.NotDraft, 1);
+            for (int i = 0; i < 40; i++) app.StepPhase(true, false, Evidence.Unknown, 1);
+            await Task.Delay(300);
+            string f3a = await flags(k3);
+            app.StepPhase(true, true, Evidence.Unknown, 1);
+            bool game3 = await wait(entry(k3) + ".gameStarted === true");
+            if (f3a != "g=false a=false r=null" || !game3) p += "draft → Uncertain → partie : " + f3a + " puis " + await flags(k3) + " ; ";
+            rep.Add("incertain " + f3a + " puis " + await flags(k3));
+            await phase("Lobby");
+            // 4. Draft → client fermé : en attente à 18 s, annulée après ConfirmSeconds (20 s) sans partie.
+            string k4 = await select();
+            for (int i = 0; i < 18; i++) app.StepPhase(false, false, Evidence.Unknown, 1);
+            await Task.Delay(300);
+            string f4a = await flags(k4);
+            for (int i = 0; i < 3; i++) app.StepPhase(false, false, Evidence.Unknown, 1);
+            bool closed = await wait(entry(k4) + ".abandoned === true");
+            if (f4a != "g=false a=false r=null" || !closed) p += "draft → client fermé : " + f4a + " puis " + await flags(k4) + " ; ";
+            rep.Add("client fermé " + f4a + " puis " + await flags(k4));
+            // 5. DRAFT redémarré pendant le chargement : mémoire perdue, rien n'est déduit, l'entrée reste à confirmer.
+            string k5 = await select();
+            app.TestForgetOutcome();
+            await phase("GameStart"); await phase("InProgress");
+            await Task.Delay(300);
+            string f5 = await flags(k5);
+            string status5 = json.Deserialize<string>(await run("entryStatus(" + entry(k5) + ")")) ?? "";
+            if (f5 != "g=false a=false r=null" || status5 != json.Deserialize<string>(await run("I18N.t('journal.status.unconfirmed')"))) p += "DRAFT redémarré pendant le chargement : " + f5 + ", statut " + status5 + " ; ";
+            rep.Add("redémarré " + f5 + " (" + status5 + ")");
+            await phase("Lobby");
+            // 6. Signaux en double, en retard et dans le désordre, clé inconnue : rien ne change, rien n'est créé.
+            string before = await run("localStorage.getItem('draftJournal')");
+            foreach (string m in new[] { "draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"game", "draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"game", "draftEnd\",\"draft\":\"" + k1 + "\",\"outcome\":\"pending", "draftOutcome\",\"draft\":\"" + k2 + "\",\"outcome\":\"game", "draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"abandoned", "draftOutcome\",\"draft\":\"1\",\"outcome\":\"game" })
+                app.TestSendAll("{\"kind\":\"" + m + "\"}");
+            await Task.Delay(500);
+            if (await run("localStorage.getItem('draftJournal')") != before) p += "signaux en double ou dans le désordre : le journal a changé ; ";
+            // 7. Simulateur : rien n'est écrit.
+            await run("startSimulation(); ['Ahri','Ornn'].forEach(addEnemy); choosePick(PICKS[0]); 1");
+            await Task.Delay(300);
+            if (await run("localStorage.getItem('draftJournal')") != before) p += "le Simulateur a écrit dans le journal ; ";
+            await run("leaveSimulation(); 1");
+            // Aucun doublon : une entrée par « Je joue », l'ancienne entrée intacte.
+            int added = int.Parse(await run("loadJournal().length")) - n0;
+            bool oldKept = await run("JSON.stringify(loadJournal().find(x => x.id === 1)) === " + json.Serialize(Old)) == "true";
+            if (added != 5 || !oldKept) p += "doublons ou ancienne entrée réécrite : " + added + " entrées ajoutées, ancienne intacte " + oldKept + " ; ";
+            OutcomeReport = string.Join(" ; ", rep) + " ; " + added + " entrées pour 5 sélections, ancienne intacte " + oldKept;
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); 1");
+            f.Hide();
+            return p;
+        }
+
+        // Correctif beta.2 (défaut réel de la candidate 4) : la draft suivante repart de zéro dans TOUTES les pages (fenêtre restée
+        // ouverte comprise) ; « Je joue » n'y réécrit jamais l'entrée de la draft d'avant ; le rôle à la main de la draft 1 n'empêche pas
+        // le poste attribué en draft 2. LCU simulé, vraies pages, journal fictif.
+        public static string NextDraftReport = "non mesuré";
+        static async Task<string> TestNextDraft(CompanionApp app)
+        {
+            string p = "";
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof startSelection === 'function' && synced && hostState.available && PICKS.length > 1") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<PanelForm, bool> usable = pf => pf != null && !pf.IsDisposed && pf.Ready.IsCompleted && pf.View.CoreWebView2 != null;
+            // Toutes les pages créées : fenêtre et panneaux, affichés ou non.
+            Func<string, Task<string>> all = async code => { List<string> r = new List<string>(); foreach (string id in new[] { "full", "left", "right", "compact" }) { PanelForm pf = app.PanelFor(id); if (usable(pf)) r.Add(id + ":" + await pf.View.CoreWebView2.ExecuteScriptAsync(code)); } return string.Join(" ", r); };
+            Func<string, Task<bool>> everywhere = code => Until(async () => !(await all("!!(" + code + ")")).Contains("false"), 5000);
+            Func<string, Task<string>> inPanel = async code => { foreach (string id in new[] { "right", "compact", "left" }) { PanelForm pf = app.PanelFor(id); if (usable(pf)) return await pf.View.CoreWebView2.ExecuteScriptAsync(code); } return "aucun panneau"; };
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            string saved = await run("localStorage.getItem('draftJournal')");
+            await run("localStorage.setItem('draftJournal', '[]'); goView('sim'); 1");
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            Func<string, string> entries = key => "loadJournal().filter(x => x.selection === '" + key + "')";
+            // Draft 1 : « Je joue » dans la fenêtre, puis dans un panneau ; rôle mis à la main dans un panneau.
+            sim.SessionJson = TheirTeam(103); await phase("ChampSelect"); await app.PollLcuOnce(); await Task.Delay(300);
+            string k1 = app.Outcome.Key;
+            bool started1 = await everywhere("state.sessionKey === '" + k1 + "' && !state.current");
+            await run("choosePick(PICKS[0]); 1"); await Task.Delay(500);
+            await inPanel("choosePick(PICKS[1]); 1"); await Task.Delay(600);
+            bool sameDraft = await Until(async () => await run(entries(k1) + ".length === 1 && " + entries(k1) + "[0].picked === PICKS[1]") == "true", 4000);
+            await inPanel("switchRole('top', 'manual'); 1"); await Task.Delay(600);
+            bool manual = await everywhere("state.roleManual && myRole() === 'top'");
+            await phase("GameStart"); await phase("InProgress"); await phase("EndOfGame"); await phase("Lobby");
+            string first = await run("JSON.stringify(" + entries(k1) + "[0])");
+            // Draft 2 : nouvelle sélection, poste Jungle attribué (format réel). Toutes les pages repartent de zéro, rôle attribué partout.
+            sim.SessionJson = LcuSamples.RealSession("jungle", 7, 7, 875); await phase("ChampSelect");
+            string k2 = app.Outcome.Key;
+            bool reset2 = await everywhere("state.sessionKey === '" + k2 + "' && !state.current && !state.picked && !state.viewed && !state.roleManual");
+            string after2 = await all("[state.sessionKey === '" + k2 + "', state.current, state.roleManual, myRole()].join('/')");
+            await app.PollLcuOnce(); await app.PollLcuOnce(); await Task.Delay(300);
+            bool role2 = await everywhere("myRole() === 'jungle' && !state.roleManual && state.assignedRole === 'jungle'");
+            string roles = await all("myRole() + (state.roleManual ? ' à la main' : '')");
+            await inPanel("choosePick(PICKS[0]); 1"); await Task.Delay(600);
+            bool second = await Until(async () => await run(entries(k2) + ".length === 1 && " + entries(k1) + ".length === 1 && JSON.stringify(" + entries(k1) + "[0]) === " + json.Serialize(json.Deserialize<string>(first) ?? "")) == "true", 4000);
+            string count = await run("loadJournal().length");
+            if (!started1 || !sameDraft || !manual) p += "draft 1 : début partout " + started1 + ", fenêtre puis panneau une entrée " + sameDraft + ", rôle à la main partout " + manual + " ; ";
+            if (!reset2) p += "draft 2 : pages restées sur la draft 1 (" + after2 + ") ; ";
+            if (!role2) p += "draft 2 : poste attribué pas appliqué partout (" + roles + ") ; ";
+            if (!second || count != "2") p += "draft 2 : « Je joue » a réécrit la draft 1 ou doublé (" + count + " entrées) ; ";
+            NextDraftReport = "début partout " + started1 + ", une entrée fenêtre puis panneau " + sameDraft + ", draft 2 remise à zéro partout " + reset2 + ", rôle attribué partout (" + roles + "), " + count + " entrées, draft 1 intacte " + second;
+            await phase("Lobby");
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); 1");
+            f.Hide();
+            return p;
+        }
+
+        // Beta.2 : journal automatique, de bout en bout (LCU simulé au format réel > programme > vraies pages WebView2). Ton pick lu dans
+        // League (« Dans League »), pas de « Je joue » quand la lecture fonctionne, UNE entrée origin "lcu" au lancement de la partie.
+        // Sessions fictives : Vex 711, Fizz 105, Xerath 101 pour toi ; un coéquipier sur Zed 238 (intention Lux 99), jamais lu.
+        public static string LeagueReport = "non mesuré", LeagueShots = "";
+        static async Task<string> TestLeagueJournal(CompanionApp app)
+        {
+            string p = "";
+            List<string> rep = new List<string>();
+            const int Vex = 711, Fizz = 105, Xerath = 101;
+            const long G = 7012345600;
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof writeLeagueEntry === 'function' && synced && hostState.available && PICKS.length > 1") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            Func<string, Task<string>> str = async code => json.Deserialize<string>(await run(code)) ?? "";
+            string saved = await run("localStorage.getItem('draftJournal')");
+            // Lecture du client activée le temps de l'essai (l'e2e la garde désactivée), comme le ferait le joueur.
+            bool lcuBefore = await run("!!hostState.lcuEnabled") == "true";
+            await run("hostSend({ cmd:'setLcu', value:true }); 1");
+            app.TestUseLcu(() => sim);
+            if (!await wait("hostState.lcuEnabled")) p += "lecture du client non activée ; ";
+            await run("localStorage.setItem('draftJournal', '[]'); localStorage.removeItem('draftLockMemo'); goView('sim'); 1");
+            Func<string, int, bool, bool, int, string, long, string> sess = (position, action, busy, done, mine, timer, gid) => LcuSamples.PickSession(position, 7, action, busy, done, 0, mine, timer, gid, 238, 99, true, 103);
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            Func<string, Task> read = async session => { sim.SessionJson = session; await app.PollLcuOnce(); await Task.Delay(200); };
+            const string Status = "(document.querySelector('[data-test=\"league-status\"]') || {}).textContent";
+            const string StageCta = "document.querySelector('[data-test=\"stage\"] [data-test=\"choose-pick\"]')";
+            Func<string, string> entries = key => "loadJournal().filter(x => x.selection === '" + key + "')";
+            // Nouvelle sélection : la page repart (draftStart), puis ChampSelect lu (adversaires reçus), clé reçue.
+            Func<string, Task<string>> begin = async session =>
+            {
+                await phase("Lobby"); await run("onDraftStart(); 1"); await Task.Delay(300);
+                sim.SessionJson = session; await phase("ChampSelect"); await app.PollLcuOnce(); await Task.Delay(300);
+                string key = app.Outcome.Key;
+                if (!await wait("leaguePick && leaguePick.key === '" + key + "' && hostState.draftKey === '" + key + "'")) p += "état « Dans League » de la sélection " + key + " non reçu ; ";
+                return key;
+            };
+            // A. Survol, consultation indépendante, verrouillage, partie : une entrée.
+            string kA = await begin(sess("middle", 0, false, false, 0, "PLANNING", G + 1));
+            bool noCta = await wait("!" + StageCta + " && document.querySelector('[data-test=\"league-auto\"]') && document.querySelector('[data-test=\"league-auto\"]').textContent === I18N.t('league.auto')");
+            await read(sess("middle", Vex, true, false, 0, "BAN_PICK", G + 1));
+            bool hover = await wait(Status + " === I18N.t('league.hover', { champion: 'Vex' })");
+            await run("consult(V.order.map(x => x.pick).find(x => x !== V.shown)); 1"); await Task.Delay(300);
+            string viewed = await str("String(state.viewed)");
+            await read(sess("middle", Xerath, true, false, 0, "BAN_PICK", G + 1));
+            bool independent = viewed != "null" && await wait(Status + " === I18N.t('league.hover', { champion: 'Xerath' }) && state.viewed === '" + viewed + "'");
+            await run("consult(null); 1");
+            // Simulateur : « Je joue » revient, sans ligne « Dans League ».
+            await run("startSimulation(); 1"); await Task.Delay(300);
+            bool simCta = await wait(StageCta + " && !document.querySelector('[data-test=\"league-line\"]')");
+            await run("leaveSimulation(); 1"); await Task.Delay(300);
+            await read(sess("middle", Vex, false, true, Vex, "BAN_PICK", G + 1));
+            bool locked = await wait(Status + " === I18N.t('league.locked', { champion: 'Vex' }) && lockMemo('" + kA + "')");
+            string diag = app.LcuDiagLine;
+            if (!noCta || !hover || !independent || !simCta || !locked) p += "A. pas de « Je joue » " + noCta + ", survol " + hover + ", consultation indépendante " + independent + " (" + viewed + "), Simulateur " + simCta + ", verrouillage " + locked + " (" + await str(Status) + ") ; ";
+            if (!diag.Contains("pick=verrouillé") || diag.Contains("711") || diag.Contains("Vex")) p += "diagnostic : « " + diag + " » ; ";
+            // Visible sans défiler, panneaux droit et compact à 1366 x 768 et 125 % ; captures réelles avec --capture.
+            string shots = await LeaguePanels(app, Strings.Lang + "-apres-dans-league", "[data-test=\"league-line\"]");
+            if (shots.Contains("cachée") || shots.Contains("absent")) p += "« Dans League » hors écran : " + shots + " ; ";
+            rep.Add("panneaux " + shots);
+            await phase("GameStart");
+            bool wroteA = await wait(entries(kA) + ".length === 1 && " + entries(kA) + "[0].origin === 'lcu' && " + entries(kA) + "[0].picked === 'Vex' && " + entries(kA) + "[0].gameStarted === true && " + entries(kA) + "[0].result === null && " + entries(kA) + "[0].gameId === " + (G + 1));
+            string eA = await str("JSON.stringify(" + entries(kA) + ".map(x => [x.origin, x.picked, x.suggested, x.traded, x.gameStarted, x.result]))");
+            if (!wroteA) p += "A. verrouillage → partie : " + eA + " ; ";
+            rep.Add("partie " + eA);
+            await phase("InProgress");
+            for (int i = 0; i < 2; i++) app.TestSendAll("{\"kind\":\"draftOutcome\",\"draft\":\"" + kA + "\",\"outcome\":\"game\"}");
+            await Task.Delay(400);
+            if (await run(entries(kA) + ".length") != "1") p += "A. issue rejouée : entrée en double ; ";
+            await phase("EndOfGame");
+            // B. Verrouillage → retour au lobby : aucune entrée.
+            string kB = await begin(sess("middle", Fizz, false, true, Fizz, "BAN_PICK", G + 2));
+            await phase("Lobby");
+            await Task.Delay(300);
+            if (await run(entries(kB) + ".length") != "0" || await run("loadJournal().some(x => x.gameId === " + (G + 2) + ")") != "false") p += "B. verrouillage → lobby : une entrée a été écrite ; ";
+            // C. Échange : verrouillé Vex, final Xerath.
+            string kC = await begin(sess("middle", Vex, false, true, Vex, "BAN_PICK", G + 3));
+            await read(sess("middle", Vex, false, true, Xerath, "FINALIZATION", G + 3));
+            bool tradedLine = await wait(Status + " === I18N.t('league.lockedTraded', { champion: 'Xerath' })");
+            await phase("GameStart");
+            bool tradedEntry = await wait(entries(kC) + ".length === 1 && " + entries(kC) + "[0].picked === 'Xerath' && " + entries(kC) + "[0].lockedFirst === 'Vex' && " + entries(kC) + "[0].traded === true");
+            if (!tradedLine || !tradedEntry) p += "C. échange : ligne " + tradedLine + ", entrée " + await str("JSON.stringify(" + entries(kC) + ")") + " ; ";
+            await phase("EndOfGame");
+            // D. Lecture perdue en pleine draft : « Je joue » revient (capture du repli), confirmé ; la lecture revient ; une entrée complétée.
+            string kD = await begin(sess("middle", Vex, true, false, 0, "BAN_PICK", G + 4));
+            sim.Offline = true; await app.PollLcuOnce(); await Task.Delay(300);
+            bool fallback = await wait(StageCta + " && document.querySelector('[data-test=\"league-line\"][data-state=\"lost\"]')");
+            string fallbackShots = await LeaguePanels(app, Strings.Lang + "-apres-repli-je-joue", "[data-test=\"choose-pick\"]");
+            if (fallbackShots.Contains("cachée") || fallbackShots.Contains("absent")) p += "« Je joue » de repli hors écran : " + fallbackShots + " ; ";
+            await run(StageCta + ".click(); 1"); await Task.Delay(300);
+            string firstId = await str("String((" + entries(kD) + "[0] || {}).id)");
+            sim.Offline = false;
+            await read(sess("middle", Fizz, false, true, Fizz, "BAN_PICK", G + 4)); await app.PollLcuOnce();
+            bool back = await wait("!" + StageCta + " && " + Status + " === I18N.t('league.locked', { champion: 'Fizz' })");
+            await phase("GameStart");
+            bool completed = await wait(entries(kD) + ".length === 1 && " + entries(kD) + "[0].origin === 'lcu' && " + entries(kD) + "[0].picked === 'Fizz' && String(" + entries(kD) + "[0].id) === '" + firstId + "'");
+            if (!fallback || firstId == "undefined" || !back || !completed) p += "D. perte puis retour : repli " + fallback + ", « Je joue » noté " + firstId + ", retour " + back + ", entrée complétée " + completed + " (" + await str("JSON.stringify(" + entries(kD) + ")") + ") ; ";
+            await phase("EndOfGame");
+            // E. Mode non pris en charge (sans poste) : « Je joue » présent, rien d'automatique.
+            string kE = await begin(sess("", Vex, true, false, 0, "BAN_PICK", G + 5));
+            bool unsupported = await wait(StageCta + " && document.querySelector('[data-test=\"league-line\"][data-state=\"unsupported\"]')");
+            await read(sess("", Vex, false, true, Vex, "BAN_PICK", G + 5));
+            await phase("GameStart"); await Task.Delay(300);
+            if (!unsupported || await run("loadJournal().some(x => x.origin === 'lcu' && x.gameId === " + (G + 5) + ")") != "false") p += "E. mode non pris en charge : « Je joue » " + unsupported + ", entrée automatique écrite ; ";
+            await phase("EndOfGame");
+            // F. DRAFT redémarré pendant la sélection : nouvelle clé, même partie ; une entrée.
+            await begin(sess("middle", Fizz, true, false, 0, "BAN_PICK", G + 6));
+            app.TestForgetOutcome();
+            await read(sess("middle", Fizz, false, true, Fizz, "BAN_PICK", G + 6));
+            string kF = app.Outcome.Key;
+            await run("onDraftStart(); 1"); await Task.Delay(300);
+            await phase("GameStart");
+            if (!await wait("loadJournal().filter(x => x.gameId === " + (G + 6) + ").length === 1 && " + entries(kF) + ".length === 1")) p += "F. DRAFT redémarré pendant la sélection : " + await run("loadJournal().filter(x => x.gameId === " + (G + 6) + ").length") + " entrée(s) ; ";
+            await phase("EndOfGame");
+            // G. DRAFT redémarré pendant le chargement : démarrage non observé, jamais joué d'office.
+            await begin(sess("middle", Xerath, false, true, Xerath, "BAN_PICK", G + 7));
+            app.TestForgetOutcome();
+            await phase("GameStart"); await phase("InProgress"); await Task.Delay(300);
+            if (await run("loadJournal().some(x => x.gameId === " + (G + 7) + ")") != "false") p += "G. démarrage non observé : une entrée a été écrite ; ";
+            await phase("EndOfGame");
+            // H. DRAFT lancé après le verrouillage : première lecture déjà verrouillée.
+            await phase("Lobby"); app.TestForgetOutcome();
+            string kH = await begin(sess("middle", Vex, false, true, Vex, "BAN_PICK", G + 8));
+            await phase("GameStart");
+            if (!await wait(entries(kH) + ".length === 1 && " + entries(kH) + "[0].origin === 'lcu'")) p += "H. DRAFT lancé après le verrouillage : pas d'entrée ; ";
+            await phase("EndOfGame"); await phase("Lobby");
+            // Bilan : une entrée par partie lancée (A, C, D, F, H), deux drafts de suite distinctes, aucun doublon, aucun résultat inventé.
+            string all = await str("JSON.stringify(loadJournal().map(x => x.origin + ':' + x.picked + ':' + x.result))");
+            int count = int.Parse(await run("loadJournal().length")), auto = int.Parse(await run("loadJournal().filter(x => x.origin === 'lcu').length")), keys = int.Parse(await run("new Set(loadJournal().map(x => x.selection)).size"));
+            if (count != 5 || auto != 5 || keys != 5 || all.Contains(":win") || all.Contains(":loss")) p += "bilan : " + count + " entrées, " + auto + " automatiques, " + keys + " clés (" + all + ") ; ";
+            if (!sim.Requests.All(LcuEndpoints.IsAllowed)) p += "adresse non autorisée appelée ; ";
+            LeagueReport = string.Join(" ; ", rep) + " ; repli " + fallbackShots + " ; diagnostic « " + diag + " » ; " + count + " entrées pour 5 parties lancées (" + all + ")";
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; localStorage.removeItem('draftLockMemo'); resetDraft(); goView('home'); hostSend({ cmd:'setLcu', value:" + (lcuBefore ? "true" : "false") + " }); 1");
+            await Task.Delay(300);
+            f.Hide();
+            return p;
+        }
+
+        // Panneaux droit et compact à la taille calculée pour 1366 x 768 à 125 % (client 1024 x 576, barre des tâches 50 px) : l'élément
+        // demandé doit être visible sans défiler, puis aux tailles « 125 % » des pages de test. Avec --capture, capture réelle de la WebView2
+        // (CapturePreviewAsync) à ces tailles-là.
+        static async Task<string> LeaguePanels(CompanionApp app, string name, string selector)
+        {
+            List<string> done = new List<string>();
+            bool compactBefore = app.CompactSetting;
+            foreach (bool compact in new[] { false, true })
+            {
+                PanelForm side = await app.TestShowPanel(compact);
+                string mode = compact ? "compact" : "droit";
+                if (side == null) { done.Add(mode + " absent (" + app.TestPanelInfo(compact ? "compact" : "right") + ")"); continue; }
+                Func<string, Task<string>> run = async code => await side.View.CoreWebView2.ExecuteScriptAsync(code);
+                double dpr = double.Parse(await run("devicePixelRatio"), System.Globalization.CultureInfo.InvariantCulture);
+                List<Monitor> one = new List<Monitor> { new Monitor { Work = new Native.RECT(0, 0, 1366, 768 - 50), Scale = 1.25, Primary = true } };
+                Native.RECT win = new Native.RECT((1366 - 1024) / 2, (718 - 576) / 2, (1366 - 1024) / 2 + 1024, (718 - 576) / 2 + 576);
+                Placement pl = Layout.Compute(win, one, compact);
+                Native.RECT box = !compact ? (pl.Mode == "two" ? pl.Right : pl.Single) : pl.Mode == "compact" ? pl.Single : Layout.Narrowest(win, one).Single;
+                int cssW = (int)Math.Round(box.W / 1.25), cssH = (int)Math.Round(box.H / 1.25);
+                for (int tryN = 0; tryN < 4; tryN++)
+                {
+                    side.ClientSize = new Size((int)Math.Round(cssW * dpr), (int)Math.Round(cssH * dpr));
+                    await Task.Delay(700);
+                    if (Math.Abs(int.Parse(await run("innerWidth")) - cssW) <= 10 && Math.Abs(int.Parse(await run("innerHeight")) - cssH) <= 12) break;
+                }
+                string check = "(() => { const e = document.querySelector('" + selector.Replace("'", "\\'") + "'); if (!e) return 'absent'; const r = e.getBoundingClientRect(); return (r.width > 0 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5 && r.right <= innerWidth + 0.5 ? 'visible' : 'cachée ' + Math.round(r.top) + '..' + Math.round(r.bottom)) + ' ' + innerWidth + 'x' + innerHeight; })()";
+                string vis = new JavaScriptSerializer().Deserialize<string>(await run(check)) ?? "";
+                // Aussi aux tailles « 125 % » des pages de test (droit 256 x 608, compact 282 x 576), où se font les captures.
+                int fixW = compact ? 282 : 256, fixH = compact ? 576 : 608;
+                for (int tryN = 0; tryN < 4; tryN++)
+                {
+                    side.ClientSize = new Size((int)Math.Round(fixW * dpr), (int)Math.Round(fixH * dpr));
+                    await Task.Delay(700);
+                    if (Math.Abs(int.Parse(await run("innerWidth")) - fixW) <= 4 && Math.Abs(int.Parse(await run("innerHeight")) - fixH) <= 4) break;
+                }
+                string visFix = new JavaScriptSerializer().Deserialize<string>(await run(check)) ?? "";
+                if (app.CaptureDir != null)
+                {
+                    string file = Path.Combine(app.CaptureDir, name + "-" + mode + "-" + fixW + "x" + fixH + ".png");
+                    using (FileStream fs = File.Create(file)) await side.View.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
+                    LeagueShots += Path.GetFileName(file) + " ";
+                }
+                done.Add(mode + " " + vis + " (placement réel 1366 à 125 %), " + visFix);
+            }
+            app.TestEndShowPanel(compactBefore);
+            await Task.Delay(300);
+            return string.Join(", ", done);
+        }
+
+        // Beta.2. Disponibilité de bout en bout (LCU simulé au format réel, vraies fenêtres) : un ban, puis un pick allié, puis l'adversaire.
+        // Chaque fois, le conseil du moment devient indisponible : il sort de la liste candidate dans la fenêtre et les deux panneaux, le
+        // panneau le dit et propose le suivant, « Choisir dans ton pool » le marque, « Je joue » ne le propose jamais. Le survol d'un allié
+        // ne rend rien indisponible. Mode sans action de pick pour toi : « Je joue » reste le moyen de noter (cas où il compte).
+        public static string AvailabilityReport = "non mesuré";
+        static async Task<string> TestAvailability(CompanionApp app)
+        {
+            string p = "";
+            List<string> rep = new List<string>();
+            const int Malphite = 54;
+            SimulatedLcuTransport sim = new SimulatedLcuTransport { PhaseJson = "\"Lobby\"" };
+            app.TestUseLcu(() => sim);
+            await app.PollLcuOnce();
+            app.TestOpenFull("pool");
+            PanelForm f = null;
+            await Until(async () => { f = app.PanelFor("full"); return app.OpenPending == 0 && f != null && f.Visible && f.Ready.IsCompleted && f.View.CoreWebView2 != null && await f.View.CoreWebView2.ExecuteScriptAsync("typeof syncUnavailable === 'function' && synced && hostState.available") == "true"; }, 15000);
+            if (f == null || f.View.CoreWebView2 == null) return "(fenêtre absente)";
+            Func<string, Task<string>> run = async code => await f.View.CoreWebView2.ExecuteScriptAsync(code);
+            Func<string, Task<bool>> wait = code => Until(async () => await run("!!(" + code + ")") == "true", 5000);
+            JavaScriptSerializer json = new JavaScriptSerializer();
+            Func<string, Task<string>> str = async code => json.Deserialize<string>(await run(code)) ?? "";
+            string saved = await run("localStorage.getItem('draftJournal')");
+            bool lcuBefore = await run("!!hostState.lcuEnabled") == "true";
+            await run("hostSend({ cmd:'setLcu', value:true }); saveMyProfile('mid', ['Twisted Fate','Vex','Fizz','Xerath','Syndra']); switchRole('mid','manual'); goView('sim'); 1");
+            app.TestUseLcu(() => sim);
+            if (!await wait("hostState.lcuEnabled && PICKS.length === 5")) p += "lecture du client ou pool non prêts ; ";
+            // Panneaux droit et compact créés avant la sélection : chacun voit chaque changement.
+            bool compactBefore = app.CompactSetting;
+            await app.TestShowPanel(true); await app.TestShowPanel(false);
+            app.TestEndShowPanel(compactBefore);
+            Func<string, Task> phase = async name => { sim.PhaseJson = "\"" + name + "\""; await app.PollLcuOnce(); await Task.Delay(150); };
+            Func<string, Task> read = async session => { sim.SessionJson = session; await app.PollLcuOnce(); await Task.Delay(400); };
+            int[] none5 = { 0, 0, 0, 0, 0 };
+            Func<string[][], int[], int[], string> sess = (acts, team, enemies) => LcuSamples.DraftSession(2, "BAN_PICK", acts, new int[0], new int[0], team, none5, enemies);
+            string[] banning = { "0:ban:0:busy", "1:ban:0:busy", "2:ban:0:busy", "3:ban:0:busy", "4:ban:0:busy", "5:ban:0:busy", "6:ban:0:busy", "7:ban:0:busy", "8:ban:0:busy", "9:ban:0:busy" };
+            // Conseil affiché dans la fenêtre : [pick, nom, identifiant du client].
+            Func<Task<string[]>> advice = async () => new[] { await str("V.shown || ''"), await str("V.shown ? label(V.shown) : ''"), await run("V.shown ? Number(Object.keys(CHAMPION_IDS).find(k => toName(CHAMPION_IDS[k]) === label(V.shown))) : 0") };
+            // État d'une page : le champion est-il classé, lignes marquées du pool, phrase, bouton « Je joue », conseil.
+            Func<string, string, Task<Dictionary<string, object>>> pageState = async (id, pick) =>
+            {
+                PanelForm pf = app.PanelFor(id);
+                if (pf == null || pf.View.CoreWebView2 == null) return null;
+                string js = "JSON.stringify({ ranked: V.res.ranking.some(x => x.pick === '" + pick + "'), off: [...document.querySelectorAll('[data-test=\"panel-pool-off\"]')].map(e => e.dataset.pick + ':' + e.dataset.reason).join(','), "
+                    + "gone: ((document.querySelector('[data-test=\"panel-gone\"]') || document.querySelector('[data-test=\"advice-gone\"]') || {}).textContent || '').trim(), cta: ((document.querySelector('[data-test=\"choose-pick\"]') || {}).textContent || '').trim(), "
+                    + "shown: V.none ? '' : label(V.shown), change: V.change ? (V.change.reason || '') : '', unavailable: UNAVAILABLE.join(',') })";
+                return json.Deserialize<Dictionary<string, object>>(json.Deserialize<string>(await pf.View.CoreWebView2.ExecuteScriptAsync(js)));
+            };
+            // Contrôle dans la fenêtre et les deux panneaux. goneKey : phrase attendue dans les panneaux (ban, allié) ; vide : pick adverse,
+            // message « pris en face » (vérifié à part). La phrase de la fenêtre est vérifiée par web/draft-dispo-tests.html.
+            Func<string, string, string, string, Task<string>> check = async (step, pick, reason, goneKey) =>
+            {
+                string q = "", pickName = await str("label('" + pick + "')");
+                foreach (string id in new[] { "full", "right", "compact" })
+                {
+                    PanelForm pf = app.PanelFor(id);
+                    if (pf == null || pf.View.CoreWebView2 == null) { q += step + " " + id + " absent ; "; continue; }
+                    Dictionary<string, object> st = null;
+                    string expected = "";
+                    bool good = false, panel = id != "full";
+                    for (int i = 0; i < 20 && !good; i++)
+                    {
+                        if (i > 0) await Task.Delay(250);
+                        st = await pageState(id, pick);
+                        expected = !panel || goneKey == "" ? "" : json.Deserialize<string>(await pf.View.CoreWebView2.ExecuteScriptAsync("I18N.t('" + goneKey + "', { champion: '" + pickName.Replace("'", "\\'") + "', next: V.none ? '' : (V.tied ? V.tied.map(label).join(', ') : label(V.shown)) })"));
+                        good = !(bool)st["ranked"] && (!panel || ((string)st["off"]).Split(',').Contains(pick + ":" + reason)) && (expected == "" || (string)st["gone"] == expected) && !((string)st["cta"]).Contains(pickName);
+                    }
+                    if (!good) q += step + " " + id + " : " + json.Serialize(st) + (expected == "" ? "" : " (attendu « " + expected + " »)") + " ; ";
+                    if (id == "right") rep.Add(step + " : « " + (goneKey == "" ? (string)st["change"] : (string)st["gone"]) + " », pool " + st["off"] + ", bouton « " + st["cta"] + " »");
+                }
+                return q;
+            };            int[] enemies0 = { Malphite, 0, 0, 0, 0 };
+            await phase("Lobby"); await run("onDraftStart(); 1"); await Task.Delay(300);
+            sim.SessionJson = sess(new[] { banning }, none5, enemies0);
+            await phase("ChampSelect"); await app.PollLcuOnce(); await Task.Delay(400);
+            string key = app.Outcome.Key;
+            if (!await wait("availability && availability.key === '" + key + "' && hostState.draftKey === '" + key + "' && V && !V.none && state.enemies.length === 1")) p += "sélection " + key + " : liste ou adversaire non reçus ; ";
+            // 1. Un allié bannit le conseil.
+            string[] a = await advice();
+            string[] banned = (string[])banning.Clone(); banned[0] = "0:ban:" + a[2] + ":done";
+            await read(sess(new[] { banned }, none5, enemies0));
+            p += await check("ban", a[0], "ban", "panel.gone.ban");
+            // Visible sans défiler, panneaux droit et compact au placement réel de 1366 x 768 à 125 % ; captures réelles avec --capture.
+            string shots = await LeaguePanels(app, Strings.Lang + "-apres-dispo-ban", "[data-test=\"panel-gone\"]");
+            if (shots.Contains("cachée") || shots.Contains("absent")) p += "phrase du ban hors écran : " + shots + " ; ";
+            rep.Add("panneaux " + shots);
+            // 2. Un allié verrouille le nouveau conseil ; un autre survole un champion du pool, qui reste disponible.
+            string[] b = await advice();
+            string hovered = await str("(V.res.ranking.map(x => x.pick).filter(x => x !== V.shown).pop()) || ''");
+            string hoveredId = await run("Number(Object.keys(CHAMPION_IDS).find(k => toName(CHAMPION_IDS[k]) === label('" + hovered + "')))");
+            string[] banDone = banned.Select(x => x.Replace(":busy", ":done")).ToArray();
+            int[] team2 = { int.Parse(b[2]), int.Parse(hoveredId), 0, 0, 0 };
+            await read(sess(new[] { banDone, new[] { "0:pick:" + b[2] + ":done", "5:pick:" + Malphite + ":done" }, new[] { "1:pick:" + hoveredId + ":busy" } }, team2, enemies0));
+            p += await check("allié", b[0], "ally", "panel.gone.ally");
+            if (hovered == "" || await run("V.res.ranking.some(x => x.pick === '" + hovered + "') && !UNAVAILABLE.includes(label('" + hovered + "'))") != "true") p += "survol d'un allié (" + hovered + ") : rendu indisponible ; ";
+            // 3. L'adversaire verrouille le nouveau conseil : il sort par la composition, avec « pris en face ».
+            string[] c = await advice();
+            int[] enemies3 = { Malphite, int.Parse(c[2]), 0, 0, 0 };
+            await read(sess(new[] { banDone, new[] { "0:pick:" + b[2] + ":done", "5:pick:" + Malphite + ":done" }, new[] { "1:pick:" + hoveredId + ":busy", "6:pick:" + c[2] + ":done" } }, team2, enemies3));
+            p += await check("adversaire", c[0], "enemy", "");
+            if (!await wait("V.change && V.change.reason === I18N.t('advice.change.taken', { champion: '" + c[1].Replace("'", "\\'") + "' })")) p += "adversaire : message « pris en face » absent dans la fenêtre (" + await str("JSON.stringify(V.change)") + ") ; ";
+            // « Je joue » ne confirme jamais un champion indisponible, quel que soit le chemin.
+            await run("choosePick('" + a[0] + "'); choosePick('" + b[0] + "'); 1"); await Task.Delay(200);
+            string picked = await str("String(state.picked)");
+            if (picked == a[0] || picked == b[0]) p += "« Je joue » a confirmé un champion indisponible (" + picked + ") ; ";
+            string diag = app.LcuDiagLine;
+            if (!diag.Contains("bans=1 allies=1") || diag.Contains(a[1]) || diag.Contains(b[1]) || diag.Contains(a[2] + " ")) p += "diagnostic : « " + diag + " » ; ";
+            if (!sim.Requests.All(LcuEndpoints.IsAllowed)) p += "adresse non autorisée appelée ; ";
+            AvailabilityReport = "ban " + a[1] + ", allié " + b[1] + " (survol de " + hovered + " sans effet), en face " + c[1] + " ; " + string.Join(" ; ", rep) + " ; diagnostic « " + diag + " »";
+            await phase("Lobby");
+            await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); hostSend({ cmd:'setLcu', value:" + (lcuBefore ? "true" : "false") + " }); 1");
+            await Task.Delay(300);
             f.Hide();
             return p;
         }
@@ -3862,7 +4634,8 @@ public static class Autostart
                 t(app.PanelFor("left").Visible && app.PanelFor("right").Visible, "4. Les deux panneaux sont visibles");
                 Native.RECT c = app.Tracker.Rect, l = rectOfLeft(), r = rectOfRight();
                 t(l.Right <= c.Left && r.Left >= c.Right && c.Left - l.Right <= 10 && r.Left - c.Right <= 10, "4. Panneaux juste de chaque côté, sans chevauchement (" + l + " | " + c + " | " + r + ")");
-                t(l.Top == c.Top && l.H == c.H, "4. Hauteur et alignement sur le client");
+                int vy, vh; Layout.Vertical(c, main, out vy, out vh);
+                t(l.Top == vy && l.H == vh && r.Top == vy && r.H == vh, "4. Hauteur (1,25 x client, V2) et centrage sur le client (" + l + " | " + c + ")");
                 t(!PanelHasFocus(app), "Aucun vol de focus à l'apparition");
                 // QA-6 : l'échec reste toujours visible, avec sa cause mesurée (code Win32 et autres instances DRAFT de la session).
                 if (o.NoHotkey) t(!app.HotkeyCreated, "Raccourci laissé à l'autre version : aucune tentative");
@@ -3879,7 +4652,8 @@ public static class Autostart
                 for (int i = 1; i <= steps; i++) { fake.Location = new Point(cx + (i % 2 == 0 ? 6 : -6) * i / 4, cy + i); await Task.Delay(8); }
                 await Task.Delay(150);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
-                t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == c.Top, "7. Déplacement : les panneaux suivent (" + c + ")");
+                Layout.Vertical(c, main, out vy, out vh);
+                t(l.Right <= c.Left && c.Left - l.Right <= 10 && r.Left >= c.Right && l.Top == vy, "7. Déplacement : les panneaux suivent (" + c + ")");
                 s.AppendLine("MESURE : " + (app.Tracker.EventCount - evBefore) + " événements Windows, " + (app.MoveCount - movesBefore) + " déplacements de panneaux sur " + clock.ElapsedMilliseconds + " ms");
                 // Une mise à jour par étape au plus, plus le recalcul à l'arrêt et la dernière mise à jour en attente.
                 t(app.MoveCount - movesBefore <= steps + 3, "7. Déplacements limités à une mise à jour par étape");
@@ -3922,6 +4696,66 @@ public static class Autostart
                 t((NativeHook.GetWindowLong(app.PanelFor("left").Handle, -20) & 0x8) == 0, "Panneaux non épinglés au-dessus des autres applications par défaut");
                 otherApp.Close(); otherApp.Dispose();
 
+                // Ajustements V2 : visibilité de chaque panneau transmise aux pages (panelVisible). Panneau gauche fermé seul (Alt+F4 :
+                // Close, raison UserClosing, OnFormClosing le masque) : il reste fermé pendant la session (suivi du client, déplacement du
+                // client, draft suivante) ; il revient par « Afficher les panneaux » (menu de l'icône) ou par le lien « Rouvrir le panneau
+                // gauche » du panneau droit. Le droit montre l'accès « Composition adverse X/5 » seulement pendant que le gauche n'est pas visible.
+                {
+                    await Task.Delay(400);
+                    PanelForm lp = app.PanelFor("left"), rpv = app.PanelFor("right");
+                    Func<string, Task<string>> rjs = async code => await rpv.View.CoreWebView2.ExecuteScriptAsync(code);
+                    const string seen = "JSON.stringify([hostState.panelVisible ? hostState.panelVisible.left : null, !!document.querySelector('[data-test=\"compo-access\"]')])";
+                    await Until(async () => await rjs("typeof V !== 'undefined' && !!document.querySelector('[data-test=\"panel\"]')") == "true", 5000);
+                    await Until(async () => await rjs(seen) == "\"[true,false]\"", 3000);
+                    string before = await rjs(seen), sentBefore = app.PanelVisibilityReport;
+                    t(before == "\"[true,false]\"" && sentBefore == "1,1,0", "Visibilité transmise : gauche et droit visibles, aucun accès « Composition adverse » dans le droit (" + before + ", " + sentBefore + ")");
+                    lp.Close();
+                    await Until(async () => await rjs(seen) == "\"[false,true]\"", 3000);
+                    string closed = await rjs(seen), sentClosed = app.PanelVisibilityReport;
+                    t(!lp.IsDisposed && !lp.Visible && rpv.Visible && app.PanelsShown && closed == "\"[false,true]\"" && sentClosed == "0,1,0", "Panneau gauche fermé seul : le droit reçoit « gauche masqué » et montre l'accès « Composition adverse » (" + closed + ", " + sentClosed + ")");
+                    string access = await rjs("(() => { const b = document.querySelector('[data-test=\"compo-access\"] [data-test=\"compo-toggle\"]'); const folded = !document.querySelector('[data-test=\"compo-access\"] .compact-roles'); if (b) b.click(); return JSON.stringify([b ? b.textContent.trim() : '', folded]); })()");
+                    bool opened = await Until(async () => await rjs("!!document.querySelector('[data-test=\"compo-access\"] .compact-roles')") == "true", 2000);
+                    t(access.Contains("/5") && access.Contains("true") && opened, "Gauche fermé : accès replié par défaut, un clic montre la composition (" + access + ")");
+                    await Task.Delay(2600);
+                    fake.Location = new Point(fake.Left + 4, fake.Top);
+                    await Task.Delay(600);
+                    fake.Location = new Point(fake.Left - 4, fake.Top);
+                    await Task.Delay(600);
+                    string kept = await rjs(seen), sentKept = app.PanelVisibilityReport;
+                    t(!lp.Visible && rpv.Visible && kept == "\"[false,true]\"" && sentKept == "0,1,0", "Panneau gauche fermé seul : il reste fermé au suivi du client (2 s) et à un déplacement du client (" + kept + ", " + sentKept + ")");
+                    // Session : fin de draft puis nouvelle sélection, affichage automatique des panneaux et suivi du client : le gauche
+                    // fermé par le joueur ne revient pas. L'accès revient, replié (choix du joueur oublié à la draft suivante), et le
+                    // menu de l'icône propose « Afficher les panneaux ».
+                    feed(Evidence.NotDraft, 3);
+                    await Until(() => Task.FromResult(!app.PanelsShown), 2000);
+                    bool endHidden = !app.PanelsShown && app.CurrentPhase == Phase.OutOfDraft;
+                    feed(Evidence.Draft, 2);
+                    await Until(async () => app.PanelsShown && rpv.Visible && await rjs(seen) == "\"[false,true]\"", 5000);
+                    await Task.Delay(2600);
+                    string next = await rjs(seen), sentNext = app.PanelVisibilityReport, menuNext = app.ShowMenuText;
+                    string nextFolded = await rjs("!document.querySelector('[data-test=\"compo-access\"] .compact-roles')");
+                    t(endHidden && app.PanelsShown && app.CurrentPhase == Phase.Draft && !lp.Visible && rpv.Visible && next == "\"[false,true]\"" && sentNext == "0,1,0" && nextFolded == "true" && menuNext.StartsWith(Strings.T("native.menu.showPanels")),
+                        "Nouvelle draft (fin de draft, nouvelle sélection) : le gauche fermé par le joueur reste fermé, l'accès revient replié, le menu propose « Afficher les panneaux » (" + next + ", " + sentNext + ", replié " + nextFolded + ", « " + menuNext + " »)");
+                    // « Afficher les panneaux », menu de l'icône : le gauche revient, l'accès disparaît.
+                    app.TestClickShowMenu();
+                    await Until(async () => lp.Visible && await rjs(seen) == "\"[true,false]\"", 4000);
+                    string back = await rjs(seen), sentBack = app.PanelVisibilityReport, menuBack = app.ShowMenuText;
+                    t(app.PanelsShown && lp.Visible && rpv.Visible && back == "\"[true,false]\"" && sentBack == "1,1,0" && menuBack.StartsWith(Strings.T("native.menu.hidePanels")),
+                        "« Afficher les panneaux » (menu de l'icône) : le gauche revient, l'accès disparaît, le menu repropose « Masquer » (" + back + ", " + sentBack + ", « " + menuBack + " »)");
+                    // Fermé de nouveau : lien « Rouvrir le panneau gauche », dans la section « Composition adverse » dépliée du panneau droit.
+                    await Task.Delay(300);
+                    lp.Close();
+                    await Until(async () => await rjs(seen) == "\"[false,true]\"", 3000);
+                    await rjs("(() => { const a = document.querySelector('[data-test=\"compo-access\"]'); if (a && !a.querySelector('[data-test=\"compo-reopen\"]')) a.querySelector('[data-test=\"compo-toggle\"]').click(); return 1; })()");
+                    await Until(async () => await rjs("!!document.querySelector('[data-test=\"compo-access\"] [data-test=\"compo-reopen\"]')") == "true", 2000);
+                    string link = await rjs("(() => { const b = document.querySelector('[data-test=\"compo-access\"] [data-test=\"compo-reopen\"]'); if (!b) return 'absent'; const ok = b.textContent.trim() === I18N.t('panel.compo.reopen'); b.click(); return ok ? 'ok' : b.textContent.trim(); })()");
+                    await Until(async () => lp.Visible && await rjs(seen) == "\"[true,false]\"", 4000);
+                    string relinked = await rjs(seen), sentLinked = app.PanelVisibilityReport;
+                    t(link == "\"ok\"" && app.PanelsShown && lp.Visible && rpv.Visible && relinked == "\"[true,false]\"" && sentLinked == "1,1,0" && app.ShowMenuText.StartsWith(Strings.T("native.menu.hidePanels")),
+                        "Lien « Rouvrir le panneau gauche » du panneau droit : le gauche revient, l'accès disparaît (" + link + ", " + relinked + ", " + sentLinked + ")");
+                    await Task.Delay(300);
+                }
+
                 // Client large, comme un 1280 sur 1920 : la place disponible change à chaque pas.
                 int ideal = (int)(340 * main.Scale), wide = main.Work.W - 2 * (ideal - 40), wx = main.Work.Left + (main.Work.W - wide) / 2;
                 fake.SetBounds(wx, cy, wide, ch);
@@ -3951,7 +4785,8 @@ public static class Autostart
                 fake.SetBounds(cx - 60, cy - 10, cw - 120, ch - 20);
                 await Task.Delay(200);
                 c = app.Tracker.Rect; l = rectOfLeft(); r = rectOfRight();
-                t(c.W == cw - 120 && l.H == c.H && r.H == c.H && l.Right <= c.Left && r.Left >= c.Right, "8. Redimensionnement : les panneaux s'adaptent (" + c + ")");
+                Layout.Vertical(c, main, out vy, out vh);
+                t(c.W == cw - 120 && l.H == vh && r.H == vh && l.Right <= c.Left && r.Left >= c.Right, "8. Redimensionnement : les panneaux s'adaptent (" + c + ")");
 
                 // Plus assez de place pour deux panneaux : passage en panneau unique, sans couvrir le client.
                 fake.SetBounds(main.Work.Left, cy, main.Work.W - (int)(300 * main.Scale), ch);
@@ -3959,6 +4794,29 @@ public static class Autostart
                 t(app.ShownMode == "compact" && app.PanelFor("compact") != null && app.PanelFor("compact").Visible && !app.PanelFor("left").Visible, "Place insuffisante : passage en panneau unique");
                 Rectangle cb = app.PanelFor("compact").Bounds;
                 t(cb.Left >= app.Tracker.Rect.Right, "Place insuffisante : le panneau ne couvre pas le client (" + cb + ")");
+                // Compact fermé à la main (Alt+F4) : il reste fermé au suivi du client (3 s) et à la draft suivante (affichage
+                // automatique) ; le menu de l'icône propose « Afficher les panneaux » et le rouvre.
+                {
+                    PanelForm cp = app.PanelFor("compact");
+                    cp.Close();
+                    await Task.Delay(3000);
+                    bool kept3s = !cp.IsDisposed && !cp.Visible && app.PanelsShown && app.ShownMode == "compact" && app.PanelVisibilityReport == "0,0,0";
+                    string menu3s = app.ShowMenuText;
+                    feed(Evidence.NotDraft, 3);
+                    await Until(() => Task.FromResult(!app.PanelsShown), 2000);
+                    feed(Evidence.Draft, 2);
+                    await Until(() => Task.FromResult(app.PanelsShown && app.ShownMode == "compact"), 5000);
+                    await Task.Delay(2600);
+                    bool keptDraft = app.PanelsShown && app.CurrentPhase == Phase.Draft && app.ShownMode == "compact" && !cp.Visible && app.PanelVisibilityReport == "0,0,0";
+                    string menuDraft = app.ShowMenuText;
+                    t(kept3s && keptDraft && menu3s.StartsWith(Strings.T("native.menu.showPanels")) && menuDraft.StartsWith(Strings.T("native.menu.showPanels")),
+                        "Compact fermé à la main : il reste fermé après 3 s et après une nouvelle draft, le menu propose « Afficher les panneaux » (3 s " + kept3s + ", draft " + keptDraft + ", « " + menuDraft + " »)");
+                    app.TestClickShowMenu();
+                    await Until(() => Task.FromResult(cp.Visible), 4000);
+                    await Task.Delay(300);
+                    t(cp.Visible && app.PanelsShown && app.PanelVisibilityReport == "0,0,1" && app.ShowMenuText.StartsWith(Strings.T("native.menu.hidePanels")),
+                        "Compact fermé : « Afficher les panneaux » (menu de l'icône) le rouvre (" + app.PanelVisibilityReport + ", « " + app.ShowMenuText + " »)");
+                }
                 fake.SetBounds(cx, cy, cw, ch);
                 await Task.Delay(800);
                 t(app.ShownMode == "two" && app.PanelFor("left").Visible, "Place retrouvée : retour à deux panneaux");
@@ -4096,6 +4954,16 @@ public static class Autostart
                 await RunLcuScenario(app, t, js);
                 string roleProblem = await TestAssignedRoleThroughLcu(app);
                 t(roleProblem == "", "QA A2. Rôle attribué par League (LCU simulé, de bout en bout) : 5 postes, poste vide ou inconnu, changement entre deux drafts, autoRole, sans LCU ; jamais déduit du champion (" + RoleReport + ") " + roleProblem);
+                string nextProblem = await TestNextDraft(app);
+                t(nextProblem == "", "Beta.2. Draft suivante (défaut réel de la candidate 4) : toutes les pages repartent de zéro, « Je joue » de la draft 2 ne réécrit pas la draft 1, rôle à la main de la draft 1 oublié partout (" + NextDraftReport + ") " + nextProblem);
+                string outcomeProblem = await TestDraftOutcome(app);
+                t(outcomeProblem == "", "Beta.2. Issue de la sélection (LCU simulé, vraie fenêtre) : partie lancée notée, draft annulée (lobby, client fermé) jamais proposée ni comptée, Uncertain sans effet, DRAFT redémarré sans déduction, doublons et désordre sans effet, Simulateur sans écriture (" + OutcomeReport + ") " + outcomeProblem);
+                string endGameProblem = await TestEndOfGame(app);
+                t(endGameProblem == "", "Beta.2. Écran de fin de partie (LCU simulé, vraies fenêtres) : partie lancée et notée, EndOfGame, panneau en mode fin de partie une seule fois, Victoire écrite, retiré au lobby ; draft annulée : rien (" + EndGameReport + ") " + endGameProblem);
+                string leagueProblem = await TestLeagueJournal(app);
+                t(leagueProblem == "", "Beta.2. Journal automatique (LCU simulé au format réel, vraies pages) : « Dans League » survolé puis verrouillé, sans « Je joue », consultation indépendante, verrouillage → partie : 1 entrée, → lobby : 0, échange, perte puis retour sans doublon, mode non pris en charge, DRAFT redémarré pendant la sélection et le chargement, lancé après le verrouillage, Simulateur, visible à 1366 et 125 % (" + LeagueReport + ") " + leagueProblem);
+                string availabilityProblem = await TestAvailability(app);
+                t(availabilityProblem == "", "Beta.2. Disponibilité (LCU simulé au format réel, vraies fenêtres) : un ban, puis un pick allié, puis l'adversaire ; chaque conseil devenu indisponible sort de la liste dans la fenêtre et les deux panneaux, phrase et suivant proposés, pool marqué, « Je joue » jamais proposé, survol d'un allié sans effet, visible à 1366 et 125 % (" + AvailabilityReport + ") " + availabilityProblem);
                 string lateProblem = await TestRoleLateStart(app);
                 t(lateProblem == "", "1a/1c/1d. Rôle automatique : détection Jungle dans toutes les pages (" + DetectReport + "), DRAFT lancé pendant la sélection, draft suivante (" + LateStartReport + ") " + lateProblem);
                 string langDraftProblem = await TestLanguageDuringDraft(app);
@@ -4343,6 +5211,7 @@ public static class Autostart
             m.Step(true, false, Evidence.Draft, 1); m.Step(true, false, Evidence.Draft, 1);
             m.Step(true, false, Evidence.Draft, PhaseMachine.MaxDraftSeconds + 1);
             t(m.DraftTimedOut && m.Current == Phase.Uncertain, "Machine : une draft trop longue redevient incertaine");
+            DraftOutcomeSelfTest(t);
 
             PanelVisibilityController v = new PanelVisibilityController();
             t(!v.ShouldShow(Phase.ClientClosed, false, true), "Affichage : rien au lancement");
@@ -4365,6 +5234,61 @@ public static class Autostart
                 for (int i = 0; i < 20; i++) g.Grab(new Native.RECT(0, 0, 800, 450), fr);
                 s.AppendLine("MESURE : capture réduite d'une zone d'écran " + (w2.Elapsed.TotalMilliseconds / 20).ToString("0.00") + " ms");
             }
+        }
+
+        // Issue d'une sélection (docs/technique/JOURNAL.md). Séquences de phases simulées : aucune fenêtre, aucun client.
+        static void DraftOutcomeSelfTest(Action<bool, string> t)
+        {
+            long clock = 1763290000000;
+            Func<DraftOutcomeTracker> fresh = () => new DraftOutcomeTracker { Clock = () => clock };
+            // Sortie de draft : en attente, puis partie. Une seule issue, même si la partie est relue.
+            DraftOutcomeTracker o = fresh();
+            o.Update(Phase.OutOfDraft, true, 1);
+            t(o.State == null && o.Key == null, "Issue : rien avant la première sélection");
+            o.Update(Phase.Draft, true, 1); o.Update(Phase.Draft, true, 1);
+            string k1 = o.Key;
+            t(o.State == "draft" && k1 == "1763290000000", "Issue : sélection suivie, clé = horodatage de son début (" + k1 + ")");
+            List<string> end = o.Update(Phase.InGame, true, 1);
+            t(end.Count == 2 && end[0] == "{\"kind\":\"draftEnd\",\"draft\":\"" + k1 + "\",\"outcome\":\"pending\"}" && end[1] == "{\"kind\":\"draftOutcome\",\"draft\":\"" + k1 + "\",\"outcome\":\"game\"}" && o.State == "game",
+                "Issue : draft → partie : draftEnd { pending } puis draftOutcome { game } (" + string.Join(" ", end) + ")");
+            t(o.Update(Phase.InGame, true, 1).Count == 0 && o.Update(Phase.OutOfDraft, true, 1).Count == 0 && o.State == "game", "Issue : partie relue, puis retour au lobby après la partie : rien de plus, l'issue ne change pas");
+            // Draft → lobby (phase lue dans le client) : annulée tout de suite.
+            o = fresh(); o.Update(Phase.Draft, true, 1);
+            List<string> lobby = o.Update(Phase.OutOfDraft, true, 1);
+            t(lobby.Count == 2 && lobby[0].Contains("\"pending\"") && lobby[1].Contains("\"abandoned\"") && o.State == "abandoned", "Issue : draft → lobby lu dans le client : annulée (" + string.Join(" ", lobby) + ")");
+            t(o.Update(Phase.InGame, true, 1).Count == 0 && o.State == "abandoned", "Issue : une partie vue après l'annulation ne change rien");
+            // Draft → client fermé : annulée après ConfirmSeconds sans partie ; une partie dans ce délai l'emporte.
+            o = fresh(); o.Update(Phase.Draft, false, 1);
+            int sent = o.Update(Phase.ClientClosed, false, 1).Count;
+            for (int i = 0; i < 17; i++) sent += o.Update(Phase.ClientClosed, false, 1).Count;
+            t(sent == 1 && o.State == "pending", "Issue : client fermé, 18 s : encore en attente");
+            for (int i = 0; i < 3; i++) sent += o.Update(Phase.ClientClosed, false, 1).Count;
+            t(sent == 2 && o.State == "abandoned", "Issue : draft → client fermé : annulée après " + DraftOutcomeTracker.ConfirmSeconds + " s sans partie");
+            o = fresh(); o.Update(Phase.Draft, false, 1);
+            for (int i = 0; i < 5; i++) o.Update(Phase.OutOfDraft, false, 1);
+            o.Update(Phase.InGame, false, 1);
+            t(o.State == "game", "Issue : image hors draft 5 s puis partie : partie, jamais annulée");
+            // Draft → Uncertain → partie : Uncertain ne tranche rien, même long.
+            o = fresh(); o.Update(Phase.Draft, true, 1);
+            for (int i = 0; i < 120; i++) o.Update(Phase.Uncertain, false, 1);
+            t(o.State == "pending", "Issue : 120 s d'incertitude : rien n'est tranché");
+            o.Update(Phase.InGame, true, 1);
+            t(o.State == "game", "Issue : draft → Uncertain → partie : partie");
+            // DRAFT redémarré pendant le chargement : la mémoire est perdue, rien n'est déduit.
+            o = fresh();
+            t(o.Update(Phase.InGame, true, 1).Count == 0 && o.State == null && o.Key == null, "Issue : DRAFT redémarré pendant le chargement : aucune issue, l'entrée reste à confirmer");
+            // Deux sélections de suite, la première sans partie : la première est annulée, la seconde a sa propre clé.
+            o = fresh(); o.Update(Phase.Draft, false, 1); k1 = o.Key;
+            o.Update(Phase.OutOfDraft, false, 1);
+            List<string> again = o.Update(Phase.Draft, false, 1);
+            t(again.Count == 1 && again[0].Contains("\"" + k1 + "\"") && again[0].Contains("\"abandoned\"") && o.Key != k1 && o.State == "draft", "Issue : nouvelle sélection sans partie entre les deux : la précédente est annulée, nouvelle clé (" + k1 + " puis " + o.Key + ")");
+            o.Update(Phase.InGame, false, 1);
+            t(o.State == "game", "Issue : la seconde sélection suit son propre cours");
+            // Lectures en double : une seule issue, aucun message répété.
+            o = fresh(); o.Update(Phase.Draft, true, 1);
+            int total = 0;
+            foreach (Phase p in new[] { Phase.Draft, Phase.Uncertain, Phase.Uncertain, Phase.InGame, Phase.InGame, Phase.OutOfDraft, Phase.OutOfDraft }) total += o.Update(p, true, 1).Count;
+            t(total == 2 && o.State == "game", "Issue : lectures répétées : deux messages en tout, une seule issue");
         }
     }
 
@@ -4590,7 +5514,7 @@ public static class Autostart
                             Native.RECT win = new Native.RECT(left, top, left + size[0], top + size[1]);
                             string label2 = res[0] + "x" + res[1] + "@" + scale + " client " + size[0] + (compact ? " compact" : "") + " ";
                             Placement computed = Layout.Compute(win, one, compact);
-                            int minWidth = (int)(230 * scale);
+                            int minWidth = (int)(230 * scale), narrowWidth = (int)(Layout.NarrowW * scale);
                             List<Native.RECT> boxes = new List<Native.RECT>();
                             if (computed.Mode == "two") { boxes.Add(computed.Left); boxes.Add(computed.Right); }
                             else if (computed.Mode == "compact") boxes.Add(computed.Single);
@@ -4598,7 +5522,7 @@ public static class Autostart
                             {
                                 narrowCases++;
                                 Native.RECT narrow = Layout.Narrowest(win, one).Single;
-                                if (!narrow.Inside(one[0].Work) || narrow.W != Math.Min(minWidth, one[0].Work.W)) layoutProblem += label2 + "panneau étroit hors écran ; ";
+                                if (!narrow.Inside(one[0].Work) || narrow.W != Math.Min(narrowWidth, one[0].Work.W) || narrow.H != Math.Min((int)(Layout.NarrowMaxH * scale), one[0].Work.H)) layoutProblem += label2 + "panneau étroit hors écran ou hors taille ; ";
                                 continue;
                             }
                             foreach (Native.RECT box in boxes)
@@ -4610,6 +5534,20 @@ public static class Autostart
                             if (boxes.Count == 2 && boxes[0].Overlaps(boxes[1])) layoutProblem += label2 + "panneaux superposés ; ";
                         }
             t(layoutProblem == "", "Placement : " + layoutCases + " combinaisons résolution, échelle et client, dont " + narrowCases + " sans place libre " + layoutProblem);
+            // Panneaux primaires, V2 : taille réelle et part du client masquée (client LoL centré, 1024 x 576 et 1280 x 720 physiques).
+            {
+                List<Monitor> l1366 = new List<Monitor> { mon(0, 0, 1366, 718, 1.25) };
+                Native.RECT c1366 = new Native.RECT(171, 71, 1195, 647);
+                Native.RECT n1366 = Layout.Narrowest(c1366, l1366).Single;
+                int cover1366 = Math.Max(0, c1366.Right - n1366.Left);
+                t(Layout.Compute(c1366, l1366, false).Mode == "manual" && n1366.W == 320 && n1366.H == 718 && n1366.Inside(l1366[0].Work) && cover1366 == 149,
+                    "V2, 1366 x 768 à 125 % : panneau étroit 256 x 574 px logiques (" + n1366 + "), couvre " + Math.Round(cover1366 / 1.25) + " px logiques du client sur 819");
+                List<Monitor> l1920 = new List<Monitor> { mon(0, 0, 1920, 1030, 1.25) };
+                Native.RECT c1920 = new Native.RECT(320, 155, 1600, 875);
+                Placement p1920 = Layout.Compute(c1920, l1920, false);
+                t(p1920.Mode == "two" && p1920.Left.W == 320 && p1920.Left.H == 900 && p1920.Right.H == 900 && p1920.Left.Top == 65 && !p1920.Left.Overlaps(c1920) && !p1920.Right.Overlaps(c1920),
+                    "V2, 1920 x 1080 à 125 % : deux panneaux 256 x 720 px logiques centrés sur le client, rien de couvert (" + p1920.Left + " | " + p1920.Right + ")");
+            }
             List<Monitor> mixed = new List<Monitor> { mon(0, 0, 1920, 1040, 1), mon(-2560, 0, 2560, 1400, 1.5) };
             Placement toOther = Layout.Compute(new Native.RECT(0, 0, 1920, 1040), mixed, false);
             t(toOther.Mode == "two" && toOther.Left.W == 510 && toOther.Left.Right <= 0 && toOther.Right.Right <= 0, "Placement : client plein écran à 100 %, panneaux sur l'autre écran à 150 %, à sa propre échelle");

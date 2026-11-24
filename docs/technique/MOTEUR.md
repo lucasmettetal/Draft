@@ -32,6 +32,7 @@ Ces changements peuvent modifier un résultat. Le calcul des scores, lui, ne cha
 
 - **Mid probable :** un champion typé jungle, ADC ou support passe après les autres candidats. Le mid supposé peut donc changer pour certaines drafts, et le verdict avec lui. Il reste affiché comme une supposition, corrigeable en un clic.
 - **Exclusions :** un pick exclu disparaît du classement et des raisons de ban.
+- **Champions indisponibles** (3.0 beta.2) : avec la lecture du client, un champion banni ou pris par un allié sort de la liste candidate avant le classement, comme un pick adverse (`UNAVAILABLE`, `availablePicks`). Seul l'ensemble des candidats change : notes, poids et scores des autres picks sont identiques. Vérifié par le banc (0 différence) et par `web/draft-dispo-tests.html` (même classement que sans le champion). Voir [LCU.md](LCU.md).
 - **Favori :** il ne départage qu'une égalité exacte et ne modifie aucun score.
 - **Frontline :** sa supposition devient une préférence, activée par défaut.
 

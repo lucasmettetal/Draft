@@ -1,4 +1,4 @@
-﻿# Relève les messages réellement affichés par la page, sur une série de drafts, et les rattache à l'inventaire
+# Relève les messages réellement affichés par la page, sur une série de drafts, et les rattache à l'inventaire
 # (catalogue dans web/draft-messages-tests.html). Signale aussi les explications qui contredisent le calcul (constats B..).
 # Copie de travail sous %TEMP% : le banc interroge la page avec eval, autorisé dans cette copie seulement, jamais dans l'application.
 # Aucun réseau n'est nécessaire (les portraits manquants n'empêchent rien). Aucune donnée personnelle n'est lue.
@@ -66,14 +66,15 @@ if (-not $m.Groups[1].Value) { throw 'Aucun résultat : erreur dans la page ou d
 $raw = [Net.WebUtility]::HtmlDecode($m.Groups[1].Value)
 if (-not $Out) { $Out = Join-Path $Work 'messages.json' }
 [IO.File]::WriteAllText($Out, $raw, [Text.UTF8Encoding]::new($false))
-$r = $raw | ConvertFrom-Json
+# Clés sensibles à la casse : le relevé peut contenir « Origine inconnue » et « origine inconnue ». ConvertFrom-Json (objet) les confond.
+$r = if ($PSVersionTable.PSVersion.Major -ge 6) { $raw | ConvertFrom-Json -AsHashtable } else { Add-Type -AssemblyName System.Web.Extensions; (New-Object System.Web.Script.Serialization.JavaScriptSerializer -Property @{ MaxJsonLength = [int]::MaxValue }).DeserializeObject($raw) }
 $s = $r.summary
 "Durée : $([int]$watch.Elapsed.TotalSeconds) s, $($r.runs) drafts, $($r.steps) étapes"
 if ($r.checked) { "Étapes vérifiées (fenêtre complète) : $($r.checked.steps), dont $($r.checked.incomplete) avec une draft incomplète, $($r.checked.ties) égalités affichées, $($r.checked.noFront) avec l'option frontline décochée ; adversaire direct étiqueté : $($r.checked.assumedShown) fois, dont $($r.checked.assumedThin) avec 1 ou 2 champions révélés ; ligne matchup de l'analyse vérifiée (vis-à-vis pas nommé) : $($r.checked.matchupLine) fois, dont $([int]$r.checked.matchupAveraged) avec le matchup compté en moyenne des hypothèses ; rôle incertain marqué : $($r.checked.flexShown) étapes" }
 "Inventaire : $($s.inventaire) entrées dont $($s.inventaireVisible) visibles ; observées à l'écran : $($s.inventaireObserve) ; non déclenchées : $(@($s.nonDeclenches).Count)"
 "Textes distincts relevés dans le DOM : $($s.observesDistincts) ; gabarits hors inventaire : $($s.nonInventories)"
 "Constats (explication contraire au calcul) :"
-$r.constats.PSObject.Properties | Sort-Object Name | ForEach-Object { "  $($_.Name) : $($_.Value.count)" }
+@($r.constats.GetEnumerator()) | Sort-Object Key | ForEach-Object { "  $($_.Key) : $(@($_.Value).Count)" }
 if (@($r.errors).Count) { "Erreurs :"; @($r.errors) | ForEach-Object { "  $_" } }
-if ($r.i18nMissing) { $miss = @($r.i18nMissing.PSObject.Properties); "Langue : $($r.lang) ; clés ou variables absentes relevées : $($miss.Count)"; $miss | Select-Object -First 20 | ForEach-Object { "  $($_.Name) ($($_.Value) fois)" } }
+if ($r.i18nMissing) { $miss = @($r.i18nMissing.GetEnumerator()); "Langue : $($r.lang) ; clés ou variables absentes relevées : $($miss.Count)"; $miss | Select-Object -First 20 | ForEach-Object { "  $($_.Key) ($($_.Value) fois)" } }
 "Résultat complet : $Out"

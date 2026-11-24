@@ -166,6 +166,25 @@
   .res.win.on { background:var(--good); border-color:var(--good); color:var(--good-ink); font-weight:600; }
   .res.loss.on { background:var(--threat); border-color:var(--threat); color:var(--threat-ink); font-weight:600; }
   .res.skip.on { border-color:var(--text); }
+  /* Fin de partie (panneau) et « Dernière partie » (Accueil) : champion en grand, deux gros boutons pleine largeur, Ignorer en petit. */
+  .p-end { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; padding:8px 12px 12px; overflow-y:auto; }
+  .game-result { display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .panel .p-reco.gr-art { min-height:clamp(150px,30vh,230px); }
+  .gr-art-home { display:flex; }
+  .home-last .game-result { display:grid; grid-template-columns:auto 1fr; column-gap:var(--s4); align-items:center; }
+  .home-last .gr-art-home { grid-row:span 3; }
+  .gr-name { font:600 24px var(--condensed); }
+  .gr-who { margin:0; font-size:15px; overflow-wrap:anywhere; }
+  .gr-noted { color:var(--muted); }
+  .gr-vs { color:var(--muted); }
+  .gr-buttons { display:grid; gap:8px; }
+  .gr-btn { width:100%; min-height:52px; padding:6px 10px; border:1px solid; border-radius:8px; font:600 22px var(--condensed); cursor:pointer; }
+  .gr-btn.win { background:var(--good); border-color:var(--good); color:var(--good-ink); }
+  .gr-btn.loss { background:var(--threat); border-color:var(--threat); color:var(--threat-ink); }
+  .gr-btn:hover { filter:brightness(1.08); }
+  .gr-skip { align-self:center; }
+  .gr-done { margin:0; font:600 22px var(--condensed); text-align:center; }
+  .home-last .gr-buttons { grid-template-columns:1fr 1fr; max-width:460px; }
   .result-note { margin-top:6px; color:var(--muted); font-size:13px; }
 
   .tabs { flex:none; display:flex; gap:0; padding:0 6px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none; }
@@ -417,6 +436,11 @@
   .p-ban .note { margin-top:3px; font-size:12px; }
   .p-actions { position:sticky; bottom:-12px; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:auto -12px -12px; padding:8px 12px 10px; background:var(--bg); border-top:1px solid var(--line); }
   .p-actions .cta { margin:0; min-height:36px; padding:5px 13px; font-size:15px; }
+  /* « Dans League » (beta.2) : pick lu dans le client, à part du champion consulté. */
+  .league-line { flex:1 1 100%; display:flex; flex-direction:column; gap:1px; min-width:0; margin:2px 0; font-size:var(--fs-sm); line-height:1.25; }
+  .league-status { font-weight:600; overflow-wrap:anywhere; }
+  .league-status.done { color:var(--good); }
+  .league-auto { color:var(--muted); font-size:var(--fs-xs); overflow-wrap:anywhere; }
   .p-empty { color:var(--muted); }
   .settings-back { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(10,8,14,.74); }
   .settings { width:min(520px,100%); max-height:100%; overflow:auto; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:8px; }
@@ -994,6 +1018,9 @@
   .p-pool-row { display:flex; align-items:center; gap:8px; width:100%; min-height:36px; padding:3px 8px 3px 3px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); text-align:left; }
   .p-pool-row:hover { border-color:var(--muted); }
   .p-pool-row.picked { border-color:var(--prio); box-shadow:inset 0 0 0 1px var(--prio); }
+/* Disponibilité (beta.2) : champion du pool banni ou déjà pris, marqué et inactif. */
+.p-pool-row.off { opacity:.6; cursor:default; }
+.p-pool-row.off:hover { border-color:var(--line); }
   .p-pool-name { flex:1; min-width:0; display:flex; flex-direction:column; font:15px var(--condensed); overflow-wrap:anywhere; }
   .p-pool-name small { font-family:var(--body); }
   .p-pool-go { flex:none; color:var(--prio); font:600 13px var(--body); }
@@ -1137,7 +1164,214 @@
   .sim-band { padding-top:var(--s2); padding-bottom:var(--s2); }
   /* Grand écran : les lignes adverses gardent une hauteur utile au lieu de s'étirer (130 px pour 50 px de contenu). */
   @media (min-height:900px) and (min-width:1101px) { .view .roles { flex:0 0 auto; gap:6px; } .view .roles > .role { flex:0 0 auto; min-height:88px; } .view .roles > .role.is-mid { min-height:96px; } }
+  /* ---------- Panneaux primaires (docs/technique/PANNEAUX-PROPOSITION.md) : lecture immédiate en haut, approfondie dessous ---------- */
+  /* Rôle joué et pool actif : une ligne courte sous les boutons de rôle. */
+  .p-rolemeta { display:flex; flex-wrap:wrap; align-items:baseline; gap:0 6px; margin:0; padding:0 8px 5px; color:var(--muted); font-size:13px; line-height:1.3; }
+  .p-rolemeta .role-source { padding:0; font-size:13px; }
+  .p-rolemeta .role-source + .p-poolcount::before { content:"·"; margin-right:6px; color:var(--line-strong); }
+  .panel .role-auto ~ .p-rolemeta .role-source.detected { display:none; }
+  .panel .role-auto ~ .p-rolemeta .role-source.detected + .p-poolcount::before { content:none; }
+  .p-now { flex:none; display:flex; flex-direction:column; gap:8px; }
+  /* Carte du conseil : étiquette, état et nombre d'adversaires sur la même ligne, au-dessus du nom. */
+  .p-reco-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; }
+  .panel .p-reco .badge { padding:1px 7px; background:rgba(23,20,29,.78); line-height:1.3; }
+  .panel .p-reco .badge.net { color:var(--prio); border-color:var(--prio); }
+  .panel-compact .p-reco .badge.count { display:none; }
+  .panel .p-reco { display:flex; flex-direction:column; justify-content:flex-end; height:auto; min-height:clamp(84px,14vh,126px); }
+  .panel .p-reco-text { position:relative; left:auto; right:auto; bottom:auto; padding:8px 10px 8px 12px; }
+  .panel .p-alt.viewed { display:flex; margin:0; padding:6px 10px 6px 6px; }
+  /* Pourquoi (vert) et risque (corail) : une phrase chacun ; tout le détail est dans « Pourquoi X ». */
+  .p-why { flex:none; display:flex; flex-direction:column; gap:3px; }
+  .p-why p { margin:0; font-size:13px; line-height:1.3; overflow-wrap:anywhere; }
+  .p-why b { margin-right:2px; font-weight:600; }
+  .p-why-pro b { color:var(--good); }
+  .p-why-con b { color:var(--threat); }
+  .p-keyban { flex:none; display:flex; align-items:flex-start; gap:8px; padding:6px 8px; background:var(--raised); border-left:3px solid var(--line-strong); border-radius:0 6px 6px 0; }
+  .p-keyban > div { flex:1; min-width:0; }
+  .p-keyban b { font:var(--fs-md) var(--condensed); overflow-wrap:anywhere; }
+  .p-keyban p { margin:1px 0 0; font-size:13px; line-height:1.25; }
+  .p-keyban .portrait { box-shadow:0 0 0 1.5px var(--line-strong); filter:grayscale(1) brightness(.85); }
+  .panel .p-viewed { margin:0; padding:6px 8px; }
+  .panel .p-viewed .viewed-cmp { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; line-height:1.3; }
+  .panel .p-tie .tie-item { min-height:38px; padding:4px 8px 4px 4px; gap:8px; }
+  .panel .p-tie .tie-list { gap:4px; }
+  /* Lecture approfondie : sections dépliables d'un seul niveau, sans animation. */
+  .p-deep { flex:none; display:flex; flex-direction:column; gap:5px; margin-top:4px; padding-top:8px; border-top:1px solid var(--line); }
+  .p-deep-title { margin:0 0 1px; color:var(--muted); font:600 13px var(--body); letter-spacing:.04em; text-transform:uppercase; }
+  .p-sec { margin:0; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
+  .p-sec[open] { border-color:var(--line-strong); }
+  .p-sec > summary, .p-pool.p-sec > summary { display:flex; align-items:center; gap:8px; min-height:32px; padding:4px 8px; color:var(--text); font:15px var(--condensed); list-style:none; cursor:pointer; }
+  .p-sec > summary::-webkit-details-marker { display:none; }
+  .p-sec > summary::before { content:""; flex:none; width:7px; height:7px; margin:0 2px; border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted); transform:rotate(-45deg); }
+  .p-sec[open] > summary::before { transform:rotate(45deg); }
+  .p-sec > summary > span { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .p-sec > summary > small { flex:0 1 auto; max-width:48%; overflow:hidden; color:var(--muted); font:13px var(--body); text-overflow:ellipsis; white-space:nowrap; }
+  .p-sec > summary:hover { color:var(--text); background:var(--raised); border-radius:6px; }
+  .p-sec-body { display:flex; flex-direction:column; gap:6px; padding:2px 8px 8px; font-size:13px; }
+  .p-sec-body p { margin:0; }
+  .p-sec-lead, .p-prefers, .p-win-line { font-size:13px; line-height:1.3; overflow-wrap:anywhere; }
+  .p-prefers b, .p-win-line b { color:var(--prio); font-weight:600; }
+  .p-sub { margin:2px 0 0; color:var(--muted); font:600 13px var(--body); }
+  .p-sub.good { color:var(--good); }
+  .p-sub.bad { color:var(--threat); }
+  .p-list { display:grid; gap:3px; margin:0; padding:0; }
+  .p-list li { position:relative; padding-left:13px; font-size:13px; line-height:1.3; overflow-wrap:anywhere; }
+  .p-list li::before { content:""; position:absolute; left:1px; top:.45em; width:5px; height:5px; background:var(--muted); transform:rotate(45deg); }
+  .p-list.pros li::before { background:var(--good); }
+  .p-list.cons li::before { background:var(--threat); }
+  .p-phase { display:flex; flex-direction:column; gap:3px; }
+  .p-faces { display:grid; gap:6px; margin:0; padding:0; }
+  .p-faces li { display:flex; align-items:center; gap:8px; min-width:0; }
+  .p-faces li > span { display:flex; flex-direction:column; min-width:0; }
+  .p-faces b { font:15px var(--condensed); overflow-wrap:anywhere; }
+  .p-faces small { color:var(--muted); font-size:13px; line-height:1.25; overflow-wrap:anywhere; }
+  .p-faces.threat .portrait { box-shadow:0 0 0 1.5px var(--threat); }
+  .p-faces.target .portrait { box-shadow:0 0 0 1.5px var(--good); }
+  .p-faces.ban .portrait { box-shadow:0 0 0 1.5px var(--line-strong); filter:grayscale(1) brightness(.85); }
+  .p-crit { display:grid; gap:5px; margin:0; padding:0; }
+  .p-crit li { display:flex; align-items:flex-start; gap:8px; }
+  .p-crit li > span:last-child { display:flex; flex-direction:column; min-width:0; }
+  .p-crit b { font-size:13px; font-weight:600; }
+  .p-crit small { color:var(--muted); font-size:13px; line-height:1.25; overflow-wrap:anywhere; }
+  .p-crit-mark { flex:none; min-width:28px; padding:0 4px; background:var(--raised); border-radius:4px; color:var(--muted); font:600 13px var(--body); text-align:center; }
+  .p-crit li.up .p-crit-mark { background:var(--good); color:var(--good-ink); }
+  .p-crit li.down .p-crit-mark { background:var(--threat); color:var(--threat-ink); }
+  .p-cmp { display:grid; gap:3px; }
+  .p-cmp .cmp-row { grid-template-columns:minmax(0,1fr) minmax(76px,42%); font-size:13px; }
+  .p-cmp .cmp-legend { font-size:13px; }
+  .p-sec .p-pool-list { grid-template-columns:minmax(0,1fr); margin:0; padding:2px 8px 8px; }
+  .p-sec .p-pool-row { min-width:0; }
+  .p-sec .familiar-line { padding:0 8px 8px; }
+  .p-force { display:block; width:100%; margin-top:3px; }
+  .p-pool-list li:first-child .p-force i { background:var(--prio); }
+  .p-sec .meters.p-meters { display:grid; gap:4px; }
+  .p-openfull { align-self:flex-start; margin:2px 0 4px; }
+  /* Barre d'actions : le pick. Ligne « Dans League » (lecture du client), sinon « Je joue X » marqué « À la main ». */
+  .panel .p-actions { flex-direction:column; flex-wrap:nowrap; align-items:stretch; gap:4px; }
+  /* « Je joue X » seul sur sa rangée, pleine largeur, sur une ligne (nom tronqué proprement, texte complet au survol) ; dessous,
+     « Détails », « À la main » ou l'annonce « Dans League », et « Revenir au conseil ». */
+  .panel .p-actions > .cta { width:100%; min-width:0; min-height:38px; padding-left:10px; padding-right:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+  .panel .p-actions .details-btn { flex:none; gap:5px; min-height:32px; padding:2px 9px 2px 7px; }
+  .details-btn.on { border-color:var(--text); }
+  .p-actions-sub { display:flex; flex-wrap:wrap; align-items:center; gap:2px 10px; }
+  .p-actions-sub:empty { display:none; }
+  .p-actions .p-actions-sub .pick-advice { flex:0 1 auto; margin:0; }
+  .p-manual { flex:none; padding:0 7px; border:1px dashed var(--line-strong); border-radius:999px; color:var(--muted); font-size:13px; line-height:1.5; }
+  .p-league { display:flex; align-items:center; gap:7px; margin:0; color:var(--text); font-size:13px; line-height:1.3; overflow-wrap:anywhere; }
+  .p-league b { color:var(--conn); font-weight:600; }
+  .p-league-dot { flex:none; width:9px; height:9px; background:var(--conn); border-radius:50%; }
+  .p-league.hover .p-league-dot { background:transparent; box-shadow:inset 0 0 0 2px var(--conn); }
+  /* Ajustements V2 : la ligne tient sur une ligne. Seul le nom se raccourcit (points de suspension, nom complet au survol) ;
+     « Dans League » et l'état (verrouillé, survolé) restent entiers. Espaces gardés autour du nom (white-space:pre). */
+  .p-league-text { display:flex; min-width:0; overflow:hidden; white-space:pre; }
+  .p-league-text b { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .p-auto-note { flex:0 1 auto; min-width:0; margin:0; color:var(--muted); font-size:13px; line-height:1.25; }
+  /* Noms sur une ligne, tronqués proprement (nom complet au survol) ; étiquettes sur une ligne ; ailleurs, retour à la ligne entre
+     les mots seulement : un mot n'est jamais coupé en son milieu tant qu'il tient sur une ligne entière. */
+  .panel *, .panel *::before, .panel *::after { overflow-wrap:break-word !important; }
+  .p-nm, .panel .p-name, .panel .viewed-head b, .panel .p-threat b { display:block; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .panel .rank-word, .panel .p-chip, .panel .badge, .panel .p-manual { white-space:nowrap; }
+  .panel .viewed-head .rank-word { flex:none; }
+  /* Étiquettes et puces : une ligne, tronquées proprement si la place manque (jamais un mot coupé en deux lignes). */
+  .panel .p-alt small, .panel .p-pool-name .rank-word { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; align-self:flex-start; }
+  .panel .res { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+  @media (max-width:260px) { .panel .p-alt .portrait { width:32px !important; height:32px !important; } .panel .p-alt { gap:8px; } }
+  /* Panneau gauche sous 240 px : l'icône de rôle seule (nom du rôle au survol, et dans l'étiquette de la ligne pour les lecteurs
+     d'écran) ; la colonne du nom gagne 22 px, assez pour « (probable) » sans le couper. */
+  @media (max-width:240px) {
+    .panel-left .role-icon { width:26px; }
+    .panel-left .role-label { display:none; }
+  }
+  /* Compact : libellés de rôle sur une ligne (« Support » déborde de 1 à 2 px de sa colonne, comme avant) ; noms adverses tronqués
+     proprement, nom complet au survol. */
+  .panel .compact-roles .role-icon { white-space:nowrap; overflow-wrap:normal !important; }
+  /* Pas de défilement horizontal dans les panneaux : un libellé qui déborde de 1 à 3 px de sa colonne reste lisible, sans barre. */
+  .panel .p-scroll, .panel-right .p-body { overflow-x:hidden; }
+  .panel .compact-roles .role-name, .panel .compact-roles .role.is-mid .role-name { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; overflow-wrap:normal !important; -webkit-line-clamp:unset; }
+  /* Ajustements V2 : case vide du compact marquée d'un « + » (« Ajouter le Top » au survol ; étiquette de la case pour les lecteurs
+     d'écran). « Ajouter » remplissait ses 45 px de colonne : côte à côte, on lisait « AjouterAjouterAjouter ». */
+  .role-plus { display:none; }
+  .compact-roles .role-add { display:none; }
+  .compact-roles .role-plus { display:block; color:var(--muted); font:600 16px/1 var(--body); pointer-events:none; }
+  .p-risk { flex:none; }
+  .p-results { flex:none; }
+  /* Panneau gauche : provenance, légende des cadres (plein = placé à la main, pointillé = supposé) et conseil à jour. */
+  .p-left-source { margin:-4px 0 6px; color:var(--muted); font-size:13px; }
+  .panel .role.supposed .portrait { outline-style:dashed; }
+  .panel .role.placed .portrait { outline-style:solid; }
+  .p-legend { margin:0 0 8px; color:var(--muted); font-size:13px; line-height:1.3; }
+  .p-left-advice { color:var(--prio); font-weight:600; }
+  .p-left-advice::before { content:"·"; margin:0 5px 0 2px; color:var(--muted); font-weight:400; }
+  .panel-left .col-left > .effects { margin:0 0 8px; }
+  /* Libellé « Détails » toujours affiché : la commande vers la lecture approfondie reste nommée. */
+  @media (max-width:240px) { .panel .p-actions .details-label { display:inline; } }
+  /* Le conseil est en haut du panneau : dans la barre, « Revenir au conseil » suffit (le nom est dans son titre). */
+  .panel .p-actions [data-test="pick-advice"] > span { display:none; }
+  /* Compact (adversaires et conseil dans un seul panneau) jusqu'à 700 px de haut : « Pourquoi », le changement et la comparaison du
+     champion consulté passent dans les détails (« Pourquoi X ») ; restent le conseil, la menace (ou le ban) et le nom du consulté.
+     Mesuré : à 222 x 567 et 248 x 567, les afficher poussait la menace ou le consulté sous la barre (tools/run-panneaux-tests.ps1). */
+  @media (max-height:700px) {
+    .panel-compact .p-why, .panel-compact .p-change, .panel-compact .p-viewed .viewed-cmp, .panel-compact .p-keyban p.p-keyban-more, .panel-compact .p-tie > .note { display:none; }
+/* Disponibilité (beta.2) : le conseil devenu indisponible est dit aussi dans le compact, sur une ligne courte. */
+.panel-compact .p-change.p-gone { display:block; }
+    .panel-compact .p-keyban p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+    /* Égalité dans le compact : les ex æquo côte à côte (portrait, puis nom), la coche dans le coin, loin du nom. */
+    .panel-compact .p-tie .tie-list { flex-direction:row; }
+    .panel-compact .p-tie .tie-item { position:relative; flex:1 1 0; min-width:0; flex-direction:column; justify-content:flex-start; gap:3px; min-height:0; padding:5px 3px 4px; text-align:center; }
+    .panel-compact .p-tie .tie-text { flex:none; width:100%; align-items:center; }
+    .panel-compact .p-tie .tie-name { font-size:13px; line-height:1.15; }
+    .panel-compact .p-tie .tie-text small { display:none; }
+    .panel-compact .p-tie .tie-check { position:absolute; top:3px; right:4px; }
+  }
+  @media (max-height:600px) {
+    .panel .p-reco { min-height:68px; }
+    .panel-compact .p-now { gap:5px; }
+    .panel-compact .p-rolemeta { padding-bottom:3px; }
+    .panel-compact .compact-roles .role { min-height:62px; }
+    .panel-compact .p-threat, .panel-compact .p-keyban { padding-top:4px; padding-bottom:4px; }
+    .panel-compact .p-threat .portrait, .panel-compact .p-keyban .portrait { width:32px !important; height:32px !important; }
+    .panel-compact .p-reco { min-height:56px; }
+    .panel-compact .p-actions { padding-top:6px; padding-bottom:7px; }
+    /* Menace sur deux lignes au plus : la phrase entière plutôt qu'un mot coupé par les points de suspension (texte complet au
+       survol et dans « Menaces et cibles ») ; proposition de rôle plus serrée. */
+    .panel-compact .p-threat p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+    .panel-compact .role-hint { margin:0 8px 4px; padding:3px 7px; line-height:1.25; }
+    .panel .p-viewed .viewed-cmp { -webkit-line-clamp:2; }
+    .panel-compact .compact-roles .role-icon { line-height:1.1; }
+    .panel-compact .compact-roles .portrait, .panel-compact .compact-roles .slot-ghost { width:28px !important; height:28px !important; }
+    .panel-compact .p-reco-text { padding-top:4px; padding-bottom:4px; }
+  }
+  /* Panneau gauche et compact : la recherche disparaît quand les 5 adversaires sont saisis ; forces et failles avant les jauges. */
+  .panel-left .search:has(input:disabled), .p-compact-enemies .search:has(input:disabled) { display:none; }
+  .panel-left .roles { gap:3px; }
+  .panel-left .col-left > .effects { padding:5px 8px; }
+  /* Ajustements V2, panneau gauche (252 x 711) : les 5 jauges tiennent sans défiler, en FR comme en EN. Libellés sur une ligne
+     (colonne de 100 px : « Squishy carries » en demande 91, il passait sur deux lignes à 90) ; 4 px entre les jauges, comme
+     dans les détails du compact. */
+  .panel-left .meters.profile { gap:4px; }
+  .panel-left .meter { grid-template-columns:minmax(0,100px) minmax(0,1fr) 14px; gap:6px; }
+  /* Étiquette de l'alternative : deux lignes au plus, coupées entre deux mots, plutôt que « Presque à ég… » (101 px pour 90 dans
+     le panneau droit de 252 px). Un mot plus large que la colonne n'est jamais coupé en deux (« Alternative » à 222 px). */
+  .panel .p-alt small { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; white-space:normal; overflow-wrap:normal !important; }
+  /* Ajustements V2 : composition repliable (compact) et accès « Composition adverse X/5 » du panneau droit quand le gauche est fermé.
+     Même ligne que les sections dépliables : chevron vers la droite replié, vers le bas ouvert. Bouton de repli à droite de la recherche
+     (chevron vers le haut) : la rangée ouverte et incomplète ne prend aucune ligne de plus. */
+  .p-compo-line { display:flex; align-items:center; gap:8px; width:100%; min-height:32px; margin:0; padding:4px 8px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); font:15px var(--condensed); text-align:left; cursor:pointer; }
+  .p-compo-line::before, .p-compo-fold::before { content:""; flex:none; width:7px; height:7px; margin:0 2px; border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted); transform:rotate(-45deg); }
+  .p-compo-line[aria-expanded="true"]::before { transform:rotate(45deg); }
+  .p-compo-line > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .p-compo-line:hover { background:var(--raised); }
+  .p-compact-enemies > .p-compo-line { margin-bottom:6px; }
+  .p-compo-search { display:flex; align-items:stretch; gap:4px; }
+  .p-compo-search .search { flex:1; min-width:0; }
+  .panel .p-compo-fold { flex:none; width:30px; height:auto; margin-bottom:6px; border:1px solid var(--line); border-radius:6px; }
+  .p-compo-fold::before { margin:3px 0 0; transform:rotate(-135deg); }
+  .p-compo-access { flex:none; display:flex; flex-direction:column; }
+  .p-compo-access.open > .p-compo-line { border-color:var(--line-strong); }
+  .p-compo-access .p-compact-enemies { padding:6px 0 0; }
+  .p-compo-reopen { display:block; margin:2px 0 0 auto; }
 </style>
+<link rel="stylesheet" href="draft-stats.css">
 </head>
 <body>
 <div id="root"></div>
@@ -1163,6 +1397,8 @@
 <script src="draft-profiles.js"></script>
 <script src="draft-providers.js"></script>
 <script src="draft-champion-ids.js"></script>
+<script src="draft-stats-calc.js"></script>
+<script src="draft-stats-view.js"></script>
 <script>
 if (!window.React || !window.ReactDOM || !window.Motion || !window.htm || typeof analyze === "undefined" || !window.I18N) {
   document.getElementById("root").innerHTML = '<p style="padding:24px;max-width:60ch">DRAFT ne peut pas démarrer : le dossier <b>draft-vendor</b> ou le fichier <b>draft-engine.js</b> est introuvable. Replace-les à côté de ce fichier, puis recharge la page.</p>';
@@ -1253,9 +1489,175 @@ function updateEntry(id, change) {
   if (entry) { Object.assign(entry, change); saveJournal(list); }
 }
 
+// Issue de la sélection (docs/technique/JOURNAL.md), transmise par le programme : gameStarted (partie lancée) ou abandoned (draft
+// annulée). Sans l'une ni l'autre, l'issue est inconnue : « à confirmer », jamais jouée d'office. Une entrée annulée reste dans le
+// journal, mais n'est ni comptée ni proposée comme « Dernière partie ». Les anciennes entrées ne sont pas réécrites.
+const isAbandoned = x => !!x && x.abandoned === true;
+const countedEntries = list => list.filter(x => !isAbandoned(x));
+// Statut d'une entrée : draft annulée, résultat saisi, partie lancée en attente du résultat, ou issue inconnue (à confirmer).
+// Affiché par le journal de Mes statistiques (draft-stats-view.js).
+const entryStatus = x => isAbandoned(x) ? t("journal.status.abandoned")
+  : ({ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") })[x.result] || t(x.gameStarted === true ? "journal.status.pending" : "journal.status.unconfirmed");
+// « Dernière partie » à compléter : seulement une partie dont le lancement a été vu.
+const lastGameToComplete = list => [...list].reverse().find(x => x.result === null && x.gameStarted === true && !isAbandoned(x)) || null;
+// Clé de la sélection en cours, donnée par le programme : posée sur l'entrée créée pendant cette sélection, ou juste après sa fin.
+const liveSelection = () => IS_HOST && hostState.draftKey && (hostState.draftOutcome === "draft" || hostState.draftOutcome === "pending") ? String(hostState.draftKey) : null;
+// Notée une seule fois, dans l'entrée de CETTE sélection : messages en double, en retard ou dans le désordre ne changent plus rien,
+// et rien n'est créé. Plusieurs pages peuvent l'appliquer : elles écrivent la même chose.
+const OUTCOME_FIELDS = { game: { gameStarted: true }, abandoned: { abandoned: true } };
+// Entrée d'une sélection : même clé, sinon même partie (gameId, DRAFT redémarré pendant la sélection).
+const selectionEntry = (list, key, gameId) => list.find(x => x.selection === String(key)) || (gameId ? list.find(x => x.gameId === gameId) : null) || null;
+function applyDraftOutcome(key, outcome) {
+  if (!key || !OUTCOME_FIELDS[outcome]) return false;
+  const list = loadJournal();
+  const l = leaguePick && leaguePick.key === String(key) ? leaguePick : null;
+  const entry = selectionEntry(list, key, l && l.gameId);
+  if (!entry || entry.gameStarted === true || isAbandoned(entry)) return false;
+  Object.assign(entry, OUTCOME_FIELDS[outcome]);
+  saveJournal(list);
+  return true;
+}
+
+// ---------- « Dans League » et journal automatique (beta.2, docs/technique/JOURNAL.md) ----------
+// Ton pick lu dans le client (survolé, verrouillé, final), envoyé par le programme à chaque page (hostState.league). Comme le poste
+// attribué, il ne vient jamais d'une autre page. Versionné : une sélection plus récente (clé plus grande), sinon une version plus
+// grande. Indépendant du champion CONSULTÉ dans DRAFT : l'un ne change jamais l'autre, ni le classement.
+let leaguePick = null;
+function takeLeague(next) {
+  if (!next || typeof next.v !== "number" || !next.key) return false;
+  const cur = leaguePick;
+  if (cur && (Number(next.key) < Number(cur.key) || (next.key === cur.key && next.v <= cur.v))) return false;
+  leaguePick = next;
+  return true;
+}
+const leagueNow = () => IS_HOST && leaguePick && hostState.draftKey && leaguePick.key === String(hostState.draftKey) ? leaguePick : null;
+// Disponibilité (beta.2, docs/technique/LCU.md) : champions bannis, pris par un allié ou en face, lus dans le client par le programme
+// (hostState.unavailable). Identifiant de champion et raison seulement, versionnés comme « Dans League ». Bannis et pris par un allié
+// sortent de la liste candidate avant le classement (UNAVAILABLE, draft-engine.js) ; les picks adverses en sortent déjà par la
+// composition (state.enemies), comme avant. Sans lecture du client, en simulation ou pour une autre sélection : rien n'est retiré.
+let availability = null;
+function takeAvailability(next) {
+  if (!next || typeof next.v !== "number" || !next.key || !Array.isArray(next.items)) return false;
+  const cur = availability;
+  if (cur && (Number(next.key) < Number(cur.key) || (next.key === cur.key && next.v <= cur.v))) return false;
+  availability = next;
+  return true;
+}
+const availabilityNow = () => IS_HOST && !simulating && !!hostState.lcuEnabled && availability && hostState.draftKey && availability.key === String(hostState.draftKey) ? availability : null;
+// Raison pour laquelle un champion (nom) n'est plus disponible dans la sélection en cours : "ban", "ally", "enemy", ou null.
+function unavailableReason(name) {
+  const a = availabilityNow(), item = a && a.items.find(x => toName(CHAMPION_IDS[x.id]) === name);
+  return item ? item.reason : null;
+}
+// Recopie les listes du moteur avant chaque calcul : bannis et pris par un allié pour les picks (UNAVAILABLE) ; bannis, pris par un
+// allié et pris en face pour les bans conseillés (NOT_BANNABLE). Vrai si l'une a changé.
+function syncUnavailable() {
+  const a = availabilityNow(), before = UNAVAILABLE.join("|") + "#" + NOT_BANNABLE.join("|");
+  const names = reasons => a ? a.items.filter(x => reasons.includes(x.reason)).map(x => toName(CHAMPION_IDS[x.id])).filter(n => n && ROSTER[n] !== undefined) : [];
+  const fill = (list, values) => { list.length = 0; values.forEach(n => { if (!list.includes(n)) list.push(n); }); };
+  fill(UNAVAILABLE, names(["ban", "ally"]));
+  fill(NOT_BANNABLE, names(["ban", "ally", "enemy"]));
+  return UNAVAILABLE.join("|") + "#" + NOT_BANNABLE.join("|") !== before;
+}
+// Bans conseillés tous déjà faits ou pris (lecture du client) : la section le dit, sans en inventer d'autre.
+function bansAllTaken(bans) {
+  if (bans.length || !NOT_BANNABLE.length) return false;
+  const keep = NOT_BANNABLE.splice(0), all = suggestBans();
+  keep.forEach(n => NOT_BANNABLE.push(n));
+  return all.length > 0;
+}
+// Champions du pool sortis de la liste candidate parce qu'ils ne sont plus disponibles, à marquer (« Banni », « Pris par un allié »,
+// « Pris en face ») : [{ pick, reason }]. Seulement avec la liste du client pour cette sélection : sinon rien n'est marqué ni déduit.
+function unavailablePool() {
+  if (!availabilityNow() || !V || !V.res) return [];
+  return PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p) && !V.res.ranking.some(x => x.pick === p))
+    .map(p => ({ pick:p, reason:unavailableReason(label(p)) || (state.enemies.includes(label(p)) ? "enemy" : null) })).filter(x => x.reason);
+}
+// Champion indisponible : ni conseillé, ni consultable, ni confirmable avec « Je joue ».
+const isOff = p => !!p && unavailablePool().some(x => x.pick === p);
+const OFF_KEYS = { ban:"panel.pool.off.ban", ally:"panel.pool.off.ally", enemy:"panel.pool.off.enemy" };
+// Conseil, choix confirmé ou champion consulté qui vient d'être banni ou pris par un allié : le panneau le dit et nomme le conseil
+// suivant. La phrase reste tant que ce conseil est affiché (un pick adverse garde son message « pris en face », describeChange).
+function goneAdvice(prevV, shown, tied) {
+  if (prevV && !prevV.none) {
+    const before = prevV.unavailable || [];
+    const lost = [].concat(prevV.tied || [prevV.shown], currentPick() || [], state.viewed || []).find(p => p && UNAVAILABLE.includes(label(p)) && !before.includes(label(p)));
+    const reason = lost ? unavailableReason(label(lost)) : null;
+    if (reason === "ban" || reason === "ally") return { id:Date.now(), pick:lost, reason, shown, next:tied ? tied.map(label).join(", ") : label(shown) };
+  }
+  return prevV && prevV.gone && prevV.gone.shown === shown && UNAVAILABLE.includes(label(prevV.gone.pick)) ? prevV.gone : null;
+}
+const goneText = g => t(g.reason === "ban" ? "panel.gone.ban" : "panel.gone.ally", { champion:label(g.pick), next:g.next });
+// Journal automatique : lecture du client opérationnelle, draft classique, sélection en cours ou juste finie. Pas de « Je joue » : le
+// pick sera noté au lancement de la partie. Sinon (lecture désactivée ou perdue, autre mode, Simulateur), « Je joue » sert de repli.
+function autoJournal() {
+  const l = leagueNow();
+  return !!l && !simulating && l.readable && l.supported && !l.lost && !!hostState.lcuEnabled
+    && (hostState.draftOutcome === "draft" || hostState.draftOutcome === "pending");
+}
+// Identifiant de champion du client → pick de DRAFT (« TF » pour Twisted Fate), ou null.
+function pickIdOf(id) {
+  const name = id ? toName(CHAMPION_IDS[id]) : "";
+  return name ? Object.keys(FULL).find(k => FULL[k] === name) || name : null;
+}
+// Conseil au moment du verrouillage (suggested, close, tied, tiedWith, recommended) : mémorisé une fois par sélection, par la première
+// page qui voit le verrouillage. Jamais en simulation.
+const LOCK_MEMO_KEY = "draftLockMemo";
+function lockMemo(key) {
+  try { const m = JSON.parse(localStorage.getItem(LOCK_MEMO_KEY)); return m && m.key === String(key) ? m : null; } catch (e) { return null; }
+}
+function memoLock() {
+  const l = leagueNow();
+  if (!l || simulating || !V || V.none || !l.lockedFirst || lockMemo(l.key)) return;
+  try { localStorage.setItem(LOCK_MEMO_KEY, JSON.stringify({ key: l.key, context: pickContextFor(pickIdOf(l.lockedFirst)) })); } catch (e) {}
+}
+// Partie lancée après un verrouillage lu dans le client : UNE entrée, origin "lcu", picked = champion final. Une entrée « Je joue »
+// de la même sélection est complétée, jamais doublée. result reste null : aucun résultat n'est inventé. Lecture perdue au lancement,
+// autre mode ou Simulateur : rien ici (l'entrée « Je joue », s'il y en a une, suit la règle de l'issue).
+function writeLeagueEntry(key) {
+  const l = leaguePick;
+  if (!IS_HOST || simulating || !l || l.key !== String(key) || !l.readable || !l.supported || l.lost || !l.lockedFirst || !l.champion) return false;
+  const picked = pickIdOf(l.champion), first = pickIdOf(l.lockedFirst);
+  if (!picked) return false;
+  const list = loadJournal();
+  const existing = selectionEntry(list, key, l.gameId);
+  if (existing && existing.origin === "lcu") return false;
+  const memo = lockMemo(key);
+  const fields = Object.assign({}, memo ? memo.context : {}, { picked }, first && first !== picked ? { lockedFirst: first } : {},
+    { traded: !!l.traded, origin: "lcu", selection: String(key) }, l.gameId ? { gameId: l.gameId } : {}, { gameStarted: true });
+  let entry = existing;
+  if (entry) { Object.assign(entry, fields); if (!fields.lockedFirst) delete entry.lockedFirst; }
+  else {
+    entry = Object.assign({ id: Date.now(), date: new Date().toISOString() }, fields, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, app: APP_VERSION });
+    list.push(entry);
+  }
+  saveJournal(list);
+  // Résultat à saisir depuis cette draft, comme après « Je joue ».
+  state.current = entry.id;
+  return true;
+}
+// Issue reçue : partie lancée (entrée automatique d'abord), puis gameStarted ou abandoned (une seule fois).
+function settleOutcome(key, outcome) {
+  const wrote = outcome === "game" && writeLeagueEntry(key);
+  const noted = applyDraftOutcome(key, outcome) || wrote;
+  // Partie lancée notée : le programme le retient (clé seule, aucun texte) pour l'écran de fin de partie.
+  if (noted && outcome === "game") hostSend({ cmd:"gameNoted", draft:String(key) });
+  return noted;
+}
+
 // L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
 function syncCurrentEntry() {
-  if (state.current) updateEntry(state.current, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+  const entry = currentEntry();
+  if (entry) updateEntry(entry.id, Object.assign({ enemies: state.enemies.slice(), mid: currentMid() }, state.picked ? Object.assign({}, state.pickContext, { picked: state.picked }) : {}));
+}
+// Entrée de la draft affichée, ou null (correctif beta.2). Elle doit appartenir à la sélection en cours (même clé), ou, sans
+// sélection du programme (navigateur, affichage manuel, après le lancement), ne porter aucune clé. Une entrée d'une autre
+// sélection n'est jamais réutilisée ni modifiée : une page restée sur la draft d'avant crée une nouvelle entrée.
+function currentEntry(list) {
+  const entry = state.current ? (list || loadJournal()).find(x => x.id === state.current) : null;
+  if (!entry) return null;
+  const live = liveSelection();
+  return (entry.selection || null) === (live || state.sessionKey || null) || (!entry.selection && !live) ? entry : null;
 }
 
 
@@ -1284,6 +1686,8 @@ function roleTag(info) {
 
 function describeChange(prev, shown, heldEntry, ranking) {
   if (!prev || !prev.n || !prev.shown || prev.shown === shown || !state.lastAction) return null;
+  // Conseil banni ou pris par un allié : la phrase de disponibilité le dit (goneAdvice), pas « pris en face ».
+  if (UNAVAILABLE.includes(label(prev.shown))) return null;
   const oldNow = ranking.find(p => p.pick === prev.shown);
   const oldBefore = prev.order.find(p => p.pick === prev.shown);
   const newBefore = prev.order.find(p => p.pick === shown);
@@ -1297,6 +1701,7 @@ function describeChange(prev, shown, heldEntry, ranking) {
 }
 
 function computeVerdict() {
+  syncUnavailable();
   const prevV = V;
   const action = state.lastAction;
   if (!state.enemies.length) state.held = null;
@@ -1309,7 +1714,8 @@ function computeVerdict() {
   if (!res.ranking.length) {
     state.held = null;
     state.shown = null;
-    V = { n, mid, res, none:true, order:[], avoided:[], reasons:[], bans:suggestBans() };
+    const bans = suggestBans();
+    V = { n, mid, res, none:true, order:[], avoided:[], reasons:[], bans, bansTaken:bansAllTaken(bans), unavailable:UNAVAILABLE.slice() };
     return;
   }
   // Draft complète : le classement fait foi, quel que soit l'ordre de saisie. Le maintien évite seulement de clignoter en cours de draft.
@@ -1330,6 +1736,7 @@ function computeVerdict() {
   state.clear = clear;
   const without = n && PREFS.assumeFront ? analyze(state.enemies, mid, false).ranking[0] : null;
   const order = (tied ? tiedEntries : [heldEntry]).concat(rival ? [rival] : [], others.filter(p => p !== rival));
+  const bans = suggestBans();
   V = {
     n, mid, res, shown, rival, clear, avoided:tied ? avoided.filter(p => !tied.includes(p)) : avoided, order, tied,
     commonReasons: tied ? tiedEntries.map(positiveReasons).reduce((a, b) => a.filter(t => b.includes(t))) : [],
@@ -1341,7 +1748,11 @@ function computeVerdict() {
     provisional: !!belief && n > 0 && (belief.confidence === "low" || !!(scenarios && scenarios.length > 1 && scenarios.some(sc => analyze(state.enemies, sc.mid, PREFS.assumeFront).ranking[0].pick !== res.ranking[0].pick))),
     personal: personalLine(shown, mid),
     without: without && without.pick !== shown && !(scenarios && scenarios.length > 1) ? without.pick : null,
-    bans: suggestBans(),
+    // Bans conseillés : déjà bannis, pris par un allié ou en face retirés (le suivant prend la place) ; aucun restant : dit à part.
+    bans, bansTaken: bansAllTaken(bans),
+    // Disponibilité (beta.2) : liste du moteur à ce calcul, et conseil devenu indisponible (banni, pris par un allié).
+    unavailable: UNAVAILABLE.slice(),
+    gone: goneAdvice(prevV, shown, tied),
     // Passer d'un ex æquo à l'autre n'est pas un changement de conseil.
     change: action && !(tied && prevV && tied.includes(prevV.shown)) && !(prevV && prevV.tied && prevV.tied.includes(shown)) ? describeChange(prevV, shown, heldEntry, res.ranking) : null
   };
@@ -1373,7 +1784,7 @@ ENGINE_PREFS.favorite = PREFS.favorite;
 const hostState = { available:false, autostart:false, follow:true, autoDraft:true, topmost:false, compact:false, placement:"", phase:"", hotkey:false, diagnostics:false };
 // Le choix du joueur (picked, pickContext) voyage avec l'état, comme les profils (QA A2) : relu dans le journal, il pouvait être
 // en retard dans une autre fenêtre (autre processus WebView2), et le bouton d'un panneau montrait alors un ancien choix.
-const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
+const SHARED = ["enemies", "manualMid", "held", "current", "picked", "pickContext", "viewed", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey", "assignedRole", "roleManual", "roleDismissed", "roleHandled", "roleFrom"];
 let channel = null;
 try { channel = new BroadcastChannel("draftmid"); } catch (e) {}
 // Une page qui s'ouvre (Analyse détaillée, Comparer, rechargement) part d'une draft vide.
@@ -1392,7 +1803,7 @@ let simulating = false;
 // Un message sans version (page d'une version précédente) est appliqué entièrement, comme avant.
 const PAGE_ID = (PANEL || "full") + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const SYNC_GROUPS = {
-  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive"],
+  draft: ["enemies", "manualMid", "held", "roleOf", "targetRole", "selected", "notice", "sessionActive", "sessionKey"],
   pick: ["current", "picked", "pickContext"],
   viewed: ["viewed"],
   // Rôle joué (PROFILES.active) et décisions sur le rôle attribué. Le poste attribué lui-même vient du programme (applyRemote).
@@ -1430,7 +1841,7 @@ function publish(action) {
 // ---------- Profils par rôle : un pool, des exclusions et un favori par rôle, enregistrés à chaque changement ----------
 // Égale à AssemblyInformationalVersion de l'exe (contrôlé par --selftest). Un « - » signifie préversion, comme côté programme :
 // mise à jour à la main, données dans un dossier séparé de la 2.x.
-const APP_VERSION = "3.0.0-beta.1";
+const APP_VERSION = "3.0.0-beta.2";
 const PRERELEASE = APP_VERSION.includes("-");
 let PROFILES = loadProfiles(localStorage, PREFS);
 function useActiveRole() {
@@ -1489,9 +1900,28 @@ function resetRoleSession() { state.roleManual = false; state.roleDismissed = nu
 // survivent à la draft précédente (resetDraft efface aussi viewed, picked et current).
 // Le programme efface le rôle attribué hors sélection : un rôle déjà connu ici vient de cette draft (message draftStart arrivé après
 // la lecture du poste, panneaux créés à ce moment). La bascule, la correction manuelle ou la proposition ignorée sont alors gardées.
-function onDraftStart() { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); dispatchDraft({ type:"session-start" }); }
-// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : le rôle attribué en attente est traité.
-function afterSync() { if (hostState.available) handleAssignedRole(hostState.assignedRole || null); }
+// key : clé de la sélection (programme), gardée dans l'état partagé (sessionKey) pour que chaque page sache quelle draft elle montre.
+function onDraftStart(key) { clearUndo(); leaveSimulation(); if (!state.assignedRole) resetRoleSession(); riotProvider.reset(); if (key) state.sessionKey = String(key); dispatchDraft({ type:"session-start" }); }
+// Correctif beta.2 : une nouvelle sélection remet la draft à zéro dans TOUTES les pages, une seule fois par clé. Elle arrive par le
+// message draftStart, ou se voit dans l'état du programme (draftKey) : page ouverte en retard, message perdu, panneau en pause.
+// Une page déjà passée à cette clé, elle-même ou par la synchronisation, ne recommence pas : un double signal n'efface jamais une
+// draft commencée. Une page pas encore synchronisée attend l'état des autres (afterSync).
+let pendingSelection = null;
+function startSelection(key) {
+  if (!key) return false;
+  if (!synced) { pendingSelection = String(key); return false; }
+  const live = simulating ? liveCopy : state;
+  if (live && live.sessionKey === String(key)) return false;
+  onDraftStart(key);
+  return true;
+}
+// Synchronisation faite (état reçu d'une autre page, ou aucune ne répond) : la sélection en cours, puis le rôle attribué en attente.
+function afterSync() {
+  const key = pendingSelection || (hostState.available && hostState.draftOutcome === "draft" ? hostState.draftKey : null);
+  pendingSelection = null;
+  if (key) startSelection(key);
+  if (hostState.available) handleAssignedRole(hostState.assignedRole || null);
+}
 const roleSuggestion = () => roleDecision() === "suggest" ? state.assignedRole : null;
 
 function savePrefs(change) {
@@ -1799,20 +2229,23 @@ const JOURNAL_ORIGIN = "draft";
 // ni au conseil, ni aux scores. Journal : picked = champion choisi, suggested = conseil au moment du choix ; « conseil suivi » si égaux.
 // Simulation : le choix reste dans la simulation. Rien n'est écrit dans le journal, qui ne compte que les vraies drafts.
 function choosePick(pick) {
-  if (!pick) return;
+  // Champion banni ou pris (lecture du client) : jamais confirmé, quel que soit le bouton.
+  if (!pick || isOff(pick)) return;
   // Confirmer termine la consultation : le bouton et la coche montrent maintenant le choix confirmé.
   state.viewed = null;
-  if (pick === currentPick() && (state.current || simulating)) { publish(null); return; }
+  if (pick === currentPick() && (currentEntry() || simulating)) { publish(null); return; }
   state.picked = pick;
   state.pickContext = pickContextFor(pick);
   if (!simulating) {
     const list = loadJournal();
     const noted = Object.assign({}, state.pickContext, { picked: pick });
-    const entry = state.current && list.find(x => x.id === state.current);
+    // Correctif beta.2 : seulement l'entrée de CETTE sélection. Une page restée sur la draft d'avant n'y réécrit plus rien.
+    const entry = currentEntry(list);
     if (entry) Object.assign(entry, noted);
     else {
-      const id = Date.now();
-      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }));
+      // « Je joue » de repli (lecture perdue) : la partie lue plus tard complète cette entrée (même clé ou même gameId).
+      const id = Date.now(), selection = liveSelection(), l = selection && leagueNow();
+      list.push(Object.assign({ id, date: new Date().toISOString() }, noted, { enemies: state.enemies.slice(), mid: currentMid(), result: null, engine: ENGINE_VERSION, origin: JOURNAL_ORIGIN, app: APP_VERSION }, selection ? { selection } : {}, l && l.gameId ? { gameId: l.gameId } : {}));
       state.current = id;
     }
     saveJournal(list);
@@ -1877,7 +2310,7 @@ function Portrait({ name, size = 40 }) {
   const [done, setDone] = useState({});
   const status = done[name] || "loading";
   const cls = `portrait${status === "loading" ? " loading" : ""}`;
-  return html`<span className=${cls} style=${{ width:size, height:size }}>
+  return html`<span className=${cls} data-champ=${name} style=${{ width:size, height:size }}>
     ${status !== "error" ? html`<img key=${name} src=${iconUrl(name)} alt="" className=${status === "ready" ? "ready" : ""} onLoad=${() => setDone({ [name]:"ready" })} onError=${() => setDone({ [name]:"error" })} />` : null}
     ${status === "error" ? html`<span className="init" aria-hidden="true">${name.slice(0, 2)}</span>` : null}
   </span>`;
@@ -2033,14 +2466,16 @@ function RoleRow({ role, name, assumed, info }) {
     if (previous.current !== name) setFlash({ id: Date.now(), kind: name ? "add" : "del" });
     previous.current = name;
   }, [name]);
-  const cls = `role${isMid ? " is-mid" : ""}${state.targetRole === role || (name && state.selected === name) ? " target" : ""}`;
+  // Panneaux primaires : rôle placé à la main (cadre plein) ou supposé par le calcul (pointillé) ; case vide = pas encore choisi.
+  const placed = !!name && (isMid ? !assumed : !!(state.roleOf && state.roleOf[name]));
+  const cls = `role${isMid ? " is-mid" : ""}${name ? (placed ? " placed" : " supposed") : ""}${state.targetRole === role || (name && state.selected === name) ? " target" : ""}`;
   const label = name
     ? t(state.selected && state.selected !== name ? "enemy.row.filledSwap" : "enemy.row.filled", { role: ROLE_LABEL[role], champion: name, selected: state.selected })
     : t(state.selected ? "enemy.row.emptyPlace" : "enemy.row.empty", { role: ROLE_LABEL[role], selected: state.selected });
   return html`<div className=${cls} data-test="enemy-row" data-slot=${role}>
-    <button type="button" className="role-hit" aria-label=${label} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
+    <button type="button" className="role-hit" aria-label=${label} title=${name || (state.targetRole === role ? undefined : t("enemy.row.add", { what: t(ADD_TARGET_KEYS[role]) }))} aria-pressed=${state.targetRole === role || (!!name && state.selected === name)} onClick=${() => clickRole(role)}></button>
     ${flash ? html`<${motion.span} key=${flash.id} className=${`role-flash ${flash.kind}`} aria-hidden="true" initial=${{ opacity:.45 }} animate=${{ opacity:0 }} transition=${{ duration:.35 }} />` : null}
-    <span className="role-icon"><${RoleIcon} role=${role} />${ROLE_LABEL[role]}</span>
+    <span className="role-icon" title=${ROLE_LABEL[role]}><${RoleIcon} role=${role} /><span className="role-label">${ROLE_LABEL[role]}</span></span>
     ${name ? html`<${motion.span} key=${name} layoutId=${`who-${name}`} initial=${{ scale:.86, opacity:.4 }} animate=${{ scale:1, opacity:1 }} transition=${SNAP} className="who-wrap">
         <${Portrait} name=${name} size=${44} />
         <span className="role-who">
@@ -2052,7 +2487,8 @@ function RoleRow({ role, name, assumed, info }) {
         ${!isMid ? html`<button type="button" className="mini to-mid" aria-label=${oppText("toRole", { champion: name })} onClick=${() => setMid(name)}>${oppName()}</button>` : null}
         <button type="button" className="mini x" data-test="enemy-remove" aria-label=${t("enemy.row.remove", { champion: name })} onClick=${() => removeEnemy(name)}>×</button>
       </span>`
-    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span><span className="role-empty">${state.targetRole === role ? t("enemy.row.typeName") : tx("enemy.row.add", { what: html`<span className="em">${t(ADD_TARGET_KEYS[role])}</span>` })}</span>`}
+    : html`<span className="slot-ghost" aria-hidden="true"><${RoleIcon} role=${role} /></span>${state.targetRole === role ? html`<span className="role-empty">${t("enemy.row.typeName")}</span>`
+      : html`<span className="role-empty role-add">${tx("enemy.row.add", { what: html`<span className="em">${t(ADD_TARGET_KEYS[role])}</span>` })}</span><span className="role-plus" aria-hidden="true">+</span>`}`}
   </div>`;
 }
 
@@ -2092,16 +2528,21 @@ function EnemyPanel() {
   const likely = likelyRoles(), slots = likely.slots;
   const c = V.res.counts;
   const warn = V.n && !V.mid;
+  const panel = PANEL === "left";
+  const reading = hostState.available && hostState.lcuEnabled && hostState.lcuStatus === "connected";
   return html`<aside className="col col-left" aria-label=${t("enemy.title")}>
     <h2 className="sec-title">${t("enemy.title")} <small>${t("enemy.count", { count: V.n })}</small></h2>
+    ${panel && hostState.available ? html`<p className="p-left-source" data-test="left-source" title=${t("panel.source.help")}>${t(reading ? "panel.source.client" : "panel.source.manual")}</p>` : null}
     <${SearchBox} />
     <${UndoNote} />
-    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} data-test="draft-hint" initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? t("enemy.hint.selected", { champion: state.selected }) : state.notice || t("enemy.hint.keys")}<//>
+    <${motion.p} key=${(warn ? "w" : "") + (state.selected || "") + (state.notice || "")} className=${`hint${warn ? " warn" : ""}${state.notice && !warn && !state.selected ? " done" : ""}`} data-test="draft-hint" initial=${{ opacity:.4, y:3 }} animate=${{ opacity:1, y:0 }} transition=${QUICK}>${warn ? hypothesisText() : state.selected ? t("enemy.hint.selected", { champion: state.selected }) : state.notice || t("enemy.hint.keys")}${panel && !V.none && state.notice && !warn && !state.selected ? html` <span className="p-left-advice" data-test="left-advice">${t("advice.pick.advice", { champion: V.tied ? V.tied.map(label).join(", ") : label(V.shown) })}</span>` : null}<//>
     <${LayoutGroup}>
       <div className="roles">
         ${(PANEL ? LEFT_ORDER : [myRole()].concat(LEFT_ORDER.filter(r => r !== myRole()))).map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
       </div>
     <//>
+    ${panel ? html`<p className="p-legend" data-test="enemy-legend">${t("enemy.legend")}</p>` : null}
+    ${panel ? html`<${DraftEffects} />` : null}
     <h2 className="sec-title profile">${t("enemy.profileTitle")}</h2>
     <div className="meters profile">
       <${Meter} label=${t("enemy.meter.front")} count=${c.front.length} />
@@ -2110,7 +2551,7 @@ function EnemyPanel() {
       <${Meter} label=${t("enemy.meter.cc")} count=${c.cc.length} danger=${true} />
       <${Meter} label=${t("enemy.meter.engage")} count=${c.engage.length} />
     </div>
-    <${DraftEffects} />
+    ${panel ? null : html`<${DraftEffects} />`}
   </aside>`;
 }
 
@@ -2150,7 +2591,11 @@ const speakVerdict = name => V.tied ? t("advice.speak.tie", { champions: V.tied.
 // remplace jamais silencieusement un autre choix. Confirmé, il dit « X noté » (« choisi » en simulation, rien dans le journal).
 // À égalité sans consultation ni choix : pas de bouton, chaque ex æquo se consulte d'abord.
 function pickCta() {
-  const picked = currentPick(), viewed = viewedPick(), target = viewed || picked || (V.tied ? null : V.shown);
+  // Journal automatique (beta.2) : pas de « Je joue », le pick est lu dans League et noté au lancement de la partie (LeagueLine).
+  // leagueSlot : mode connecté FICTIF des pages de mise en page V2 (null dans l'application).
+  if (autoJournal() || leagueSlot) return null;
+  // Choix confirmé devenu indisponible (banni, pris) : il n'est plus proposé, le bouton revient au conseil.
+  const picked = isOff(currentPick()) ? null : currentPick(), viewed = viewedPick(), target = viewed || picked || (V.tied ? null : V.shown);
   if (!target) return null;
   const name = label(target), done = !!picked && target === picked;
   return {
@@ -2161,11 +2606,27 @@ function pickCta() {
     click: () => choosePick(target)
   };
 }
+// « Dans League : Vex (survolé) », puis « Dans League : Vex verrouillé ✓ » : lu dans le client, à part du champion consulté.
+// Avec le journal automatique, la ligne « Ton pick sera noté automatiquement… » remplace « Je joue ». Lecture perdue ou autre mode :
+// la raison du repli « Je joue ». Rien sans lecture du client, ni en simulation.
+function LeagueLine() {
+  const l = leagueNow();
+  if (!l || simulating || !hostState.lcuEnabled) return null;
+  const line = (state, content) => html`<div className="league-line" data-test="league-line" data-state=${state} role="status">${content}</div>`;
+  if (hostState.draftOutcome === "abandoned") return line("abandoned", html`<span className="league-status">${t("journal.abandoned.note")}</span>`);
+  if (l.lost) return line("lost", html`<span className="league-status">${t("league.lost")}</span>`);
+  if (!l.readable) return null;
+  if (!l.supported) return line("unsupported", html`<span className="league-status">${t("league.unsupported")}</span>`);
+  const pick = pickIdOf(l.champion), name = pick ? label(pick) : "", done = l.state === "locked" || l.state === "final";
+  const text = !name ? t("league.none") : done ? t(l.traded ? "league.lockedTraded" : "league.locked", { champion: name }) : t("league.hover", { champion: name });
+  return line(l.state, html`<span className=${`league-status${done && name ? " done" : ""}`} data-test="league-status">${text}</span>
+    ${autoJournal() ? html`<small className="league-auto" data-test="league-auto">${t("league.auto")}</small>` : null}`);
+}
 // Conseil rappelé à part, toujours identifiable : pendant une consultation, « Revenir au conseil » l'annule (rien n'était noté) ;
 // après la confirmation d'un autre champion, il confirme le conseil à la place.
 function PickAdvice() {
   if (V.none) return null;
-  const picked = currentPick(), viewed = viewedPick();
+  const picked = isOff(currentPick()) ? null : currentPick(), viewed = viewedPick();
   const advice = V.tied ? V.tied.map(label).join(", ") : label(V.shown);
   if (!viewed && (!picked || V.tied || picked === V.shown)) return null;
   const title = viewed ? t("advice.pick.backViewHelp", { viewed: label(viewed) }) : t("advice.pick.backHelp", { picked: label(picked), champion: advice });
@@ -2175,11 +2636,12 @@ function PickAdvice() {
   </p>`;
 }
 // Champion consulté : ses raisons, son risque, son matchup et sa comparaison avec le conseil. Rien n'est noté.
-function compareSummary(a, b) {
+// short : la première phrase seulement (« Avantage net à X. »), pour la carte du champion consulté ; le détail est dans « Pourquoi X ».
+function compareSummary(a, b, short) {
   const cmp = comparePicks(a, b), leader = a.score >= b.score ? a : b, trailer = leader === a ? b : a, lead = leadCriterion(leader, trailer);
   const other = comparePicks(trailer, leader).decisive.find(r => r.diff > 0);
   return [Math.abs(cmp.gap) < 1e-9 ? t("compare.summary.tie") : t(Math.abs(cmp.gap) < HOLD_GAP ? "compare.summary.close" : "compare.summary.clear", { champion: label(leader.pick) }),
-    lead ? t(other ? "compare.summary.leadBoth" : "compare.summary.lead", { champion: label(leader.pick), criterion: lead.label, other: label(trailer.pick), otherCriterion: (other || {}).label }) : ""].filter(Boolean).join(" ");
+    short ? "" : lead ? t(other ? "compare.summary.leadBoth" : "compare.summary.lead", { champion: label(leader.pick), criterion: lead.label, other: label(trailer.pick), otherCriterion: (other || {}).label }) : ""].filter(Boolean).join(" ");
 }
 function ViewedCard({ panel }) {
   const viewed = viewedPick();
@@ -2189,39 +2651,40 @@ function ViewedCard({ panel }) {
   const [word, tone] = i >= 0 ? rankWord(V.order[i], i) : ["", "other"];
   const matchup = entry.criteria.find(c => c.key === "matchup" && c.text);
   const reasons = positiveReasons(entry), risk = mainRisk(entry);
-  // Dans les panneaux, la comparaison reste visible ; matchup, raisons et risque se déplient (pas de défilement pour l'essentiel).
-  const details = html`${matchup ? html`<p className="viewed-line">${t("viewed.matchup", { text: matchup.text })}</p>` : null}
+  // Panneaux primaires : la carte garde le nom et la comparaison au conseil ; matchup, avantages et inconvénients sont dans la lecture
+  // approfondie du panneau (section « Pourquoi X »), qui suit le champion consulté.
+  const details = panel ? null : html`${matchup ? html`<p className="viewed-line">${t("viewed.matchup", { text: matchup.text })}</p>` : null}
     ${reasons.length ? html`<ul className="viewed-reasons">${reasons.map(r => html`<li key=${r}>${r}</li>`)}</ul>` : null}
     ${risk ? html`<p className="viewed-line"><b>${t("advice.risk")}</b> ${risk}</p>` : null}`;
   return html`<section className=${`viewed${panel ? " p-viewed" : ""}`} data-test="viewed" data-pick=${viewed} aria-label=${t("viewed.label")}>
-    <div className="viewed-head"><${Portrait} name=${label(viewed)} size=${panel ? 32 : 36} /><span><small>${t("viewed.label")}</small><b>${label(viewed)}</b></span>${word ? html`<span className=${`rank-word ${tone}`}>${word}</span>` : null}</div>
-    ${ref && ref !== entry ? html`<p className="viewed-cmp" data-test="viewed-compare">${t("viewed.vsAdvice", { summary: compareSummary(entry, ref) })}</p>` : null}
-    ${panel && (matchup || reasons.length || risk) ? html`<details className="viewed-more"><summary>${t("viewed.more")}</summary>${details}</details>` : details}
+    <div className="viewed-head"><${Portrait} name=${label(viewed)} size=${panel ? 32 : 36} /><span><small>${t("viewed.label")}</small><b title=${label(viewed)}>${label(viewed)}</b></span>${word ? html`<span className=${`rank-word ${tone}`}>${word}</span>` : null}</div>
+    ${ref && ref !== entry ? html`<p className="viewed-cmp" data-test="viewed-compare" title=${panel ? t("viewed.vsAdvice", { summary: compareSummary(entry, ref) }) : undefined}>${t("viewed.vsAdvice", { summary: compareSummary(entry, ref, panel) })}</p>` : null}
+    ${details}
   </section>`;
 }
 // À égalité, un choix pris hors des ex æquo (dans Ton pool) est rappelé : aucune case de l'égalité ne le montre.
 function PickCurrent() {
   const picked = currentPick();
-  if (!picked || V.none || !V.tied || V.tied.includes(picked)) return null;
+  if (!picked || V.none || !V.tied || V.tied.includes(picked) || isOff(picked)) return null;
   return html`<p className="pick-advice" data-test="pick-current"><span>${t("advice.pick.current", { champion: label(picked) })}</span></p>`;
 }
 
-function TieGroup({ detailed }) {
+function TieGroup({ detailed, panel }) {
   const picked = currentPick();
   const list = V.tied.slice(0, TIE_SHOWN), more = V.tied.length - list.length;
-  return html`<section className="tie-group" aria-label=${t("advice.tie.label")}>
+  return html`<section className=${`tie-group${panel ? " p-tie" : ""}`} aria-label=${t("advice.tie.label")}>
     <p className="tie-title">${tx("advice.tie.heading", { picks: html`<b>${t("advice.tie.count", { count: V.tied.length })}</b>` })}</p>
     <div className="tie-list">
       ${list.map(p => {
         const chosen = picked === p, seen = viewedPick() === p, why = detailed ? positiveReasons(V.res.ranking.find(x => x.pick === p))[0] : null;
         return html`<button key=${p} type="button" className=${`tie-item${chosen ? " picked" : ""}${seen ? " viewed" : ""}`} aria-pressed=${!!chosen} aria-current=${seen ? "true" : undefined} data-pick=${p} title=${t("viewed.help")} onClick=${() => consult(p)}>
-          <${Portrait} name=${label(p)} size=${36} />
+          <${Portrait} name=${label(p)} size=${panel ? 28 : 36} />
           <span className="tie-text"><span className="tie-name">${label(p)}</span>${p === PREFS.favorite ? html`<small>${t("advice.tie.favorite")}</small>` : null}${why ? html`<small>${why}</small>` : null}</span>
           ${chosen ? html`<span className="tie-check" aria-hidden="true">✓</span>` : null}
         </button>`;
       })}
     </div>
-    <p className="note">${more ? tp("advice.tie.more", more) + " " : ""}${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}</p>
+    ${panel ? (more ? html`<p className="note">${tp("panel.tie.more", more)}</p>` : null) : html`<p className="note">${more ? tp("advice.tie.more", more) + " " : ""}${tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}</p>`}
   </section>`;
 }
 
@@ -2358,6 +2821,7 @@ function Stage() {
         <${ViewedCard} />
         ${V.rival ? html`<div className="alt-line"><em>${t("advice.alt.else")}</em> <${Portrait} name=${label(V.rival.pick)} size=${24} /> ${label(V.rival.pick)}</div>` : null}
         <div className="stage-notes"><${CoachLine} /><${FamiliarLine} /><${OpponentLine} /></div>
+        <${LeagueLine} />
         ${cta ? html`<button type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} onClick=${cta.click}>${cta.text}</button>` : null}
         <${PickAdvice} />
       </div>
@@ -2369,7 +2833,7 @@ function Stage() {
     <div className="scrim"></div>
     ${V.change ? html`<${motion.p} key=${V.change.id} className="change" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
       ${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}${V.change.reason ? html`<span>${V.change.reason}</span>` : null}
-    <//>` : null}
+    <//>` : !V.tied && V.gone ? html`<${motion.p} key=${V.gone.id} className="change" data-test="advice-gone" role="status" initial=${{ y:-8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>${goneText(V.gone)}<//>` : null}
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
     <${motion.div} key=${name} className="stage-body" variants=${stagger} initial="hidden" animate="show">
       <${motion.div} className="badges" variants=${item}>
@@ -2396,9 +2860,10 @@ function Stage() {
         </details>` : null}
       <//>
       <${ViewedCard} />
-      <${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
+      <${LeagueLine} />
+      ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} variants=${item} whileHover=${{ y:-1 }} whileTap=${{ scale:.97 }} onClick=${cta.click}>
         <${motion.span} key=${cta.target + (cta.picked ? "-done" : "")} style=${{ display:"inline-block" }} initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>${cta.text}<//>
-      <//>
+      <//>` : null}
       <${PickAdvice} />
     <//>
   </section>`;
@@ -2466,10 +2931,17 @@ function ResultButtons({ id, result, disabled }) {
   </div>`;
 }
 
+// Résultat de l'entrée en cours, ou de la dernière partie lancée. Draft annulée : pas de résultat à saisir, elle n'est pas comptée.
+function EntryResult({ entry, pending }) {
+  if (isAbandoned(entry)) return html`<p className="result-note" data-test="draft-abandoned" role="status">${t("journal.abandoned.note")}</p>`;
+  if (!entry && !pending) return null;
+  return html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />`;
+}
+
 function PlanBlock() {
   const list = loadJournal();
   const entry = state.current && list.find(x => x.id === state.current);
-  const pending = !entry && !state.enemies.length && [...list].reverse().find(x => x.result === null);
+  const pending = !entry && !state.enemies.length && lastGameToComplete(list);
   const c = V.res.counts;
   const playing = playingPick();
   const threats = playing ? threatsFor(playing, c) : [];
@@ -2481,9 +2953,9 @@ function PlanBlock() {
     <//>
     <div className="plan-row threat"><span>${t("plan.threats")}</span><${Faces} names=${threats} empty=${t("plan.threatsNone")} /></div>
     <div className="plan-row target"><span>${t("plan.targets")}</span><${Faces} names=${targets} empty=${t("plan.targetsNone")} /></div>
-    <div className="plan-row ban-row"><span>${t("plan.bans")}</span><${Faces} names=${V.bans} empty=${t("plan.bansNone")} /></div>
-    ${pending ? html`<p className="result-note">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
-    ${entry || pending ? html`<${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />` : null}
+    <div className="plan-row ban-row"><span>${t("plan.bans")}</span><${Faces} names=${V.bans} empty=${t(V.bansTaken ? "panel.bans.allTaken" : "plan.bansNone")} /></div>
+    ${pending ? html`<p className="result-note" data-test="last-game">${tx(pending.mid ? "plan.lastGameVs" : "plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>`, champion: pending.mid })}</p>` : null}
+    <${EntryResult} entry=${entry} pending=${pending} />
   </section>`;
 }
 
@@ -2554,6 +3026,7 @@ function CriteriaView() {
       </details>`;
     })}
     <h3>${t("analysis.bans.title")}</h3>
+    ${V.bansTaken ? html`<p className="small" data-test="bans-taken">${t("panel.bans.allTaken")}</p>` : null}
     <ul className="plain">${V.bans.map(n => html`<li key=${n}>${tx("analysis.bans.line", { champion: html`<b>${n}</b>`, reason: banReason(n) })}</li>`)}</ul>
   </div>`;
 }
@@ -2686,7 +3159,11 @@ function WinBars({ title, groups }) {
 function evolutionGroups(rows) {
   const sorted = [...rows].sort((x, y) => x.time - y.time);
   const groups = [];
-  for (let i = 0; i + EVOLUTION_STEP <= sorted.length; i += EVOLUTION_STEP) groups.push({ name:t("stats.range", { from: i + 1, to: i + EVOLUTION_STEP }), rows:sorted.slice(i, i + EVOLUTION_STEP) });
+  // La dernière tranche, incomplète, est gardée (avant : 80 parties montrées sur 93) ; sous 10 parties, WinBars montre une jauge.
+  for (let i = 0; i < sorted.length; i += EVOLUTION_STEP) {
+    const part = sorted.slice(i, i + EVOLUTION_STEP);
+    groups.push({ name: part.length === EVOLUTION_STEP ? t("stats.range", { from: i + 1, to: i + EVOLUTION_STEP }) : t("stats.range.current", { from: i + 1, to: i + part.length }), rows: part });
+  }
   return groups;
 }
 
@@ -2728,31 +3205,7 @@ function StatsTab() {
   </div>`;
 }
 
-function JournalTab() {
-  const list = loadJournal();
-  if (!list.length) return html`<p className="small">${t("journal.empty")}</p>`;
-  const played = list.filter(x => x.result === "win" || x.result === "loss");
-  const tally = rows => { const w = rows.filter(x => x.result === "win").length; return { wins:w, losses:rows.length - w, games:rows.length }; };
-  const followed = tally(played.filter(x => x.picked === x.suggested));
-  const other = tally(played.filter(x => x.picked !== x.suggested));
-  return html`<div>
-    ${played.length ? html`<h3>${t("journal.recent")}</h3>
-      <div className="history" role="img" aria-label=${tp("journal.dots.aria", played.length, { wins: tp("journal.dots.wins", played.filter(x => x.result === "win").length) })}>
-        ${played.slice(-20).map((x, i) => html`<${motion.span} key=${x.id} className=${`game ${x.result}`} title=${t(x.result === "win" ? "journal.dot.win" : "journal.dot.loss", { champion: label(x.picked) })} initial=${{ scale:.5 }} animate=${{ scale:1 }} transition=${{ ...QUICK, delay:i * .012 }}><//>`)}
-      </div>
-      <${WinBars} title=${t("stats.byChampion.title")} groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
-      <${WinBars} title=${t("stats.byMidType")} groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: midTypeLabel(matchupOf(x.mid).t) })), r => r.type)} />
-      <h3>${t("journal.comps")}</h3>
-      <ul className="comps">${played.slice(-5).reverse().map(x => html`<li key=${x.id}><span className=${`game ${x.result}`}></span><b>${label(x.picked)}</b><span className="comp-faces">${(x.enemies || []).map(n => html`<${Portrait} key=${n} name=${n} size=${22} />`)}</span></li>`)}</ul>` : null}
-    <p className="small">${t("journal.followed", { followed: fmtRecord(followed), other: fmtRecord(other) })}</p>
-    <table><thead><tr><th>${t("journal.table.date")}</th><th>${t("journal.table.pick")}</th><th>${t("journal.table.mid")}</th><th>${t("journal.table.advice")}</th><th>${t("journal.table.result")}</th></tr></thead>
-    <tbody>${list.slice(-10).reverse().map(x => html`<tr key=${x.id}>
-      <td>${fmtDate(x.date)}</td><td>${label(x.picked)}</td><td>${x.mid || "-"}</td><td>${label(x.suggested || "-")}</td>
-      <td>${{ win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") }[x.result] || t("journal.status.pending")}</td></tr>`)}</tbody></table>
-    <p style=${{ marginTop:10 }}><button type="button" className="ghost-btn" onClick=${exportJournal}>${t("journal.download")}</button></p>
-  </div>`;
-}
-
+// L'onglet Journal de Mes statistiques est rendu par draft-stats-view.js (JournalFull) : origine, résultat, conseil suivi.
 const RulesTab = () => html`<div>
   ${myRole() !== "mid" || !PICKS.every(p => WRITTEN_PICKS.includes(p)) ? html`<h3>${t("rules.how.title")}</h3>
   <p className="small">${t("rules.how.text")}</p>` : html`<h3>${t("rules.pool.title")}</h3>
@@ -2827,6 +3280,7 @@ function SidePanel() {
 function MobileBar() {
   if (V.none) return null;
   const cta = pickCta();
+  if (!cta && autoJournal()) return html`<div className="mobile-bar"><${LeagueLine} /></div>`;
   if (!cta) return html`<div className="mobile-bar"><span className="mobile-name">${t("advice.mobile.tie", { champions: V.tied.map(label).join(", ") })}</span><${PickCurrent} /></div>`;
   return html`<div className="mobile-bar">
     <span className="mobile-name"><${Portrait} name=${cta.name} size=${32} />${cta.name}</span>
@@ -2847,6 +3301,9 @@ function noPickText() {
   // UX-6 : le pool, les exclusions et le favori sont dans Mon pool, plus dans les réglages.
   if (!PROFILE) return t("panel.empty.noProfile");
   if (!PICKS.length) return t("panel.empty.noPick", { role:ROLE_NAMES[myRole()] });
+  // Lecture du client : tout ce qui reste du pool est banni ou déjà pris. Aucun conseil n'est inventé hors du pool.
+  const active = PICKS.filter(p => !ENGINE_PREFS.excluded.includes(p));
+  if (active.length && unavailablePool().length === active.length) return t("panel.empty.allUnavailable");
   return t("panel.empty.allExcluded");
 }
 
@@ -2868,22 +3325,34 @@ function RoleSwitch({ notes = true }) {
         title=${roleSwitchTitle(r)}
         aria-label=${t("role.switch.aria", { role: ROLE_NAMES[r] })} onClick=${() => switchRole(r, "manual")}><${RoleIcon} role=${r} /></button>`)}
     </div>
-    ${notes ? html`<${RoleNotes} />` : null}
+    ${notes ? html`<${RoleNotes} panel=${!!PANEL && PANEL !== "full"} />` : null}
   </div>`;
 }
-function RoleNotes() {
+// Panneaux primaires : l'état du rôle tient en un mot, suivi du pool actif (« Rôle détecté · pool de 4 »), sur une ligne à 222 px.
+// La raison complète reste dans le titre (survol) et dans la note « D'où viennent ces informations » des détails du panneau.
+const PANEL_ROLE_WORD = { detected:"panel.roleState.detected", manual:"panel.roleState.manual", unknown:"panel.roleState.unknown" };
+function panelRoleWord(rs) {
+  if (!rs) return "";
+  return t(rs.code === "manual" && rs.title !== "role.state.manual" ? "panel.roleState.noReading" : PANEL_ROLE_WORD[rs.code]);
+}
+function activePoolSize() { return PROFILES.active && PROFILES.roles[PROFILES.active] ? PROFILES.roles[PROFILES.active].pool.length : PICKS.length; }
+function RoleNotes({ panel }) {
   const suggestion = roleSuggestion(), autoFrom = autoFromRole(), rs = roleState();
   return html`${suggestion ? html`<p className="role-hint" data-test="role-hint" role="status">${t("role.hint.assigned", { role: ROLE_NAMES[suggestion] })}
       <button type="button" className="link-btn" data-test="role-hint-switch" onClick=${() => switchRole(suggestion, "manual")}>${t("role.hint.switch", { role: ROLE_NAMES[suggestion] })}</button>
       <button type="button" className="link-btn" data-test="role-hint-dismiss" aria-label=${t("role.hint.dismiss")} onClick=${() => { state.roleDismissed = suggestion; publish(null); }}>${t("role.hint.dismiss")}</button></p>` : null}
     ${autoFrom ? html`<p className="role-hint role-auto" data-test="role-auto" role="status">${t("role.auto.done", { role: ROLE_NAMES[PROFILES.active] })}
       <button type="button" className="link-btn" data-test="role-auto-undo" onClick=${() => switchRole(autoFrom, "manual")}>${t("role.auto.undo", { role: ROLE_NAMES[autoFrom] })}</button></p>` : null}
-    ${rs ? html`<p className=${`role-source ${rs.code}`} data-test="role-state" data-state=${rs.code} title=${t(rs.title)}>${t(rs.text)}</p>` : null}`;
+    ${panel ? html`<p className="p-rolemeta" data-test="panel-role-meta">
+        ${rs ? html`<span className=${`role-source ${rs.code}`} data-test="role-state" data-state=${rs.code} title=${t(rs.title)}>${panelRoleWord(rs)}</span>` : null}
+        <span className="p-poolcount" data-test="panel-pool-count" title=${PICKS.length ? PICKS.map(label).join(", ") : t("panel.empty.noProfile")}>${t("panel.role.pool", { count: activePoolSize() })}</span>
+      </p>`
+    : rs ? html`<p className=${`role-source ${rs.code}`} data-test="role-state" data-state=${rs.code} title=${t(rs.title)}>${t(rs.text)}</p>` : null}`;
 }
 // Fenêtre : l'en-tête garde sa hauteur ; proposition, notice et état du rôle passent dessous, sur une ligne qui n'existe que s'il y a à dire.
 function RoleBand() {
   if (!roleSuggestion() && !autoFromRole() && !roleState()) return null;
-  return html`<div className="role-band" data-test="role-band"><${RoleNotes} /></div>`;
+  return html`<div className="role-band" data-test="role-band"><${RoleNotes} panel=${false} /></div>`;
 }
 // Trois états du rôle, dans la fenêtre et les panneaux : DÉTECTÉ par League (son poste est le rôle joué), CHOISI À LA MAIN (correction
 // pendant la draft, ou lecture du client indisponible : la raison est dite, sans présenter la lecture comme obligatoire), INCONNU
@@ -2908,7 +3377,10 @@ const TOOL_PATHS = {
   two: "M3 4h6v12H3zM11 4h6v12h-6z",
   display: "M4 6h12M4 14h12M7 4v4M13 12v4",
   hide: "M5 5l10 10M15 5 5 15",
-  details: "M11 4h5v5M16 4l-6 6M9 16H4v-5M4 16l6-6"
+  details: "M11 4h5v5M16 4l-6 6M9 16H4v-5M4 16l6-6",
+  // Panneaux primaires : « Détails » (liste, vers la lecture approfondie) et « Conseil » (retour en haut).
+  list: "M4 6h12M4 10h12M4 14h8",
+  up: "M5 12l5-5 5 5"
 };
 const ToolIcon = ({ name }) => html`<svg className="tool-icon" viewBox="0 0 20 20" aria-hidden="true"><path d=${TOOL_PATHS[name]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
 function openDisplaySettings() {
@@ -2932,93 +3404,324 @@ const shownIsFirst = () => { const first = V.res.ranking[0]; return !first || fi
 
 // Panneaux (interface principale) : CONSULTER un champion = un clic sur l'alternative ou une ligne du pool, comme dans « Ton pool »
 // de la fenêtre ; CONFIRMER = « Je joue X » (bouton principal), jamais un pick envoyé au client. « Comparer » ouvre la comparaison
-// dans la fenêtre et ne choisit jamais. Sémantique de chaque élément : docs/technique/JOURNAL.md.
+// dans le panneau et ne choisit jamais. Sémantique de chaque élément : docs/technique/JOURNAL.md.
+// Panneaux primaires (docs/technique/PANNEAUX-PROPOSITION.md) : en haut, la lecture IMMÉDIATE, sans défiler (conseil et pourquoi,
+// risque, menace ou ban, champion consulté, actions) ; dessous, la lecture APPROFONDIE en sections dépliables d'un seul niveau,
+// dans le panneau lui-même. « Détails » y mène sans ouvrir la grande fenêtre ; « Ouvrir le Simulateur » reste en dernier recours.
 const pickTitle = () => simulating ? t("advice.cta.simHelp") : CTA_HELP;
-// Tout le pool classé, replié par défaut : un clic consulte (le bouton propose alors « Je joue X »), la coche marque le confirmé.
-function PanelPool() {
-  if (V.none || V.order.length < 2) return null;
+
+// Emplacement « Dans League » des panneaux V2 : champion survolé ou verrouillé DANS League, à part du champion consulté. Il vient du
+// pick lu par le programme (leagueNow, journal automatique), seulement quand la lecture est opérationnelle ; sinon LeagueLine dit
+// pourquoi (lecture perdue, mode non noté, draft annulée). leagueSlot est une donnée de TEST, null dans l'application : seules les
+// pages et captures de mise en page le remplissent ({ champion, state: "hover" | "locked" }), avec une donnée signalée comme fictive.
+let leagueSlot = null;
+function leagueShown() {
+  if (leagueSlot) return leagueSlot.champion && (leagueSlot.state === "hover" || leagueSlot.state === "locked") ? leagueSlot : null;
+  const l = leagueNow();
+  if (!l || simulating || !hostState.lcuEnabled || !l.readable || !l.supported || l.lost || hostState.draftOutcome === "abandoned") return null;
+  const pick = pickIdOf(l.champion);
+  if (!pick || (l.state !== "hover" && l.state !== "locked" && l.state !== "final")) return null;
+  return { champion: pick, state: l.state === "hover" ? "hover" : "locked", real: l.state, traded: !!l.traded };
+}
+
+// Tout le pool classé : un clic consulte (le bouton propose alors « Je joue X »), la coche marque le confirmé. Barre de force : la
+// même échelle que le classement de la fenêtre (écart au premier), sans chiffre.
+// Disponibilité (beta.2) : les champions du pool bannis ou déjà pris restent en fin de liste, marqués et inactifs (ni consultés, ni
+// confirmés). Seulement avec la lecture du client ; le titre compte les champions encore jouables.
+function PanelPool({ open, onToggle }) {
+  const off = unavailablePool();
+  if (V.none || V.order.length + off.length < 2) return null;
   const picked = currentPick(), viewed = viewedPick();
-  return html`<details className="p-pool" data-test="panel-pool">
-    <summary>${tp("panel.pool.title", V.order.length)}</summary>
+  const scores = V.order.map(p => p.score), lo = Math.min(...scores, 0), hi = Math.max(...scores, 1);
+  return html`<details className="p-pool p-sec" data-test="panel-pool" data-sec="pool" open=${open} onToggle=${onToggle}>
+    <summary><span>${tp("panel.pool.title", V.order.length)}</span></summary>
     <ul className="p-pool-list">${V.order.map((p, i) => {
       const [word, tone] = rankWord(p, i), n = label(p.pick), on = picked === p.pick, seen = viewed === p.pick;
       return html`<li key=${p.pick}><button type="button" className=${`p-pool-row${on ? " picked" : ""}${seen ? " viewed" : ""}`} data-test="panel-pool-pick" data-pick=${p.pick} aria-pressed=${on} aria-current=${seen ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(p.pick)}>
-        <${Portrait} name=${n} size=${28} /><span className="p-pool-name">${n}<small className=${`rank-word ${tone}`}>${word}</small></span>
+        <${Portrait} name=${n} size=${28} /><span className="p-pool-name"><span className="p-nm" title=${n}>${n}</span><small className=${`rank-word ${tone}`}>${word}</small><span className="force p-force" aria-hidden="true"><i style=${{ transform:`scaleX(${Math.max(.04, (p.score - lo) / (hi - lo || 1))})` }} /></span></span>
         <span className="p-pool-go">${on ? html`<span aria-hidden="true">✓ </span>${t("panel.pool.noted")}` : seen ? t("viewed.label") : t("panel.pool.view")}</span>
       </button></li>`;
-    })}</ul>
+    })}${off.map(x => html`<li key=${x.pick}><div className="p-pool-row off" data-test="panel-pool-off" data-pick=${x.pick} data-reason=${x.reason} aria-disabled="true" title=${t("panel.pool.offHelp")}>
+        <${Portrait} name=${label(x.pick)} size=${28} /><span className="p-pool-name"><span className="p-nm" title=${label(x.pick)}>${label(x.pick)}</span><small className="rank-word bad">${t(OFF_KEYS[x.reason])}</small></span>
+      </div></li>`)}</ul>
+    <${FamiliarLine} />
   </details>`;
 }
 
-function VerdictPanel() {
+// Une section de la lecture approfondie : un seul niveau. Son contenu n'est calculé qu'une fois ouverte.
+function PanelSec({ id, title, sub, open, onToggle, body }) {
+  return html`<details className="p-sec" data-sec=${id} data-test=${`panel-sec-${id}`} open=${open} onToggle=${onToggle}>
+    <summary title=${id === "why" && viewedPick() ? t("viewed.more") : undefined}><span>${title}</span>${sub ? html`<small>${sub}</small>` : null}</summary>
+    ${open ? html`<div className="p-sec-body">${body()}</div>` : null}
+  </details>`;
+}
+
+const sameAll = lists => lists.length ? lists.reduce((a, b) => a.filter(x => b.includes(x))) : [];
+const FaceList = ({ names, text, cls }) => html`<ul className=${`p-faces${cls ? ` ${cls}` : ""}`}>${names.map(n => html`<li key=${n}><${Portrait} name=${n} size=${28} /><span><b>${n}</b>${text(n) ? html`<small>${text(n)}</small>` : null}</span></li>`)}</ul>`;
+
+// Lecture approfondie : ce que la fenêtre montre pendant une draft, ramené dans le panneau. Elle suit le champion CONSULTÉ (sinon le
+// choix confirmé, sinon le conseil) : avantages et inconvénients, pourquoi DRAFT préfère un autre, plan, menaces et cibles, critères.
+function PanelDeep({ compact, open, toggle, alt }) {
+  if (V.none) return null;
+  const c = V.res.counts, playing = playingPick();
+  const entry = playing ? V.res.ranking.find(p => p.pick === playing) : null;
+  const ref = entry ? V.res.ranking.find(p => p.pick === (V.tied ? V.tied.find(x => x !== playing) || V.shown : V.shown)) : null;
+  // À égalité sans champion consulté : seul ce qui vaut pour tous les ex æquo est montré.
+  const subjects = playing ? [playing] : V.tied || [V.shown];
+  const subject = entry || V.res.ranking.find(p => p.pick === subjects[0]);
+  const pairPicks = viewedPick() && ref ? [ref.pick, viewedPick()] : V.tied ? V.tied.slice(0, 2) : V.rival ? [V.shown, V.rival.pick] : null;
+  const pair = pairPicks ? pairPicks.map(p => V.res.ranking.find(x => x.pick === p)) : null;
+  const sec = (id, title, body, sub) => html`<${PanelSec} key=${id} id=${id} title=${title} sub=${sub} open=${open.has(id)} onToggle=${e => toggle(id, e.currentTarget.open)} body=${body} />`;
+  const rs = roleState(), reading = hostState.available && hostState.lcuEnabled && hostState.lcuStatus === "connected";
+
+  const why = () => {
+    const pros = entry ? entry.why.filter(w => w.v > 0).sort((a, b) => b.v - a.v).map(w => signedText(w, 1)).filter(Boolean) : V.commonReasons;
+    const cons = entry ? entry.why.filter(w => w.v < 0).sort((a, b) => a.v - b.v).map(w => signedText(w, -1)).filter(Boolean) : [];
+    const matchup = entry && entry.criteria.find(x => x.key === "matchup" && x.text);
+    return html`<p className="p-sec-lead">${entry ? positionText(V.res.ranking, entry) : tieCauseText(tieCause(V.res.ranking, V.tied), V.tied[0])}</p>
+      ${entry && ref && ref !== entry ? html`<p className="p-prefers" data-test="panel-prefers"><b>${t("panel.why.prefers", { champion: label(ref.pick) })}</b> ${compareSummary(entry, ref)}</p>` : null}
+      <h3 className="p-sub good">${t("panel.pros")}</h3>
+      <ul className="p-list pros">${(pros.length ? pros : [t("panel.pros.none")]).map(x => html`<li key=${x}>${x}</li>`)}</ul>
+      ${entry ? html`<h3 className="p-sub bad">${t("panel.cons")}</h3>
+        <ul className="p-list cons">${(cons.length ? cons : [t("panel.cons.none")]).map(x => html`<li key=${x}>${x}</li>`)}</ul>` : null}
+      ${matchup ? html`<p className="note">${t("viewed.matchup", { text: matchup.text })}</p>` : null}
+      <${OpponentLine} />
+      ${playing === V.shown && V.avoided.length ? html`<p className="note">${t("advice.more.avoid")} <span className="avoid">${V.avoided.map(label).join(", ")}</span></p>` : null}
+      ${playing === V.shown && V.personal ? html`<p className="note">${t("advice.more.personal", { record: V.personal })}</p>` : null}
+      ${playing === V.shown && V.without ? html`<p className="note">${t("advice.more.noFront")} <b>${label(V.without)}</b></p>` : null}`;
+  };
+  const plan = () => {
+    if (!playing) return html`<p className="note">${t("panel.choosePlan")}</p>`;
+    const steps = buildPlan(playing, c, V.mid, deriveSlots().jungle);
+    return html`<p className="p-win-line"><b>${t("plan.winIf")}</b> ${winCondition(playing, c)}</p>
+      <${CoachLine} />
+      ${PHASES.map(([k, text]) => steps[k] && steps[k].length ? html`<div key=${k} className="p-phase"><h3 className="p-sub">${text}</h3><ul className="p-list">${steps[k].map(x => html`<li key=${x}>${x}</li>`)}</ul></div>` : null)}
+      <p className="note">${t(V.n > 1 ? "plan.basis.many" : V.n ? "plan.basis.one" : "plan.basis.none", { count: V.n })}</p>`;
+  };
+  const threats = () => {
+    const th = sameAll(subjects.map(p => threatsFor(p, c))), tg = sameAll(subjects.map(p => targetsFor(p, c)));
+    return html`<h3 className="p-sub bad">${t("plan.threats")}</h3>
+      ${th.length ? html`<${FaceList} names=${th} cls="threat" text=${n => playing ? threatText(playing, n, c) : t("panel.threat.common")} />` : html`<p className="note">${t("plan.threatsNone")}</p>`}
+      <h3 className="p-sub good">${t("plan.targets")}</h3>
+      ${tg.length ? html`<${FaceList} names=${tg} cls="target" text=${() => ""} />` : html`<p className="note">${t("plan.targetsNone")}</p>`}`;
+  };
+  const bans = () => V.bans.length
+    ? html`<${FaceList} names=${V.bans} cls="ban" text=${n => banReason(n) ? t("panel.ban.reason", { champion: n, reason: banReason(n) }) : ""} />`
+    : html`<p className="note" data-test="panel-bans-none">${t(V.bansTaken ? "panel.bans.allTaken" : "plan.bansNone")}</p>`;
+  const compare = () => {
+    const [a, b] = pair, cmp = comparePicks(a, b), max = Math.max(1, ...cmp.rows.flatMap(r => [Math.abs(r.a), Math.abs(r.b)]));
+    return html`<p className="p-sec-lead">${compareSummary(a, b)}</p>
+      ${cmp.rows.length ? html`<div className="p-cmp">
+          <div className="cmp-row cmp-legend" aria-hidden="true"><span></span><span className="cmp-bars"><span>${label(a.pick)}</span><span>${label(b.pick)}</span></span></div>
+          ${cmp.rows.map(r => html`<${CompareBar} key=${r.key} row=${r} max=${max} />`)}
+        </div>` : html`<p className="note">${t("compare.noCriterion")}</p>`}`;
+  };
+  const criteria = () => {
+    const rows = CRITERIA.map(def => ({ def, cr: subject.criteria.find(x => x.key === def.key) })).filter(r => r.cr);
+    return html`<p className="p-sec-lead">${t("panel.criteria.for", { champion: label(subject.pick) })}</p>
+      <ul className="p-crit">${rows.map(({ def, cr }) => html`<li key=${def.key} className=${cr.impact > 0 ? "up" : cr.impact < 0 ? "down" : ""}>
+        <span className="p-crit-mark" title=${impactText(cr.impact)}>${IMPACT_MARK(cr.impact)}</span><span><b>${def.label}</b>${cr.text ? html`<small>${cr.text}</small>` : null}</span></li>`)}</ul>
+      ${V.n < 5 ? html`<p className="note">${tp("analysis.incomplete", V.n)}</p>` : null}`;
+  };
+  const compo = () => html`<${DraftEffects} />
+    <div className="meters p-meters">
+      <${Meter} label=${t("enemy.meter.front")} count=${c.front.length} />
+      <${Meter} label=${t("enemy.meter.carries")} count=${c.carries.length} />
+      <${Meter} label=${t("enemy.meter.dive")} count=${c.divers.length} danger=${true} />
+      <${Meter} label=${t("enemy.meter.cc")} count=${c.cc.length} danger=${true} />
+      <${Meter} label=${t("enemy.meter.engage")} count=${c.engage.length} />
+    </div>
+    <p className="note">${t("enemy.legend")}</p>`;
+  const sources = () => html`<p className="note" data-test="panel-source">${t("panel.sources.enemies", { source: t(reading ? "panel.source.client" : "panel.source.manual") })}</p>
+    ${rs ? html`<p className="note">${t(rs.title)}</p>` : null}
+    <p className="note">${t(leagueSlot && leagueShown() ? "panel.sources.leagueTest" : leagueShown() ? "panel.sources.league" : "panel.sources.pick")}</p>`;
+
+  return html`<section className="p-deep" id="p-deep" data-test="panel-details" aria-label=${t("panel.deep.title")}>
+    <h2 className="p-deep-title">${t("panel.deep.title")}</h2>
+    ${alt}
+    <${PanelPool} open=${open.has("pool")} onToggle=${e => toggle("pool", e.currentTarget.open)} />
+    ${sec("why", playing ? t("panel.sec.why", { champion: label(playing) }) : t("panel.sec.whyTie"), why)}
+    ${sec("plan", playing ? t("panel.sec.plan", { champion: label(playing) }) : t("plan.title"), plan)}
+    ${sec("threats", t("panel.sec.threats"), threats)}
+    ${sec("bans", t("panel.sec.bans"), bans, V.bans.length ? V.bans.join(", ") : "")}
+    ${pair && pair.every(Boolean) && pair[0] !== pair[1] ? sec("compare", t("panel.sec.compare", { a: label(pair[0].pick), b: label(pair[1].pick) }), compare) : null}
+    ${subject ? sec("criteria", t("panel.sec.criteria"), criteria) : null}
+    ${compact || leftHidden() ? sec("compo", t("panel.sec.compo"), compo) : null}
+    ${sec("sources", t("panel.sec.sources"), sources)}
+    <button type="button" className="link-btn p-openfull" data-test="open-full" title=${t("panel.openFullHelp")} onClick=${() => openDetail("analyse")}>${t("panel.openFull")}</button>
+  </section>`;
+}
+
+// Carte du conseil : portrait en fond, étiquette, état (net, serré) et nombre d'adversaires connus.
+function PanelReco({ name }) {
+  return html`<section className="p-reco" data-test="panel-reco" aria-label=${t("panel.reco.label")}>
+    <${SplashStack} name=${name} />
+    <div className="p-reco-scrim"></div>
+    <${motion.div} key=${name} className="p-reco-text" initial=${{ y:6, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${QUICK}>
+      <span className="p-reco-head">
+        <span className="p-chip">${t(shownIsFirst() ? "panel.reco.chip" : "panel.alt.almostTie")}</span>
+        ${V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? t("advice.badge.clear") : t("advice.badge.close")}</span>` : null}
+        ${V.n < 5 ? html`<span data-test="badge" className="badge count">${t("advice.badge.enemies", { count: V.n })}</span>` : null}
+      </span>
+      <div className=${`p-name${name.length > 14 ? " long" : ""}`} title=${name}>${name}</div>
+    <//>
+  </section>`;
+}
+
+// Barre d'actions, collée en bas : le pick. Lecture « Dans League » disponible (donnée de test sur cette branche) : la ligne
+// « Dans League » et l'enregistrement automatique, sans « Je joue ». Sinon : « Je joue X », marqué « À la main ».
+// « Je joue » n'est retiré que si le pick est noté tout seul (pickCta nul : journal automatique opérationnel). Si League est lu mais
+// que le journal automatique ne tient pas (simulation, draft non suivie), la ligne League ET « Je joue » restent : rien n'est perdu.
+function PanelActions({ cta, deepIn, onDetails }) {
+  const lg = leagueShown();
+  return html`<div className=${`p-actions${lg ? " is-league" : ""}`} data-test="panel-actions">
+    ${lg ? html`<p className=${`p-league ${lg.state}`} data-test="league-line" data-state=${lg.real || lg.state} title=${t("panel.league.help")}><span className="p-league-dot" aria-hidden="true"></span><span className="p-league-text" data-test="league-status">${tx(lg.traded ? "panel.league.lockedTraded" : lg.state === "locked" ? "panel.league.locked" : "panel.league.hover", { champion: html`<b title=${label(lg.champion)}>${label(lg.champion)}</b>` })}</span></p>`
+      : html`<${LeagueLine} />`}
+    ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.text + " : " + cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
+    <div className="p-actions-sub">
+      <button type="button" className=${`ghost-btn details-btn${deepIn ? " on" : ""}`} data-test="open-analysis" aria-pressed=${deepIn} title=${t(deepIn ? "panel.detailsBackHelp" : "panel.detailsHelp")} onClick=${onDetails}><${ToolIcon} name=${deepIn ? "up" : "list"} /><span className="details-label">${t(deepIn ? "panel.detailsBack" : "panel.details")}</span></button>
+      ${lg && !cta ? html`<span className="p-auto-note" data-test="league-auto" title=${t("panel.league.autoHelp")}>${t("panel.league.auto")}</span>` : null}
+      ${!lg && cta && !leagueNow() ? html`<span className="p-manual" data-test="manual-pick" title=${t("panel.manual.help")}>${t("panel.manual.label")}</span>` : null}
+      <${PickCurrent} />
+      <${PickAdvice} />
+    </div>
+  </div>`;
+}
+
+// ---------- Ajustements V2 : composition adverse repliable (compact) et accès depuis le panneau droit (gauche fermé) ----------
+// Choix du joueur (ouvert ou fermé), propre à chaque panneau : null = comportement par défaut. Il tient jusqu'à la draft suivante :
+// phase « draft » reçue du programme (chaque page la reçoit), ou composition vidée (début de sélection, Nouvelle draft).
+let compoChoice = null, compoSeenN = 0, compoSeenPhase = "";
+function compoDraftCheck() {
+  const n = state.enemies.length, ph = (hostState.phase && hostState.phase.key) || "";
+  if ((compoSeenN > 0 && n === 0) || (ph === "native.phase.draft" && compoSeenPhase !== ph)) compoChoice = null;
+  compoSeenN = n; compoSeenPhase = ph;
+}
+const compoIsOpen = byDefault => compoChoice ? compoChoice === "open" : byDefault;
+const setCompo = open => { compoChoice = open ? "open" : "closed"; rerender(); };
+// Panneau gauche ni affiché ni lisible : fermé seul (Alt+F4), masqué, hors de l'écran, ou absent. Seul le programme le sait
+// (hostState.panelVisible, src/DraftMid.cs). Sans cette information (ancien programme, navigateur), rien n'est supposé.
+const leftHidden = () => PANEL === "right" && !!hostState.available && !!hostState.panelVisible && hostState.panelVisible.left === false;
+const CompoRows = () => {
+  const likely = likelyRoles(), slots = likely.slots;
+  return html`<div className="roles compact-roles">
+    ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
+  </div>`;
+};
+// Ligne repliée ou en-tête : « Composition 5/5 » (compact), « Composition adverse 3/5 » (panneau droit). Un clic ouvre ou replie.
+function CompoLine({ open, text, help }) {
+  return html`<button type="button" className="p-compo-line" data-test="compo-toggle" aria-expanded=${open} title=${open ? t("panel.compo.close") : help || t("panel.compo.open")} onClick=${() => setCompo(!open)}><span>${text}</span></button>`;
+}
+// Panneau droit, gauche non visible : accès compact, replié par défaut (pas de second jeu de 5 portraits à côté du conseil).
+// Déplié : les 5 postes du compact et la recherche tant qu'il en manque (saisie à la main, utile sans lecture du client). Forces,
+// failles et jauges : section « Profil adverse » de la lecture approfondie, comme dans le compact. Gauche visible : rien.
+// Sous les postes, un lien discret « Rouvrir le panneau gauche » : le programme efface l'état « fermé par le joueur » (gardé pour
+// la session) et replace les panneaux (reopenPanels, src/DraftMid.cs). Aussi par « Afficher les panneaux » du menu de l'icône.
+function CompoAccess() {
+  if (!leftHidden()) return null;
+  const n = state.enemies.length, open = compoIsOpen(false);
+  return html`<section className=${`p-compo-access${open ? " open" : ""}`} data-test="compo-access" aria-label=${t("enemy.title")}>
+    <${CompoLine} open=${open} text=${t("panel.compo.access", { count: n })} help=${t("panel.compo.accessHelp")} />
+    ${open ? html`<div className="p-compact-enemies">
+      <${SearchBox} />
+      <${UndoNote} />
+      <${CompoRows} />
+      <button type="button" className="link-btn p-compo-reopen" data-test="compo-reopen" onClick=${() => hostSend({ cmd:"reopenPanels" })}>${t("panel.compo.reopen")}</button>
+    </div>` : html`<${UndoNote} />`}
+  </section>`;
+}
+
+function VerdictPanel({ compact }) {
+  const [open, setOpen] = useState(() => new Set());
+  const [deepIn, setDeepIn] = useState(false);
+  const toggle = (id, on) => setOpen(prev => { if (prev.has(id) === !!on) return prev; const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next; });
+  // « Détails » mène à la lecture approfondie, et « Conseil » ramène en haut : défilement instantané, aucune animation longue.
+  // « Conseil » seulement après un vrai défilement : à la hauteur V2 (711 px), la lecture approfondie commence déjà dans la moitié
+  // haute sans défiler ; le bouton y proposait « Conseil », et un clic ne faisait rien. Sans défilement, « Détails » reste l'entrée.
+  const scroller = deep => deep.closest(".p-scroll") || deep.closest(".p-body");
+  useEffect(() => {
+    const deep = document.getElementById("p-deep");
+    if (!deep) return;
+    const sc = scroller(deep);
+    const on = () => { const r = sc.getBoundingClientRect(); setDeepIn(sc.scrollTop >= 1 && deep.getBoundingClientRect().top < r.top + r.height * .5); };
+    on();
+    sc.addEventListener("scroll", on, { passive:true });
+    return () => sc.removeEventListener("scroll", on);
+  });
+  // Un champion consulté (alternative, liste du pool, autre fenêtre) : retour en haut du panneau, où sa carte et « Je joue » se lisent
+  // sans défiler. Sa lecture approfondie (« Pourquoi X ») reste à un clic de « Détails ».
+  // Le défilement demandé par « Détails » ou « Comparer » est fait après le rendu de la section ouverte (effet ci-dessous, sans
+  // requestAnimationFrame) : une consultation faite entre-temps l'annule et ramène en haut.
+  const viewedNow = viewedPick(), lastViewed = useRef(viewedNow), pendingScroll = useRef(null);
+  const [, bump] = useReducer(x => x + 1, 0);
+  useEffect(() => {
+    const deep = document.getElementById("p-deep");
+    if (viewedNow && viewedNow !== lastViewed.current) { pendingScroll.current = null; if (deep) scroller(deep).scrollTop = 0; }
+    lastViewed.current = viewedNow;
+    if (pendingScroll.current && deep) {
+      const sc = scroller(deep), id = pendingScroll.current, el = id === "deep" ? deep : deep.querySelector(`[data-sec="${id}"]`) || deep;
+      pendingScroll.current = null;
+      sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 6;
+    }
+  });
+  const goDeep = id => {
+    const deep = document.getElementById("p-deep");
+    if (!deep) return;
+    const sc = scroller(deep);
+    if (!id && deepIn) { sc.scrollTop = 0; return; }
+    const target = id || (open.size ? null : "why");
+    if (target) toggle(target, true);
+    pendingScroll.current = id || "deep";
+    bump();
+  };
   const entry = state.current && loadJournal().find(x => x.id === state.current);
-  const pending = !entry && !state.enemies.length && [...loadJournal()].reverse().find(x => x.result === null);
+  const pending = !entry && !state.enemies.length && lastGameToComplete(loadJournal());
   if (V.none) return html`<div className="p-body"><p className="p-empty" data-test="no-pick">${noPickText()}</p><button type="button" className="ghost-btn" data-test="choose-profile" onClick=${() => hostSend({ cmd:"openFull", tab:"pool" })}>${t("panel.openPool")}</button></div>`;
   const name = label(V.shown);
   const c = V.res.counts;
   // À égalité, un danger ou un plan propre au premier nom le désignerait à tort : seul ce qui vaut pour tous reste affiché.
   const threats = (V.tied || [V.shown]).map(p => threatsFor(p, c)[0]);
-  const threat = threats.every(t => t === threats[0]) ? threats[0] : null;
-  const unknown = 5 - V.n;
+  const threat = threats.every(x => x === threats[0]) ? threats[0] : null;
   const cta = pickCta();
-  const reasons = V.tied ? V.commonReasons : V.reasons;
-  const playing = playingPick();
-  // QA-2, étendu au panneau droit (correctif beta.1, panneaux primaires) : la menace passe juste après le conseil, avant le champion
-  // consulté, le changement, l'alternative et les raisons, pour rester visible sans défiler à 125 % au-dessus de « Je joue ».
-  const threatBox = threat ? html`<section className="p-threat" data-test="panel-threat" aria-label=${t("panel.threat.label")}>
+  const why = (V.tied ? V.commonReasons : V.reasons)[0];
+  const viewed = viewedPick();
+  // Information stratégique principale, juste après le conseil : la menace ; avant tout adversaire, le ban conseillé.
+  // QA-2 et correctif beta.1 : elle reste visible sans défiler à 125 %, au-dessus de la barre d'actions.
+  const keyBox = threat ? html`<section className="p-threat" data-test="panel-threat" aria-label=${t("panel.threat.label")}>
       <${Portrait} name=${threat} size=${36} />
-      <div><b>${t("panel.threat.title", { champion: threat })}</b><p>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
-    </section>` : null;
+      <div><b title=${t("panel.threat.title", { champion: threat })}>${t("panel.threat.title", { champion: threat })}</b><p title=${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}>${V.tied ? t("panel.threat.common") : threatText(V.shown, threat, c)}</p></div>
+    </section>`
+    : !V.n && V.bans[0] ? html`<section className="p-keyban" data-test="panel-keyban" aria-label=${t("panel.ban.title")}>
+      <${Portrait} name=${V.bans[0]} size=${36} />
+      <div><b>${t("panel.keyban.title", { champion: V.bans[0] })}</b><p>${banReason(V.bans[0]) ? t("panel.ban.reason", { champion: V.bans[0], reason: banReason(V.bans[0]) }) : t("panel.keyban.none")}</p>${V.bans.length > 1 ? html`<p className="p-keyban-more">${t("panel.ban.or", { champions: V.bans.slice(1).join(", ") })}</p>` : null}</div>
+    </section>`
+    : !V.tied && V.risk ? html`<p className="p-why-con p-risk" data-test="panel-risk"><b>${t("panel.risk.label")}</b> ${V.risk}</p>` : null;
+  const altLine = V.rival ? html`<div className=${`p-alt${viewed === V.rival.pick ? " viewed" : ""}`} data-test="alt-line">
+      <button type="button" className="p-alt-view" data-test="view-alt" data-pick=${V.rival.pick} aria-current=${viewed === V.rival.pick ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(V.rival.pick)}>
+        <${Portrait} name=${label(V.rival.pick)} size=${compact ? 32 : 40} />
+        <span className="p-alt-text"><small>${t(V.tied ? "advice.alt.else" : V.clear ? "advice.rank.alternative" : shownIsFirst() ? "panel.alt.almostTie" : "panel.alt.justAhead")}</small><span className="p-nm" title=${label(V.rival.pick)}>${label(V.rival.pick)}</span></span>
+      </button>
+      <button type="button" className="p-alt-go" data-test="open-compare" title=${t("panel.compareTitle")} onClick=${() => goDeep("compare")}>${t("panel.compare")}</button>
+    </div>` : null;
   return html`<div className="p-body">
     <p className="sr" aria-live="polite">${speakVerdict(name)}</p>
-    <div className="p-status">
-      ${V.tied ? html`<span data-test="badge" className="badge close">${t("advice.badge.tie")}</span>` : V.n ? html`<span data-test="badge" className=${`badge ${V.clear ? "net" : "close"}`} title=${V.clear ? undefined : CLOSE_HELP}>${V.clear ? t("advice.badge.clear") : t("advice.badge.close")}</span>` : null}
-      ${unknown ? html`<span data-test="badge" className="badge">${t("advice.badge.enemies", { count: V.n })}</span>` : null}
-      ${IS_HOST && hostState.available ? html`<span data-test="panel-source" className="badge source" title=${t("panel.source.help")}>${t(hostState.lcuEnabled && hostState.lcuStatus === "connected" ? "panel.source.client" : "panel.source.manual")}</span>` : null}
+    ${compact ? null : html`<${CompoAccess} />`}
+    <div className="p-now" data-test="panel-now">
+      ${V.tied ? html`<${TieGroup} detailed=${false} panel=${true} />` : html`<${PanelReco} name=${name} />`}
+      ${!compact || why ? html`<div className="p-why" data-test="panel-why" aria-label=${t("panel.why")}>
+          <p className="p-why-pro"><b>${t("panel.why.label")}</b> ${why || t(V.tied ? "panel.reasons.tieDiffer" : "panel.reasons.none")}</p>
+        </div>` : null}
+      ${keyBox}
+      <${ViewedCard} panel=${true} />
+      ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>`
+        : V.gone ? html`<${motion.p} key=${V.gone.id} className="p-change p-gone" data-test="panel-gone" role="status" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${QUICK}>${goneText(V.gone)}</${motion.p}>` : null}
+      ${!compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null}
     </div>
-    ${V.tied ? html`<${TieGroup} detailed=${false} />` : html`<section className="p-reco" aria-label=${t("panel.reco.label")}>
-      <${SplashStack} name=${name} />
-      <div className="p-reco-scrim"></div>
-      <${motion.div} key=${name} className="p-reco-text" initial=${{ y:8, opacity:.4 }} animate=${{ y:0, opacity:1 }} transition=${ARRIVE}>
-        <span className="p-chip">${t(shownIsFirst() ? "advice.rank.recommended" : "panel.alt.almostTie")}</span>
-        <div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div>
-      <//>
-    </section>`}
-    ${threat ? threatBox : null}
-    <${ViewedCard} panel=${true} />
-    ${V.change ? html`<${motion.p} key=${V.change.id} className="p-change" initial=${{ opacity:.4 }} animate=${{ opacity:1 }} transition=${ARRIVE}>${tx("advice.change.line", { trigger: html`<b>${t("advice.change.trigger", { trigger: V.change.trigger })}</b>`, to: V.change.to, from: V.change.from })}</${motion.p}>` : null}
-    ${V.rival ? html`<div className=${`p-alt${viewedPick() === V.rival.pick ? " viewed" : ""}`} data-test="alt-line">
-      <button type="button" className="p-alt-view" data-test="view-alt" data-pick=${V.rival.pick} aria-current=${viewedPick() === V.rival.pick ? "true" : undefined} title=${t("viewed.help")} onClick=${() => consult(V.rival.pick)}>
-        <${Portrait} name=${label(V.rival.pick)} size=${40} />
-        <span className="p-alt-text"><small>${t(V.tied ? "advice.alt.else" : V.clear ? "advice.rank.alternative" : shownIsFirst() ? "panel.alt.almostTie" : "panel.alt.justAhead")}</small>${label(V.rival.pick)}</span>
-      </button>
-      <button type="button" className="p-alt-go" data-test="open-compare" title=${t("panel.compareTitle")} onClick=${() => openDetail("compare")}>${t("panel.compare")}</button>
-    </div>` : null}
-    <${PanelPool} />
-    <${FamiliarLine} />
-    <h2 className="sr">${t("panel.why")}</h2>
-    <ul className="p-reasons">
-      ${(reasons.length ? reasons : [V.tied ? t("panel.reasons.tieDiffer") : t("panel.reasons.none")]).map(t => html`<${motion.li} key=${t} initial=${{ x:-5, opacity:.4 }} animate=${{ x:0, opacity:1 }} transition=${ARRIVE}>${t}<//>`)}
-    </ul>
-    <${CoachLine} />
-    <${OpponentLine} />
-    <details key=${V.n ? "draft" : "bans"} className="p-more" open=${!V.n}>
-      <summary>${V.n ? t("panel.more.planAndBan") : t("panel.ban.title")}</summary>
-      ${V.bans[0] ? html`<section className="p-ban" aria-label=${t("panel.ban.title")}>
-        <div className="p-ban-row"><${Portrait} name=${V.bans[0]} size=${34} /><b>${V.bans[0]}</b>${V.bans.length > 1 ? html`<span>${t("panel.ban.or", { champions: V.bans.slice(1).join(", ") })}</span>` : null}</div>
-        <p className="note">${t("panel.ban.reason", { champion: V.bans[0], reason: banReason(V.bans[0]) })}</p>
-      </section>` : null}
-      ${playing ? html`<section className="p-win"><b>${t("plan.winIf")}</b><p>${winCondition(playing, c)}</p></section>` : html`<p className="note">${t("panel.choosePlan")}</p>`}
-    </details>
-    <div className="p-actions">
-      ${cta ? html`<${motion.button} type="button" data-test="choose-pick" className=${`cta${cta.picked ? " done" : ""}`} title=${cta.help} whileTap=${{ scale:.97 }} onClick=${cta.click}>${cta.text}<//>` : null}
-      <button type="button" className="ghost-btn details-btn" data-test="open-analysis" title=${t("panel.detailsHelp")} aria-label=${t("panel.details")} onClick=${() => openDetail("analyse")}><${ToolIcon} name="details" /><span className="details-label">${t("panel.details")}</span></button>
-      <${PickCurrent} />
-      <${PickAdvice} />
-    </div>
-    ${entry || pending ? html`<div>
-      ${pending ? html`<p className="result-note">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
-      <${ResultButtons} id=${entry ? entry.id : pending.id} result=${entry ? entry.result : null} disabled=${false} />
+    <${PanelDeep} compact=${compact} open=${open} toggle=${toggle} alt=${compact && !(viewed && V.rival && viewed === V.rival.pick) ? altLine : null} />
+    <${PanelActions} cta=${cta} deepIn=${deepIn} onDetails=${() => goDeep(null)} />
+    ${entry || pending ? html`<div className="p-results">
+      ${pending ? html`<p className="result-note" data-test="last-game">${tx("plan.lastGame", { pick: html`<b>${label(pending.picked)}</b>` })}</p>` : null}
+      <${EntryResult} entry=${entry} pending=${pending} />
     </div>` : null}
   </div>`;
 }
@@ -3346,7 +4049,7 @@ function HomeUpdate() {
 }
 
 function HomeData() {
-  const journal = loadJournal().length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
+  const journal = countedEntries(loadJournal()).length, rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
   const role = PROFILES.active || "mid", rates = window.ROLE_RATES_LIVE, live = window.MATCHUPS_LIVE;
   const status = nativeText(hostState.historyStatus) || nativeText(hostState.rolesStatus);
   const row = (key, label, value, ok) => html`<div key=${key} className=${`data-row${ok ? " ok" : ""}`} data-test=${`home-data-${key}`}><dt>${label}</dt><dd>${value}</dd></div>`;
@@ -3374,6 +4077,21 @@ function LegacyNotice() {
   return html`<p className="set-hint flush" role="status" data-test="legacy-notice" data-kind=${n.kind}>${t(n.kind === "taken" ? "profiles.legacy.taken" : "profiles.legacy.kept", { role:ROLE_NAMES[n.role] })} <button type="button" className="link-btn" data-test="legacy-notice-ok" onClick=${() => { dismissLegacyNotice(localStorage); setSeen(x => x + 1); }}>${t("profiles.legacy.dismiss")}</button></p>`;
 }
 
+// Accueil : « Dernière partie », rattrapage de l'écran de fin de partie (panneau fermé, partie finie sans lecture du client). Tant
+// qu'une partie lancée attend son résultat (lastGameToComplete) : champion en grand, Victoire et Défaite en gros, Ignorer en petit.
+// Après la saisie : courte confirmation, puis la carte disparaît.
+function HomeLastGame() {
+  const [done, setDone] = useState(null);
+  useEffect(() => { if (!done) return; const id = setTimeout(() => setDone(null), 2500); return () => clearTimeout(id); }, [done]);
+  if (done) return html`<section className="box home-card state-good home-last" data-test="home-last-game-done" role="status"><p className="gr-done">${t(RESULT_SAVED[done])}</p></section>`;
+  const game = lastGameToComplete(loadJournal());
+  if (!game) return null;
+  return html`<section className="box home-card state-wait home-last" aria-labelledby="home-last-title">
+    <h2 id="home-last-title" className="card-kicker">${t("home.lastGame.title")}</h2>
+    <${GameResult} entry=${game} where="home" onResult=${r => { setResult(game.id, r); setDone(r); }} />
+  </section>`;
+}
+
 function HomeView() {
   const role = PROFILES.active, fresh = !(role && PROFILES.roles[role].pool.length);
   const ob = onboarding();
@@ -3387,6 +4105,7 @@ function HomeView() {
   return html`<div className="view-page home" data-test="home">
     <h1 className="sr" data-test="home-h1">${t("nav.home")}</h1>
     <${LegacyNotice} />
+    <${HomeLastGame} />
     ${steps.length ? html`<${HomeGuide} steps=${steps} />` : html`<${HomeHero} />
     <div className="home-chain">
       <${HomeLeague} /><${HomePool} /><${HomePanels} />
@@ -3549,109 +4268,13 @@ function JournalImport() {
   </details>`;
 }
 
-// ---------- Mes statistiques (UX-5) : journal DRAFT, historique Riot et anciens imports au même endroit ----------
-const ROLE_POSITION = { top:"TOP", jungle:"JUNGLE", mid:"MIDDLE", adc:"BOTTOM", support:"UTILITY" };
-const STATS_TABS = ["overview", "journal", "history"];
+// ---------- Mes statistiques : rendu dans draft-stats-view.js, calculs dans draft-stats-calc.js (docs/stats/CALCULS.md) ----------
+// historyRows sert à l'Accueil ; SampleGauge sert aussi au rendu de Mes statistiques.
 const historyRows = () => window.DRAFT_HISTORY && Array.isArray(window.DRAFT_HISTORY.rows) ? window.DRAFT_HISTORY.rows : null;
-const wl = rows => { const w = rows.filter(r => r.win).length; return t("stats.wl", { wins:w, losses:rows.length - w }); };
-
-function StatsKpis() {
-  const list = loadJournal(), played = list.filter(x => x.result === "win" || x.result === "loss");
-  const wins = played.filter(x => x.result === "win").length, followed = list.filter(x => x.picked === x.suggested).length;
-  const rows = historyRows(), when = window.DRAFT_HISTORY && window.DRAFT_HISTORY.generated;
-  const kpi = (label, value, rest, test, extra) => html`<div data-test=${test}><span>${label}</span><b className="num">${value}</b>${rest ? html` <small>${rest}${extra || null}</small>` : null}</div>`;
-  // B+ : sous MIN_GAMES parties terminées, jamais de pourcentage ; une jauge montre ce qui manque. Au-delà, le pourcentage, toujours avec son échantillon.
-  const enough = played.length >= MIN_GAMES;
-  const rate = enough ? html`<em className="kpi-rate num" data-test="kpi-rate">${t("stats.kpi.rate", { percent: pct({ wins, games: played.length }) })}</em>` : played.length ? html`<${SampleGauge} count=${played.length} />` : null;
-  const dates = list.map(x => x.date).filter(Boolean).sort();
-  const from = dates.length ? fmtDate(dates[0]) : "", to = dates.length ? fmtDate(dates[dates.length - 1]) : "";
-  return html`<section className="kpis-wrap" data-test="stats-kpis-wrap">
-    <div className=${`box kpis${list.length ? "" : " is-empty"}`} data-test="stats-kpis" aria-label=${t("stats.tabs.overview")}>
-    ${kpi(t("stats.kpi.drafts"), list.length, "", "kpi-drafts")}
-    ${kpi(t("stats.kpi.wins"), wins, tp("stats.kpi.winsOf", played.length), "kpi-wins", rate)}
-    ${kpi(t("stats.kpi.followed"), followed, t("stats.kpi.followedOf", { count:list.length }), "kpi-followed")}
-    ${kpi(t("stats.kpi.history"), rows ? rows.length : t("stats.kpi.none"), rows ? (when ? t("stats.kpi.historyWhen", { unit: tp("stats.kpi.historyUnit", rows.length), date: fmtDate(when) }) : tp("stats.kpi.historyUnit", rows.length)) : "", "kpi-history")}
-    </div>
-    <p className="stats-sample" data-test="stats-sample">${list.length
-      ? html`<b className="num">${from === to ? t("stats.sample.periodOne", { date: from }) : t("stats.sample.period", { from, to })}</b><span className="num">${tp("stats.sample.played", played.length)}</span><span className=${enough ? "" : "stats-few"}>${t(enough ? "stats.sample.enough" : "stats.sample.few", { min: MIN_GAMES })}</span>`
-      : html`<span>${t("stats.sample.none")}</span>`}</p>
-  </section>`;
-}
-
 // Jauge de MIN_GAMES crans : parties terminées sur celles qu'il faut avant d'afficher un pourcentage.
 function SampleGauge({ count }) {
   const n = Math.min(count, MIN_GAMES);
   return html`<span className="notches" role="img" aria-label=${tp("stats.gauge.aria", count, { min: MIN_GAMES })}>${Array.from({ length: MIN_GAMES }, (_, i) => html`<i key=${i} className=${i < n ? "on" : ""}></i>`)}</span>`;
-}
-
-function HistoryImportBox({ detailed }) {
-  const rows = historyRows(), role = PROFILES.active;
-  const mine = rows && role ? rows.filter(r => r.pos === ROLE_POSITION[role]) : [];
-  const champs = groupRows(mine.map(r => ({ win:r.win, name:toName(r.champ) })), r => r.name).slice(0, 5);
-  return html`<section className="box box-pad" data-test="stats-history">
-    <h2 className="box-title">${t("stats.history.title")} <small>${t("stats.history.sub")}</small></h2>
-    <p className=${rows ? "stats-line ok" : "empty-note"} data-test="stats-history-summary">${rows
-      ? tp("stats.history.imported", rows.length, { date: window.DRAFT_HISTORY.generated ? fmtDate(window.DRAFT_HISTORY.generated) : "?" })
-      : t("stats.history.none")}</p>
-    ${hostState.historyStatus ? html`<p className="small" role="status" data-test="stats-history-status">${nativeText(hostState.historyStatus)}</p>` : null}
-    ${hostState.available
-      ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="stats-import-history" onClick=${() => hostSend({ cmd:"importHistory" })}>${hostState.historyRunning ? t("stats.history.stop") : hostState.historyHasMore ? t("stats.history.more") : t("stats.history.import")}</button></p>`
-      : html`<p className="small">${t("stats.history.app")}</p>`}
-    <p className="small">${t("stats.history.key")}</p>
-    <p className="small" data-test="stats-collect">${t("stats.history.collect")}</p>
-    ${rows && role ? html`<h3>${t("stats.mostPlayed", { role:ROLE_NAMES[role] })}</h3>
-      ${champs.length ? html`<${WinBars} title="" groups=${champs} />` : html`<p className="small">${t("stats.mostPlayed.empty", { role:ROLE_NAMES[role] })}</p>`}` : null}
-    ${detailed && rows ? html`<${RowsSample} rows=${rows} test="stats-history-sample" />` : null}
-    ${detailed && rows ? html`<h3>${t("stats.history.byRole")}</h3>
-      <table className="stats-table"><tbody>${ROLE_ORDER.map(r => { const list = rows.filter(x => x.pos === ROLE_POSITION[r]); return html`<tr key=${r}><th scope="row">${ROLE_NAMES[r]}</th><td className="num">${tp("stats.kpi.historyUnit", list.length)}</td><td className="num">${list.length ? wl(list) : "-"}</td></tr>`; })}</tbody></table>` : null}
-  </section>`;
-}
-
-function RecentDrafts({ onAll }) {
-  const list = loadJournal().slice(-8).reverse();
-  const results = { win:t("journal.result.win"), loss:t("journal.result.loss"), skip:t("journal.status.ignored") };
-  return html`<section className="box" data-test="stats-recent">
-    <header className="box-head-row"><h2 className="box-title">${t("stats.recent.title")} <small>${t("stats.recent.sub")}</small></h2>
-      ${list.length ? html`<button type="button" className="ghost-btn" data-test="stats-all-journal" onClick=${onAll}>${t("stats.recent.all")}</button>` : null}</header>
-    ${list.length ? html`<table className="stats-table recent"><thead><tr><th scope="col">${t("stats.recent.pick")}</th><th scope="col">${t("stats.recent.opponent")}</th><th scope="col">${t("stats.recent.advice")}</th><th scope="col">${t("stats.recent.result")}</th><th scope="col">${t("stats.recent.date")}</th></tr></thead>
-      <tbody>${list.map(x => html`<tr key=${x.id}><th scope="row"><span className="pool-name"><${Portrait} name=${label(x.picked)} size=${28} />${label(x.picked)}</span></th><td>${x.mid || "-"}</td><td>${t(x.picked === x.suggested ? "stats.recent.followed" : "stats.recent.other")}</td>
-        <td><span className=${`result-tag ${x.result || "wait"}`}>${results[x.result] || t("journal.status.pending")}</span></td><td className="num">${fmtDate(x.date)}</td></tr>`)}</tbody></table>`
-      : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
-  </section>`;
-}
-
-function StatsOverview({ onAll }) {
-  const played = loadJournal().filter(x => x.result === "win" || x.result === "loss");
-  return html`<div className="stats-overview">
-    <div className="stats-grid">
-      <section className="box box-pad" data-test="stats-journal">
-        <h2 className="box-title">${t("stats.byChampion.title")} <small>${t("stats.byChampion.source")}</small></h2>
-        ${played.length ? html`<${WinBars} title="" groups=${groupRows(played.map(x => ({ win: x.result === "win", name: label(x.picked) })), r => r.name)} />
-          <${WinBars} title=${t("stats.byMidType")} groups=${groupRows(played.filter(x => matchupOf(x.mid)).map(x => ({ win: x.result === "win", type: midTypeLabel(matchupOf(x.mid).t) })), r => r.type)} />`
-          : html`<p className="empty-note">${t("stats.overview.emptyJournal")}</p>`}
-      </section>
-      <${HistoryImportBox} detailed=${false} />
-    </div>
-    <${RecentDrafts} onAll=${onAll} />
-  </div>`;
-}
-
-function StatsView() {
-  const [tab, setTab] = useState(() => { const s = new URLSearchParams(location.search).get("section"); return STATS_TABS.includes(s) ? s : "overview"; });
-  return html`<div className="view-page">
-    <${ViewHead} title=${t("nav.stats")} sub=${t("stats.sub")} />
-    <div className="stats-tabs" role="tablist" aria-label=${t("nav.stats")}>
-      ${STATS_TABS.map(k => html`<button key=${k} type="button" role="tab" aria-selected=${tab === k} data-test=${`stats-tab-${k}`} className=${`stats-tab${tab === k ? " on" : ""}`} onClick=${() => setTab(k)}>${t({ overview:"stats.tabs.overview", journal:"stats.tabs.journal", history:"stats.tabs.history" }[k])}</button>`)}
-    </div>
-    <${StatsKpis} />
-    ${tab === "overview" ? html`<${StatsOverview} onAll=${() => setTab("journal")} />` : null}
-    ${tab === "journal" ? html`<section className="box box-pad" data-test="stats-journal-full"><h2 className="box-title">${t("stats.journal.title")}</h2><${JournalTab} /><${JournalImport} /></section>` : null}
-    ${tab === "history" ? html`<div className="stats-grid">
-      <${HistoryImportBox} detailed=${true} />
-      <section className="box box-pad" data-test="stats-old"><h2 className="box-title">${t("stats.old.title")}</h2><${StatsTab} />
-        ${hostState.available ? html`<p className="set-row"><button type="button" className="ghost-btn" data-test="import-stats" onClick=${() => hostSend({ cmd:"importStats" })}>${t("stats.oldFile.stats")}</button></p>` : null}</section>
-    </div>` : null}
-  </div>`;
 }
 
 const SECTION_ICONS = { general:"sliders", league:"plug", display:"monitor", data:"shield", updates:"refresh", diag:"pulse" };
@@ -3799,24 +4422,80 @@ function SimView() {
   </div>`;
 }
 
+// Ajustements V2 : la rangée des 5 adversaires (saisie, consultation) se replie d'elle-même quand la composition est complète (5/5),
+// pour laisser la place au conseil ; reste la ligne « Composition 5/5 », qui la rouvre en un clic. Repliable et dépliable à la main
+// (choix gardé jusqu'à la draft suivante). Ouverte et incomplète : le bouton qui replie est à droite de la recherche, sans ligne de plus.
 function CompactEnemies() {
-  const likely = likelyRoles(), slots = likely.slots;
-  return html`<div className="p-compact-enemies">
-    <${SearchBox} />
+  const n = state.enemies.length, open = compoIsOpen(n < 5);
+  return html`<div className=${`p-compact-enemies${open ? "" : " folded"}`}>
+    ${!open || n >= 5 ? html`<${CompoLine} open=${open} text=${t("panel.compo.line", { count: n })} />`
+      : html`<div className="p-compo-search"><${SearchBox} /><button type="button" className="p-btn p-compo-fold" data-test="compo-toggle" aria-expanded="true" title=${t("panel.compo.close")} aria-label=${t("panel.compo.close")} onClick=${() => setCompo(false)}></button></div>`}
     <${UndoNote} />
-    <div className="roles compact-roles">
-      ${LEFT_ORDER.map(r => html`<${RoleRow} key=${r} role=${r} name=${slots[r]} assumed=${!state.manualMid} info=${slots[r] ? likely.byName[slots[r]] : null} />`)}
-    </div>
+    ${open ? html`<${CompoRows} />` : null}
   </div>`;
 }
 
+// Composition adverse : le panneau gauche la porte ; le panneau droit sert à comprendre et comparer les recommandations. Le programme
+// ne crée et n'affiche le panneau droit (panel=right) qu'en disposition « two », avec le gauche (Place, Place2, TranslatePanels).
+// Rappel minimal gardé : « 3/5 adversaires » sur le conseil (tant qu'il en manque) et le portrait de la menace principale. Le compact
+// (panneau unique ou étroit, sans gauche) montre les 5 postes. Ajustements V2 : le programme envoie la visibilité réelle de chaque
+// panneau (hostState.panelVisible) ; gauche fermé seul, masqué ou hors de l'écran, le droit montre l'accès « Composition adverse X/5 ».
+// ---------- Fin de partie (beta.2, retour de l'utilisateur) ----------
+// Le programme affiche le panneau droit ou le compact quand le client passe en EndOfGame et qu'une partie lancée de la session, notée
+// ici (gameNoted), attend son résultat : hostState.endGame porte la clé de sa sélection (src/DraftMid.cs, UpdateEndGame). Le panneau
+// montre alors le champion joué en grand, Victoire et Défaite en gros, Ignorer en petit. Après un clic : confirmation, puis retrait
+// (endGameDone). Sans clic : retrait au lobby ou à la sélection suivante, l'entrée reste « En attente ». Rien en simulation.
+const RESULT_SAVED = { win:"endGame.saved.win", loss:"endGame.saved.loss", skip:"endGame.saved.skip" };
+let endGameDone = null, endGameReleased = null;
+function GameResult({ entry, where, onResult }) {
+  const name = label(entry.picked);
+  const art = where === "panel"
+    ? html`<section className="p-reco gr-art" aria-hidden="true"><${SplashStack} name=${name} /><div className="p-reco-scrim"></div>
+        <div className="p-reco-text"><span className="p-chip">${t("endGame.noted")}</span><div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div></div></section>`
+    : html`<div className="gr-art-home" aria-hidden="true"><${Portrait} name=${name} size=${88} /></div>`;
+  return html`<div className=${`game-result gr-${where}`} data-test=${where === "panel" ? "end-game" : "home-last-game"}>
+    ${art}
+    ${where === "panel" ? (entry.mid ? html`<p className="gr-who" data-test="gr-who">${t("endGame.vs", { champion: entry.mid })}</p>` : null)
+      : html`<p className="gr-who" data-test="gr-who"><span className="gr-noted">${t("endGame.noted")}</span> <b className="gr-name">${name}</b>${entry.mid ? html` <span className="gr-vs">${t("endGame.vs", { champion: entry.mid })}</span>` : null}</p>`}
+    <div className="gr-buttons">
+      <button type="button" className="gr-btn win" data-result="win" onClick=${() => onResult("win")}>${t("journal.result.win")}</button>
+      <button type="button" className="gr-btn loss" data-result="loss" onClick=${() => onResult("loss")}>${t("journal.result.loss")}</button>
+    </div>
+    <button type="button" className="link-btn gr-skip" data-result="skip" onClick=${() => onResult("skip")}>${t("journal.result.skip")}</button>
+  </div>`;
+}
+// Ce que montre le panneau en fin de partie : l'entrée à compléter, la confirmation, ou rien (mode normal).
+function endGameView() {
+  const key = hostState.available && hostState.endGame ? String(hostState.endGame) : null;
+  if (!key || simulating || (PANEL !== "right" && PANEL !== "compact")) { endGameDone = null; return null; }
+  if (endGameDone && endGameDone.key === key) return { done: endGameDone.result };
+  const entry = loadJournal().find(x => x.selection === key);
+  if (entry && entry.gameStarted === true && !isAbandoned(entry) && entry.result === null) return { key, entry };
+  // Déjà renseignée ailleurs, ou introuvable : rien à demander, le programme retire l'écran.
+  if (endGameReleased !== key) { endGameReleased = key; hostSend({ cmd:"endGameDone", draft:key }); }
+  return null;
+}
+function EndGamePanel({ view }) {
+  if (view.done) return html`<div className="p-end" data-test="end-game"><p className="gr-done" data-test="end-game-done" role="status">${t(RESULT_SAVED[view.done])}</p></div>`;
+  const onResult = r => {
+    setResult(view.entry.id, r);
+    endGameDone = { key: view.key, result: r };
+    rerender();
+    setTimeout(() => { if (endGameDone && endGameDone.key === view.key) { endGameReleased = view.key; hostSend({ cmd:"endGameDone", draft:view.key }); } }, 1800);
+  };
+  return html`<div className="p-end" aria-label=${t("endGame.label")}><${GameResult} entry=${view.entry} where="panel" onResult=${onResult} /></div>`;
+}
+
 function PanelApp() {
+  compoDraftCheck();
+  const endView = endGameView();
+  if (endView) return html`<div className=${`panel panel-${PANEL}`} data-test="panel"><${TitleBar} /><${EndGamePanel} view=${endView} /></div>`;
   return html`<div className=${`panel panel-${PANEL}`} data-test="panel">
     <${TitleBar} />
     ${PANEL !== "left" ? html`<${RoleSwitch} />` : null}
     ${PANEL === "left" ? html`<${EnemyPanel} />` : null}
-    ${PANEL === "right" ? html`<${VerdictPanel} />` : null}
-    ${PANEL === "compact" ? html`<div className="p-scroll"><${CompactEnemies} /><${VerdictPanel} /></div>` : null}
+    ${PANEL === "right" ? html`<${VerdictPanel} compact=${false} />` : null}
+    ${PANEL === "compact" ? html`<div className="p-scroll"><${CompactEnemies} /><${VerdictPanel} compact=${true} /></div>` : null}
   </div>`;
 }
 
@@ -3840,7 +4519,11 @@ function App() {
       window.chrome.webview.addEventListener("message", e => {
         const m = e.data;
         if (m.kind === "host") {
+          takeLeague(m.league);
+          takeAvailability(m.unavailable);
           Object.assign(hostState, m, { available:true });
+          // Champion banni ou pris par un allié (ou fin de la lecture, autre sélection) : la liste candidate change, le calcul est refait.
+          if (syncUnavailable()) computeVerdict();
           // Stockage du navigateur vide mais copie dans le dossier de données : les profils reviennent.
           if (!PROFILES.active && m.savedProfiles) {
             try { const back = normalizeProfiles(JSON.parse(m.savedProfiles)); if (back && back.active) { PROFILES = back; persistProfiles(PROFILES, localStorage); useActiveRole(); computeVerdict(); } } catch (e) {}
@@ -3852,14 +4535,24 @@ function App() {
           if (PROFILE && !window.draftProfileSent) { window.draftProfileSent = true; sendProfile(); }
           if (!m.legacyProfile && !PROFILE && PANEL && PANEL !== "full" && !window.draftProfileAsked) { window.draftProfileAsked = true; hostSend({ cmd:"openFull", tab:"pool" }); }
           force();
+          // Nouvelle sélection vue dans l'état du programme (message draftStart perdu ou page ouverte en retard) : remise à zéro,
+          // une fois par clé, AVANT le rôle attribué de cette sélection.
+          if (synced && m.draftOutcome === "draft") startSelection(m.draftKey);
           // Page qui s'ouvre pendant une draft (Détails, panneau recréé) : la correction manuelle ou la bascule déjà faite sont chez
           // les autres pages. Rien n'est décidé avant de les avoir reçues (afterSync), sinon cette page rebasculerait et réenregistrerait le rôle.
           if (synced) handleAssignedRole(m.assignedRole || null);
+          // Verrouillage vu dans League : le conseil du moment est mémorisé (une fois par sélection).
+          memoLock();
+          // Page ouverte après la décision : l'issue gardée par le programme est notée (une seule fois).
+          if (settleOutcome(m.draftKey, m.draftOutcome)) force();
         }
         if (m.kind === "demo") runDemo(m.stepMs);
-        if (m.kind === "draftStart") onDraftStart();
+        // Avec sa clé (programme beta.2) : une fois par sélection. Sans clé (ancien programme, essais) : comme avant.
+        if (m.kind === "draftStart") { if (m.draft) startSelection(m.draft); else onDraftStart(); }
         if (m.kind === "lcuEnemies") applyDetected(m.ids);
+        // Fin de sélection : issue en attente (outcome "pending"), rien n'est écrit. Puis draftOutcome : partie lancée ou draft annulée.
         if (m.kind === "draftEnd") { sendValidationRow(); resetRoleSession(); dispatchDraft({ type:"session-end" }); }
+        if (m.kind === "draftOutcome" && settleOutcome(m.draft, m.outcome)) force();
         // Message gardé une version (alias) : ouvre la section Réglages.
         if (m.kind === "openSettings") { goView("settings", m.section); window.__openSettingsSeen = m.token || 0; }
         if (m.kind === "openTab") { history.replaceState(null, "", `?panel=full&tab=${m.tab}`); location.reload(); }
@@ -3888,7 +4581,7 @@ function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
   if (PANEL && PANEL !== "full") return html`<${MotionConfig} reducedMotion="user"><${PanelApp} /><//>`;
-  const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolPage} />` : uiView === "stats" ? html`<${StatsView} />`
+  const view = uiView === "home" ? html`<${HomeView} />` : uiView === "pool" ? html`<${PoolPage} />` : uiView === "stats" ? html`<${DraftStatsView.StatsView} />`
     : uiView === "settings" ? html`<${SettingsPage} onClose=${closeSettings} solo=${settingsWindow.current} />` : html`<${SimView} />`;
   return html`<${MotionConfig} reducedMotion="user">
     <div className="shell" data-test="app">
