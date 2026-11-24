@@ -142,6 +142,8 @@
 .sd-jlist.full .sd-jmeta, .sd-jlist.full .sd-acts { grid-column:auto; }
 .sd-tag { padding:1px 8px; border:1px solid var(--line-strong); border-radius:var(--r-tag); color:var(--muted); font-size:var(--fs-xs); white-space:nowrap; }
 .sd-tag.followed { color:var(--text); }
+/* Rapprochement Riot (beta.3) : désaccord entre le résultat stocké et Riot, toujours visible. */
+.sd-tag.disagree { border-color:var(--prio); color:var(--prio); white-space:normal; }
 .badge-origin { padding:1px 8px; border:1px dashed var(--info); border-radius:var(--r-tag); color:var(--info); font-size:var(--fs-xs); white-space:nowrap; }
 .mini-btn { min-height:26px; padding:2px 10px; background:transparent; border:1px solid var(--line-strong); border-radius:var(--r-tag); color:var(--text); font-size:var(--fs-xs); }
 .mini-btn:hover { border-color:var(--muted); background:var(--raised); }

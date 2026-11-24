@@ -71,6 +71,25 @@ q(x,"origin-undo").click();await settle();
 t(stored(x).find(e=>e.id===1007).userOrigin===undefined&&!!q(x,"origin-real"),"classement annulable : l'entrée redevient d'origine inconnue");
 x.f.remove();
 
+// ---------- Rapprochement Riot (beta.3) : « Confirmé par Riot », Riot fait foi, désaccord montré, rien n'est écrit ----------
+{const RJ=[E(1,{origin:"lcu",gameStarted:true,gameId:7012345601,result:"win",resultSource:"manual"}),E(2,{origin:"lcu",gameStarted:true,gameId:7012345602}),E(3,{origin:"draft",result:"win"}),E(4,{origin:"lcu",abandoned:true,gameId:7012345603})];
+const RH={generated:"2026-11-08T10:00:00Z",accounts:["Test#TEST"],rows:[["EUW1_7012345601",false],["NA1_7012345602",true],["EUW1_7012345603",true]].map(([id,win],i)=>({id,acct:"Test#TEST",time:T0+i*864e5,patch:"16.22",sec:1860,champ:"Fizz",pos:"MIDDLE",win,k:4,d:6,a:3,mid:"Syndra",enemies:[]}))};
+x=await load(RJ,RH);
+const kk=s=>text(q(x,s));
+t(/^Parties terminées 3 2V 1D/.test(kk("kpi-finished"))&&/1 partie où ton résultat diffère de Riot/.test(kk("journal-disagreements")),"tableau : résultats de Riot comptés (3 terminées, 2V 1D), désaccord annoncé ("+kk("kpi-finished")+")");
+q(x,"stats-all-journal").click();await settle();
+const marks=qa(x,"journal-riot");
+t(marks.length===2&&/^Confirmé par Riot · K\/D\/A 4\/6\/3 · 31 min · patch 16\.22 · contre Syndra$/.test(text(marks[0])),"journal : marque « Confirmé par Riot », K/D/A, durée, patch, adversaire ("+(marks[0]?text(marks[0]):"absente")+")");
+const dis=qa(x,"journal-disagree"),li=dis[0]&&dis[0].closest("li");
+t(dis.length===1&&/Désaccord : tu avais noté Victoire/.test(text(dis[0]))&&!!li&&text(li.querySelector('[data-test="entry-status"]'))==="Défaite","désaccord : Défaite (Riot) affichée, « tu avais noté Victoire » visible");
+t(!x.d.querySelector('[data-test="journal-result"]')&&qa(x,"journal-riot-result").length===2,"partie confirmée par Riot : plus de saisie proposée");
+const ab=qa(x,"journal-abandoned");t(ab.length===1&&!ab[0].closest("li").querySelector('[data-test="journal-riot"]'),"draft annulée : jamais rapprochée");
+t(stored(x).length===4&&stored(x).every(e=>!("riot" in e))&&stored(x).find(e=>e.id===1001).result==="win"&&stored(x).find(e=>e.id===1002).result===null,"rien n'est écrit dans le journal : résultat stocké gardé, aucun champ ajouté");
+x.f.remove();
+x=await load(RJ,RH,"en");q(x,"stats-all-journal").click();await settle();
+t(/^Confirmed by Riot · K\/D\/A 4\/6\/3 · 31 min · patch 16\.22 · vs Syndra$/.test(text(qa(x,"journal-riot")[0]))&&/Mismatch: you noted Win/.test(text(q(x,"journal-disagree"))),"EN : marque et désaccord en anglais");
+x.f.remove();}
+
 // ---------- Égalité (#33) ----------
 x=await load([E(1,{origin:"draft",result:"win",suggested:"Fizz",picked:"TF",tied:true,tiedWith:["Fizz","TF"]}),E(2,{origin:"draft",result:"loss",suggested:"Fizz",picked:"TF",tiedWith:["TF"]})],null);
 t(/^Conseil suivi 1 sur 2 parties terminées$/.test(text(q(x,"kpi-followed")))&&/égalité/.test(text(q(x,"stats-recent"))),"égalité : un ex æquo choisi compte comme conseil suivi ; sans « tied », aucune égalité reconstruite");
