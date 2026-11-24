@@ -95,11 +95,13 @@ for(const lang of ["fr","en"]){
   {const L=LG+" statistiques : ";const base={suggested:"TF",close:false,enemies:["Ahri"],mid:"Ahri",engine:"x",origin:"draft",app:"3.0.0"};
    prepare(MID,[OLD,Object.assign({id:2,date:"2026-11-02T10:00:00Z",picked:"TF",result:"win",gameStarted:true,selection:K(10)},base),Object.assign({id:3,date:"2026-11-03T10:00:00Z",picked:"Vex",result:"win",abandoned:true,selection:K(11)},base),Object.assign({id:4,date:"2026-11-04T10:00:00Z",picked:"TF",result:null,gameStarted:true,selection:K(12)},base)]);
    const x=await openHost(lang,"view=stats",1366,900);hostMsg(x,{});await settle();
-   const k=id=>[...(q(x,`[data-test="${id}"]`)||{children:[]}).children].map(text).join(" ");
-   const drafts=k("kpi-drafts"),wins=k("kpi-wins");res.notes[lang+"_kpi"]=drafts+" | "+wins;
-   t(/ 3$/.test(drafts)&&/ 1 /.test(wins),L+"[avant : échec] la draft annulée n'est pas comptée : 3 drafts, 1 victoire sur 1 partie ("+drafts+" | "+wins+")");
-   const status=[...x.d.querySelectorAll('[data-test="stats-recent"] tbody tr .result-tag')].map(text);res.notes[lang+"_statuts"]=status.join(", ");
-   t(status.join("|")===[x.T("journal.status.pending"),x.T("journal.status.abandoned"),x.T("journal.result.win"),x.T("journal.status.unconfirmed")].join("|"),L+"[avant : échec] statuts : en attente (partie lancée), annulée, victoire, à confirmer (issue inconnue) ("+status.join(", ")+")");
+   // Mes statistiques (#35) : compteurs du journal (enregistrées, confirmées, parties terminées) et statut visible de chaque entrée.
+   const num=id=>text(q(x,`[data-test="${id}"] .num`));
+   const rec=num("kpi-recorded"),conf=num("kpi-confirmed"),fin=num("kpi-finished");res.notes[lang+"_kpi"]=rec+" | "+conf+" | "+fin;
+   t(rec==="4"&&conf==="2"&&fin==="1",L+"[avant : échec] la draft annulée n'est pas comptée : 4 enregistrées, 2 confirmées (ni l'annulée, ni l'ancienne entrée sans marque), 1 partie terminée ("+rec+" | "+conf+" | "+fin+")");
+   const status=[...x.d.querySelectorAll('[data-test="stats-recent"] [data-test="entry-status"]')].map(text);res.notes[lang+"_statuts"]=status.join(", ");
+   t(status.join("|")===[x.T("journal.status.pending"),x.T("journal.status.abandoned"),x.T("journal.result.win")].join("|")&&!!q(x,'[data-test="stats-recent"] [data-test="journal-origin"]'),L+"[avant : échec] statuts : en attente (partie lancée), annulée, victoire ; l'ancienne entrée sans marque reste à classer (lu "+status.join(", ")+")");
+   t(x.w.eval('entryStatus({result:null,origin:"draft"})')===x.T("journal.status.unconfirmed")&&x.w.eval('entryStatus({result:null,gameStarted:true})')===x.T("journal.status.pending"),L+"issue inconnue : « "+x.T("journal.status.unconfirmed")+" » ; partie lancée : « "+x.T("journal.status.pending")+" »");
    t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
    x.f.remove();show();}
   // ---------- Draft suivante (défaut de la candidate 4 : « DRAFT garde la draft d'avant et n'enregistre pas la suivante ») ----------
