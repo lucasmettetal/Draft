@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Tests de l'écran de fin de partie</title></head><body><pre id="out"></pre>
+<!-- Beta.2, retour de l'utilisateur : en fin de partie (EndOfGame), le programme affiche le panneau droit ou le compact en mode « fin de
+     partie » (hostState.endGame = clé de la sélection) : champion joué en grand, Victoire et Défaite en gros, Ignorer en petit. L'Accueil
+     montre la même saisie (« Dernière partie ») en rattrapage. Hôte WebView2 simulé (repris de draft-abandon-tests.html), vraie page,
+     français et anglais. Pools, journaux et clés FICTIFS. Page de test : exclue de la compilation.
+     Lancement : toolsun-v215-tests.ps1 -Page draft-fin-partie-tests.html -Work <dossier>. -->
+<script>
+const res={ok:0,ko:[],notes:{}};const show=()=>{document.getElementById("out").textContent=JSON.stringify(res);};
+const t=(ok,text)=>{if(ok)res.ok++;else res.ko.push(text);};
+const wait=m=>new Promise(r=>setTimeout(r,m));const settle=()=>wait(250);
+const text=e=>e?e.textContent.replace(/\s+/g," ").trim():"";
+const MID={role:"mid",pool:["TF","Vex","Fizz","Xerath"]};
+const K=n=>String(1763290000000+n);
+const EXPOSE="window.$={get V(){return V},get state(){return state},get simulating(){return simulating},addEnemy,choosePick,loadJournal,resetDraft,dispatchDraft,label}";
+let SRC="";{const x=new XMLHttpRequest();x.open("GET","index.html",false);x.send();SRC=x.responseText;}
+function prepare(profile,journal){localStorage.clear();localStorage.setItem("draftProfile",JSON.stringify(profile));localStorage.setItem("draftPatch","16.22");if(journal)localStorage.setItem("draftJournal",JSON.stringify(journal));}
+async function ready(f){for(let i=0;i<120;i++){try{if(f.contentWindow.I18N&&f.contentWindow.eval("typeof V!=='undefined'&&!!V")&&f.contentDocument.querySelector('[data-test="panel"],[data-test="app"],.app'))break;}catch(e){}await wait(50);}
+  await wait(300);const w=f.contentWindow;w.eval(EXPOSE);w.open=()=>null;return {f,w,d:f.contentDocument,$:w.$,T:(k,v)=>w.I18N.t(k,v)};}
+// Page « dans l'application » : hôte WebView2 simulé. Les messages du programme sont rejoués par __host(m) ; rien n'est envoyé ailleurs.
+async function openHost(lang,where,W,H){const host='<script>window.__sent=[];window.chrome=window.chrome||{};window.chrome.webview={postMessage(m){window.__sent.push(m)},addEventListener(k,fn){if(k==="message")window.__hostFn=fn},removeEventListener(){}};window.__host=m=>window.__hostFn&&window.__hostFn({data:m});<\/script>';
+  window.history.replaceState(null,"",location.pathname+"?"+where+"&lang="+lang+"&i18ncheck=1");
+  const f=document.createElement("iframe");f.width=W;f.height=H;document.body.appendChild(f);const d0=f.contentDocument;d0.open();d0.write(SRC.replace('<script src="draft-stats.js"><\/script>',host));d0.close();const x=await ready(f);window.history.replaceState(null,"",location.pathname);x.w.eval("synced=true");return x;}
+const HOST={kind:"host",available:true,lcuConfirmed:true,lcuEnabled:true,lcuStatus:"connected",hotkey:true,autoDraft:true,follow:true,phase:{key:"native.phase.outOfDraft",vars:{}},placement:{key:"native.placement.two",vars:{}}};
+const hostMsg=(x,extra)=>x.w.__host(Object.assign({},HOST,extra));
+const q=(x,s)=>x.d.querySelector(s);
+const journal=()=>JSON.parse(localStorage.getItem("draftJournal")||"[]");
+const ent=key=>journal().find(e=>e.selection===key)||null;
+const flags=e=>e?"gameStarted="+e.gameStarted+", abandoned="+e.abandoned+", result="+e.result:"aucune entrée avec cette clé";
+// Une sélection vue par la page : le programme annonce la clé (état « draft »), nouvelle draft, un adversaire, puis « Je joue ».
+async function select(x,key,pick){hostMsg(x,{draftKey:key,draftOutcome:"draft"});x.$.dispatchDraft({type:"session-start"});await settle();x.$.addEnemy("Ahri");await settle();x.$.choosePick(pick);await settle();}
+// Fin de sélection : issue en attente, puis (si donnée) issue définitive. Message, puis état du programme, comme dans l'application.
+async function finish(xs,key,outcome){for(const x of xs){x.w.__host({kind:"draftEnd",draft:key,outcome:"pending"});hostMsg(x,{draftKey:key,draftOutcome:"pending"});}await settle();
+  if(outcome){for(const x of xs){x.w.__host({kind:"draftOutcome",draft:key,outcome});hostMsg(x,{draftKey:key,draftOutcome:outcome});}await settle();}}
+const vis=(x,e)=>{if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&r.top>=-0.5&&r.bottom<=x.w.innerHeight+0.5&&r.left>=-0.5&&r.right<=x.w.innerWidth+0.5;};
+const sent=(x,cmd,key)=>x.w.__sent.some(m=>m&&m.cmd===cmd&&(!key||m.draft===key));
+const END=(x,key)=>hostMsg(x,{draftKey:key,draftOutcome:"game",endGame:key});
+const LAUNCHED=(n,extra)=>Object.assign({id:1e12+n,date:"2026-11-20T20:00:00Z",suggested:"TF",close:false,picked:"TF",enemies:["Ahri"],mid:"Ahri",result:null,engine:"x",selection:K(n),gameStarted:true},extra||{});
+
+(async()=>{
+for(const lang of ["fr","en"]){
+  const LG=lang.toUpperCase();
+  // 1. Partie lancée, notée par la page (commande gameNoted, clé seule), puis fin de partie : panneau en mode fin de partie.
+  for(const [panel,W,H,res] of [["right",252,711,"win"],["compact",248,565,"loss"]]){
+    const L=LG+" "+panel+" "+W+"x"+H+" : ";prepare(MID,[]);const x=await openHost(lang,"panel="+panel,W,H);hostMsg(x,{});await settle();
+    const key=K(panel==="right"?1:2);await select(x,key,"TF");await finish([x],key,"game");
+    const e=ent(key);t(e&&e.gameStarted===true&&e.result===null,L+"partie lancée notée ("+flags(e)+")");
+    const noted=x.w.__sent.filter(m=>m&&m.cmd==="gameNoted");t(noted.length>=1&&noted.every(m=>m.draft===key&&Object.keys(m).sort().join()==="cmd,draft"),L+"commande gameNoted au programme, clé seule, sans texte ("+JSON.stringify(noted)+")");
+    t(!q(x,'[data-test="end-game"]'),L+"pas d'écran de fin avant EndOfGame");
+    END(x,key);await settle();
+    const scr=q(x,'[data-test="end-game"]'),art=q(x,'[data-test="end-game"] .gr-art'),name=q(x,'[data-test="end-game"] .p-name');
+    t(scr&&art&&name&&text(name)===x.$.label("TF")&&art.getBoundingClientRect().height>=120&&parseFloat(x.w.getComputedStyle(name).fontSize)>=24,L+"champion joué en grand ("+text(name)+", image "+(art?Math.round(art.getBoundingClientRect().height):0)+" px)");
+    t(text(scr).includes(x.T("endGame.noted"))&&text(scr).includes(x.T("endGame.vs",{champion:"Ahri"})),L+"« "+x.T("endGame.noted")+" » et « "+x.T("endGame.vs",{champion:"Ahri"})+" »");
+    const win=q(x,'[data-test="end-game"] .gr-btn.win'),loss=q(x,'[data-test="end-game"] .gr-btn.loss'),skip=q(x,'[data-test="end-game"] .gr-skip');
+    t(vis(x,win)&&vis(x,loss)&&vis(x,skip),L+"Victoire, Défaite et Ignorer visibles sans défiler");
+    t(win&&loss&&win.getBoundingClientRect().width>=W*0.8&&loss.getBoundingClientRect().width>=W*0.8&&win.getBoundingClientRect().height>=48&&text(win)===x.T("journal.result.win")&&text(loss)===x.T("journal.result.loss"),L+"deux gros boutons pleine largeur ("+(win?Math.round(win.getBoundingClientRect().width)+"x"+Math.round(win.getBoundingClientRect().height):"absent")+")");
+    t(skip&&win&&parseFloat(x.w.getComputedStyle(skip).fontSize)<parseFloat(x.w.getComputedStyle(win).fontSize),L+"« Ignorer » en petit");
+    t(x.d.documentElement.scrollWidth<=x.w.innerWidth,L+"pas de défilement horizontal");
+    q(x,'[data-test="end-game"] .gr-btn.'+res).click();await settle();
+    const done=q(x,'[data-test="end-game-done"]');
+    t(ent(key)&&ent(key).result===res&&done&&text(done)===x.T("endGame.saved."+res),L+"clic "+res+" : résultat écrit et confirmation ("+flags(ent(key))+", « "+text(done)+" »)");
+    await wait(2000);t(sent(x,"endGameDone",key),L+"après la confirmation, le programme retire l'écran (endGameDone)");
+    hostMsg(x,{draftKey:key,draftOutcome:"game",endGame:""});await settle();t(!q(x,'[data-test="end-game"]')&&q(x,'[data-test="panel"]'),L+"retiré : panneau normal");
+    t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+    x.f.remove();}
+  // 2. Absent : draft annulée, sans partie, déjà renseignée, simulation. Sans clic : retrait au lobby, entrée « en attente ».
+  {const L=LG+" absent : ";prepare(MID,[]);const x=await openHost(lang,"panel=right",252,711);hostMsg(x,{});await settle();
+   await select(x,K(3),"TF");await finish([x],K(3),"abandoned");t(!sent(x,"gameNoted",K(3)),L+"draft annulée : aucune commande gameNoted");
+   END(x,K(3));await settle();t(!q(x,'[data-test="end-game"]'),L+"draft annulée : pas d'écran de fin");
+   END(x,K(98));await settle();t(!q(x,'[data-test="end-game"]')&&sent(x,"endGameDone",K(98)),L+"sans partie : pas d'écran, retrait demandé");
+   localStorage.setItem("draftJournal",JSON.stringify([LAUNCHED(4,{result:"win"})]));END(x,K(4));await settle();t(!q(x,'[data-test="end-game"]'),L+"résultat déjà renseigné : pas d'écran");
+   localStorage.setItem("draftJournal",JSON.stringify([LAUNCHED(5)]));END(x,K(5));await settle();t(!!q(x,'[data-test="end-game"]'),L+"partie lancée en attente : écran affiché");
+   hostMsg(x,{draftKey:K(5),draftOutcome:"game",endGame:""});await settle();t(!q(x,'[data-test="end-game"]')&&ent(K(5))&&ent(K(5)).result===null,L+"sans clic, retour au lobby : écran retiré, entrée toujours en attente");
+   x.w.eval("simulating=true;rerender()");END(x,K(5));await settle();t(!q(x,'[data-test="end-game"]'),L+"en simulation : pas d'écran");
+   x.f.remove();}
+  // 3. Accueil : « Dernière partie », champion en grand, deux gros boutons, Ignorer en petit ; saisie, confirmation, carte retirée.
+  {const L=LG+" Accueil : ";prepare(MID,[LAUNCHED(6)]);const x=await openHost(lang,"view=home",1100,800);hostMsg(x,{});x.w.eval("goView('home')");await settle();
+   const card=q(x,'[data-test="home-last-game"]'),art=q(x,'[data-test="home-last-game"] .gr-art-home');
+   t(card&&vis(x,card)&&text(card).includes(x.$.label("TF"))&&text(card).includes(x.T("endGame.vs",{champion:"Ahri"}))&&art&&art.getBoundingClientRect().width>=80,L+"carte visible, champion en grand et adversaire ("+(art?Math.round(art.getBoundingClientRect().width):0)+" px)");
+   const win=q(x,'[data-test="home-last-game"] .gr-btn.win'),loss=q(x,'[data-test="home-last-game"] .gr-btn.loss'),skip=q(x,'[data-test="home-last-game"] .gr-skip');
+   t(vis(x,win)&&vis(x,loss)&&vis(x,skip)&&win.getBoundingClientRect().height>=48&&parseFloat(x.w.getComputedStyle(skip).fontSize)<parseFloat(x.w.getComputedStyle(win).fontSize),L+"Victoire et Défaite en gros, Ignorer en petit");
+   const hero=q(x,'[data-test="home-hero"],[data-test="home-guide"]');t(card&&hero&&card.getBoundingClientRect().top<hero.getBoundingClientRect().top,L+"carte au-dessus du reste de l'Accueil");
+   if(loss)loss.click();await settle();const done=q(x,'[data-test="home-last-game-done"]');
+   t(ent(K(6))&&ent(K(6)).result==="loss"&&done&&text(done)===x.T("endGame.saved.loss"),L+"saisie : résultat écrit et confirmation (« "+text(done)+" »)");
+   await wait(2800);t(!q(x,'[data-test="home-last-game"]')&&!q(x,'[data-test="home-last-game-done"]'),L+"puis la carte disparaît");
+   t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+   x.f.remove();
+   for(const [what,j] of [["sans partie",[]],["draft annulée",[LAUNCHED(7,{gameStarted:false,abandoned:true})]],["résultat renseigné",[LAUNCHED(8,{result:"win"})]]]){
+     prepare(MID,j);const y=await openHost(lang,"view=home",1100,800);hostMsg(y,{});y.w.eval("goView('home')");await settle();t(!q(y,'[data-test="home-last-game"]'),L+what+" : pas de carte");y.f.remove();}}
+}
+show();
+})().catch(e=>{res.ko.push("EXC "+e.stack);show();});
+</script></body></html>

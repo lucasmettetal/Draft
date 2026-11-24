@@ -166,6 +166,25 @@
   .res.win.on { background:var(--good); border-color:var(--good); color:var(--good-ink); font-weight:600; }
   .res.loss.on { background:var(--threat); border-color:var(--threat); color:var(--threat-ink); font-weight:600; }
   .res.skip.on { border-color:var(--text); }
+  /* Fin de partie (panneau) et « Dernière partie » (Accueil) : champion en grand, deux gros boutons pleine largeur, Ignorer en petit. */
+  .p-end { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; padding:8px 12px 12px; overflow-y:auto; }
+  .game-result { display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .panel .p-reco.gr-art { min-height:clamp(150px,30vh,230px); }
+  .gr-art-home { display:flex; }
+  .home-last .game-result { display:grid; grid-template-columns:auto 1fr; column-gap:var(--s4); align-items:center; }
+  .home-last .gr-art-home { grid-row:span 3; }
+  .gr-name { font:600 24px var(--condensed); }
+  .gr-who { margin:0; font-size:15px; overflow-wrap:anywhere; }
+  .gr-noted { color:var(--muted); }
+  .gr-vs { color:var(--muted); }
+  .gr-buttons { display:grid; gap:8px; }
+  .gr-btn { width:100%; min-height:52px; padding:6px 10px; border:1px solid; border-radius:8px; font:600 22px var(--condensed); cursor:pointer; }
+  .gr-btn.win { background:var(--good); border-color:var(--good); color:var(--good-ink); }
+  .gr-btn.loss { background:var(--threat); border-color:var(--threat); color:var(--threat-ink); }
+  .gr-btn:hover { filter:brightness(1.08); }
+  .gr-skip { align-self:center; }
+  .gr-done { margin:0; font:600 22px var(--condensed); text-align:center; }
+  .home-last .gr-buttons { grid-template-columns:1fr 1fr; max-width:460px; }
   .result-note { margin-top:6px; color:var(--muted); font-size:13px; }
 
   .tabs { flex:none; display:flex; gap:0; padding:0 6px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none; }
@@ -1620,7 +1639,10 @@ function writeLeagueEntry(key) {
 // Issue reçue : partie lancée (entrée automatique d'abord), puis gameStarted ou abandoned (une seule fois).
 function settleOutcome(key, outcome) {
   const wrote = outcome === "game" && writeLeagueEntry(key);
-  return applyDraftOutcome(key, outcome) || wrote;
+  const noted = applyDraftOutcome(key, outcome) || wrote;
+  // Partie lancée notée : le programme le retient (clé seule, aucun texte) pour l'écran de fin de partie.
+  if (noted && outcome === "game") hostSend({ cmd:"gameNoted", draft:String(key) });
+  return noted;
 }
 
 // L'entrée est réécrite par la fenêtre qui agit : le choix vient de l'état partagé, pas d'une copie du journal peut-être en retard.
@@ -4055,6 +4077,21 @@ function LegacyNotice() {
   return html`<p className="set-hint flush" role="status" data-test="legacy-notice" data-kind=${n.kind}>${t(n.kind === "taken" ? "profiles.legacy.taken" : "profiles.legacy.kept", { role:ROLE_NAMES[n.role] })} <button type="button" className="link-btn" data-test="legacy-notice-ok" onClick=${() => { dismissLegacyNotice(localStorage); setSeen(x => x + 1); }}>${t("profiles.legacy.dismiss")}</button></p>`;
 }
 
+// Accueil : « Dernière partie », rattrapage de l'écran de fin de partie (panneau fermé, partie finie sans lecture du client). Tant
+// qu'une partie lancée attend son résultat (lastGameToComplete) : champion en grand, Victoire et Défaite en gros, Ignorer en petit.
+// Après la saisie : courte confirmation, puis la carte disparaît.
+function HomeLastGame() {
+  const [done, setDone] = useState(null);
+  useEffect(() => { if (!done) return; const id = setTimeout(() => setDone(null), 2500); return () => clearTimeout(id); }, [done]);
+  if (done) return html`<section className="box home-card state-good home-last" data-test="home-last-game-done" role="status"><p className="gr-done">${t(RESULT_SAVED[done])}</p></section>`;
+  const game = lastGameToComplete(loadJournal());
+  if (!game) return null;
+  return html`<section className="box home-card state-wait home-last" aria-labelledby="home-last-title">
+    <h2 id="home-last-title" className="card-kicker">${t("home.lastGame.title")}</h2>
+    <${GameResult} entry=${game} where="home" onResult=${r => { setResult(game.id, r); setDone(r); }} />
+  </section>`;
+}
+
 function HomeView() {
   const role = PROFILES.active, fresh = !(role && PROFILES.roles[role].pool.length);
   const ob = onboarding();
@@ -4068,6 +4105,7 @@ function HomeView() {
   return html`<div className="view-page home" data-test="home">
     <h1 className="sr" data-test="home-h1">${t("nav.home")}</h1>
     <${LegacyNotice} />
+    <${HomeLastGame} />
     ${steps.length ? html`<${HomeGuide} steps=${steps} />` : html`<${HomeHero} />
     <div className="home-chain">
       <${HomeLeague} /><${HomePool} /><${HomePanels} />
@@ -4402,8 +4440,56 @@ function CompactEnemies() {
 // Rappel minimal gardé : « 3/5 adversaires » sur le conseil (tant qu'il en manque) et le portrait de la menace principale. Le compact
 // (panneau unique ou étroit, sans gauche) montre les 5 postes. Ajustements V2 : le programme envoie la visibilité réelle de chaque
 // panneau (hostState.panelVisible) ; gauche fermé seul, masqué ou hors de l'écran, le droit montre l'accès « Composition adverse X/5 ».
+// ---------- Fin de partie (beta.2, retour de l'utilisateur) ----------
+// Le programme affiche le panneau droit ou le compact quand le client passe en EndOfGame et qu'une partie lancée de la session, notée
+// ici (gameNoted), attend son résultat : hostState.endGame porte la clé de sa sélection (src/DraftMid.cs, UpdateEndGame). Le panneau
+// montre alors le champion joué en grand, Victoire et Défaite en gros, Ignorer en petit. Après un clic : confirmation, puis retrait
+// (endGameDone). Sans clic : retrait au lobby ou à la sélection suivante, l'entrée reste « En attente ». Rien en simulation.
+const RESULT_SAVED = { win:"endGame.saved.win", loss:"endGame.saved.loss", skip:"endGame.saved.skip" };
+let endGameDone = null, endGameReleased = null;
+function GameResult({ entry, where, onResult }) {
+  const name = label(entry.picked);
+  const art = where === "panel"
+    ? html`<section className="p-reco gr-art" aria-hidden="true"><${SplashStack} name=${name} /><div className="p-reco-scrim"></div>
+        <div className="p-reco-text"><span className="p-chip">${t("endGame.noted")}</span><div className=${`p-name${name.length > 14 ? " long" : ""}`}>${name}</div></div></section>`
+    : html`<div className="gr-art-home" aria-hidden="true"><${Portrait} name=${name} size=${88} /></div>`;
+  return html`<div className=${`game-result gr-${where}`} data-test=${where === "panel" ? "end-game" : "home-last-game"}>
+    ${art}
+    ${where === "panel" ? (entry.mid ? html`<p className="gr-who" data-test="gr-who">${t("endGame.vs", { champion: entry.mid })}</p>` : null)
+      : html`<p className="gr-who" data-test="gr-who"><span className="gr-noted">${t("endGame.noted")}</span> <b className="gr-name">${name}</b>${entry.mid ? html` <span className="gr-vs">${t("endGame.vs", { champion: entry.mid })}</span>` : null}</p>`}
+    <div className="gr-buttons">
+      <button type="button" className="gr-btn win" data-result="win" onClick=${() => onResult("win")}>${t("journal.result.win")}</button>
+      <button type="button" className="gr-btn loss" data-result="loss" onClick=${() => onResult("loss")}>${t("journal.result.loss")}</button>
+    </div>
+    <button type="button" className="link-btn gr-skip" data-result="skip" onClick=${() => onResult("skip")}>${t("journal.result.skip")}</button>
+  </div>`;
+}
+// Ce que montre le panneau en fin de partie : l'entrée à compléter, la confirmation, ou rien (mode normal).
+function endGameView() {
+  const key = hostState.available && hostState.endGame ? String(hostState.endGame) : null;
+  if (!key || simulating || (PANEL !== "right" && PANEL !== "compact")) { endGameDone = null; return null; }
+  if (endGameDone && endGameDone.key === key) return { done: endGameDone.result };
+  const entry = loadJournal().find(x => x.selection === key);
+  if (entry && entry.gameStarted === true && !isAbandoned(entry) && entry.result === null) return { key, entry };
+  // Déjà renseignée ailleurs, ou introuvable : rien à demander, le programme retire l'écran.
+  if (endGameReleased !== key) { endGameReleased = key; hostSend({ cmd:"endGameDone", draft:key }); }
+  return null;
+}
+function EndGamePanel({ view }) {
+  if (view.done) return html`<div className="p-end" data-test="end-game"><p className="gr-done" data-test="end-game-done" role="status">${t(RESULT_SAVED[view.done])}</p></div>`;
+  const onResult = r => {
+    setResult(view.entry.id, r);
+    endGameDone = { key: view.key, result: r };
+    rerender();
+    setTimeout(() => { if (endGameDone && endGameDone.key === view.key) { endGameReleased = view.key; hostSend({ cmd:"endGameDone", draft:view.key }); } }, 1800);
+  };
+  return html`<div className="p-end" aria-label=${t("endGame.label")}><${GameResult} entry=${view.entry} where="panel" onResult=${onResult} /></div>`;
+}
+
 function PanelApp() {
   compoDraftCheck();
+  const endView = endGameView();
+  if (endView) return html`<div className=${`panel panel-${PANEL}`} data-test="panel"><${TitleBar} /><${EndGamePanel} view=${endView} /></div>`;
   return html`<div className=${`panel panel-${PANEL}`} data-test="panel">
     <${TitleBar} />
     ${PANEL !== "left" ? html`<${RoleSwitch} />` : null}
