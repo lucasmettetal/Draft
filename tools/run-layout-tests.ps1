@@ -106,6 +106,7 @@ $Runs += , @('accueil configure connecte', 'state=empty&set=full&page=home&host=
 $Runs += , @('accueil configure lecture desactivee', 'state=empty&set=full&page=home&host=off', $false)
 $Runs += , @('accueil erreur de connexion', 'state=empty&set=full&page=home&host=failed', $false)
 $Runs += , @('accueil draft en cours', 'state=live&set=full&page=home&host=on', $false)
+$Runs += , @('accueil derniere partie a completer', 'state=lastgame&set=full&page=home&host=on', $false)
 $Runs += , @('sans reseau', 'state=full', $true)
 # Coche et nom : Simulateur 1366, 1536 et 1920 a 125 % (et panneaux), noms longs, chaque champion coche tour a tour. Echoue dans toutes les langues.
 $Runs += , @('coche et nom, noms longs, 125 %', 'coches=1', $false, '--force-device-scale-factor=1.25')

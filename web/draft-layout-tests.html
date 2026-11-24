@@ -25,6 +25,8 @@ roleauto:w=>{w.eval("saveMyProfile('jungle',['Viego','Lee Sin']);saveMyProfile('
 pickedother:w=>{['Ahri','Ornn','Jinx'].forEach(w.addEnemy);const V=w.V,o=V.order.find(p=>p.pick!==V.shown&&!(V.tied||[]).includes(p.pick));w.choosePick(o?o.pick:V.shown)},
 tieother:w=>{['Ornn','Sion','Maokai','Jinx','Thresh'].forEach(w.addEnemy);const V=w.V,o=V.order.find(p=>!(V.tied||[]).includes(p.pick));if(o)w.choosePick(o.pick)},
 history:w=>{const a=[];for(let i=0;i<300;i++)a.push({id:1e12+i,date:new Date(1.7e12+i*864e5).toISOString(),suggested:'Fizz',close:false,picked:['Fizz','TF',"Kog'Maw",'Xerath'][i%4],enemies:['Ahri','Ornn','Vi','Jinx','Lulu'],mid:'Ahri',result:i%3?'win':'loss'});w.saveJournal(a);['Ahri','Ornn'].forEach(w.addEnemy);},
+/* Fin de partie (beta.2) : une partie lancee attend son resultat ; Accueil avec la carte « Derniere partie ». */
+lastgame:w=>{w.saveJournal([{id:1e12,date:new Date(1.7e12).toISOString(),suggested:'TF',close:false,picked:'TF',enemies:['Ahri','Ornn','Vi','Jinx','Lulu'],mid:'Ahri',result:null,engine:'x',selection:'1763290000001',gameStarted:true}]);},
 extreme:w=>{['Aurelion Sol','Miss Fortune','Renata Glasc','Tahm Kench',LONG].forEach(w.addEnemy);},
 /* Panneaux primaires : ligne Dans League (DONNEE DE TEST : la lecture reelle vient d'une autre branche), pendant une consultation, puis verrouille. */
 league:w=>{['Ahri','Ornn','Vi','Jinx','Lulu'].forEach(w.addEnemy);const V=w.V,o=V.rival?V.rival.pick:V.order.find(p=>p.pick!==V.shown).pick;w.eval('consult('+JSON.stringify(o)+');leagueSlot={champion:\'Fizz\',state:\'hover\'};rerender()')},
