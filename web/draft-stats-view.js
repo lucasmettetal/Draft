@@ -14,7 +14,8 @@
 
   function readAll() {
     const read = C.readHistory(root.DRAFT_HISTORY || null, root.DRAFT_STATS || null, toName);
-    return { read, games: read.games, journal: C.journal(loadJournal()) };
+    // Le journal reçoit les parties Riot : rapprochement par gameId (draft-stats-calc.js), calculé ici, jamais écrit.
+    return { read, games: read.games, journal: C.journal(loadJournal(), read.games) };
   }
 
   // Barre de victoires au-dessus du seuil (repère à 50 %, neutre sous 50 %) ; jauge de crans en dessous.
@@ -277,18 +278,34 @@
       <button type="button" className="mini-btn" data-test="origin-sim" onClick=${() => changeOrigin(e.id, "simulation")}>${t("stats.journal.origin.markSim")}</button></span>`;
     if (row.origin === "simulation") return html`<span className="sd-acts"><span className="badge-origin">${t("stats.journal.origin.simulation")}</span>
       <button type="button" className="mini-btn" data-test="origin-undo" onClick=${() => changeOrigin(e.id, undefined)}>${t("stats.journal.origin.undo")}</button></span>`;
+    // Partie rapprochée de l'historique Riot : Riot fait foi. Le résultat stocké est gardé ; s'il diffère, le désaccord est montré.
+    if (row.riot) {
+      const official = RESULT[row.riot.result], mine = RESULT[e.result];
+      return html`<span className="sd-acts" data-test="journal-riot-result">
+        <span className=${`result-tag ${official[0]}`} data-test="entry-status" title=${t("stats.riot.match.how")}>${t(official[1])}</span>
+        ${row.disagree ? html`<span className="sd-tag disagree" data-test="journal-disagree">${t(row.storedSource === "lcu" ? "stats.riot.match.disagree.lcu" : "stats.riot.match.disagree.manual", { result: t(mine[1]) })}</span>` : null}</span>`;
+    }
     const r = RESULT[e.result];
     if (r) return html`<span className="sd-acts">${status(r[0])}</span>`;
     return html`<span className="sd-acts" data-test="journal-result">${status("wait")}${["win", "loss", "skip"].map(k => html`<button key=${k} type="button" className="mini-btn" data-result=${k} onClick=${() => setResult(e.id, k)}>${t(k === "win" ? "journal.result.win" : k === "loss" ? "journal.result.loss" : "journal.result.skip")}</button>`)}</span>`;
   }
   const Followed = ({ row }) => html`<span className=${`sd-tag${row.followed ? " followed" : ""}`}>${t(row.followed ? "stats.journal.tag.followed" : "stats.journal.tag.other")}${row.tied ? ` · ${t("stats.journal.tag.tie")}` : ""}</span>`;
+  // Marque discrète d'une entrée rapprochée : seulement les détails présents dans la ligne Riot, rien d'inventé.
+  function RiotMark({ riot }) {
+    const parts = [t("stats.riot.match.confirmed")];
+    if ([riot.k, riot.d, riot.a].every(v => typeof v === "number")) parts.push(t("stats.riot.match.kda", { k: riot.k, d: riot.d, a: riot.a }));
+    if (riot.durationSec) parts.push(mins(riot.durationSec));
+    if (riot.patch) parts.push(t("stats.riot.match.patch", { patch: riot.patch }));
+    if (riot.opponent) parts.push(t("stats.riot.match.opponent", { opponent: riot.opponent }));
+    return html`<small className="sd-riot" data-test="journal-riot" title=${t("stats.riot.match.how")}>${parts.join(" · ")}</small>`;
+  }
   function JournalRow({ row }) {
     const e = row.entry, same = e.picked === e.suggested;
     return html`<li className=${`sd-jrow${row.counted ? "" : " is-out"}`}>
       <span className="sd-pair">${e.suggested ? html`<span className="sd-face advice"><${Portrait} name=${label(e.suggested)} size=${30} /></span>` : null}
         ${!same && e.picked ? html`<span className="sd-arrow" aria-hidden="true">→</span><span className="sd-face"><${Portrait} name=${label(e.picked)} size=${30} /></span>` : null}</span>
       <span className="sd-jtext"><b>${e.mid ? t("stats.journal.row.playedVs", { champion: label(e.picked || "-"), opponent: e.mid }) : t("stats.journal.row.played", { champion: label(e.picked || "-") })}</b>
-        <small>${t("stats.journal.row.advised", { champion: label(e.suggested || "-") })}</small></span>
+        <small>${t("stats.journal.row.advised", { champion: label(e.suggested || "-") })}</small>${row.riot ? html`<${RiotMark} riot=${row.riot} />` : null}</span>
       <span className="sd-jmeta"><span className="num">${fmtDate(e.date || e.id)}</span>${row.counted ? html`<${Followed} row=${row} />` : null}</span>
       <${EntryActions} row=${row} />
     </li>`;
@@ -296,7 +313,9 @@
   function JournalNotes({ j }) {
     return html`${j.pending ? html`<p className="sd-info">${tp("stats.journal.pending", j.pending)}</p>` : null}
       ${j.toSort ? html`<p className="sd-info" data-test="journal-unknown">${tp("stats.journal.unknown", j.toSort)}</p>` : null}
-      ${j.simulations ? html`<p className="small">${tp("stats.journal.simulations", j.simulations)}</p>` : null}`;
+      ${j.simulations ? html`<p className="small">${tp("stats.journal.simulations", j.simulations)}</p>` : null}
+      ${j.riot && j.riot.matched ? html`<p className="small" data-test="journal-riot-count">${tp("stats.riot.match.count", j.riot.matched)}</p>` : null}
+      ${j.riot && j.riot.disagreements ? html`<p className="sd-info" data-test="journal-disagreements">${tp("stats.riot.match.disagreements", j.riot.disagreements)}</p>` : null}`;
   }
   // Trois compteurs distincts, puis les performances, calculées sur les parties confirmées seulement.
   function JournalKpis({ j }) {
@@ -332,7 +351,7 @@
   // Onglet Journal : toutes les entrées, origine, saisie, comparaison du conseil, import et export.
   function JournalFull() {
     const [n, setN] = React.useState(JOURNAL_SHOWN);
-    const j = C.journal(loadJournal());
+    const j = readAll().journal;
     const left = j.entries.length - n;
     return html`<section className="box box-pad sd-journal-full" data-test="stats-journal-full">
       <h2 className="box-title">${t("stats.journal.title")}</h2>

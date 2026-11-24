@@ -88,6 +88,57 @@ t(C.journal([]).confirmed===0&&C.journal(null).recorded===0&&C.journal([null,"x"
 const P=C.progress(read([...Array(22)].map((_,i)=>row(i))).games,J);
 t(P.champion.have===22&&P.champion.need===30&&!P.champion.reached&&P.trend.need===40&&!P.trend.reached&&P.opponent.have===22&&P.opponent.reached&&P.advice.have===1,"« Pas encore » : progression vers 30, 40, 10 et 10 ; seuil atteint marqué");}
 
+// ---------- Rapprochement avec l'historique Riot importé (beta.3) : gameId seulement, Riot fait foi ----------
+{const E=(i,o)=>Object.assign({id:9000+i,date:"2026-11-20T18:00:00Z",suggested:"Orianna",picked:"Orianna",close:false,enemies:[],mid:"Yasuo",result:null,engine:"x",origin:"lcu",gameStarted:true,selection:String(i)},o||{});
+const R=(id,o)=>row(0,Object.assign({id,acct:"Joueur#TEST",time:Date.UTC(2026,10,20,18,5),patch:"16.22",sec:1925,champ:"Orianna",pos:"MIDDLE",win:true,k:7,d:2,a:9,mid:"Ahri"},o||{}));
+const G=rows=>read(rows).games;
+const rowOf=(J,id)=>J.entries.find(r=>r.entry.id===id);
+// Rapprochement par gameId : nombre ou texte, partie numérique de l'id Riot.
+let J=C.journal([E(1,{gameId:7012345678}),E(2,{gameId:"7012345679"})],G([R("EUW1_7012345678"),R("EUW1_7012345679",{win:false})]));
+let r1=rowOf(J,9001),r2=rowOf(J,9002);
+t(!!r1.riot&&r1.riot.id==="EUW1_7012345678"&&r1.riot.result==="win"&&r1.riot.k===7&&r1.riot.d===2&&r1.riot.a===9&&r1.riot.durationSec===1925&&r1.riot.patch==="16.22"&&r1.riot.opponent==="Ahri","rapprochement par gameId : id Riot, résultat, K/D/A, durée, patch et adversaire de voie (mid)");
+t(!!r2.riot&&r2.riot.result==="loss"&&r2.result==="loss","gameId en texte : rapproché aussi");
+t(J.finished.games===2&&J.finished.wins===1&&J.pending===0&&J.riot.matched===2&&J.riot.notFound===0,"après l'import : 2 parties terminées (1 V), plus aucune en attente");
+t(C.gameIdOf({gameId:0})===null&&C.gameIdOf({gameId:-5})===null&&C.gameIdOf({gameId:"EUW1_1"})===null&&C.gameIdOf({gameId:1.5})===null&&C.riotGameId("EUW1_7012345678")==="7012345678"&&C.riotGameId("FICTIF-1")===null&&C.riotGameId("EUW1_70X")===null,"gameId et id Riot invalides : ignorés");
+// Plateformes différentes et plusieurs comptes.
+J=C.journal([E(1,{gameId:111}),E(2,{gameId:222}),E(3,{gameId:333}),E(4,{gameId:11})],G([R("EUW1_111",{acct:"A#EUW"}),R("NA1_222",{acct:"B#NA",win:false}),R("EUW1_333",{acct:"A#EUW",win:true}),R("NA1_333",{acct:"B#NA",win:false})]));
+t(rowOf(J,9001).riot.id==="EUW1_111"&&rowOf(J,9002).riot.id==="NA1_222"&&rowOf(J,9002).riot.result==="loss","plateformes EUW1 et NA1, deux comptes : chaque entrée rapprochée de sa partie");
+t(rowOf(J,9003).riot===null&&J.riot.ambiguous===1,"même gameId sur EUW1 et NA1 : ambigu, aucun rapprochement");
+t(rowOf(J,9004).riot===null&&J.riot.notFound===1,"gameId 11 : jamais rapproché de EUW1_111 (égalité exacte seulement)");
+J=C.journal([E(1,{gameId:999})],G([R("EUW1_999",{acct:"A#EUW"}),R("EUW1_999",{acct:"Ancien#EUW"})]));
+t(!!rowOf(J,9001).riot&&J.riot.matched===1,"même partie sous deux noms de compte, mêmes données : une seule partie, rapprochée");
+// Entrée sans gameId : rien, même avec le même champion à la même heure.
+J=C.journal([E(1,{origin:"draft",gameStarted:undefined,selection:undefined,date:"2026-11-20T18:05:00Z"}),E(2,{gameId:"",origin:"draft"})],G([R("EUW1_123")]));
+t(J.entries.every(x=>x.riot===null)&&J.riot.matched===0&&J.riot.withoutGameId===2&&J.pending===2,"sans gameId : aucun rapprochement, ni par l'heure ni par le champion ; toujours en attente");
+// Deux entrées, une seule partie Riot.
+J=C.journal([E(1,{gameId:444}),E(2,{gameId:555})],G([R("EUW1_444")]));
+t(!!rowOf(J,9001).riot&&rowOf(J,9002).riot===null&&J.riot.matched===1&&J.riot.notFound===1&&J.pending===1,"deux entrées, une partie Riot : seule l'entrée du même gameId est rapprochée");
+J=C.journal([E(1,{gameId:666}),E(2,{gameId:666,origin:"draft"})],G([R("EUW1_666")]));
+t(J.entries.every(x=>x.riot===null)&&J.riot.ambiguous===2&&J.riot.matched===0,"deux entrées du même gameId : une partie Riot ne confirme jamais deux entrées, aucune n'est rapprochée");
+// Désaccord : Riot fait foi, le désaccord est montré, rien n'est effacé.
+const D=[E(1,{gameId:701,result:"win",resultSource:"manual",picked:"Orianna",suggested:"Orianna"}),E(2,{gameId:702,result:"loss",resultSource:"lcu",picked:"Ahri",suggested:"Orianna"}),E(3,{gameId:703,result:"win"}),E(4,{gameId:704,result:"skip"})];
+const before=JSON.stringify(D);
+J=C.journal(D,G([R("EUW1_701",{win:false}),R("EUW1_702",{win:true}),R("EUW1_703",{win:true}),R("EUW1_704",{win:false})]));
+const d1=rowOf(J,9001),d2=rowOf(J,9002),d3=rowOf(J,9003),d4=rowOf(J,9004);
+t(d1.disagree&&d1.result==="loss"&&d1.storedSource==="manual"&&d1.entry.result==="win","désaccord manuel : Riot (défaite) fait foi, la victoire saisie est gardée et signalée");
+t(d2.disagree&&d2.result==="win"&&d2.storedSource==="lcu"&&d2.entry.result==="loss","désaccord avec le client (resultSource lcu) : Riot fait foi, désaccord signalé");
+t(!d3.disagree&&d3.result==="win"&&d3.storedSource==="manual","même résultat : aucun désaccord ; sans resultSource, saisie manuelle");
+t(!d4.disagree&&d4.result==="loss"&&J.skipped===0,"entrée ignorée puis rapprochée : résultat de Riot, aucun désaccord");
+t(J.riot.disagreements===2&&J.finished.games===4&&J.finished.wins===2&&J.followed.games===3&&J.followed.wins===1&&J.other.wins===1,"comptes : résultats de Riot (2 V sur 4), conseil suivi compris ; 2 désaccords");
+t(JSON.stringify(D)===before,"rien n'est écrit dans les entrées : résultat, resultSource et champs inchangés");
+// Entrée annulée : jamais rapprochée ni comptée.
+J=C.journal([E(1,{gameId:777,abandoned:true}),E(2,{gameId:888,abandoned:true,result:"win"}),E(3,{gameId:888})],G([R("EUW1_777"),R("EUW1_888",{win:false})]));
+t(rowOf(J,9001).riot===null&&!rowOf(J,9001).counted&&rowOf(J,9002).riot===null&&!!rowOf(J,9003).riot&&J.riot.matched===1&&J.riot.ambiguous===0&&J.finished.games===1&&J.finished.wins===0,"entrée annulée : jamais rapprochée ni comptée, même avec une partie Riot du même gameId");
+// Aucune donnée inventée.
+J=C.journal([E(1,{gameId:901}),E(2,{gameId:902}),E(3,{gameId:903}),E(4,{gameId:904,origin:undefined,gameStarted:undefined}),E(5,{gameId:905,origin:undefined,userOrigin:"simulation"})],
+  G([R("EUW1_901",{k:undefined,d:undefined,a:undefined,patch:undefined,sec:undefined,pos:"TOP",mid:"Zed"}),R("EUW1_902",{sec:200}),R("EUW1_903",{win:undefined}),R("EUW1_904"),R("EUW1_905")]));
+const n1=rowOf(J,9001).riot;
+t(!!n1&&n1.k===null&&n1.d===null&&n1.a===null&&n1.patch===null&&n1.durationSec===null&&!("opponent" in n1)&&Object.keys(n1).sort().join()==="a,d,durationSec,id,k,patch,result","ligne Riot incomplète : champs absents laissés vides ; adversaire hors mid jamais déduit");
+t(rowOf(J,9002).riot===null&&rowOf(J,9003).riot===null&&J.pending===2,"remake ou ligne sans résultat : aucun rapprochement, l'entrée reste en attente");
+t(rowOf(J,9004).riot===null&&rowOf(J,9005).riot===null,"origine inconnue ou simulation : jamais rapprochée, rien n'est déduit");
+const solo=C.journal([E(1,{gameId:901,result:"win"})]);
+t(rowOf(solo,9001).riot===null&&solo.finished.wins===1&&solo.riot.matched===0,"sans historique importé : résultats stockés, aucun détail Riot");}
+
 // ---------- Observations (seuil atteint) : test de COACHING-ARCHITECTURE.md, jamais la seule taille d'échantillon ----------
 {const g=(n,o)=>[...Array(n)].map((_,i)=>row(1000+(o.base||0)+i,Object.assign({},o.f?o.f(i):{},o.fixed||{})));
 const ws=(n,w)=>i=>({win:i<w});

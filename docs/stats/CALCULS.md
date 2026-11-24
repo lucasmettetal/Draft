@@ -15,7 +15,7 @@ Chaîne prévue pour le futur coaching : **sources → calcul → règles → re
 | Journal DRAFT | `localStorage.draftJournal` (`loadJournal()`) | le joueur (« Je joue », puis le résultat) | lecture seule |
 
 - Les deux formats d'historique ont la même ligne (vérifié dans `HistoryImporter.ConvertMatch` et `Convert-Match` du script) : `id`, `acct`, `time`, `patch`, `sec`, `champ`, `pos`, `win`, `k`, `d`, `a`, `mid`, `enemies`.
-- Historique et journal ne sont **jamais** additionnés, ni rapprochés : aucune clé ne les relie (le journal ne garde pas le `matchId`).
+- Historique et journal ne sont **jamais** additionnés. Depuis la beta.3, une entrée qui porte le `gameId` lu dans le client est **rapprochée** de la même partie Riot, et d'elle seule (§ 13, « Rapprochement avec l'historique Riot »). Sans `gameId`, aucun lien.
 - Aucun fichier n'est modifié. Les corrections ci-dessous (doublons, millisecondes, lignes incomplètes) n'existent que dans le calcul.
 
 ## 2. Lecture d'une ligne d'historique
@@ -143,15 +143,32 @@ Les entrées à classer restent conservées, mais n'entrent dans **aucune** stat
 
 | Mesure | Définition | Dénominateur |
 |---|---|---|
-| Parties terminées | `result` = `win` ou `loss` | parties confirmées |
-| En attente | `result` absent ou `null` | parties confirmées |
-| Ignorées | `result` = `skip` | parties confirmées |
+| Parties terminées | résultat officiel `win` ou `loss` : celui de Riot pour une entrée rapprochée, sinon `result` | parties confirmées |
+| En attente | non rapprochée, `result` absent ou `null` | parties confirmées |
+| Ignorées | non rapprochée, `result` = `skip` | parties confirmées |
 | **Conseil suivi** | `picked === suggested`, ou, si `tied === true`, `picked` dans `tiedWith` | **parties terminées**, partout (bandeau, vue d'ensemble, onglet Journal) |
 | Victoires avec / sans le conseil | V parmi les parties terminées de chaque groupe | parties terminées du groupe ; % à partir de 10 |
 
 - Égalités : une entrée sans `tied` n'en reconstruit aucune ; seul `picked === suggested` compte.
 - L'ancien bandeau comptait « Conseil suivi » sur toutes les drafts (« 0 sur 5 » sans partie terminée), l'onglet Journal sur les terminées : une seule définition maintenant, et un tiret tant qu'aucune partie n'est terminée.
-- Le journal n'est jamais assimilé à une partie Riot.
+- Le journal n'est jamais assimilé à une partie Riot, sauf rapprochement exact par `gameId` (ci-dessous).
+
+### Rapprochement avec l'historique Riot (beta.3)
+
+`journal(entrées, parties)` reçoit les parties lues par `readHistory`. Calculé à chaque affichage, **jamais écrit** dans le journal (format : [`JOURNAL.md`](../technique/JOURNAL.md), « Champ riot »).
+
+| Règle | Détail |
+|---|---|
+| Lien | `gameId` de l'entrée (nombre ou texte de chiffres) = partie numérique de l'`id` Riot `<plateforme>_<gameId>` (`EUW1_7012345678`, `NA1_…`). Égalité exacte |
+| Sans `gameId` | aucun rapprochement : ni par l'heure, ni par le champion |
+| Entrées concernées | parties confirmées seulement. Drafts annulées, simulations et origines inconnues : jamais rapprochées |
+| Ambiguïté | même `gameId` sur deux lignes Riot différentes (deux plateformes) ou sur deux entrées : aucun rapprochement. Deux lignes identiques (même `id`, même résultat, K/D/A et durée, sous deux noms de compte) : une seule partie |
+| Lignes non lues | remakes et lignes sans résultat sont écartés par `readHistory` (§ 4, § 5) : l'entrée reste en attente |
+| Riot fait foi | résultat officiel = celui de Riot, dans tous les comptes (terminées, V/D, conseil suivi, seuils). Une entrée « Ignorée » rapprochée prend le résultat de Riot |
+| Désaccord | `result` stocké `win` ou `loss` différent de Riot : la ligne le montre (« tu avais noté… », ou « le client indiquait… » si `resultSource === "lcu"`), et le nombre de désaccords est écrit sous les compteurs. Le résultat stocké n'est ni effacé ni modifié |
+| Détails | seulement ceux de la ligne : K/D/A, durée, patch, adversaire de voie (connu seulement en mid, champ `mid`). Un champ absent reste vide |
+
+Compteurs rendus par `journal().riot` : `matched`, `disagreements`, `ambiguous`, `notFound` (gameId absent de l'historique : file non classée, partie non importée), `withoutGameId`.
 
 ### Seuils, « Pas encore » et « Observations »
 
@@ -179,6 +196,7 @@ Sous l'échantillon, une ligne n'apparaît que si un compte est non nul : doublo
 - **Journal** :
   - les entrées antérieures à la #33 restent « origine inconnue » tant que le joueur ne les classe pas ;
   - aucune égalité n'est reconstruite pour elles ;
-  - le journal ne garde pas le rôle joué.
+  - le journal ne garde pas le rôle joué ;
+  - rapprochement Riot : seulement les parties classées solo/duo importées, seulement les entrées avec `gameId` (beta.2 et suivantes, journal automatique ou « Je joue » avec lecture du client). Les anciennes entrées ne sont jamais rapprochées.
 - **Conclusions** : aucune cause, aucun conseil tiré des statistiques. Seuil atteint : une observation factuelle, avec son test (§ 13).
 - **125 %** : le banc de mise en page vérifie 1536 × 864 pour Mes statistiques seulement.
