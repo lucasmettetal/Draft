@@ -262,7 +262,7 @@ UI-248 | index.html:2258-2260 | Réglages, détection | re:^(Détection de la dr
 UI-249 | index.html:2261 | Réglages, lecture du client | Recommandé : les panneaux s'ouvrent au bon moment et les adversaires se remplissent seuls. Lecture seule, rien n'est modifié dans le client.
 UI-250 | index.html:2263 | Réglages, avertissement Riot | Riot n'a pas confirmé que c'est autorisé : tu l'actives à tes risques.
 UI-251 | index.html:2264-2266 | Réglages, rôle attribué | re:^(Quand LoL t'attribue un autre rôle|Me proposer de changer|Changer de profil|Ne rien faire)$
-UI-252 | index.html:2268 | Réglages, rôle attribué | Seulement si la lecture du client est active et que LoL indique ton poste. Rien n'est déduit de ton champion.
+UI-252 | index.html:2268 | Réglages, rôle attribué | Charge le pool du poste indiqué par LoL, avec retour possible. Lecture du client requise ; jamais déduit de ton champion.
 UI-253 | index.html:2270-2276 | Réglages, fenêtres | re:^(Afficher les panneaux automatiquement pendant la draft|Fenêtres|Coller les panneaux au client LoL|Un seul panneau|Toujours au premier plan|Démarrer avec Windows)$
 UI-254 | index.html:2271 | Réglages, raccourci | affiche ou masque les panneaux à tout moment.
 UI-255 | index.html:2278-2279 | Réglages, picks [non affiché] (remplacé par le tableau de Mon pool, UX-4) | re:^(Mes picks|Exclure pour l'instant :)$
@@ -489,7 +489,7 @@ CO-034 | draft-coaching.js:194 | matchup.written, limite | Avis écrit à la mai
 CO-035 | draft-coaching.js:197 | matchup.range, titres | re:^(.+ te touche de plus loin|Tu touches .+ de plus loin)$
 CO-036 | draft-coaching.js:200 | matchup.range, débutant, plus court | Pour farmer, tu dois t'approcher et risques d'être touché. Avance quand ses sorts viennent d'être utilisés.
 CO-037 | draft-coaching.js:201 | matchup.range, intermédiaire, plus court | Choisis tes échanges : engage juste après un sort important de {C}, puis ressors.
-CO-038 | draft-coaching.js:202 | matchup.range, avancé, plus court | Il pèse surtout tôt dans la partie, et ne dit rien de la portée des sorts ni des outils pour le combler.
+CO-038 | draft-coaching.js:202 | matchup.range, avancé, plus court | Compte surtout en début de partie, sans dire la portée des sorts.
 CO-039 | draft-coaching.js:204 | matchup.range, débutant, plus long | ses attaques de base ne t'atteignent pas de loin. Regarde ses sorts avant d'avancer.
 CO-040 | draft-coaching.js:205 | matchup.range, intermédiaire, plus long | doit s'approcher pour farmer, frappe-le à ce moment. Surveille ses sorts.
 CO-041 | draft-coaching.js:206 | matchup.range, avancé, plus long | si {C} n'a pas de sort pour le combler.
@@ -532,7 +532,7 @@ CO-077 | draft-coaching.js:259 | comp.assassins, neutre, avancé (PR C) | champi
 CO-078 | draft-coaching.js:264 | comp.frontline, titre (PR C) | Grosse frontline en face : {liste}
 CO-079 | draft-coaching.js:265 | comp.frontline, bonus, débutant | fait de bons dégâts à ce type de cible : tes coups restent utiles.
 CO-080 | draft-coaching.js:266 | comp.frontline, bonus, intermédiaire (PR C) | champions très solides : le profil de {C} est valorisé ici. Reste en vie assez longtemps pour que tes dégâts comptent.
-CO-081 | draft-coaching.js:267 | comp.frontline, bonus, avancé | Attention : il compte aussi les bruisers
+CO-081 | draft-coaching.js:267 | comp.frontline, bonus, avancé | Il compte aussi les bruisers
 CO-082 | draft-coaching.js:268 | comp.frontline, malus, débutant (PR C) | se mettent devant leurs carrys fragiles. Cherche à les contourner : foncer dans le tas ne marchera pas.
 CO-083 | draft-coaching.js:269 | comp.frontline, malus, intermédiaire (PR C) | Trop de frontline à traverser pour {C} : attends que leurs sorts soient utilisés, ou joue ailleurs sur la map.
 CO-084 | draft-coaching.js:270 | comp.frontline, malus, avancé | Le moteur compte un malus (« {critère} ») : {raison}.
@@ -542,7 +542,7 @@ CO-087 | draft-coaching.js:273 | comp.frontline, neutre, avancé (PR C) | Comp r
 CO-088 | draft-coaching.js:277 | comp.no-frontline, titre (PR C) | Pas de frontline en face
 CO-089 | draft-coaching.js:278 | comp.no-frontline, débutant | adversaires n'encaisse vraiment : si ton équipe les atteint, le combat peut basculer vite.
 CO-090 | draft-coaching.js:279 | comp.no-frontline, intermédiaire (PR C) | Sans frontline, leurs carrys fragiles sont exposés dès que quelqu'un les atteint. À l'inverse, ils peuvent te tuer vite si tu arrives seul.
-CO-091 | draft-coaching.js:280 | comp.no-frontline, avancé (PR C) | Leur force dépend alors de tuer avant d'être atteint : le premier engage réussi pèse lourd.
+CO-091 | draft-coaching.js:280 | comp.no-frontline, avancé (PR C) | ils doivent tuer avant d'être atteints, et le premier engage réussi pèse lourd.
 CO-092 | draft-coaching.js:284 | comp.control, titre (PR C) | Beaucoup de CC ciblés : {liste}
 CO-093 | draft-coaching.js:285 | comp.control, malus, débutant | Si tu fonces et qu'ils t'immobilisent, tu ne peux plus rien faire. Mieux vaut entrer après avoir vu leurs sorts partir.
 CO-094 | draft-coaching.js:286 | comp.control, malus, intermédiaire | Regarde quel sort vient de partir avant d'entrer.
