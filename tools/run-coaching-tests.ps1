@@ -27,6 +27,7 @@ $r = [Net.WebUtility]::HtmlDecode($m.Groups[1].Value) | ConvertFrom-Json -Depth 
 if ($Samples) { $r.samples | ForEach-Object { "`n=== $($_.draft) | conseil $($_.pick), sinon $($_.rival) | adversaire $($_.opp) | $($_.conf) | $($_.niveau) | court: $($_.court -join ', ')"; $_.items | ForEach-Object { "  [$($_[0]) / $($_[1])] $($_[2]) : $($_[3])" + $(if ($_[4]) { " ($($_[4]))" } else { '' }) } } }
 $ties = Page 'draft-ties-tests.html'; $tm = [regex]::Match($ties, '<pre id="out">([\s\S]*?)</pre>'); if (-not $tm.Groups[1].Value) { throw 'Égalités : aucun résultat.' }; $tr = [Net.WebUtility]::HtmlDecode($tm.Groups[1].Value) | ConvertFrom-Json; "Égalités : $($tr.ok) réussis, $(@($tr.ko).Count) échecs ($($tr.essais) essais de pool mélangé, $($tr.avecEgalite) drafts avec égalité)"; @($tr.ko) | ForEach-Object { "  ÉCHEC : $_" }
 $ms = Page 'draft-mastery-tests.html'; $mm = [regex]::Match($ms, '<pre id="out">([\s\S]*?)</pre>'); if (-not $mm.Groups[1].Value) { throw 'Maîtrise : aucun résultat.' }; $mr = [Net.WebUtility]::HtmlDecode($mm.Groups[1].Value) | ConvertFrom-Json; "Maîtrise : $($mr.ok) réussis, $(@($mr.ko).Count) échecs ($($mr.conseils) conseils, $($mr.regles) règles déclenchées)"; @($mr.ko) | ForEach-Object { "  ÉCHEC : $_" }
-$e = Page 'draft-tests.html'
-"Moteur stratégique : OK=$(([regex]::Matches($e, '>OK : ')).Count) ÉCHEC=$(([regex]::Matches($e, '>ÉCHEC : ')).Count)"
-[regex]::Matches($e, '>ÉCHEC : ([^<]*)') | Select-Object -First 8 | ForEach-Object { '  ' + $_.Groups[1].Value }
+# Même format JSON que les autres pages : une page qui plante ne passe plus pour « OK=0 ÉCHEC=0 ».
+$e = Page 'draft-tests.html'; $em = [regex]::Match($e, '<pre id="out">([\s\S]*?)</pre>'); if (-not $em.Groups[1].Value) { throw 'Moteur stratégique : aucun résultat, erreur dans la page.' }; $er = [Net.WebUtility]::HtmlDecode($em.Groups[1].Value) | ConvertFrom-Json
+"Moteur stratégique : $($er.ok) réussis, $(@($er.ko).Count) échecs"
+@($er.ko) | ForEach-Object { "  ÉCHEC : $_" }
