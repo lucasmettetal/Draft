@@ -13,14 +13,25 @@
   .why { color:#93a3b6; margin:0 0 4px; }
   .rank { color:#d4b36a; }
   .ko-line { color:#f2777a; }
+  #out { display:none; }
 </style>
 </head>
 <body>
 <h1>Tests stratégiques du moteur DRAFT</h1>
 <p>Chaque attente découle d'un principe de jeu, pas du score actuel. Un échec peut donc venir du moteur ou du principe : à examiner, pas à effacer. Le score sert à comparer les picks, ce n'est pas une probabilité.</p>
 <div id="summary"></div>
-<div id="out"></div>
-<script>window.addEventListener("error", e => { document.title = "Test interrompu"; document.getElementById("out").insertAdjacentHTML("beforeend", "<div class=\"ko-line\">" + "ÉCHEC" + " : test interrompu, les vérifications suivantes ne se sont pas exécutées : " + e.message + "</div>"); });</script>
+<div id="cases"></div>
+<!-- Résultat lisible par les lanceurs (tools/run-v215-tests.ps1 -Page draft-tests.html, tools/run-coaching-tests.ps1) : même format JSON que les autres pages de test. -->
+<pre id="out"></pre>
+<script>window.addEventListener("error", e => {
+  document.title = "Test interrompu";
+  const text = "test interrompu, les vérifications suivantes ne se sont pas exécutées : " + e.message + " (" + (e.filename || "").split("/").pop() + ":" + e.lineno + ")";
+  document.getElementById("cases").insertAdjacentHTML("beforeend", "<div class=\"ko-line\">ÉCHEC : " + text + "</div>");
+  let ok = 0, ko = [];
+  try { ok = total - fails; ko = koList.slice(); } catch (_) {}
+  ko.push(text);
+  document.getElementById("out").textContent = JSON.stringify({ ok, ko });
+});</script>
 <script>try { localStorage.setItem("draftProfile", JSON.stringify({ role:"mid", pool:["TF", "Fizz", "Kog'Maw", "Xerath"] })); } catch (e) {}</script>
 <script src="draft-role-rates.js"></script>
 <script src="i18n/fr.js"></script><script src="draft-i18n.js"></script><script src="draft-champions.js"></script>
@@ -111,12 +122,13 @@ scenario("Champion pris en face", "Un champion déjà pris ne peut jamais être 
     t(r.ranking.length === 3, "il reste 3 picks");
   });
 
-const out = document.getElementById("out");
+const out = document.getElementById("cases");
 let fails = 0, total = 0;
+const koList = [];
 
 function unitBlock(name, why, run) {
   const lines = [];
-  const t = (ok, text) => { total++; if (!ok) fails++; lines.push(`<div class="${ok ? "" : "ko-line"}">${ok ? "OK" : "ÉCHEC"} : ${text}</div>`); };
+  const t = (ok, text) => { total++; if (!ok) { fails++; koList.push(`${name} : ${text}`); } lines.push(`<div class="${ok ? "" : "ko-line"}">${ok ? "OK" : "ÉCHEC"} : ${text}</div>`); };
   run(t);
   out.insertAdjacentHTML("beforeend", `<div class="case${lines.join("").includes("ÉCHEC") ? " ko" : ""}"><h2>${name}</h2><p class="why">${why}</p>${lines.join("")}</div>`);
 }
@@ -458,7 +470,7 @@ unitBlock("Connecteurs de draft", "Les événements doivent produire le même r�
 scenarios.forEach(s => {
   const r = analyze(s.enemies, s.mid, true);
   const lines = [];
-  const t = (ok, text) => { total++; if (!ok) fails++; lines.push(`<div class="${ok ? "" : "ko-line"}">${ok ? "OK" : "ÉCHEC"} : ${text}</div>`); };
+  const t = (ok, text) => { total++; if (!ok) { fails++; koList.push(`${s.name} : ${text}`); } lines.push(`<div class="${ok ? "" : "ko-line"}">${ok ? "OK" : "ÉCHEC"} : ${text}</div>`); };
   s.check(r, t);
   const bad = lines.some(l => l.includes("ÉCHEC"));
   out.insertAdjacentHTML("beforeend", `<div class="case${bad ? " ko" : ""}"><h2>${s.name}</h2><p class="why">${s.why}</p><div class="rank">${s.enemies.join(", ")} : ${r.ranking.map(p => label(p.pick)).join(" &gt; ")}</div>${lines.join("")}</div>`);
@@ -497,7 +509,7 @@ for (let i = 0; i < DRAFTS; i++) {
   r.ranking.forEach(p => { if (list.includes(label(p.pick))) issues.carte++; });
 }
 const labels = { somme:"le score est bien la somme des critères", texte:"chaque critère a une explication", signe:"le signe des raisons et le classement sont cohérents", double:"aucun critère compté deux fois pour un pick", plan:"chaque plan a 1 à 3 conseils complets", aucun:"il reste toujours un pick", carte:"un champion pris n'est jamais conseillé", raison:"le critère cité avantage bien le pick placé devant" };
-const lines = Object.keys(labels).map(k => { total++; if (issues[k]) fails++; return `<div class="${issues[k] ? "ko-line" : ""}">${issues[k] ? "ÉCHEC" : "OK"} : ${labels[k]}${issues[k] ? ` (${issues[k]} cas)` : ""}</div>`; });
+const lines = Object.keys(labels).map(k => { total++; if (issues[k]) { fails++; koList.push(`Invariants sur ${DRAFTS} drafts : ${labels[k]} (${issues[k]} cas)`); } return `<div class="${issues[k] ? "ko-line" : ""}">${issues[k] ? "ÉCHEC" : "OK"} : ${labels[k]}${issues[k] ? ` (${issues[k]} cas)` : ""}</div>`; });
 out.insertAdjacentHTML("beforeend", `<div class="case${lines.join("").includes("ÉCHEC") ? " ko" : ""}"><h2>Invariants sur ${DRAFTS} drafts au hasard</h2>${lines.join("")}</div>`);
 
 // Part des premières places, pour repérer un favoritisme : ce n'est pas une mesure de qualité.
@@ -513,6 +525,8 @@ for (let i = 0; i < DRAFTS; i++) {
 out.insertAdjacentHTML("beforeend", `<div class="case"><h2>Répartition des premières places</h2><p class="why">Drafts au hasard, peu réalistes : sert seulement à repérer un champion favorisé par construction.</p>${Object.entries(firsts).map(([k, v]) => `${label(k)} : ${v}`).join(", ")}</div>`);
 document.getElementById("summary").textContent = `${total - fails} vérifications réussies sur ${total}.`;
 document.title = fails ? `${fails} échec(s)` : "Tout est bon";
+// Résultat pour les lanceurs. La répartition des premières places est informative, jamais une vérification.
+document.getElementById("out").textContent = JSON.stringify({ ok:total - fails, ko:koList, premieresPlaces:firsts });
 </script>
 </body>
 </html>
