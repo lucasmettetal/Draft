@@ -3736,7 +3736,7 @@ public static class Autostart
 
             app.StepPhase(false, false, Evidence.Unknown, 1);
             t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed && !app.Lcu.Connected, "Scénario 1. Client fermé : veille, identifiants oubliés");
-            t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les deux endpoints documentés sont appelés");
+            t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les endpoints documentés sont appelés");
             t(await app.TestReleaseAndReopen(), "Client fermé puis rouvert : l'application reste ouverte et recrée ses panneaux");
             string fullProblem = await app.TestFullWindow();
             s_keyReport = app.KeyStressReport;
