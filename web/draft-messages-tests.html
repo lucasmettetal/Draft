@@ -66,7 +66,7 @@ UI-055 | index.html:1412 | Égalité, favori marqué | Ton favori
 UI-056 | index.html:1417, draft-coaching.js tieCauseText | Égalité : cause réelle de l'ordre (risque, favori, alphabet, nom maintenu) (PR D) | re:(passe en premier : son pire critère pèse moins|passe en premier : aucun critère ne le pénalise|passe en premier car c'est ton favori|Même risque : l'ordre est alphabétique, il ne veut rien dire\.|reste en premier car c'était déjà le conseil affiché|L'ordre suit d'abord le risque)
 UI-057 | index.html:1464 | Conseil pendant la draft (aria) | Conseil
 UI-058 | index.html:1467 | Lien vers l'onglet Conseils | Voir les conseils
-UI-059 | index.html:1471 | Infobulle « Le plus joué » | Parties importées dans ce rôle : ton expérience, pas ton niveau.
+UI-059 | index.html:1471 | Infobulle « Le plus joué » | Nombre de parties importées dans ce rôle : il ne dit pas si tu joues bien ce champion.
 UI-060 | index.html:1475 | Ligne « Le plus joué » | re:^Le plus joué( .+ · \d+ parties)?$
 UI-061 | index.html:1487-1489 | Réglage du niveau | re:^(Niveau des conseils|Débutant|Intermédiaire|Avancé)$
 UI-062 | index.html:1495 | Onglet Conseils vide | Aucun conseil disponible pour l'instant.
@@ -76,7 +76,7 @@ UI-065 | index.html:1504 | Onglet Conseils, pas de champion assez joué | Donné
 UI-066 | index.html:1507 | Onglet Conseils, titre | Expérience dans ce rôle
 UI-067 | index.html:1508 | Onglet Conseils, liste d'expérience | re:^.+ \d+ parties(, dont \d+ ce mois-ci|, dernière il y a \d+ jours)?$
 UI-068 | index.html:1509 | Onglet Conseils, champions sans partie | Aucune partie importée sur {liste}.
-UI-069 | index.html:1510 | Onglet Conseils, historique importé | Historique importé{x} solo/duo.
+UI-069 | index.html:1510 | Onglet Conseils, historique importé | Historique importé{x} solo/duo, autres modes non comptés.
 UI-070 | index.html:1510 | Onglet Conseils, sans historique | Aucun historique importé : tu peux le faire dans les réglages.
 UI-071 | index.html:1510 | Onglet Conseils, limite de l'historique | Ton expérience, pas ton niveau : ce nombre ne change pas le classement.
 UI-072 | index.html:1511 | Onglet Conseils, titre | Conseils issus d'une donnée ou d'un calcul
@@ -280,7 +280,7 @@ UI-266 | index.html:2014,2406 | Marque | DRAFT
 UI-267 | index.html:1835 | Barre de victoires (aria) | re:^.+ : \d+V \d+D$
 UI-269 | index.html:1866,1869 | Statistiques : nom du compte importé (donnée) | re:^[^ ]+#[^ ]+$
 UI-268 | index.html:SettingsSection diag | Réglages > Diagnostic : phase et placement transmis par le programme (src/DraftDetection.cs PhaseText, placementNote), en deux lignes (UX-7) | re:^((Client LoL fermé|Client ouvert, hors draft \(estimation\)|Draft en cours \(estimation\)|Partie en cours|Phase incertaine)|Panneaux .+\.|Panneau .+\.|Pas de place .+\.|Position manuelle conservée\..+|.+panneau étroit .+\.)$
-UI-270 | index.html:App | Simulateur, bandeau (2.16.2, boutons UX-2 ; correctif du choix : rien dans le journal) | re:^(Simulation : rien n'est noté, ta draft en cours ne change pas\.|Simulation|Reprendre la draft en cours|Quitter la simulation|Copie la draft en cours dans la simulation, sans lien avec elle\.)$
+UI-270 | index.html:App | Simulateur, bandeau (2.16.2, boutons UX-2 ; correctif du choix : rien dans le journal) | re:^(Simulation : rien n'est noté dans ton journal, ta draft en cours ne change pas\.|Simulation|Reprendre la draft en cours|Quitter la simulation|Copie la draft en cours dans la simulation, sans lien avec elle\.)$
 UI-271 | index.html:1301,1346 | Étiquette de ton vis-à-vis nommé avec 1 ou 2 champions vus (PR E, B-05) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) \? hypothèse \(\d champions? vus?\)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-272 | index.html:803-806,1346 | Rôle incertain d'un adversaire : deux rôles proches ou rôle peu probable (PR E, flex) (PR C) | re:^(Top|Jungle|Mid|ADC|Support) (ou (Top|Jungle|Mid|ADC|Support)|\?)( (Tank|Bruiser|Carry fragile|Dive|CC|Engage|Utilitaire|Profil inconnu).*)?$
 UI-273 | index.html:UndoNote | UX-1, annonce après Nouvelle draft ou Retour arrière, avec « Annuler » 5 s (UX-2 : simulation) | re:^((Draft effacée\.|Simulation effacée\.|Draft en cours copiée dans la simulation\.|Retrait de .+\.)( Annuler)?|Annuler)$

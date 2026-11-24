@@ -25,14 +25,14 @@ Branche `ui/audit-texte`. Catalogues `web/i18n/fr.js` (référence) et `web/i18n
 | Mon pool + Panneaux | 1 | 1 | 1 | 0 |
 | Mon pool + Simulateur | 1 | 9 | 9 | 0 |
 | Natif (menu, dialogues) | 179 | 1533 | 1533 | 0 |
-| Panneaux | 256 | 1046 | 1019 | -27 (-3 %) |
+| Panneaux | 256 | 1046 | 1026 | -20 (-2 %) |
 | Panneaux (explications du moteur) | 169 | 1390 | 1385 | -5 (-0 %) |
 | Panneaux + Simulateur | 24 | 83 | 80 | -3 (-4 %) |
-| Panneaux + Simulateur (onglet Conseils) | 407 | 4807 | 4548 | -259 (-5 %) |
+| Panneaux + Simulateur (onglet Conseils) | 407 | 4807 | 4556 | -251 (-5 %) |
 | Réglages | 144 | 995 | 950 | -45 (-5 %) |
 | Réglages + Simulateur | 1 | 5 | 5 | 0 |
-| Simulateur | 181 | 1136 | 1036 | -100 (-9 %) |
-| **Total** | 1747 | **13533** | **13022** | **-511** |
+| Simulateur | 181 | 1136 | 1039 | -97 (-9 %) |
+| **Total** | 1747 | **13533** | **13040** | **-493** |
 
 ## Les 25 blocs les plus longs (avant)
 
@@ -66,6 +66,8 @@ Hors `home.*` et `nav.*`. « Sécurité » : texte de `securite.json`, laissé t
 | 24 | `engine.criterion.matchup.source` | 27 | Panneaux (explications du moteur) | 22 |
 | 25 | `settings.display.hotkeyTaken` | 27 | Réglages | 23 |
 
+Sur les 23 blocs réécrits de ce top 25 : 767 mots avant, 490 après (-36 %).
+
 Pour mémoire, les plus longs blocs de l'Accueil (`home.*`, réservés à la maquette) :
 
 - `home.guide.lcu.text` : 33 mots (sécurité)
@@ -98,13 +100,13 @@ Règles suivies : une phrase par bloc quand c'est possible, le « tu », le voca
 | Accueil + Réglages | 1 | 33 | 19 | -14 (-42 %) |
 | Mes statistiques | 7 | 146 | 115 | -31 (-21 %) |
 | Mon pool | 4 | 90 | 63 | -27 (-30 %) |
-| Panneaux | 5 | 74 | 47 | -27 (-36 %) |
+| Panneaux | 5 | 74 | 54 | -20 (-27 %) |
 | Panneaux (explications du moteur) | 1 | 27 | 22 | -5 (-19 %) |
 | Panneaux + Simulateur | 1 | 18 | 15 | -3 (-17 %) |
-| Panneaux + Simulateur (onglet Conseils) | 30 | 816 | 557 | -259 (-32 %) |
+| Panneaux + Simulateur (onglet Conseils) | 30 | 816 | 565 | -251 (-31 %) |
 | Réglages | 7 | 162 | 117 | -45 (-28 %) |
-| Simulateur | 10 | 293 | 193 | -100 (-34 %) |
-| **Total** | 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 | **1659** | **1148** | **-511 (-31 %)** |
+| Simulateur | 10 | 293 | 196 | -97 (-33 %) |
+| **Total** | 66 | **1659** | **1166** | **-493 (-30 %)** |
 
 ### Accueil + Réglages
 
@@ -138,7 +140,7 @@ Règles suivies : une phrase par bloc quand c'est possible, le « tu », le voca
 | Clé | Avant | Après | Mots |
 |---|---|---|---:|
 | `advice.opponent.help` | Le client ne donne pas les rôles adverses : cet adversaire est déduit, et se corrige dans la composition. | Rôle déduit, le client ne le donne pas : corrige-le dans la composition. | 18 → 12 (-6) |
-| `advice.familiar.help` | Nombre de parties importées dans ce rôle. Cela ne dit pas si tu joues bien ce champion. | Parties importées dans ce rôle : ton expérience, pas ton niveau. | 17 → 10 (-7) |
+| `advice.familiar.help` | Nombre de parties importées dans ce rôle. Cela ne dit pas si tu joues bien ce champion. | Nombre de parties importées dans ce rôle : il ne dit pas si tu joues bien ce champion. | 17 → 17 (0) |
 | `panel.sources.league` | « Dans League » : ton propre pick, lu dans ton client. DRAFT n'écrit rien dans League. | « Dans League » : ton propre pick, lu dans ton client. | 14 → 9 (-5) |
 | `advice.cta.simHelp` | Simulation : ce choix sert à t'entraîner. Il n'est pas noté dans ton journal. | Simulation : ce choix n'est pas noté dans ton journal. | 13 → 9 (-4) |
 | `panel.sources.pick` | Ton pick n'est noté qu'avec « Je joue ». DRAFT n'écrit rien dans League. | Ton pick n'est noté qu'avec « Je joue ». | 12 → 7 (-5) |
@@ -186,9 +188,9 @@ Règles suivies : une phrase par bloc quand c'est possible, le « tu », le voca
 | `coach.matchup.range.shorter.l1` | Tu attaques à {mine}, {opponent} à {theirs}. Ses attaques de base ne t'atteignent pas de loin, mais ses sorts peuvent changer ça : regarde-les avant d'avancer. | Tu attaques à {mine}, {opponent} à {theirs} : ses attaques de base ne t'atteignent pas de loin. Regarde ses sorts avant d'avancer. | 25 → 21 (-4) |
 | `coach.matchup.tank.killer.l3` | Face à un tank, l'intérêt de {champion} grandit avec le temps. C'est une règle générale de sa fiche, pas un bilan mesuré de ce matchup. | Face à un tank, {champion} gagne en intérêt avec le temps. Règle générale de sa fiche, pas un bilan mesuré. | 25 → 20 (-5) |
 | `coach.draft.conflict.l3` | Critère négatif « {criterion} » ({impact}), compensé par les autres. Un classement par somme peut masquer ce type de faiblesse : décide si elle est acceptable pour toi. | Critère négatif « {criterion} » ({impact}), compensé par les autres. Une somme peut cacher cette faiblesse : à toi de juger. | 25 → 18 (-7) |
-| `coachTab.history.importedOn` | Historique importé le {date} : {count} parties classées solo/duo. Les autres modes et les parties non lues ne sont pas comptés. | Historique importé le {date} : {count} parties classées solo/duo. | 20 → 8 (-12) |
+| `coachTab.history.importedOn` | Historique importé le {date} : {count} parties classées solo/duo. Les autres modes et les parties non lues ne sont pas comptés. | Historique importé le {date} : {count} parties classées solo/duo, autres modes non comptés. | 20 → 12 (-8) |
 | `coach.matchup.unknown.l3weighted` | Classement pondéré entre les hypothèses : {champions}. Si tu connais le vrai rôle, corrige-le : le calcul redevient exact pour ce matchup. | Moyenne pondérée des hypothèses : {champions}. Corrige le rôle si tu le connais : le calcul redevient exact. | 20 → 16 (-4) |
-| `coachTab.history.imported` | Historique importé : {count} parties classées solo/duo. Les autres modes et les parties non lues ne sont pas comptés. | Historique importé : {count} parties classées solo/duo. | 18 → 6 (-12) |
+| `coachTab.history.imported` | Historique importé : {count} parties classées solo/duo. Les autres modes et les parties non lues ne sont pas comptés. | Historique importé : {count} parties classées solo/duo, autres modes non comptés. | 18 → 10 (-8) |
 
 ### Réglages
 
@@ -215,7 +217,7 @@ Règles suivies : une phrase par bloc quand c'est possible, le « tu », le voca
 | `plan.basis.many` | Avis général basé sur les {count} champions adverses visibles, sans tenir compte des cooldowns ni des builds. | Avis général sur les {count} champions adverses visibles, sans cooldowns ni builds. | 17 → 12 (-5) |
 | `plan.basis.none` | Avis général basé sur aucun champion adverse pour l'instant, sans tenir compte des cooldowns ni des builds. | Avis général sans champion adverse pour l'instant, ni cooldowns ni builds. | 17 → 11 (-6) |
 | `plan.basis.one` | Avis général basé sur 1 champion adverse visible, sans tenir compte des cooldowns ni des builds. | Avis général sur 1 champion adverse visible, sans cooldowns ni builds. | 16 → 11 (-5) |
-| `sim.band.text` | {simulation} : ta draft en cours n'est pas modifiée. Rien n'est noté dans ton journal. | {simulation} : rien n'est noté, ta draft en cours ne change pas. | 14 → 11 (-3) |
+| `sim.band.text` | {simulation} : ta draft en cours n'est pas modifiée. Rien n'est noté dans ton journal. | {simulation} : rien n'est noté dans ton journal, ta draft en cours ne change pas. | 14 → 14 (0) |
 
 ## Tests mis à jour
 
