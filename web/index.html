@@ -184,6 +184,7 @@
   .gr-btn:hover { filter:brightness(1.08); }
   .gr-skip { align-self:center; }
   .gr-done { margin:0; font:600 22px var(--condensed); text-align:center; }
+  .sd-src { margin-left:6px; color:var(--muted); font-size:12px; white-space:nowrap; }
   .home-last .gr-buttons { grid-template-columns:1fr 1fr; max-width:460px; }
   .result-note { margin-top:6px; color:var(--muted); font-size:13px; }
 
@@ -1637,6 +1638,21 @@ function writeLeagueEntry(key) {
   return true;
 }
 // Issue reçue : partie lancée (entrée automatique d'abord), puis gameStarted ou abandoned (une seule fois).
+// Résultat lu dans le client (beta.3) : le programme transmet { key, gameId, result } une fois le bilan de fin de partie lu, pour
+// la partie suivie (hostState.gameResult). Écrit sur l'entrée de la MÊME partie : même gameId, sinon même clé de sélection ; une
+// entrée qui porte un autre gameId n'est jamais touchée. Une seule fois, jamais par-dessus un résultat déjà saisi, jamais en
+// simulation, jamais sur une draft annulée. resultSource : « lcu ».
+function applyGameResult(g) {
+  if (!g || simulating || !g.key || (g.result !== "win" && g.result !== "loss")) return false;
+  const list = loadJournal(), gid = Number(g.gameId) || 0;
+  const entry = (gid ? list.find(x => x.gameId === gid) : null) || list.find(x => x.selection === String(g.key));
+  if (!entry || entry.gameStarted !== true || isAbandoned(entry) || entry.result !== null) return false;
+  if (gid && entry.gameId && entry.gameId !== gid) return false;
+  if (entry.selection && entry.selection !== String(g.key) && entry.gameId !== gid) return false;
+  Object.assign(entry, { result: g.result, resultSource: "lcu" });
+  saveJournal(list);
+  return true;
+}
 function settleOutcome(key, outcome) {
   const wrote = outcome === "game" && writeLeagueEntry(key);
   const noted = applyDraftOutcome(key, outcome) || wrote;
@@ -2253,8 +2269,10 @@ function choosePick(pick) {
   publish(null);
 }
 
+// Saisie du joueur (boutons, Corriger, Mes statistiques) : resultSource « manual ». Un résultat lu dans le client (« lcu ») n'est
+// jamais posé ici (applyGameResult).
 function setResult(id, result) {
-  updateEntry(id, { result });
+  updateEntry(id, { result, resultSource: "manual" });
   publish(null);
 }
 
@@ -4446,8 +4464,8 @@ function CompactEnemies() {
 // montre alors le champion joué en grand, Victoire et Défaite en gros, Ignorer en petit. Après un clic : confirmation, puis retrait
 // (endGameDone). Sans clic : retrait au lobby ou à la sélection suivante, l'entrée reste « En attente ». Rien en simulation.
 const RESULT_SAVED = { win:"endGame.saved.win", loss:"endGame.saved.loss", skip:"endGame.saved.skip" };
-let endGameDone = null, endGameReleased = null;
-function GameResult({ entry, where, onResult }) {
+let endGameDone = null, endGameReleased = null, endGameCorrect = null;
+function GameResult({ entry, where, onResult, auto, onCorrect }) {
   const name = label(entry.picked);
   const art = where === "panel"
     ? html`<section className="p-reco gr-art" aria-hidden="true"><${SplashStack} name=${name} /><div className="p-reco-scrim"></div>
@@ -4457,20 +4475,26 @@ function GameResult({ entry, where, onResult }) {
     ${art}
     ${where === "panel" ? (entry.mid ? html`<p className="gr-who" data-test="gr-who">${t("endGame.vs", { champion: entry.mid })}</p>` : null)
       : html`<p className="gr-who" data-test="gr-who"><span className="gr-noted">${t("endGame.noted")}</span> <b className="gr-name">${name}</b>${entry.mid ? html` <span className="gr-vs">${t("endGame.vs", { champion: entry.mid })}</span>` : null}</p>`}
-    <div className="gr-buttons">
+    ${auto ? html`<p className="gr-done gr-auto" data-test="end-game-auto" role="status">${t(auto === "win" ? "endGame.auto.win" : "endGame.auto.loss")}</p>
+      <button type="button" className="link-btn gr-skip" data-test="end-game-correct" onClick=${onCorrect}>${t("endGame.auto.correct")}</button>`
+    : html`<div className="gr-buttons">
       <button type="button" className="gr-btn win" data-result="win" onClick=${() => onResult("win")}>${t("journal.result.win")}</button>
       <button type="button" className="gr-btn loss" data-result="loss" onClick=${() => onResult("loss")}>${t("journal.result.loss")}</button>
     </div>
-    <button type="button" className="link-btn gr-skip" data-result="skip" onClick=${() => onResult("skip")}>${t("journal.result.skip")}</button>
+    <button type="button" className="link-btn gr-skip" data-result="skip" onClick=${() => onResult("skip")}>${t("journal.result.skip")}</button>`}
   </div>`;
 }
 // Ce que montre le panneau en fin de partie : l'entrée à compléter, la confirmation, ou rien (mode normal).
 function endGameView() {
   const key = hostState.available && hostState.endGame ? String(hostState.endGame) : null;
-  if (!key || simulating || (PANEL !== "right" && PANEL !== "compact")) { endGameDone = null; return null; }
+  if (!key || simulating || (PANEL !== "right" && PANEL !== "compact")) { endGameDone = null; endGameCorrect = null; return null; }
   if (endGameDone && endGameDone.key === key) return { done: endGameDone.result };
   const entry = loadJournal().find(x => x.selection === key);
-  if (entry && entry.gameStarted === true && !isAbandoned(entry) && entry.result === null) return { key, entry };
+  if (entry && entry.gameStarted === true && !isAbandoned(entry)) {
+    if (entry.result === null) return { key, entry };
+    // Beta.3 : résultat lu dans le client, l'écran devient une confirmation (« Corriger » réaffiche les boutons).
+    if (entry.resultSource === "lcu" && (entry.result === "win" || entry.result === "loss")) return { key, entry, auto: endGameCorrect === key ? null : entry.result };
+  }
   // Déjà renseignée ailleurs, ou introuvable : rien à demander, le programme retire l'écran.
   if (endGameReleased !== key) { endGameReleased = key; hostSend({ cmd:"endGameDone", draft:key }); }
   return null;
@@ -4483,7 +4507,7 @@ function EndGamePanel({ view }) {
     rerender();
     setTimeout(() => { if (endGameDone && endGameDone.key === view.key) { endGameReleased = view.key; hostSend({ cmd:"endGameDone", draft:view.key }); } }, 1800);
   };
-  return html`<div className="p-end" aria-label=${t("endGame.label")}><${GameResult} entry=${view.entry} where="panel" onResult=${onResult} /></div>`;
+  return html`<div className="p-end" aria-label=${t("endGame.label")}><${GameResult} entry=${view.entry} where="panel" onResult=${onResult} auto=${view.auto} onCorrect=${() => { endGameCorrect = view.key; rerender(); }} /></div>`;
 }
 
 function PanelApp() {
@@ -4545,6 +4569,8 @@ function App() {
           memoLock();
           // Page ouverte après la décision : l'issue gardée par le programme est notée (une seule fois).
           if (settleOutcome(m.draftKey, m.draftOutcome)) force();
+          // Résultat lu dans le client (beta.3), une fois la partie notée.
+          if (applyGameResult(m.gameResult)) force();
         }
         if (m.kind === "demo") runDemo(m.stepMs);
         // Avec sa clé (programme beta.2) : une fois par sélection. Sans clé (ancien programme, essais) : comme avant.

@@ -86,6 +86,48 @@ for(const lang of ["fr","en"]){
    x.f.remove();
    for(const [what,j] of [["sans partie",[]],["draft annulée",[LAUNCHED(7,{gameStarted:false,abandoned:true})]],["résultat renseigné",[LAUNCHED(8,{result:"win"})]]]){
      prepare(MID,j);const y=await openHost(lang,"view=home",1100,800);hostMsg(y,{});y.w.eval("goView('home')");await settle();t(!q(y,'[data-test="home-last-game"]'),L+what+" : pas de carte");y.f.remove();}}
+  // 4. Beta.3 : résultat lu dans le client (hostState.gameResult) : écriture, confirmation, Corriger, non-écrasement, mauvaise
+  //    partie, remake (aucun gameResult), simulation, Accueil, Mes statistiques.
+  {const L=LG+" résultat lu : ";prepare(MID,[]);const x=await openHost(lang,"panel=right",252,711);hostMsg(x,{});await settle();
+   const RES=(key,gid,r)=>hostMsg(x,{draftKey:key,draftOutcome:"game",gameResult:{key,gameId:gid,result:r}});
+   const k=K(11);await select(x,k,"TF");await finish([x],k,"game");RES(k,7012345678,"win");await settle();
+   t(ent(k)&&ent(k).result==="win"&&ent(k).resultSource==="lcu",L+"écrit sur l'entrée de la sélection : win / lcu ("+JSON.stringify(ent(k)&&[ent(k).result,ent(k).resultSource])+")");
+   END(x,k);hostMsg(x,{draftKey:k,draftOutcome:"game",endGame:k,gameResult:{key:k,gameId:7012345678,result:"win"}});await settle();
+   const auto=q(x,'[data-test="end-game-auto"]'),name=q(x,'[data-test="end-game"] .p-name'),corr=q(x,'[data-test="end-game-correct"]');
+   t(auto&&text(auto)===x.T("endGame.auto.win")&&name&&text(name)===x.$.label("TF")&&!q(x,'[data-test="end-game"] .gr-btn.win')&&corr&&vis(x,auto)&&vis(x,corr),L+"écran en mode confirmation : champion en grand, « "+text(auto)+" », petit lien « "+text(corr)+" »");
+   t(corr&&parseFloat(x.w.getComputedStyle(corr).fontSize)<parseFloat(x.w.getComputedStyle(auto).fontSize),L+"« Corriger » en petit");
+   corr.click();await settle();const loss=q(x,'[data-test="end-game"] .gr-btn.loss');
+   t(loss&&vis(x,loss)&&vis(x,q(x,'[data-test="end-game"] .gr-btn.win'))&&vis(x,q(x,'[data-test="end-game"] .gr-skip')),L+"« Corriger » réaffiche Victoire, Défaite et Ignorer");
+   if(loss)loss.click();await settle();
+   t(ent(k).result==="loss"&&ent(k).resultSource==="manual"&&text(q(x,'[data-test="end-game-done"]'))===x.T("endGame.saved.loss"),L+"correction : loss / manual, confirmation");
+   RES(k,7012345678,"win");await settle();t(ent(k).result==="loss"&&ent(k).resultSource==="manual",L+"résultat renvoyé : jamais par-dessus la saisie du joueur");
+   hostMsg(x,{draftKey:k,draftOutcome:"game",endGame:""});await settle();
+   // Saisie à la main avant le bilan : jamais écrasée.
+   const j=journal();j.push(LAUNCHED(12,{result:"loss",resultSource:"manual"}));localStorage.setItem("draftJournal",JSON.stringify(j));
+   RES(K(12),0,"win");await settle();t(ent(K(12)).result==="loss"&&ent(K(12)).resultSource==="manual",L+"saisie à la main antérieure : jamais écrasée");
+   // Mauvaise partie : autre gameId sur l'entrée, ou autre clé sans entrée.
+   const j2=journal();j2.push(LAUNCHED(13,{gameId:111}));localStorage.setItem("draftJournal",JSON.stringify(j2));
+   RES(K(13),222,"win");await settle();RES(K(14),0,"win");await settle();
+   t(ent(K(13)).result===null&&!ent(K(13)).resultSource&&!ent(K(14)),L+"autre gameId ou autre sélection : rien écrit ("+flags(ent(K(13)))+")");
+   RES(K(13),111,"loss");await settle();t(ent(K(13)).result==="loss"&&ent(K(13)).resultSource==="lcu",L+"même gameId : écrit (loss / lcu)");
+   // Remake ou bilan absent : le programme n'envoie aucun résultat ; l'écran garde les deux gros boutons.
+   const j3=journal();j3.push(LAUNCHED(15));localStorage.setItem("draftJournal",JSON.stringify(j3));
+   hostMsg(x,{draftKey:K(15),draftOutcome:"game",endGame:K(15),gameResult:null});await settle();
+   t(ent(K(15)).result===null&&vis(x,q(x,'[data-test="end-game"] .gr-btn.win'))&&!q(x,'[data-test="end-game-auto"]'),L+"remake ou bilan absent : aucun résultat, deux gros boutons");
+   hostMsg(x,{draftKey:K(15),draftOutcome:"game",endGame:""});await settle();
+   // Draft annulée : jamais de résultat.
+   const j4=journal();j4.push(LAUNCHED(16,{gameStarted:false,abandoned:true}));localStorage.setItem("draftJournal",JSON.stringify(j4));
+   RES(K(16),0,"win");await settle();t(ent(K(16)).result===null,L+"draft annulée : rien écrit");
+   // Simulation : rien.
+   x.w.eval("simulating=true;rerender()");RES(K(15),0,"win");await settle();t(ent(K(15)).result===null,L+"en simulation : rien écrit");
+   t(x.w.I18N.missing().length===0,L+"aucune clé absente ("+x.w.I18N.missing().join(" | ")+")");
+   x.f.remove();}
+  // Accueil : pas de carte quand le résultat est lu ; Mes statistiques : marque « lu dans le client ».
+  {const L=LG+" résultat lu : ";prepare(MID,[LAUNCHED(17,{result:"win",resultSource:"lcu",origin:"lcu"}),LAUNCHED(18,{result:"loss",resultSource:"manual",origin:"lcu"})]);
+   const h=await openHost(lang,"view=home",1100,800);hostMsg(h,{});h.w.eval("goView('home')");await settle();t(!q(h,'[data-test="home-last-game"]'),L+"Accueil : pas de carte « Dernière partie »");h.f.remove();
+   const st=await openHost(lang,"view=stats",1366,900);hostMsg(st,{});await settle();const marks=[...st.d.querySelectorAll('[data-test="result-source"]')].map(text);
+   t(marks.length===1&&marks[0]===st.T("journal.source.lcu"),L+"Mes statistiques : marque discrète « "+st.T("journal.source.lcu")+" » sur l'entrée lue seulement ("+marks.join(", ")+")");
+   t(st.w.I18N.missing().length===0,L+"Mes statistiques : aucune clé absente");st.f.remove();}
 }
 show();
 })().catch(e=>{res.ko.push("EXC "+e.stack);show();});

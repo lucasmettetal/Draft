@@ -278,7 +278,8 @@
     if (row.origin === "simulation") return html`<span className="sd-acts"><span className="badge-origin">${t("stats.journal.origin.simulation")}</span>
       <button type="button" className="mini-btn" data-test="origin-undo" onClick=${() => changeOrigin(e.id, undefined)}>${t("stats.journal.origin.undo")}</button></span>`;
     const r = RESULT[e.result];
-    if (r) return html`<span className="sd-acts">${status(r[0])}</span>`;
+    // Beta.3 : résultat lu dans le client, marque discrète.
+    if (r) return html`<span className="sd-acts">${status(r[0])}${e.resultSource === "lcu" ? html`<small className="sd-src" data-test="result-source">${t("journal.source.lcu")}</small>` : null}</span>`;
     return html`<span className="sd-acts" data-test="journal-result">${status("wait")}${["win", "loss", "skip"].map(k => html`<button key=${k} type="button" className="mini-btn" data-result=${k} onClick=${() => setResult(e.id, k)}>${t(k === "win" ? "journal.result.win" : k === "loss" ? "journal.result.loss" : "journal.result.skip")}</button>`)}</span>`;
   }
   const Followed = ({ row }) => html`<span className=${`sd-tag${row.followed ? " followed" : ""}`}>${t(row.followed ? "stats.journal.tag.followed" : "stats.journal.tag.other")}${row.tied ? ` · ${t("stats.journal.tag.tie")}` : ""}</span>`;

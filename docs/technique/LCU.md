@@ -26,6 +26,27 @@ Liste fermée, contrôlée par `LcuEndpoints.IsAllowed`.
 |---|---|---|---|
 | `/lol-gameflow/v1/gameflow-phase` | GET | Phase de jeu, environ une fois par seconde | Nom de la phase |
 | `/lol-champ-select/v1/session` | GET | Seulement pendant `ChampSelect` | `theirTeam[].championId` supérieur à 0 ; ton poste ; ton pick (beta.2) ; champions bannis et champions verrouillés par tes alliés (beta.2) |
+| `/lol-end-of-game/v1/eog-stats-block` | GET | Beta.3. Seulement en `PreEndOfGame` / `EndOfGame`, pour la partie suivie et notée dans le journal | `gameId` ; victoire ou défaite de ton équipe |
+
+### Troisième adresse : résultat de la partie (beta.3)
+
+**Changement explicite de la règle « deux adresses ».** Jusqu'à la beta.2, DRAFT ne lisait que la phase et la session de sélection. La beta.3 ajoute une troisième adresse, en lecture seule (GET), validée par l'utilisateur (étude `docs/etudes/JOURNAL-AUTOMATIQUE.md`, section 7.1) : le bilan de fin de partie.
+
+**Quand.** Seulement en `PreEndOfGame` ou `EndOfGame`, et seulement pour la partie suivie : sélection détectée, partie observée (`game`), entrée notée dans le journal par une page (commande `gameNoted`). Une lecture par relevé, tant que le bilan n'est ni lu ni un remake, 8 au plus. Rien en simulation ni pour une draft annulée.
+
+**Champs lus, et seulement eux** (`LcuParser.ParseEndOfGame`, type `EogBlock`) :
+- `gameId` ;
+- `localPlayer.teamId` : ton équipe ;
+- `teams[].teamId`, `teams[].isWinningTeam`, et `teams[].isPlayerTeam` en secours si `localPlayer.teamId` manque ;
+- `gameEndedInEarlySurrender` et `invalid` : remake ou partie invalide, donc aucun résultat.
+
+Le désérialiseur n'associe la réponse qu'à ces champs : le reste n'a aucun champ correspondant et n'atteint jamais le code de DRAFT. **Jamais lus :** noms, `riotIdGameName`, `riotIdTagLine`, `summonerName`, `puuid`, `summonerId`, `accountId`, champions et statistiques des autres joueurs, **ni tes propres statistiques** (K/D/A, or, dégâts), ni la file, la durée ou les points. Rien n'est stocké ni journalisé en dehors de `gameId` et du résultat.
+
+**Résultat.** L'équipe de `localPlayer.teamId` (sinon la seule équipe `isPlayerTeam`) et son `isWinningTeam`. Bilan absent, tronqué, illisible, sans `gameId` ni équipe, ou remake : **aucun résultat**, l'entrée reste « En attente » et l'écran de fin de partie garde ses boutons. Un bilan dont le `gameId` diffère de celui de la sélection est ignoré. Les champs ne sont pas documentés par Riot : le format est **reconstitué** (`LcuSamples.EndOfGameBlock`), à confirmer sur une vraie partie.
+
+**Écriture** (page, `applyGameResult`) : `result: "win" | "loss"` et `resultSource: "lcu"` sur l'entrée de la même partie (même `gameId`, sinon même clé de sélection), une seule fois, jamais par-dessus un résultat déjà saisi. Voir [JOURNAL.md](JOURNAL.md).
+
+**Test négatif** (selftest) : changer les noms, puuid, summonerId et statistiques de tous les joueurs ne change rien au résultat lu ; seuls `GameId`, `State` et `Win` sont gardés ; aucun nom n'apparaît dans l'état transmis aux pages ni dans le diagnostic (e2e).
 
 Depuis la V2.16 bêta, la même réponse de session fournit aussi **ton propre poste** (`assignedPosition` de ta case dans `myTeam`), pour proposer le bon profil. Champ non documenté par Riot, vérifié seulement en simulation : voir [PROFILS.md](PROFILS.md).
 
@@ -92,7 +113,7 @@ Le scénario de `--e2e` déroule une draft complète sur `SimulatedLcuTransport`
 
 **Validé sur une vraie partie personnalisée le 4 novembre 2026 :** phases `None`, `Lobby`, `ReadyCheck`, `ChampSelect`, et adversaires lus de 0 à 5. Le journal ne contient pas les noms : l'exactitude des champions se vérifie à l'écran. `GameStart` et `InProgress` n'ont pas encore été observés.
 
-Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nombre d'adversaires`, ou `lcu=absent(erreur)`, sans identifiant ni nom.
+Le journal de diagnostic indique l'état réel de la lecture avec `lcu=phase/nombre d'adversaires`, ou `lcu=absent(erreur)`, sans identifiant ni nom. En fin de partie (beta.3), il ajoute `bilan=lu|absent|illisible|remake`, sans nom.
 
 ## Note pour Riot
 

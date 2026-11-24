@@ -56,6 +56,7 @@ Garanties inchangées : le classement, le conseil et les scores ne bougent pas, 
 | `lockedFirst` | 3.0 beta.2 | Premier champion verrouillé, seulement s'il diffère de `picked` (échange) |
 | `traded` | 3.0 beta.2 | `true` si un échange a changé le champion final |
 | `gameId` | 3.0 beta.2 | Identifiant de la partie lu dans la session, s'il est présent. Clé anti-doublon avec `selection` |
+| `resultSource` | 3.0 beta.3 | Origine de `result` : `"manual"` (clic du joueur : fin de partie, Accueil, Mes statistiques, Corriger) ou `"lcu"` (lu dans le bilan de fin de partie du client). Absent : saisi avant la beta.3. `"riot"` est réservé à l'import de l'historique Riot, qui écrit un champ `riot` séparé sans toucher à `result` |
 
 `suggested`, `close`, `tied`, `tiedWith` et `recommended` décrivent le moment du choix : ils changent avec un nouveau choix dans la même draft, pas quand le conseil bouge seul. `origin` et `app` sont posés à la création.
 
@@ -138,6 +139,15 @@ Les autres cases de `myTeam` ne sont pas ouvertes : seule leur `cellId` est comp
 - Lecture perdue au lancement de la partie : rien d'automatique ; seule une entrée « Je joue » suit la règle de l'issue.
 - Un échange fait après une perte de lecture n'est pas vu.
 - Plusieurs pages peuvent écrire en même temps : le journal étant une seule valeur, il ne peut pas y avoir deux entrées, mais une autre modification simultanée pourrait être perdue.
+
+## Résultat lu dans le client (beta.3)
+
+Voir [LCU.md](LCU.md), « Troisième adresse ». En fin de partie, le programme lit le bilan de la partie suivie et transmet aux pages `gameResult = { key, gameId, result }`.
+- **Écriture :** `result: "win" | "loss"`, `resultSource: "lcu"`, sur l'entrée de la **même partie** : même `gameId`, sinon même clé de sélection. Une entrée qui porte un autre `gameId` n'est jamais touchée.
+- **Une seule fois**, jamais par-dessus un résultat déjà saisi (`result` non nul), jamais sur une draft annulée, rien en simulation.
+- **Remake, bilan absent ou illisible :** aucun résultat, l'entrée reste « En attente ».
+- **Écran de fin de partie :** résultat lu, il devient une confirmation (champion en grand, « Victoire notée automatiquement ✓ ») ; un petit lien « Corriger » réaffiche Victoire, Défaite, Ignorer, qui écrivent `resultSource: "manual"`. Sans bilan, il garde les deux gros boutons.
+- **Accueil :** pas de carte « Dernière partie » quand le résultat est lu. **Mes statistiques :** marque discrète « lu dans le client ».
 
 ## Exemple
 
