@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
@@ -30,7 +31,10 @@ namespace DraftMid
     {
         public const string Phase = "/lol-gameflow/v1/gameflow-phase";
         public const string Session = "/lol-champ-select/v1/session";
-        public static bool IsAllowed(string path) { return path == Phase || path == Session; }
+        // Beta.3 : troisième adresse, changement explicite de la règle « deux adresses » (docs/technique/LCU.md). Bilan de fin de
+        // partie, lu seulement en PreEndOfGame / EndOfGame pour la partie suivie : gameId, équipe du joueur, équipe gagnante, remake.
+        public const string EndOfGame = "/lol-end-of-game/v1/eog-stats-block";
+        public static bool IsAllowed(string path) { return path == Phase || path == Session || path == EndOfGame; }
     }
 
     // Seule opération possible : une lecture. Aucune écriture n'existe dans cette interface.
@@ -242,6 +246,30 @@ namespace DraftMid
     // localCell : localPlayerCellId ; playerCell : case du joueur dans myTeam (une autre valeur = joueur absent de son équipe).
     public static class LcuSamples
     {
+        // Bilan de fin de partie (/lol-end-of-game/v1/eog-stats-block) au format réel, RECONSTITUÉ d'après les champs connus du client
+        // (non documentés par Riot) : aucune capture réelle n'est versionnée. Tous les joueurs portent des noms, puuid, summonerId et
+        // statistiques fictifs (Joueur, Allie1.., Adverse1..) : rien de cela ne doit se retrouver dans ce qui est lu.
+        // win : ton équipe gagne ; remake : partie terminée par un remake (gameEndedInEarlySurrender) ; tag : change noms, puuid et
+        // statistiques de tous les joueurs (test négatif) ; localTeam : false = sans localPlayer.teamId (repli isPlayerTeam).
+        public static string EndOfGameBlock(long gameId, bool win, bool remake, string tag = "A", bool localTeam = true)
+        {
+            Func<string, int, int, bool, string> player = (name, team, champ, me) => "{\"botPlayer\":false,\"championId\":" + champ + ",\"championName\":\"Champion" + champ + "\",\"detectedTeamPosition\":\"MIDDLE\",\"gameId\":" + gameId
+                + ",\"isLocalPlayer\":" + (me ? "true" : "false") + ",\"leaver\":false,\"leaves\":0,\"level\":18,\"mapId\":11,\"puuid\":\"" + tag + "-puuid-" + name + "-0000-4000-8000\",\"riotIdGameName\":\"" + name + tag + "\",\"riotIdTagLine\":\"" + tag + "TAG\",\"selectedPosition\":\"MIDDLE\",\"skinSplashPath\":\"\",\"spell1Id\":4,\"spell2Id\":14,"
+                + "\"stats\":{\"ASSISTS\":" + (tag.Length + 3) + ",\"CHAMPIONS_KILLED\":" + (tag.Length * 7) + ",\"GOLD_EARNED\":" + (tag.Length * 12345) + ",\"LOSE\":" + (win == (team == 100) ? 0 : 1) + ",\"NUM_DEATHS\":" + (tag.Length + 1) + ",\"TOTAL_DAMAGE_DEALT_TO_CHAMPIONS\":" + (tag.Length * 23456) + ",\"WIN\":" + (win == (team == 100) ? 1 : 0) + "},"
+                + "\"summonerId\":" + (2834567890000L + champ) + ",\"summonerName\":\"" + name + tag + "\",\"teamId\":" + team + "}";
+            string mine = player("Joueur", 100, 4, true);
+            string allies = string.Join(",", new[] { 266, 64, 22, 412 }.Select((c, i) => player("Allie" + i, 100, c, false)));
+            string enemies = string.Join(",", new[] { 103, 516, 254, 222, 117 }.Select((c, i) => player("Adverse" + i, 200, c, false)));
+            Func<int, bool, string, string> side = (id, mineTeam, list) => "{\"fullId\":\"\",\"isBottomTeam\":" + (id == 100 ? "true" : "false") + ",\"isPlayerTeam\":" + (mineTeam ? "true" : "false") + ",\"isWinningTeam\":" + ((id == 100) == win ? "true" : "false")
+                + ",\"memberStatusString\":\"\",\"name\":\"\",\"players\":[" + list + "],\"stats\":{\"CHAMPIONS_KILLED\":" + (tag.Length * 30) + "},\"tag\":\"\",\"teamId\":" + id + "}";
+            string local = localTeam ? mine : mine.Replace(",\"teamId\":100}", "}");
+            return "{\"accountId\":2834567890999,\"basePoints\":0,\"battleBoostIpEarned\":0,\"causedEarlySurrender\":false,\"championId\":4,\"currentLevel\":212,\"difficulty\":\"\",\"earlySurrenderAccomplice\":false,"
+                + "\"experienceEarned\":0,\"gameEndedInEarlySurrender\":" + (remake ? "true" : "false") + ",\"gameId\":" + gameId + ",\"gameLength\":" + (remake ? 210 : 1834) + ",\"gameMode\":\"CLASSIC\",\"gameMutators\":[],\"gameType\":\"MATCHED_GAME\","
+                + "\"invalid\":false,\"isRankedGame\":true,\"leveledUp\":false,\"localPlayer\":" + local + ",\"myTeamStatus\":\"\",\"queueType\":\"RANKED_SOLO_5x5\",\"ranked\":true,\"reportGameId\":" + gameId + ",\"roomName\":\"\","
+                + "\"summonerId\":2834567890004,\"summonerName\":\"Joueur" + tag + "\",\"teamBoost\":null,\"teamEarlySurrendered\":" + (remake ? "true" : "false") + ",\"teams\":[" + side(100, true, mine + "," + allies) + "," + side(200, false, enemies) + "],"
+                + "\"timeUntilNextFirstWinBonus\":0,\"userId\":2834567890999}";
+        }
+
         public static string RealSession(string position, int localCell, int playerCell, params int[] enemies)
         {
             string member = "\"cellId\":{0},\"championId\":0,\"championPickIntent\":{1},\"entitledFeatureType\":\"NONE\",\"nameVisibilityType\":\"{2}\",\"obfuscatedPuuid\":\"\",\"obfuscatedSummonerId\":0,\"puuid\":\"{3}\",\"selectedSkinId\":0,\"spell1Id\":11,\"spell2Id\":4,\"summonerId\":{4},\"team\":2,\"wardSkinId\":-1";
@@ -307,6 +335,34 @@ namespace DraftMid
                 + "\"localPlayerCellId\":" + localCell + ",\"lockedEventIndex\":-1,\"myTeam\":[" + my + "],\"pickOrderSwaps\":[],\"positionSwaps\":[],\"recoveryCounter\":0,\"rerollsRemaining\":0,"
                 + "\"showQuitButton\":false,\"skipChampionSelect\":false,\"theirTeam\":[" + their + "],\"timer\":{\"adjustedTimeLeftInPhase\":29854,\"internalNowInEpochMs\":1763290000000,\"isInfinite\":false,\"phase\":\"" + timerPhase + "\",\"totalTimeInPhase\":30000},\"trades\":[]}";
         }
+    }
+
+    // Résultat lu dans le bilan de fin de partie (beta.3). État : lu, absent (pas de bilan), illisible (tronqué, champs absents),
+    // remake (aucun résultat). GameId et Win seulement : aucun nom, aucun identifiant de joueur, aucune statistique.
+    public class EndOfGameResult
+    {
+        public const string Read = "lu", Missing = "absent", Unreadable = "illisible", Remake = "remake";
+        public string State = Missing;
+        public long GameId;
+        public bool Win;
+    }
+
+    // Les SEULS champs du bilan connus de DRAFT. Le reste de la réponse (noms, riotId, puuid, summonerId, statistiques de chaque
+    // joueur, y compris les tiennes) n'a aucun champ ici : le désérialiseur l'écarte, le code ne le lit jamais.
+    class EogBlock
+    {
+        public long gameId { get; set; }
+        public EogLocal localPlayer { get; set; }
+        public List<EogTeam> teams { get; set; }
+        public bool? gameEndedInEarlySurrender { get; set; }
+        public bool? invalid { get; set; }
+    }
+    class EogLocal { public int? teamId { get; set; } }
+    class EogTeam
+    {
+        public int? teamId { get; set; }
+        public bool? isWinningTeam { get; set; }
+        public bool? isPlayerTeam { get; set; }
     }
 
     public class LcuSnapshot
@@ -460,6 +516,27 @@ namespace DraftMid
                     return Phase.OutOfDraft;
                 default: return Phase.Uncertain;
             }
+        }
+
+        // Bilan de fin de partie (beta.3). Équipe du joueur : localPlayer.teamId, sinon la seule équipe isPlayerTeam. Résultat :
+        // isWinningTeam de cette équipe. Remake (gameEndedInEarlySurrender) ou partie invalide : aucun résultat. Bilan vide : absent.
+        // Tronqué, type inattendu, gameId ou équipe introuvable : illisible. Rien n'est deviné.
+        public static EndOfGameResult ParseEndOfGame(string json)
+        {
+            EndOfGameResult r = new EndOfGameResult();
+            if (string.IsNullOrWhiteSpace(json)) return r;
+            EogBlock b;
+            try { b = new JavaScriptSerializer { MaxJsonLength = 8 * 1024 * 1024 }.Deserialize<EogBlock>(json); }
+            catch { r.State = EndOfGameResult.Unreadable; return r; }
+            if (b == null) { r.State = EndOfGameResult.Unreadable; return r; }
+            if (b.gameEndedInEarlySurrender == true || b.invalid == true) { r.State = EndOfGameResult.Remake; return r; }
+            if (b.gameId <= 0 || b.teams == null) { r.State = EndOfGameResult.Unreadable; return r; }
+            int? mine = b.localPlayer != null ? b.localPlayer.teamId : null;
+            EogTeam team = mine.HasValue ? b.teams.FirstOrDefault(x => x != null && x.teamId == mine) : null;
+            if (team == null && !mine.HasValue) { List<EogTeam> own = b.teams.Where(x => x != null && x.isPlayerTeam == true).ToList(); if (own.Count == 1) team = own[0]; }
+            if (team == null || !team.isWinningTeam.HasValue) { r.State = EndOfGameResult.Unreadable; return r; }
+            r.State = EndOfGameResult.Read; r.GameId = b.gameId; r.Win = team.isWinningTeam.Value;
+            return r;
         }
 
         public static string ParsePhase(string json)
@@ -691,6 +768,15 @@ namespace DraftMid
             catch { }
             return s;
         }
+
+        // Bilan de fin de partie (beta.3) : demandé par le programme seulement, en PreEndOfGame / EndOfGame, pour la partie suivie.
+        public async Task<EndOfGameResult> ReadEndOfGameAsync()
+        {
+            string body;
+            try { body = await transport.GetAsync(LcuEndpoints.EndOfGame); }
+            catch { return new EndOfGameResult(); }
+            return LcuParser.ParseEndOfGame(body);
+        }
     }
 
     // Durée de vie de la connexion : les identifiants ne vivent que le temps d'une connexion qui répond.
@@ -721,6 +807,14 @@ namespace DraftMid
             return s;
         }
 
+        public async Task<EndOfGameResult> ReadEndOfGameAsync()
+        {
+            if (reader == null) return new EndOfGameResult();
+            Task<EndOfGameResult> read = reader.ReadEndOfGameAsync();
+            if (await Task.WhenAny(read, Task.Delay(PollTimeoutMs)) != read) return new EndOfGameResult();
+            return await read;
+        }
+
         public void Forget()
         {
             reader = null;
@@ -734,6 +828,8 @@ namespace DraftMid
         public readonly List<string> Requests = new List<string>();
         public string PhaseJson = "\"None\"";
         public string SessionJson = "";
+        // Bilan de fin de partie (beta.3) : "" = pas de bilan.
+        public string EndOfGameJson = "";
         public bool Offline;
         public bool Hang;
 
@@ -743,7 +839,7 @@ namespace DraftMid
             if (!LcuEndpoints.IsAllowed(path)) throw new InvalidOperationException("Endpoint non autorisé");
             if (Hang) return new TaskCompletionSource<string>().Task;
             if (Offline) return Task.FromResult<string>(null);
-            return Task.FromResult(path == LcuEndpoints.Phase ? PhaseJson : SessionJson);
+            return Task.FromResult(path == LcuEndpoints.Phase ? PhaseJson : path == LcuEndpoints.EndOfGame ? EndOfGameJson : SessionJson);
         }
     }
 
@@ -758,8 +854,30 @@ namespace DraftMid
             t(LcuFactory.CreateReal(false, Path.GetTempPath()) == null, "LCU : option décochée, le lockfile n'est pas ouvert");
             t(LcuFactory.CreateReal(true, Path.GetTempPath()) == null, "LCU : sans lockfile, aucun connecteur n'est créé");
 
-            t(LcuEndpoints.IsAllowed(LcuEndpoints.Phase) && LcuEndpoints.IsAllowed(LcuEndpoints.Session), "LCU : les deux endpoints documentés sont autorisés");
-            t(!LcuEndpoints.IsAllowed("/lol-summoner/v1/current-summoner") && !LcuEndpoints.IsAllowed("/lol-champ-select/v1/session/actions/1"), "LCU : tout autre endpoint est refusé");
+            t(LcuEndpoints.IsAllowed(LcuEndpoints.Phase) && LcuEndpoints.IsAllowed(LcuEndpoints.Session) && LcuEndpoints.IsAllowed("/lol-end-of-game/v1/eog-stats-block"), "LCU : les trois endpoints documentés sont autorisés (beta.3 : bilan de fin de partie)");
+            t(!LcuEndpoints.IsAllowed("/lol-summoner/v1/current-summoner") && !LcuEndpoints.IsAllowed("/lol-champ-select/v1/session/actions/1") && !LcuEndpoints.IsAllowed("/lol-end-of-game/v1/eog-stats-block/1")
+                && !LcuEndpoints.IsAllowed("/lol-end-of-game/v1/gameclient-eog-stats-block") && !LcuEndpoints.IsAllowed("/lol-match-history/v1/products/lol/current-summoner/matches") && !LcuEndpoints.IsAllowed("/lol-end-of-game/v1/EOG-STATS-BLOCK"), "LCU : tout autre endpoint est refusé");
+            // Bilan de fin de partie (beta.3), format réel reconstitué.
+            {
+                EndOfGameResult win = LcuParser.ParseEndOfGame(LcuSamples.EndOfGameBlock(7012345678, true, false)), loss = LcuParser.ParseEndOfGame(LcuSamples.EndOfGameBlock(7012345679, false, false));
+                t(win.State == EndOfGameResult.Read && win.Win && win.GameId == 7012345678 && loss.State == EndOfGameResult.Read && !loss.Win && loss.GameId == 7012345679, "Bilan de fin de partie : victoire et défaite lues, avec le gameId");
+                EndOfGameResult fallback = LcuParser.ParseEndOfGame(LcuSamples.EndOfGameBlock(7012345680, true, false, "A", false));
+                t(fallback.State == EndOfGameResult.Read && fallback.Win, "Bilan : sans localPlayer.teamId, équipe du joueur par isPlayerTeam");
+                t(LcuParser.ParseEndOfGame(LcuSamples.EndOfGameBlock(7012345681, true, true)).State == EndOfGameResult.Remake, "Bilan : remake, aucun résultat");
+                t(LcuParser.ParseEndOfGame("").State == EndOfGameResult.Missing && LcuParser.ParseEndOfGame(null).State == EndOfGameResult.Missing, "Bilan absent : aucun résultat");
+                string full = LcuSamples.EndOfGameBlock(7012345682, true, false);
+                t(LcuParser.ParseEndOfGame(full.Substring(0, full.Length / 2)).State == EndOfGameResult.Unreadable && LcuParser.ParseEndOfGame("{\"gameId\":7012345682}").State == EndOfGameResult.Unreadable
+                    && LcuParser.ParseEndOfGame("{\"gameId\":7012345682,\"localPlayer\":{\"teamId\":100},\"teams\":[{\"teamId\":100}]}").State == EndOfGameResult.Unreadable
+                    && LcuParser.ParseEndOfGame("{\"gameId\":\"abc\",\"teams\":[]}").State == EndOfGameResult.Unreadable && LcuParser.ParseEndOfGame("[1,2]").State == EndOfGameResult.Unreadable, "Bilan tronqué ou illisible (gameId, équipe ou isWinningTeam absents) : aucun résultat");
+                // Test négatif : noms, riotId, puuid, summonerId et statistiques de tous les joueurs changés : même résultat, et rien de tout
+                // cela dans ce qui est gardé.
+                EndOfGameResult other = LcuParser.ParseEndOfGame(LcuSamples.EndOfGameBlock(7012345678, true, false, "ZZZZZZ"));
+                string keptA = new JavaScriptSerializer().Serialize(win), keptZ = new JavaScriptSerializer().Serialize(other);
+                t(keptA == keptZ && !Regex.IsMatch(keptA + keptZ, "Joueur|Allie|Adverse|puuid|summoner|TAG|stats|CHAMPIONS|2834567890", RegexOptions.IgnoreCase)
+                    && typeof(EndOfGameResult).GetFields().Where(f => !f.IsLiteral).Select(f => f.Name).OrderBy(n => n).SequenceEqual(new[] { "GameId", "State", "Win" }), "Bilan : noms, puuid et statistiques des joueurs changés, même résultat ; rien d'autre n'est gardé (" + keptA + ")");
+                t(typeof(EogBlock).GetProperties().Select(f => f.Name).OrderBy(n => n).SequenceEqual(new[] { "gameEndedInEarlySurrender", "gameId", "invalid", "localPlayer", "teams" }) && typeof(EogLocal).GetProperties().Length == 1
+                    && typeof(EogTeam).GetProperties().Select(f => f.Name).OrderBy(n => n).SequenceEqual(new[] { "isPlayerTeam", "isWinningTeam", "teamId" }), "Bilan : seuls gameId, équipes (teamId, isWinningTeam, isPlayerTeam), localPlayer.teamId et remake sont désérialisés");
+            }
             t(typeof(ILcuTransport).GetMethods().Length == 1 && typeof(ILcuTransport).GetMethods()[0].Name == "GetAsync", "LCU : l'interface ne permet qu'une lecture");
 
             LockfileInfo li = LockfileInfo.Parse("LeagueClient:1234:50000:motdepasse:https");

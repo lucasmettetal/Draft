@@ -923,6 +923,7 @@ public static class Autostart
                 // Phase donnée par le client : un retour au lobby ou à la file tranche tout de suite (draft annulée).
                 AfterPhase(before, machine.Current, true, SampleMs / 1000.0);
                 UpdateEndGame(s.PhaseName);
+                await ReadEndOfGame(s.PhaseName);
                 // « Dans League » : ton pick lu dans la session, transmis à chaque page (état versionné).
                 // Disponibilité (beta.2) : champions bannis, pris par un allié ou en face, lus dans la même session (liste versionnée).
                 if (machine.Current == Phase.Draft && s.EnemyChampionIds != null && (league.Read(s.Pick) | availability.Read(s.Unavailable))) BroadcastHost();
@@ -1762,7 +1763,7 @@ public static class Autostart
                 { "topmost", settings.Topmost }, { "compact", settings.Compact }, { "placement", Msg.JsonOrEmpty(placementNote) }, { "clientOpen", ClientOpen }, { "phase", PhaseText.Of(machine.Current).Json() }, { "language", settings.Language ?? "auto" }, { "lang", Strings.Lang }, { "windowsLang", Strings.Detect(System.Globalization.CultureInfo.CurrentUICulture) },
                 { "hotkey", hotkey != null && hotkey.Registered }, { "hotkeyError", hotkey != null ? hotkey.Error : 0 },{ "diagnostics", settings.Diagnostics }, { "lcuEnabled", settings.LcuEnabled }, { "lcuConfirmed", LcuGate.ReadingEnabled }, { "lcuStatus", LcuStatus() }, { "legacyProfile", legacyProfile }, { "rolesRunning", rolesCts != null }, { "rolesStatus", Msg.JsonOrEmpty(rolesStatus) }, { "assignedRole", assignedRole }, { "savedProfiles", ProfilesCopy() }, { "historyRunning", historyCts != null }, { "historyStatus", Msg.JsonOrEmpty(historyStatus) }, { "historyHasMore", historyHasMore }, { "updateRunning", updateCts != null }, { "updateStatus", Msg.JsonOrEmpty(updateStatus) }, { "updateChecked", updateChecked }, { "panelsShown", panelsShown }, { "demoRunning", demoRunning }, { "panelVisible", PanelVisibility() },
                 // Sélection suivie et son issue (draft, pending, game, abandoned) : une page ouverte après la décision la retrouve.
-                { "draftKey", outcome.Key }, { "draftOutcome", outcome.State }, { "endGame", endGameKey ?? "" },
+                { "draftKey", outcome.Key }, { "draftOutcome", outcome.State }, { "endGame", endGameKey ?? "" }, { "gameResult", GameResultState() },
                 // « Dans League » (beta.2) : ton pick, versionné (v). Identifiants de champions seulement, jamais de nom de joueur.
                 { "league", league.ToState() },
                 // Disponibilité (beta.2) : champions bannis, pris par un allié ou en face, versionnés (v). Identifiant et raison seulement.
@@ -1832,6 +1833,44 @@ public static class Autostart
             BroadcastHost();
             ApplyVisibility();
         }
+
+        // ---------- Résultat lu dans le client (beta.3, docs/technique/LCU.md, troisième adresse) ----------
+        // En PreEndOfGame / EndOfGame, pour la partie suivie et notée (issue « game », commande gameNoted) : une lecture du bilan de
+        // fin de partie par relevé, tant qu'il n'est ni lu ni remake (EogMaxReads au plus). Seuls gameId et victoire / défaite sont
+        // gardés (EndOfGameResult) et transmis aux pages (gameResult), qui l'écrivent sur l'entrée de la même partie. Bilan d'une autre
+        // partie (gameId de la sélection connu et différent) : ignoré, comme absent. Diagnostic : bilan=lu|absent|illisible|remake,
+        // sans nom. Rien en simulation ni pour une draft annulée (issue jamais « game »). En mémoire seulement.
+        public const int EogMaxReads = 8;
+        EndOfGameResult eog;
+        string eogKey;
+        int eogReads;
+        public EndOfGameResult LastEndOfGame { get { return eog; } }
+        public int EndOfGameReads;
+
+        async Task ReadEndOfGame(string lcuPhase)
+        {
+            if (lcu == null || (lcuPhase != "PreEndOfGame" && lcuPhase != "EndOfGame")) return;
+            string key = outcome.Key;
+            if (key == null || outcome.State != DraftOutcomeTracker.Game || gameNotedKey != key) return;
+            if (eogKey != key) { eogKey = key; eog = null; eogReads = 0; }
+            if (eog == null || (eog.State != EndOfGameResult.Read && eog.State != EndOfGameResult.Remake && eogReads < EogMaxReads))
+            {
+                eogReads++; EndOfGameReads++;
+                EndOfGameResult r = await lcu.ReadEndOfGameAsync();
+                if (r.State == EndOfGameResult.Read && league.Key == key && league.GameId > 0 && r.GameId != league.GameId) r = new EndOfGameResult();
+                eog = r;
+                if (r.State == EndOfGameResult.Read) BroadcastHost();
+            }
+            lcuInfo += " bilan=" + eog.State;
+        }
+
+        Dictionary<string, object> GameResultState()
+        {
+            if (eog == null || eog.State != EndOfGameResult.Read || eogKey == null || eogKey != outcome.Key) return null;
+            return new Dictionary<string, object> { { "key", eogKey }, { "gameId", eog.GameId }, { "result", eog.Win ? "win" : "loss" } };
+        }
+        public string TestHostJson() { return HostJson(); }
+        public string TestLcuDiag() { return LcuDiag(); }
 
         bool PanelOnScreen(string id, List<Monitor> mons)
         {
@@ -3697,7 +3736,7 @@ public static class Autostart
 
             app.StepPhase(false, false, Evidence.Unknown, 1);
             t(!app.PanelsShown && app.CurrentPhase == Phase.ClientClosed && !app.Lcu.Connected, "Scénario 1. Client fermé : veille, identifiants oubliés");
-            t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les deux endpoints documentés sont appelés");
+            t(sim.Requests.All(LcuEndpoints.IsAllowed), "Scénario : seuls les endpoints documentés sont appelés");
             t(await app.TestReleaseAndReopen(), "Client fermé puis rouvert : l'application reste ouverte et recrée ses panneaux");
             string fullProblem = await app.TestFullWindow();
             s_keyReport = app.KeyStressReport;
@@ -3921,40 +3960,57 @@ public static class Autostart
                 return key;
             };
             int shown0 = app.EndGameShownCount;
-            // 1. Partie lancée et notée, puis fin de partie.
+            // 1. Partie lancée et notée, bilan de fin de partie au format réel (victoire) : entrée win / lcu, écran de confirmation.
             string k1 = await select();
             await phase("GameStart");
             if (!await wait(entry(k1) + ".gameStarted === true")) p += "partie lancée non notée ; ";
             await phase("InProgress"); await Task.Delay(300);
+            long gid = app.League.Key == k1 && app.League.GameId > 0 ? app.League.GameId : 7012345678;
+            sim.EndOfGameJson = LcuSamples.EndOfGameBlock(gid, true, false);
             await phase("PreEndOfGame");
             bool notBefore = app.EndGameKey == null && !app.PanelsShown;
             await phase("EndOfGame");
             PanelForm panel = null;
-            bool shown = await Until(async () => { panel = new[] { "right", "compact" }.Select(app.PanelFor).FirstOrDefault(x => x != null && !x.IsDisposed && x.Visible); return app.EndGameKey == k1 && app.PanelsShown && panel != null && panel.View.CoreWebView2 != null && await panel.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"end-game\"] .gr-btn.win') && !!document.querySelector('[data-test=\"end-game\"] .p-name')") == "true"; }, 6000);
+            Func<string, Task<bool>> inPanel = async code => { panel = new[] { "right", "compact" }.Select(app.PanelFor).FirstOrDefault(x => x != null && !x.IsDisposed && x.Visible); return panel != null && panel.View.CoreWebView2 != null && await panel.View.CoreWebView2.ExecuteScriptAsync("!!(" + code + ")") == "true"; };
+            bool auto = await wait(entry(k1) + ".result === 'win' && " + entry(k1) + ".resultSource === 'lcu'");
+            bool confirm = await Until(async () => app.EndGameKey == k1 && app.PanelsShown && await inPanel("(() => { const c = document.querySelector('[data-test=\"end-game-auto\"]'); return c && c.textContent.trim() === I18N.t('endGame.auto.win') && !!document.querySelector('[data-test=\"end-game\"] .p-name') && !document.querySelector('[data-test=\"end-game\"] .gr-btn.win') && !!document.querySelector('[data-test=\"end-game-correct\"]'); })()"), 6000);
             bool leftHidden = app.PanelFor("left") == null || !app.PanelFor("left").Visible;
             await phase("EndOfGame"); await phase("EndOfGame");
             int count = app.EndGameShownCount - shown0;
-            if (!notBefore || !shown || !leftHidden || count != 1) p += "fin de partie : avant " + notBefore + ", affiché " + shown + " (" + (panel == null ? "aucun panneau" : panel.Id) + "), gauche masqué " + leftHidden + ", apparitions " + count + " ; ";
-            bool win = false, confirm = false;
-            if (shown)
-            {
-                await panel.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-test=\"end-game\"] .gr-btn.win').click(); 1");
-                win = await wait(entry(k1) + ".result === 'win'");
-                confirm = await Until(async () => await panel.View.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-test=\"end-game-done\"]')") == "true", 2000);
-                if (!win || !confirm) p += "clic Victoire : entrée win " + win + ", confirmation " + confirm + " ; ";
-            }
+            string host = app.TestHostJson(), diag = app.TestLcuDiag();
+            bool clean = !System.Text.RegularExpressions.Regex.IsMatch(host + diag, "Joueur|Allie|Adverse|puuid|riotId|summonerName|TAG|CHAMPIONS_KILLED", System.Text.RegularExpressions.RegexOptions.IgnoreCase) && diag.Contains("bilan=lu") && host.Contains("\"gameResult\":{\"key\":\"" + k1 + "\"");
+            if (!notBefore || !auto || !confirm || !leftHidden || count != 1 || !clean) p += "bilan victoire : avant " + notBefore + ", entrée win/lcu " + auto + " (" + await run("JSON.stringify(" + entry(k1) + ")") + "), confirmation " + confirm + ", gauche masqué " + leftHidden + ", apparitions " + count + ", état et diagnostic sans nom " + clean + " (" + diag + ") ; ";
             await phase("Lobby");
             bool gone = await Until(() => Task.FromResult(app.EndGameKey == null && !app.PanelsShown), 4000);
-            if (!gone) p += "écran non retiré au lobby ; ";
+            if (!gone) p += "écran de confirmation non retiré au lobby ; ";
+            // 2. Bilan absent : l'écran garde les deux gros boutons ; Victoire écrit win / manual.
+            sim.EndOfGameJson = "";
+            string k3 = await select();
+            await phase("GameStart");
+            if (!await wait(entry(k3) + ".gameStarted === true")) p += "partie 2 non notée ; ";
+            await phase("InProgress"); await Task.Delay(300);
+            await phase("PreEndOfGame"); await phase("EndOfGame");
+            bool buttons = await Until(async () => app.EndGameKey == k3 && app.PanelsShown && await inPanel("document.querySelector('[data-test=\"end-game\"] .gr-btn.win') && !document.querySelector('[data-test=\"end-game-auto\"]')"), 6000);
+            string diag2 = app.TestLcuDiag();
+            bool win = false;
+            if (buttons)
+            {
+                await panel.View.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-test=\"end-game\"] .gr-btn.win').click(); 1");
+                win = await wait(entry(k3) + ".result === 'win' && " + entry(k3) + ".resultSource === 'manual'");
+            }
+            if (!buttons || !win || !diag2.Contains("bilan=absent") || app.LastEndOfGame == null || app.LastEndOfGame.State != EndOfGameResult.Missing) p += "bilan absent : boutons " + buttons + ", Victoire win/manual " + win + ", diagnostic " + diag2 + " ; ";
+            await phase("Lobby");
+            bool gone2 = await Until(() => Task.FromResult(app.EndGameKey == null && !app.PanelsShown), 4000);
+            if (!gone2) p += "écran non retiré au lobby (partie 2) ; ";
             // 2. Draft annulée : ni écran, ni panneau, même en EndOfGame.
-            int c2 = app.EndGameShownCount;
+            int c2 = app.EndGameShownCount, reads2 = app.EndOfGameReads;
             string k2 = await select();
             await phase("Lobby");
             await phase("EndOfGame");
-            bool none = app.EndGameShownCount == c2 && app.EndGameKey == null && !app.PanelsShown;
+            bool none = app.EndGameShownCount == c2 && app.EndGameKey == null && !app.PanelsShown && app.EndOfGameReads == reads2;
             if (!none) p += "draft annulée : écran ou panneau (" + (app.EndGameShownCount - c2) + " apparition(s)) ; ";
             await phase("Lobby");
-            EndGameReport = "partie : affiché " + shown + " (" + (panel == null ? "-" : panel.Id) + "), " + count + " apparition(s), Victoire écrite " + win + ", confirmation " + confirm + ", retiré au lobby " + gone + " ; draft annulée : rien " + none;
+            EndGameReport = "bilan victoire : entrée win/lcu " + auto + ", confirmation " + confirm + " (" + (panel == null ? "-" : panel.Id) + "), " + count + " apparition(s), sans nom " + clean + ", retiré au lobby " + gone + " ; bilan absent : boutons " + buttons + ", Victoire win/manual " + win + " ; draft annulée : rien " + none;
             app.TestForgetOutcome();
             await run((saved == "null" ? "localStorage.removeItem('draftJournal')" : "localStorage.setItem('draftJournal', " + saved + ")") + "; resetDraft(); goView('home'); 1");
             f.Hide();
@@ -4949,7 +5005,7 @@ public static class Autostart
                 sim.PhaseJson = "\"InProgress\"";
                 await app.PollLcuOnce(); await Task.Delay(100);
                 t(!app.PanelsShown && app.CurrentPhase == Phase.InGame, "LCU simulé : partie lancée, panneaux masqués");
-                t(sim.Requests.All(LcuEndpoints.IsAllowed), "LCU simulé : seuls les deux endpoints documentés sont appelés");
+                t(sim.Requests.All(LcuEndpoints.IsAllowed), "LCU simulé : seuls les endpoints documentés sont appelés (phase, session, bilan de fin de partie)");
 
                 await RunLcuScenario(app, t, js);
                 string roleProblem = await TestAssignedRoleThroughLcu(app);
@@ -4959,7 +5015,7 @@ public static class Autostart
                 string outcomeProblem = await TestDraftOutcome(app);
                 t(outcomeProblem == "", "Beta.2. Issue de la sélection (LCU simulé, vraie fenêtre) : partie lancée notée, draft annulée (lobby, client fermé) jamais proposée ni comptée, Uncertain sans effet, DRAFT redémarré sans déduction, doublons et désordre sans effet, Simulateur sans écriture (" + OutcomeReport + ") " + outcomeProblem);
                 string endGameProblem = await TestEndOfGame(app);
-                t(endGameProblem == "", "Beta.2. Écran de fin de partie (LCU simulé, vraies fenêtres) : partie lancée et notée, EndOfGame, panneau en mode fin de partie une seule fois, Victoire écrite, retiré au lobby ; draft annulée : rien (" + EndGameReport + ") " + endGameProblem);
+                t(endGameProblem == "", "Beta.2. Écran de fin de partie (LCU simulé, vraies fenêtres) : bilan victoire lu (entrée win / lcu, écran de confirmation, une seule fois, rien d'autre dans l'état ni le diagnostic), bilan absent (deux boutons, Victoire win / manual), retiré au lobby ; draft annulée : rien (" + EndGameReport + ") " + endGameProblem);
                 string leagueProblem = await TestLeagueJournal(app);
                 t(leagueProblem == "", "Beta.2. Journal automatique (LCU simulé au format réel, vraies pages) : « Dans League » survolé puis verrouillé, sans « Je joue », consultation indépendante, verrouillage → partie : 1 entrée, → lobby : 0, échange, perte puis retour sans doublon, mode non pris en charge, DRAFT redémarré pendant la sélection et le chargement, lancé après le verrouillage, Simulateur, visible à 1366 et 125 % (" + LeagueReport + ") " + leagueProblem);
                 string availabilityProblem = await TestAvailability(app);
