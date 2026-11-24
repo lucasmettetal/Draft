@@ -224,7 +224,7 @@ Limites :
 
 | # | Point | Options |
 |---|---|---|
-| D1 | Consentement pour une 3e adresse LCU (résultat), quand `LcuEnabled` vient de la 2.x | Notes seulement ; ou nouvelle question au premier lancement |
+| D1 | Consentement pour une 3e adresse LCU (résultat), quand `LcuEnabled` vient de la 2.x | **Décidé (24/11/2026, utilisateur) : pas de nouvelle demande.** La lecture déjà acceptée suffit. Les textes qui décrivent la lecture mentionnent le résultat de fin de partie, et les notes de version le disent |
 | D2 | Notes de la release 3.0.0 | Chemin stable avec `--notes-file` (corrige aussi les accents abîmés) ; ou `gh release edit` après |
 | D3 | Site web (`draft-website-ashy.vercel.app`) et README (« Version 2.16.2 bêta », phrase sur la 2.14) | Mise à jour le jour de la sortie ou avant. Les liens `releases/latest/download/DRAFT-*.exe` suivront seuls [S] |
 | D4 | Annonce aux joueurs 2.16.x | Seul moyen pour qu'ils cliquent sur « Rechercher une mise à jour » (R3) |
