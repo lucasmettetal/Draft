@@ -82,5 +82,10 @@ jobs:
             if (-not (Test-Path $notes)) { throw "Notes de version absentes : $notes" }
             gh release create $env:GITHUB_REF_NAME dist\DRAFT-Portable.exe --repo $env:GITHUB_REPOSITORY --title "DRAFT $env:GITHUB_REF_NAME" --notes-file $notes --prerelease --latest=false
           } else {
+            # Stable : meme controle que la preversion. Un exe de preversion (version avec un tiret) ou d'une autre version
+            # ne part jamais en release stable : les 2.16.x l'installeraient (etude docs/etudes/PASSAGE-STABLE.md, B1).
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+            $built = (Get-Item dist\DRAFT-Portable.exe).VersionInfo.ProductVersion
+            if ($built.Contains('-') -or ($built -ne $version -and $built -ne "$version.0")) { throw "Version de l'exe ($built) <> tag stable ($version) : rien n'est publie." }
             gh release create $env:GITHUB_REF_NAME dist\DRAFT-Portable.exe dist\DRAFT-Setup.exe --repo $env:GITHUB_REPOSITORY --title "DRAFT $env:GITHUB_REF_NAME" --notes "Outil non approuvé par Riot Games. Compilé et testé par GitHub Actions. Signature DRAFT jointe séparément."
           }
