@@ -25,7 +25,7 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: AssemblyVersion("3.0.0.0")]
 [assembly: AssemblyFileVersion("3.0.0.0")]
 // Seule donnée qui fixe l'édition (classe Edition) : un « - » signifie préversion. Doit être égale à APP_VERSION (web/index.html).
-[assembly: AssemblyInformationalVersion("3.0.0-beta.1")]
+[assembly: AssemblyInformationalVersion("3.0.0-beta.2")]
 
 namespace DraftMid
 {
